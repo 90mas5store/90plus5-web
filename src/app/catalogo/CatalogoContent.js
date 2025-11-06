@@ -41,7 +41,7 @@ export default function CatalogoContent() {
     fetchData();
   }, [searchParams]);
 
-  // --- Filtro de búsqueda + liga activa (debounce) ---
+  // --- Filtro de búsqueda + liga activa ---
   useEffect(() => {
     const delay = setTimeout(() => {
       let filteredData = productos;
@@ -71,7 +71,7 @@ export default function CatalogoContent() {
   const handleLigaClick = (ligaNombre) => {
     if (ligaActiva === ligaNombre) {
       setLigaActiva(null);
-      router.push("/catalogo"); // quita el query param
+      router.push("/catalogo");
     } else {
       setLigaActiva(ligaNombre);
       router.push(`/catalogo?liga=${encodeURIComponent(ligaNombre)}`);
@@ -192,25 +192,35 @@ export default function CatalogoContent() {
                 whileHover={{ scale: 1.05 }}
                 className="bg-[#111]/80 backdrop-blur-lg rounded-2xl shadow-lg overflow-hidden border border-[#222] transition-all hover:border-[#E50914]/50"
               >
-                <img
-                  src={item.imagen}
-                  alt={item.modelo}
-                  className="w-full h-64 object-cover"
-                />
-                <div className="p-4 text-center">
-                  {item.logoEquipo && (
-                    <div className="flex justify-center mb-3">
-                      <img
-                        src={item.logoEquipo}
-                        alt={item.equipo}
-                        className="w-8 h-8 rounded-full object-contain bg-white p-0.5"
-                      />
-                    </div>
+                {/* Imagen del producto + logo */}
+                <div className="relative">
+                  <img
+                    src={item.imagen}
+                    alt={`${item.equipo} ${item.modelo}`}
+                    className="w-full h-64 object-cover"
+                  />
+                  {(item.logoEquipo || item.logo) && (
+                    <img
+                      src={item.logoEquipo || item.logo}
+                      alt={item.equipo}
+                      className="absolute top-3 left-3 w-9 h-9 object-contain rounded-full bg-white p-0.5 shadow-md"
+                      style={{ aspectRatio: "1 / 1" }}
+                    />
                   )}
-                  <h2 className="text-lg font-semibold text-white">{item.equipo}</h2>
-                  <p className="text-sm text-gray-400">{item.modelo}</p>
-                  <p className="text-primary font-bold mt-2">L{item.precio}</p>
-                  <button className="mt-4 w-full py-2 rounded-full bg-primary hover:bg-accent text-white font-semibold transition-all">
+                </div>
+
+                {/* Detalle del producto */}
+                <div className="p-4 text-center">
+                  <h2 className="text-lg font-semibold text-white">
+                    {item.equipo} <span className="text-gray-400">| {item.modelo}</span>
+                  </h2>
+
+                  <p className="text-[#E50914] font-bold mt-2">L{item.precio}</p>
+
+                  <button
+                    onClick={() => router.push(`/producto/${item.id}`)}
+                    className="mt-4 w-full py-2 rounded-full bg-[#E50914] hover:bg-[#b0060e] text-white font-semibold transition-all"
+                  >
                     Ver más
                   </button>
                 </div>

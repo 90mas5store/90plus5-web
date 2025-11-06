@@ -9,3 +9,7 @@ body {
 html {
   scroll-behavior: smooth;
 }
+
+#ligas {
+  scroll-margin-top: 220px; /* o el alto de tu header */
+}
