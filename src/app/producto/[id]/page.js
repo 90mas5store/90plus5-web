@@ -1,12 +1,17 @@
 'use client';
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import Image from "next/image";
+import { getProductById, getProductOptions } from "@/lib/api";
+import Button from "@/components/ui/Button";
 import HeatmapBackground from "@/components/HeatmapBackground";
 
 export default function ProductoDetalle() {
   const { id } = useParams();
   const router = useRouter();
+
   const [producto, setProducto] = useState(null);
   const [opciones, setOpciones] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,30 +19,22 @@ export default function ProductoDetalle() {
   // Estados de personalización
   const [version, setVersion] = useState(null);
   const [talla, setTalla] = useState(null);
-  const [parches, setParches] = useState([]);
+  const [parche, setParche] = useState(null);
   const [quiereDorsal, setQuiereDorsal] = useState(false);
-  const [modoDorsal, setModoDorsal] = useState("");
+  const [modoDorsal, setModoDorsal] = useState(""); // jugador o personalizado
   const [jugadorSeleccionado, setJugadorSeleccionado] = useState("");
   const [nombrePersonalizado, setNombrePersonalizado] = useState("");
   const [numeroPersonalizado, setNumeroPersonalizado] = useState("");
 
-  // Cargar producto y opciones
+  // 🔹 Cargar producto y opciones
   useEffect(() => {
     async function fetchProducto() {
       try {
-        const res = await fetch(
-          `https://script.google.com/macros/s/AKfycbx3RYRMJ8vz_cfc_jhZh3t6FciJ3iszAMh83enMkv8dvBmz8uQonQ_nMCkBVK7jQDNkwg/exec?action=getProductById&id=${id}`
-        );
-        const data = await res.json();
+        const data = await getProductById(id);
         setProducto(data);
 
         if (data?.liga && data?.equipo) {
-          const resOpt = await fetch(
-            `https://script.google.com/macros/s/AKfycbx3RYRMJ8vz_cfc_jhZh3t6FciJ3iszAMh83enMkv8dvBmz8uQonQ_nMCkBVK7jQDNkwg/exec?action=getProductOptions&liga=${encodeURIComponent(
-              data.liga
-            )}&equipo=${encodeURIComponent(data.equipo)}`
-          );
-          const opts = await resOpt.json();
+          const opts = await getProductOptions(data.liga, data.equipo);
           setOpciones(opts);
         }
       } catch (err) {
@@ -50,14 +47,12 @@ export default function ProductoDetalle() {
     if (id) fetchProducto();
   }, [id]);
 
-  const toggleParche = (parche) => {
-    setParches((prev) =>
-      prev.includes(parche)
-        ? prev.filter((p) => p !== parche)
-        : [...prev, parche]
-    );
+  // 🔹 Solo un parche activo
+  const handleParcheSelect = (p) => {
+    setParche((prev) => (prev === p ? null : p));
   };
 
+  // 🔹 Campos personalizados
   const handleNumeroChange = (e) => {
     const val = e.target.value.replace(/\D/g, "");
     if (val <= 99) setNumeroPersonalizado(val);
@@ -68,6 +63,7 @@ export default function ProductoDetalle() {
     setNombrePersonalizado(val);
   };
 
+  // Estados de carga
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-black text-white">
@@ -80,128 +76,131 @@ export default function ProductoDetalle() {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
         <p>No se encontró este producto.</p>
-        <button
+        <Button
+          variant="outline"
+          className="mt-6"
           onClick={() => router.push("/catalogo")}
-          className="mt-6 px-6 py-2 bg-[#E50914] rounded-full hover:bg-[#b0060e] transition-all"
         >
           Volver al catálogo
-        </button>
+        </Button>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black text-white py-20 px-4 relative overflow-hidden">
+    <main className="min-h-screen bg-black text-white pt-40 pb-24 px-4 relative overflow-hidden">
+
+      {/* 🔥 Fondo dinámico */}
       <HeatmapBackground liga={producto?.liga} opacity={0.25} />
 
       <div className="max-w-6xl mx-auto relative z-10 grid grid-cols-1 md:grid-cols-2 gap-10">
-        {/* 🖼️ Imagen del producto con zoom + blur (altura fija) */}
+        {/* 🖼️ Imagen del producto */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="flex justify-center relative group h-[400px] md:h-[550px]"
+          className="flex justify-center items-start"
         >
-          <motion.div
-            whileHover={{
-              scale: 1.08,
-              boxShadow: "0 0 40px rgba(229,9,20,0.3)",
-              filter: "brightness(1.05)",
-            }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="rounded-3xl overflow-hidden shadow-lg border border-[#222] max-w-md cursor-zoom-in w-full h-full flex items-center justify-center bg-black/30"
-          >
-            <img
-              src={producto.imagen}
-              alt={producto.modelo}
-              className="w-full h-full object-contain transition-transform duration-300"
-            />
-          </motion.div>
-
-          {/* Logo con fade-in y scale */}
-          {producto.logoEquipo && (
-            <motion.img
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-              src={producto.logoEquipo}
-              alt={producto.equipo}
-              className="absolute top-3 left-3 w-12 h-12 object-contain rounded-full bg-white p-1 shadow-md"
-              style={{ aspectRatio: "1 / 1" }}
-            />
-          )}
+          <div className="relative group w-full max-w-md">
+            <div className="overflow-hidden rounded-3xl border border-[#222]">
+              <Image
+                src={producto.imagen}
+                alt={producto.modelo}
+                width={600}
+                height={600}
+                className="w-full h-auto rounded-3xl shadow-lg transition-transform duration-700 group-hover:scale-105 group-hover:brightness-110"
+                priority
+              />
+            </div>
+            {/* Glow sutil al hacer hover */}
+            <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-40 transition-all duration-700 bg-[radial-gradient(circle_at_center,rgba(229,9,20,0.4),transparent_70%)]"></div>
+          </div>
         </motion.div>
 
-        {/* 📋 Panel derecho */}
+        {/* 🧩 Panel de personalización */}
         <motion.div
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
           className="flex flex-col justify-center text-left space-y-6"
         >
-          {/* 🏷️ Título */}
+          {/* 🏷️ Encabezado */}
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold">
-              {producto.equipo}{" "}
-              <span className="text-gray-400">| {producto.modelo}</span>
-            </h1>
-          </div>
+  {producto.logoEquipo && (
+    <Image
+      src={producto.logoEquipo}
+      alt={producto.equipo}
+      width={36}
+      height={36}
+      className="object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.1)] brightness-95 contrast-125"
+    />
+  )}
+  <h1 className="text-3xl font-bold">
+    {producto.equipo}{" "}
+    <span className="text-gray-400">| {producto.modelo}</span>
+  </h1>
+</div>
+
 
           <p className="text-[#E50914] text-2xl font-semibold mb-4">
             L{producto.precio}
           </p>
 
-          {/* Versión */}
-          <div>
-            <h3 className="font-semibold mb-2 text-gray-300">Versión</h3>
-            <div className="flex gap-3 flex-wrap">
-              {opciones?.versiones?.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVersion(v)}
-                  className={`px-5 py-2 rounded-full backdrop-blur-md border transition-all ${
-                    version === v
-                      ? "border-[#E50914] bg-[#E50914]/30"
-                      : "border-[#333] hover:border-[#E50914]/50"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
+          {/* 🧾 Versión */}
+          {opciones?.versiones?.length > 0 && (
+            <div>
+              <h3 className="font-semibold mb-2 text-gray-300">Versión</h3>
+              <div className="flex gap-3 flex-wrap">
+                {opciones.versiones.map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setVersion(v)}
+                    className={`px-5 py-2 rounded-full backdrop-blur-md border transition-all ${
+                      version === v
+                        ? "border-[#E50914] bg-[#E50914]/30"
+                        : "border-[#333] hover:border-[#E50914]/50"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Talla */}
-          <div>
-            <h3 className="font-semibold mb-2 text-gray-300">Talla</h3>
-            <div className="flex gap-3 flex-wrap">
-              {opciones?.tallas?.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTalla(t)}
-                  className={`px-4 py-2 rounded-full backdrop-blur-md border transition-all ${
-                    talla === t
-                      ? "border-[#E50914] bg-[#E50914]/30"
-                      : "border-[#333] hover:border-[#E50914]/50"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+          {/* 📏 Talla */}
+          {opciones?.tallas?.length > 0 && (
+            <div>
+              <h3 className="font-semibold mb-2 text-gray-300">Talla</h3>
+              <div className="flex gap-3 flex-wrap">
+                {opciones.tallas.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTalla(t)}
+                    className={`px-4 py-2 rounded-full backdrop-blur-md border transition-all ${
+                      talla === t
+                        ? "border-[#E50914] bg-[#E50914]/30"
+                        : "border-[#333] hover:border-[#E50914]/50"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Parches */}
+          {/* 🩶 Parche */}
           {opciones?.parches?.length > 0 && (
             <div>
-              <h3 className="font-semibold mb-2 text-gray-300">Parches</h3>
+              <h3 className="font-semibold mb-2 text-gray-300">Parche</h3>
               <div className="flex gap-3 flex-wrap">
                 {opciones.parches.map((p) => (
                   <button
                     key={p}
-                    onClick={() => toggleParche(p)}
+                    onClick={() => handleParcheSelect(p)}
                     className={`px-4 py-2 rounded-full backdrop-blur-md border transition-all ${
-                      parches.includes(p)
+                      parche === p
                         ? "border-[#E50914] bg-[#E50914]/30"
                         : "border-[#333] hover:border-[#E50914]/50"
                     }`}
@@ -213,7 +212,7 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* ⚽ DORSAL */}
+          {/* 🏷️ Dorsal */}
           <div>
             <h3 className="font-semibold mb-2 text-gray-300">
               ¿Deseas agregar dorsal?
@@ -249,7 +248,7 @@ export default function ProductoDetalle() {
 
             {quiereDorsal && (
               <div className="mt-4 space-y-4">
-                {/* Selección modo */}
+                {/* Modo de dorsal */}
                 <div className="flex gap-3">
                   <button
                     onClick={() => setModoDorsal("jugador")}
@@ -273,7 +272,7 @@ export default function ProductoDetalle() {
                   </button>
                 </div>
 
-                {/* Dropdown de jugadores */}
+                {/* Lista de jugadores */}
                 {modoDorsal === "jugador" && (
                   <div className="relative w-full max-w-md">
                     <div className="bg-[#111]/70 backdrop-blur-md border border-[#333] rounded-lg px-4 py-3 shadow-lg transition-all hover:border-[#E50914]/50">
@@ -302,7 +301,7 @@ export default function ProductoDetalle() {
                   </div>
                 )}
 
-                {/* Campos personalizados */}
+                {/* Personalizado */}
                 {modoDorsal === "personalizado" && (
                   <div className="flex gap-3 items-center">
                     <input
@@ -326,24 +325,21 @@ export default function ProductoDetalle() {
             )}
           </div>
 
-          {/* Botones finales */}
+          {/* 🛒 Botones finales */}
           <div className="flex gap-4 pt-6">
-            <button className="flex-1 py-3 rounded-full bg-[#E50914] text-white font-semibold hover:bg-[#b0060e] transition-all">
-              Agregar al carrito
-            </button>
-            <button
+            <Button className="flex-1 py-3">Agregar al carrito</Button>
+            <Button
+              variant="outline"
+              className="flex-1 py-3"
               onClick={() => router.push("/catalogo")}
-              className="flex-1 py-3 rounded-full border border-gray-600 text-gray-300 hover:bg-white/10 transition-all"
             >
               Volver
-            </button>
+            </Button>
           </div>
         </motion.div>
       </div>
     </main>
   );
 }
-
-
 
 

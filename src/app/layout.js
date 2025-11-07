@@ -1,22 +1,26 @@
+// app/layout.js
 import "./globals.css";
-import Head from "next/head";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 export const metadata = {
-  title: "90+5 Store",
-  description: "Donde el tiempo se rompe.",
+  title: "90+5 Store | Donde el tiempo se rompe",
+  description:
+    "Camisetas y equipaciones oficiales que viven más allá del minuto 90.",
+  openGraph: {
+    title: "90+5 Store",
+    description: "Donde los goles viven más allá del minuto 90.",
+    images: ["/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <Head>
-        <link
-          href="https://api.fontshare.com/v2/css?f[]=satoshi@300,301,400,401,500,501,700,701,900,901&display=swap"
-          rel="stylesheet"
-        />
-      </Head>
-      <body className="bg-black text-white font-[Satoshi] antialiased">
-        {children}
+      <body className="bg-black text-white">
+        <Header />
+        <main className="pt-24">{children}</main>
+        <Footer />
       </body>
     </html>
   );
