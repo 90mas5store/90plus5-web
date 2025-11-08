@@ -35,27 +35,25 @@ export default function CartDrawer() {
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* 🩸 Overlay semitransparente */}
-          <motion.div
-            {...({
-              className: "fixed inset-0 bg-black/60 z-[90]",
-              initial: { opacity: 0 },
-              animate: { opacity: 1 },
-              exit: { opacity: 0 },
-              onClick: closeCart,
-            } as React.HTMLAttributes<HTMLDivElement>)}
-          />
+  {isOpen && (
+    <>
+      {/* 🩸 Overlay semitransparente */}
+      <motion.div
+        className="fixed inset-0 bg-black/60 z-[90]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => closeCart()}
+      />
 
-          {/* Drawer lateral */}
-          <motion.aside
-            className="fixed top-0 right-0 h-full w-full sm:w-[420px] z-[100] flex flex-col shadow-[inset_-2px_0_30px_rgba(255,255,255,0.12)]"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          >
+      {/* Drawer lateral */}
+      <motion.aside
+        className="fixed top-0 right-0 h-full w-full sm:w-[420px] z-[100] flex flex-col shadow-[inset_-2px_0_30px_rgba(255,255,255,0.12)]"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
             {/* Contenedor principal */}
             <div className="h-full flex flex-col bg-gradient-to-br from-white/4 to-white/2 backdrop-blur-md border border-white/10 shadow-2xl rounded-l-lg overflow-hidden">
               {/* Header */}
