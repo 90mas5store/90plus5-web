@@ -11,15 +11,8 @@ import { useRouter } from "next/navigation"; // 👈 agrega esta importación
 
 
 export default function CartDrawer() {
-  const {
-    items,
-    isOpen,
-    closeCart,
-    removeItem,
-    updateQty,
-    total,
-    clearCart,
-  } = useCart();
+  const { items, isOpen, closeCart, removeItem, clearCart, total } = useCart();
+
 
   const router = useRouter(); // 👈 inicializa el router
 
