@@ -13,10 +13,34 @@ section[id] {
 body {
   background-color: #000;
   color: #fff;
+  font-family: var(--font-satoshi), sans-serif;
 }
 
 img {
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+/* 🔥 Glow animado 90+5 */
+@keyframes pulse-slow {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(229, 9, 20, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(229, 9, 20, 0.9));
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+/* 🌐 Variable de fuente local */
+:root {
+  --font-satoshi: "Satoshi", sans-serif;
+}
+
+.font-satoshi {
+  font-family: var(--font-satoshi);
 }

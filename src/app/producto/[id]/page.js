@@ -1,12 +1,13 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { getProductById, getProductOptions } from "@/lib/api";
-import Button from "@/components/ui/Button";
-import HeatmapBackground from "@/components/HeatmapBackground";
+import { getProductById, getProductOptions } from "../../../lib/api";
+import Button from "../../../components/ui/Button";
+import HeatmapBackground from "../../../components/HeatmapBackground";
+import { useCart } from "../../../context/CartContext";
 
 export default function ProductoDetalle() {
   const { id } = useParams();
@@ -25,6 +26,11 @@ export default function ProductoDetalle() {
   const [jugadorSeleccionado, setJugadorSeleccionado] = useState("");
   const [nombrePersonalizado, setNombrePersonalizado] = useState("");
   const [numeroPersonalizado, setNumeroPersonalizado] = useState("");
+
+  // 🔹 Toast visual
+  const [showToast, setShowToast] = useState(false);
+
+  const { addItem, openCart } = useCart(); // ✅ usar carrito
 
   // 🔹 Cargar producto y opciones
   useEffect(() => {
@@ -63,6 +69,42 @@ export default function ProductoDetalle() {
     setNombrePersonalizado(val);
   };
 
+  // 🔹 Agregar al carrito
+  const handleAddToCart = () => {
+    if (!version || !talla) {
+      alert("Por favor selecciona una versión y una talla.");
+      return;
+    }
+
+    const dorsal =
+      quiereDorsal && modoDorsal === "jugador"
+        ? jugadorSeleccionado
+        : quiereDorsal && modoDorsal === "personalizado"
+        ? `${numeroPersonalizado} - ${nombrePersonalizado}`
+        : null;
+
+    const newItem = {
+      id: producto.id,
+      nombre: producto.modelo,
+      imagen: producto.imagen,
+      equipo: producto.equipo,
+      modelo: producto.modelo,
+      version: version,
+      talla: talla,
+      parches: parche ? [parche] : [],
+      dorsal: dorsal,
+      cantidad: 1,
+      precio: producto.precio,
+    };
+
+    addItem(newItem);
+    openCart();
+
+    // ✅ Mostrar toast visual
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2500);
+  };
+
   // Estados de carga
   if (loading) {
     return (
@@ -89,7 +131,6 @@ export default function ProductoDetalle() {
 
   return (
     <main className="min-h-screen bg-black text-white pt-40 pb-24 px-4 relative overflow-hidden">
-
       {/* 🔥 Fondo dinámico */}
       <HeatmapBackground liga={producto?.liga} opacity={0.25} />
 
@@ -126,21 +167,20 @@ export default function ProductoDetalle() {
         >
           {/* 🏷️ Encabezado */}
           <div className="flex items-center gap-3 mb-2">
-  {producto.logoEquipo && (
-    <Image
-      src={producto.logoEquipo}
-      alt={producto.equipo}
-      width={36}
-      height={36}
-      className="object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.1)] brightness-95 contrast-125"
-    />
-  )}
-  <h1 className="text-3xl font-bold">
-    {producto.equipo}{" "}
-    <span className="text-gray-400">| {producto.modelo}</span>
-  </h1>
-</div>
-
+            {producto.logoEquipo && (
+              <Image
+                src={producto.logoEquipo}
+                alt={producto.equipo}
+                width={36}
+                height={36}
+                className="object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.1)] brightness-95 contrast-125"
+              />
+            )}
+            <h1 className="text-3xl font-bold">
+              {producto.equipo}{" "}
+              <span className="text-gray-400">| {producto.modelo}</span>
+            </h1>
+          </div>
 
           <p className="text-[#E50914] text-2xl font-semibold mb-4">
             L{producto.precio}
@@ -327,7 +367,9 @@ export default function ProductoDetalle() {
 
           {/* 🛒 Botones finales */}
           <div className="flex gap-4 pt-6">
-            <Button className="flex-1 py-3">Agregar al carrito</Button>
+            <Button className="flex-1 py-3" onClick={handleAddToCart}>
+              Agregar al carrito
+            </Button>
             <Button
               variant="outline"
               className="flex-1 py-3"
@@ -338,8 +380,22 @@ export default function ProductoDetalle() {
           </div>
         </motion.div>
       </div>
+
+      {/* ✅ Toast de producto añadido */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-xl border border-white/10 bg-white/10 backdrop-blur-md shadow-lg text-white text-sm flex items-center gap-2"
+          >
+            <span className="inline-block w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse" />
+            Producto añadido al carrito
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
-
-

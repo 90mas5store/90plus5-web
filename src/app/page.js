@@ -2,14 +2,19 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { getFeatured, getConfig } from "@/lib/api";
-import Button from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
+import { getFeatured, getConfig } from "../lib/api";
+import Button from "../components/ui/Button";
+import { Search } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
+
   const [destacados, setDestacados] = useState([]);
   const [ligas, setLigas] = useState([]);
   const [ligaSeleccionada, setLigaSeleccionada] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // === Cargar destacados y ligas ===
   useEffect(() => {
@@ -39,6 +44,16 @@ export default function Home() {
           item.liga.toLowerCase() === ligaSeleccionada.toLowerCase()
       )
     : destacados;
+
+  // === Manejar búsqueda ===
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      router.push(`/catalogo?query=${encodeURIComponent(searchTerm.trim())}`);
+    } else {
+      router.push(`/catalogo`);
+    }
+  };
 
   return (
     <main className="bg-black text-white min-h-screen relative overflow-hidden">
@@ -105,70 +120,73 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* 🔍 BARRA DE BÚSQUEDA */}
+      <section className="flex justify-center -mt-6 mb-20 px-4 z-10 relative">
+        <form onSubmit={handleSearch} className="relative w-full max-w-xl">
+          <div className="absolute inset-0 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-[0_0_25px_rgba(255,255,255,0.05)]" />
+          <input
+            type="text"
+            placeholder="Buscar por equipo, modelo o jugador..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="relative w-full py-3 pl-12 pr-4 bg-transparent text-sm text-white placeholder-gray-400 outline-none rounded-2xl focus:ring-2 focus:ring-[#E50914]/50 focus:border-[#E50914]/40 transition-all"
+          />
+          <Search
+            onClick={handleSearch}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 cursor-pointer hover:text-white transition"
+          />
+          <div className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 hover:opacity-30 transition-opacity duration-700 bg-[radial-gradient(circle_at_center,rgba(229,9,20,0.25),transparent_70%)]" />
+        </form>
+      </section>
+
       {/* 🏆 LIGAS */}
-      {/* 🏆 CARRUSEL DE LIGAS */}
-<section id="ligas" className="px-4 pb-12 max-w-6xl mx-auto text-center">
-  <h2 className="text-3xl font-semibold mb-8 text-[#E50914]">
-    Ligas disponibles
-  </h2>
+      <section id="ligas" className="px-4 pb-12 max-w-6xl mx-auto text-center">
+        <h2 className="text-3xl font-semibold mb-8 text-[#E50914]">
+          Ligas disponibles
+        </h2>
 
-  <div className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide justify-center flex-wrap">
-    {Array.isArray(ligas) && ligas.length > 0 ? (
-      ligas.map((liga) => (
-        <motion.div
-          key={liga.nombre}
-          onClick={() =>
-            setLigaSeleccionada(
-              ligaSeleccionada === liga.nombre ? null : liga.nombre
-            )
-          }
-          whileHover={{ scale: 1.1 }}
-          transition={{ duration: 0.3 }}
-          className={`cursor-pointer flex flex-col items-center justify-center p-3 rounded-xl transition-all ${
-            ligaSeleccionada === liga.nombre
-              ? "bg-[#E50914]/20 border border-[#E50914]/50 shadow-[0_0_15px_rgba(229,9,20,0.3)]"
-              : "bg-[#111]/60 border border-[#222] hover:border-[#E50914]/30"
-          }`}
-        >
-          {liga.imagen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4 }}
-              className="flex items-center justify-center mb-2"
-            >
-              <Image
-                src={liga.imagen}
-                alt={liga.nombre}
-                width={64}
-                height={64}
-                className="object-contain mix-blend-screen drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] hover:drop-shadow-[0_0_12px_rgba(229,9,20,0.6)] transition-all duration-500 ease-in-out"
-              />
-            </motion.div>
+        <div className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide justify-center flex-wrap">
+          {Array.isArray(ligas) && ligas.length > 0 ? (
+            ligas.map((liga) => (
+              <motion.div
+                key={liga.nombre}
+                onClick={() =>
+                  setLigaSeleccionada(
+                    ligaSeleccionada === liga.nombre ? null : liga.nombre
+                  )
+                }
+                whileHover={{ scale: 1.1 }}
+                transition={{ duration: 0.3 }}
+                className={`cursor-pointer flex flex-col items-center justify-center p-3 rounded-xl transition-all ${
+                  ligaSeleccionada === liga.nombre
+                    ? "bg-[#E50914]/20 border border-[#E50914]/50 shadow-[0_0_15px_rgba(229,9,20,0.3)]"
+                    : "bg-[#111]/60 border border-[#222] hover:border-[#E50914]/30"
+                }`}
+              >
+                {liga.imagen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4 }}
+                    className="flex items-center justify-center mb-2"
+                  >
+                    <Image
+                      src={liga.imagen}
+                      alt={liga.nombre}
+                      width={64}
+                      height={64}
+                      className="object-contain mix-blend-screen drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] hover:drop-shadow-[0_0_12px_rgba(229,9,20,0.6)] transition-all duration-500 ease-in-out"
+                    />
+                  </motion.div>
+                )}
+                <p className="text-xs text-gray-300">{liga.nombre}</p>
+              </motion.div>
+            ))
+          ) : (
+            <p className="text-gray-400 text-center">No hay ligas disponibles</p>
           )}
-          <p className="text-xs text-gray-300">{liga.nombre}</p>
-        </motion.div>
-      ))
-    ) : (
-      <p className="text-gray-400 text-center">No hay ligas disponibles</p>
-    )}
-  </div>
-
-  {/* 🔗 Enlace dinámico */}
-  <div className="text-center mt-6">
-    <a
-      href={`/catalogo${
-        ligaSeleccionada
-          ? `?liga=${encodeURIComponent(ligaSeleccionada)}`
-          : ""
-      }`}
-      className="inline-block text-sm text-gray-400 hover:text-white transition-all"
-    >
-      Ver más de {ligaSeleccionada || "todas las ligas"} →
-    </a>
-  </div>
-</section>
-
+        </div>
+      </section>
 
       {/* ⭐ DESTACADOS */}
       <section id="destacados" className="py-20 px-4 max-w-7xl mx-auto">
@@ -194,21 +212,21 @@ export default function Home() {
               >
                 <div className="relative">
                   {item.logoEquipo && (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    transition={{ duration: 0.6 }}
-    className="absolute top-3 left-3"
-  >
-    <Image
-      src={item.logoEquipo}
-      alt={item.equipo}
-      width={40}
-      height={40}
-      className="object-contain mix-blend-screen drop-shadow-[0_0_6px_rgba(255,255,255,0.5)] hover:drop-shadow-[0_0_12px_rgba(229,9,20,0.6)] transition-all duration-500 ease-in-out"
-    />
-  </motion.div>
-)}
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.6 }}
+                      className="absolute top-3 left-3"
+                    >
+                      <Image
+                        src={item.logoEquipo}
+                        alt={item.equipo}
+                        width={40}
+                        height={40}
+                        className="object-contain mix-blend-screen drop-shadow-[0_0_6px_rgba(255,255,255,0.5)] hover:drop-shadow-[0_0_12px_rgba(229,9,20,0.6)] transition-all duration-500 ease-in-out"
+                      />
+                    </motion.div>
+                  )}
 
                   <Image
                     src={item.imagen}
@@ -226,9 +244,7 @@ export default function Home() {
                     L{item.precio}
                   </p>
                   <Button
-                    onClick={() =>
-                      (window.location.href = `/producto/${item.id}`)
-                    }
+                    onClick={() => router.push(`/producto/${item.id}`)}
                     className="mt-4 w-full"
                   >
                     Ver más
@@ -242,6 +258,3 @@ export default function Home() {
     </main>
   );
 }
-
-
-
