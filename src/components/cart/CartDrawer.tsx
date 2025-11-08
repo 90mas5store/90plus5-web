@@ -1,23 +1,19 @@
 "use client";
 
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useCart } from "../../context/CartContext";
 import { X, Plus, Minus, Trash2 } from "lucide-react";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation"; // 👈 agrega esta importación
-
-  
-
+import { useRouter } from "next/navigation";
 
 export default function CartDrawer() {
-  const { items, isOpen, closeCart, removeItem, clearCart, total } = useCart();
-
-
-  const router = useRouter(); // 👈 inicializa el router
+  const { items, isOpen, closeCart, removeItem, clearCart, total, updateQty } = useCart();
+  const router = useRouter();
 
   // 💰 Formateador de moneda
-  const formatCurrency = (value) =>
+  const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-HN", {
       style: "currency",
       currency: "HNL",
@@ -30,29 +26,29 @@ export default function CartDrawer() {
     const now = Date.now();
 
     if (timestamp && now - parseInt(timestamp) > 3600000) {
-      // más de 1 hora
       clearCart();
       localStorage.removeItem("cartTimestamp");
     } else {
-      // renovar timestamp
       localStorage.setItem("cartTimestamp", now.toString());
     }
-  }, [items]);
+  }, [items, clearCart]);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Overlay semitransparente */}
+          {/* 🩸 Overlay semitransparente */}
           <motion.div
-            className="fixed inset-0 bg-black/60 z-[90]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={closeCart}
+            {...({
+              className: "fixed inset-0 bg-black/60 z-[90]",
+              initial: { opacity: 0 },
+              animate: { opacity: 1 },
+              exit: { opacity: 0 },
+              onClick: closeCart,
+            } as React.HTMLAttributes<HTMLDivElement>)}
           />
 
-          {/* Drawer lateral con glow en el borde derecho */}
+          {/* Drawer lateral */}
           <motion.aside
             className="fixed top-0 right-0 h-full w-full sm:w-[420px] z-[100] flex flex-col shadow-[inset_-2px_0_30px_rgba(255,255,255,0.12)]"
             initial={{ x: "100%" }}
@@ -83,7 +79,7 @@ export default function CartDrawer() {
                 ) : (
                   items.map((item) => (
                     <motion.div
-                      key={item.id + item.talla + item.version}
+                      key={item.id + item.talla + (item.version || "")}
                       layout
                       className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10 shadow-[inset_0_0_8px_rgba(255,255,255,0.06)] hover:bg-white/10 transition"
                     >
@@ -91,7 +87,7 @@ export default function CartDrawer() {
                       <div className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden bg-white/5">
                         <Image
                           src={item.imagen}
-                          alt={item.nombre}
+                          alt={item.equipo}
                           fill
                           className="object-cover"
                         />
@@ -142,7 +138,7 @@ export default function CartDrawer() {
                           {formatCurrency(item.precio * item.cantidad)}
                         </p>
                         <button
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(item.id, item.talla)}
                           className="text-white/60 hover:text-red-400"
                           aria-label="Eliminar producto"
                         >
@@ -155,36 +151,35 @@ export default function CartDrawer() {
               </div>
 
               {/* Footer */}
-{items.length > 0 && (
-  <div className="border-t border-white/10 p-4 space-y-3">
-    <div className="flex justify-between text-sm">
-      <span className="text-white/80">Subtotal:</span>
-      <span className="font-semibold text-white">
-        {formatCurrency(total)}
-      </span>
-    </div>
+              {items.length > 0 && (
+                <div className="border-t border-white/10 p-4 space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/80">Subtotal:</span>
+                    <span className="font-semibold text-white">
+                      {formatCurrency(total)}
+                    </span>
+                  </div>
 
-    <button
-      onClick={() => {
-        closeCart(); // 👈 cierra el drawer
-        setTimeout(() => {
-          router.push("/checkout"); // 👈 redirige al checkout
-        }, 300); // pequeño delay para la animación
-      }}
-      className="w-full bg-white/10 text-white py-2 rounded-lg font-semibold hover:bg-white/15 transition"
-    >
-      Confirmar compra
-    </button>
+                  <button
+                    onClick={() => {
+                      closeCart();
+                      setTimeout(() => {
+                        router.push("/checkout");
+                      }, 300);
+                    }}
+                    className="w-full bg-white/10 text-white py-2 rounded-lg font-semibold hover:bg-white/15 transition"
+                  >
+                    Confirmar compra
+                  </button>
 
-    <button
-      onClick={clearCart}
-      className="w-full text-sm text-white/70 underline hover:text-red-400"
-    >
-      Vaciar carrito
-    </button>
-  </div>
-)}
-
+                  <button
+                    onClick={clearCart}
+                    className="w-full text-sm text-white/70 underline hover:text-red-400"
+                  >
+                    Vaciar carrito
+                  </button>
+                </div>
+              )}
             </div>
           </motion.aside>
         </>

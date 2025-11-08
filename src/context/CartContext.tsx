@@ -1,88 +1,115 @@
 "use client";
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-interface CartItem {
+import React, { createContext, useContext, useState, useEffect } from "react";
+
+type CartItem = {
   id: string;
   equipo: string;
   modelo: string;
   talla: string;
-  cantidad: number;
   precio: number;
+  cantidad: number;
   imagen: string;
-}
+  version?: string;
+  dorsal?: string;
+};
 
-interface CartContextType {
+type CartContextType = {
   items: CartItem[];
+  total: number;
   isOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
   addItem: (item: CartItem) => void;
-  removeItem: (id: string, talla: string) => void;
+  removeItem: (id: string, talla?: string) => void;
   clearCart: () => void;
-  total: number;
-}
+  updateQty: (id: string, nuevaCantidad: number, talla?: string) => void;
+};
 
-const CartContext = createContext<CartContextType | null>(null);
+const CartContext = createContext<CartContextType>({} as CartContextType);
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  // === Funciones básicas del carrito ===
-  const openCart = () => setIsOpen(true);
-  const closeCart = () => setIsOpen(false);
-
-  const addItem = (item: CartItem) => {
-    setItems((prev) => {
-      const existing = prev.find(
-        (i) => i.id === item.id && i.talla === item.talla
-      );
-      if (existing) {
-        return prev.map((i) =>
-          i.id === item.id && i.talla === item.talla
-            ? { ...i, cantidad: i.cantidad + item.cantidad }
-            : i
-        );
-      }
-      return [...prev, item];
-    });
-  };
-
-  const removeItem = (id: string, talla: string) => {
-    setItems((prev) =>
-      prev.filter((i) => !(i.id === id && i.talla === talla))
-    );
-  };
-
-  const clearCart = () => setItems([]);
-
+  // 🧮 Calcular total
   const total = items.reduce(
     (acc, item) => acc + item.precio * item.cantidad,
     0
   );
 
+  // 💾 Cargar carrito desde localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("cart90mas5");
+    if (saved) setItems(JSON.parse(saved));
+  }, []);
+
+  // 💾 Guardar carrito al cambiar
+  useEffect(() => {
+    localStorage.setItem("cart90mas5", JSON.stringify(items));
+  }, [items]);
+
+  // ➕ Agregar item
+  const addItem = (newItem: CartItem) => {
+    setItems((prev) => {
+      const existing = prev.find(
+        (i) => i.id === newItem.id && i.talla === newItem.talla
+      );
+      if (existing) {
+        return prev.map((i) =>
+          i.id === newItem.id && i.talla === newItem.talla
+            ? { ...i, cantidad: i.cantidad + newItem.cantidad }
+            : i
+        );
+      }
+      return [...prev, newItem];
+    });
+    setIsOpen(true);
+  };
+
+  // ❌ Eliminar item
+  const removeItem = (id: string, talla?: string) => {
+    setItems((prev) =>
+      prev.filter((item) => !(item.id === id && item.talla === talla))
+    );
+  };
+
+  // 🧼 Vaciar carrito
+  const clearCart = () => setItems([]);
+
+  // 🔄 Actualizar cantidad
+  const updateQty = (id: string, nuevaCantidad: number, talla?: string) => {
+    setItems((prev) =>
+      prev
+        .map((item) =>
+          item.id === id && item.talla === talla
+            ? { ...item, cantidad: Math.max(1, nuevaCantidad) }
+            : item
+        )
+        .filter((i) => i.cantidad > 0)
+    );
+  };
+
+  const openCart = () => setIsOpen(true);
+  const closeCart = () => setIsOpen(false);
+
   return (
     <CartContext.Provider
       value={{
         items,
+        total,
         isOpen,
         openCart,
         closeCart,
         addItem,
         removeItem,
         clearCart,
-        total,
+        updateQty,
       }}
     >
       {children}
     </CartContext.Provider>
   );
-}
+};
 
-export function useCart(): CartContextType {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error("useCart debe usarse dentro de un CartProvider");
-  }
-  return context;
-}
+export const useCart = () => useContext(CartContext);
