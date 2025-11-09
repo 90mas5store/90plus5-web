@@ -1,4 +1,7 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";

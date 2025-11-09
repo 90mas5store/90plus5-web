@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import localFont from "next/font/local";
 import "./globals.css";
 import { CartProvider } from "../context/CartContext";
@@ -6,7 +7,7 @@ import Footer from "../components/Footer";
 import CartDrawer from "../components/cart/CartDrawer";
 import ClientLayout from "./ClientLayout";
 
-// 🧠 Fuente local Satoshi (en /src/fonts/)
+// 🧠 Fuente local Satoshi
 const satoshi = localFont({
   src: [
     { path: "../fonts/Satoshi-Regular.otf", weight: "400", style: "normal" },
@@ -18,13 +19,35 @@ const satoshi = localFont({
   display: "swap",
 });
 
+// 🧾 Metadata global (con URL base configurada)
 export const metadata = {
-  title: "90+5 Store | Donde el tiempo se rompe",
+  metadataBase: new URL("https://90plus5store.vercel.app"), // ✅ ya no mostrará warnings
+  title: {
+    default: "90+5 Store",
+    template: "%s | 90+5 Store",
+  },
   description:
     "Camisetas y equipaciones oficiales que viven más allá del minuto 90.",
   openGraph: {
     title: "90+5 Store",
     description: "Donde los goles viven más allá del minuto 90.",
+    url: "https://90plus5store.vercel.app",
+    siteName: "90+5 Store",
+    locale: "es_ES",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "90+5 Store - El tiempo se rompe aquí",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "90+5 Store",
+    description: "El tiempo se rompe aquí ⚽🔥",
     images: ["/og-image.jpg"],
   },
 };
@@ -34,28 +57,28 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es" className={`dark ${satoshi.variable}`}>
       <body className="bg-black text-white font-satoshi antialiased relative overflow-x-hidden">
-        {/* 💫 Overlay global de aura cinematográfica */}
+        {/* 💫 Overlay global */}
         <div className="fixed inset-0 -z-10 bg-gradient-to-b from-[#E50914]/10 via-[#0A0A0A]/90 to-black/95 pointer-events-none" />
         <div className="fixed inset-0 -z-[9] backdrop-blur-[1px] bg-black/40 pointer-events-none" />
 
-        {/* 🛒 Proveedor global del carrito */}
-        <CartProvider>
-          <ClientLayout>
-            {/* 🔝 Header fijo */}
-            <Header />
-
-            {/* 🛍️ Drawer del carrito */}
-            <CartDrawer />
-
-            {/* 📦 Contenido principal */}
-            <main className="pt-0 min-h-screen">{children}</main>
-
-            {/* ⚽ Footer */}
-            <Footer />
-          </ClientLayout>
-        </CartProvider>
+        {/* ✅ Suspense global para evitar errores de useSearchParams */}
+        <Suspense
+          fallback={
+            <main className="min-h-screen flex items-center justify-center text-white">
+              Cargando contenido...
+            </main>
+          }
+        >
+          <CartProvider>
+            <ClientLayout>
+              <Header />
+              <CartDrawer />
+              <main className="pt-0 min-h-screen">{children}</main>
+              <Footer />
+            </ClientLayout>
+          </CartProvider>
+        </Suspense>
       </body>
     </html>
   );
 }
-
