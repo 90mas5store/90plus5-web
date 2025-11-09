@@ -31,7 +31,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
-  ],
+, "src/components/catalogo/CarruselDeCategoria.jsx"  ],
   "exclude": [
     "node_modules"
   ]

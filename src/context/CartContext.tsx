@@ -11,8 +11,17 @@ type CartItem = {
   cantidad: number;
   imagen: string;
   version?: string;
-  dorsal?: string;
+  dorsal?: string; // aún lo usás en algunos componentes viejos
+  // 👇 nuevos campos coherentes con el flujo completo
+  liga?: string;
+  tipo?: string;
+  color?: string;
+  dorsalNumero?: string;
+  dorsalNombre?: string;
+  parche?: string;       // ✅ el campo que te da el error
+  parches?: string[];    // por si en el futuro agregás múltiples
 };
+
 
 type CartContextType = {
   items: CartItem[];
