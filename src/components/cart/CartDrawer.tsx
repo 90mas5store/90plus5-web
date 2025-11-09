@@ -93,42 +93,51 @@ export default function CartDrawer() {
 
                       {/* Info del producto */}
                       <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-white">
-                          {item.equipo}
-                        </h3>
-                        <p className="text-xs text-white/70">
-                          {item.modelo} {item.version && `• ${item.version}`}
-                        </p>
-                        <p className="text-xs text-white/70">
-                          Talla: {item.talla}
-                        </p>
-                        {item.dorsal && (
-                          <p className="text-xs text-white/70">
-                            Dorsal: {item.dorsal}
-                          </p>
-                        )}
+  <h3 className="text-sm font-semibold text-white">{item.equipo}</h3>
 
-                        {/* Controles cantidad */}
-                        <div className="flex items-center mt-2">
-                          <button
-                            onClick={() => updateQty(item.id, item.cantidad - 1)}
-                            className="p-1 rounded border border-white/10 hover:bg-white/10 transition"
-                            aria-label="Disminuir cantidad"
-                          >
-                            <Minus className="w-3 h-3 text-white" />
-                          </button>
-                          <span className="px-3 text-sm text-white">
-                            {item.cantidad}
-                          </span>
-                          <button
-                            onClick={() => updateQty(item.id, item.cantidad + 1)}
-                            className="p-1 rounded border border-white/10 hover:bg-white/10 transition"
-                            aria-label="Aumentar cantidad"
-                          >
-                            <Plus className="w-3 h-3 text-white" />
-                          </button>
-                        </div>
-                      </div>
+  {/* Modelo y versión */}
+  <p className="text-xs text-white/70">
+    {item.modelo}
+    {item.version && ` • ${item.version}`}
+  </p>
+
+  {/* Talla */}
+  {item.talla && (
+    <p className="text-xs text-white/70">Talla: {item.talla}</p>
+  )}
+
+  {/* Parche */}
+  {item.parche && (
+    <p className="text-xs text-white/70">Parche: {item.parche}</p>
+  )}
+
+  {/* Dorsal personalizado o de jugador */}
+  {(item.dorsalNombre || item.dorsalNumero) && (
+    <p className="text-xs text-white/70">
+      Dorsal:{" "}
+      {item.dorsalNumero && `${item.dorsalNumero} `}
+      {item.dorsalNombre && `- ${item.dorsalNombre}`}
+    </p>
+  )}
+
+  {/* Controles de cantidad */}
+  <div className="flex items-center mt-2">
+    <button
+      onClick={() => updateQty(item.id, item.cantidad - 1)}
+      className="p-1 rounded border border-white/10 hover:bg-white/10 transition"
+    >
+      <Minus className="w-3 h-3 text-white" />
+    </button>
+    <span className="px-3 text-sm text-white">{item.cantidad}</span>
+    <button
+      onClick={() => updateQty(item.id, item.cantidad + 1)}
+      className="p-1 rounded border border-white/10 hover:bg-white/10 transition"
+    >
+      <Plus className="w-3 h-3 text-white" />
+    </button>
+  </div>
+</div>
+
 
                       {/* Precio y eliminar */}
                       <div className="flex flex-col items-end justify-between">

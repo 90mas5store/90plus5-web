@@ -1,46 +1,59 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { getProductById, getProductOptions } from "../../../lib/api";
-import Button from "../../../components/ui/Button";
+import { getCatalog, getProductOptions } from "../../../lib/api";
 import HeatmapBackground from "../../../components/HeatmapBackground";
+import Loader from "../../../components/Loader";
+import Button from "../../../components/ui/Button";
 import { useCart } from "../../../context/CartContext";
+import { ArrowLeft } from "lucide-react";
 
-export default function ProductoDetalle() {
+export default function ProductoPersonalizar() {
   const { id } = useParams();
   const router = useRouter();
+  const { addItem, openCart } = useCart();
 
   const [producto, setProducto] = useState(null);
   const [opciones, setOpciones] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Estados de personalización
+  // Personalización
   const [version, setVersion] = useState(null);
   const [talla, setTalla] = useState(null);
   const [parche, setParche] = useState(null);
-  const [quiereDorsal, setQuiereDorsal] = useState(false);
-  const [modoDorsal, setModoDorsal] = useState(""); // jugador o personalizado
-  const [jugadorSeleccionado, setJugadorSeleccionado] = useState("");
-  const [nombrePersonalizado, setNombrePersonalizado] = useState("");
-  const [numeroPersonalizado, setNumeroPersonalizado] = useState("");
 
-  // 🔹 Toast visual
+  // Dorsal
+  const [quiereDorsal, setQuiereDorsal] = useState(false);
+  const [modoDorsal, setModoDorsal] = useState("");
+  const [jugadorSeleccionado, setJugadorSeleccionado] = useState("");
+  const [numeroPersonalizado, setNumeroPersonalizado] = useState("");
+  const [nombrePersonalizado, setNombrePersonalizado] = useState("");
+
+  // Otros estados
   const [showToast, setShowToast] = useState(false);
 
-  const { addItem, openCart } = useCart(); // ✅ usar carrito
+  // Referencias para zoom
+  const containerRef = useRef(null);
+  const lensRef = useRef(null);
+  const blurRef = useRef(null);
 
-  // 🔹 Cargar producto y opciones
+useEffect(() => {
+  setTimeout(() => window.scrollTo({ top: 70, behavior: "smooth" }), 200);
+}, []);
+
+  // === CARGA DE PRODUCTO ===
   useEffect(() => {
     async function fetchProducto() {
       try {
-        const data = await getProductById(id);
-        setProducto(data);
+        const data = await getCatalog();
+        const found = data.find((p) => String(p.id) === String(id));
+        setProducto(found);
 
-        if (data?.liga && data?.equipo) {
-          const opts = await getProductOptions(data.liga, data.equipo);
+        if (found?.liga && found?.equipo) {
+          const opts = await getProductOptions(found.liga, found.equipo);
           setOpciones(opts);
         }
       } catch (err) {
@@ -49,153 +62,201 @@ export default function ProductoDetalle() {
         setLoading(false);
       }
     }
-
-    if (id) fetchProducto();
+    fetchProducto();
   }, [id]);
 
-  // 🔹 Solo un parche activo
-  const handleParcheSelect = (p) => {
-    setParche((prev) => (prev === p ? null : p));
+  // === MANEJO DEL ZOOM ===
+  const handleZoomMove = (e) => {
+    if (!containerRef.current || !lensRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    window.requestAnimationFrame(() => {
+      lensRef.current.style.left = `${x - 80}px`;
+      lensRef.current.style.top = `${y - 80}px`;
+      lensRef.current.style.backgroundPosition = `${-(x * 2 - 80)}px ${-(y * 2 - 80)}px`;
+    });
   };
 
-  // 🔹 Campos personalizados
+  const handleEnter = () => {
+    lensRef.current.style.opacity = 1;
+    blurRef.current.style.opacity = 1;
+  };
+
+  const handleLeave = () => {
+    lensRef.current.style.opacity = 0;
+    blurRef.current.style.opacity = 0;
+  };
+
+  // === DORSAL PERSONALIZADO ===
   const handleNumeroChange = (e) => {
     const val = e.target.value.replace(/\D/g, "");
     if (val <= 99) setNumeroPersonalizado(val);
   };
-
   const handleNombreChange = (e) => {
     const val = e.target.value.toUpperCase().slice(0, 12);
     setNombrePersonalizado(val);
   };
 
-  // 🔹 Agregar al carrito
   const handleAddToCart = () => {
-    if (!version || !talla) {
-      alert("Por favor selecciona una versión y una talla.");
-      return;
-    }
-
-    const dorsal =
-      quiereDorsal && modoDorsal === "jugador"
-        ? jugadorSeleccionado
-        : quiereDorsal && modoDorsal === "personalizado"
-        ? `${numeroPersonalizado} - ${nombrePersonalizado}`
-        : null;
-
-    const newItem = {
-      id: producto.id,
-      nombre: producto.modelo,
-      imagen: producto.imagen,
-      equipo: producto.equipo,
-      modelo: producto.modelo,
-      version: version,
-      talla: talla,
-      parches: parche ? [parche] : [],
-      dorsal: dorsal,
-      cantidad: 1,
-      precio: producto.precio,
-    };
-
-    addItem(newItem);
-    openCart();
-
-    // ✅ Mostrar toast visual
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2500);
-  };
-
-  // Estados de carga
-  if (loading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-black text-white">
-        <p>Cargando producto...</p>
-      </main>
-    );
+  if (!version || !talla) {
+    alert("Selecciona una versión y una talla.");
+    return;
   }
 
-  if (!producto) {
+  // Si el dorsal es personalizado, separa número/nombre correctamente
+  const dorsalNumero =
+    modoDorsal === "personalizado" ? numeroPersonalizado : jugadorSeleccionado?.split(" - ")[0] || "";
+  const dorsalNombre =
+    modoDorsal === "personalizado" ? nombrePersonalizado : jugadorSeleccionado?.split(" - ")[1] || "";
+
+  const newItem = {
+    id: producto.id,
+    modelo: producto.modelo,      // ✅ modelo real del producto
+    equipo: producto.equipo,
+    liga: producto.liga || "",
+    version,
+    talla,
+    parche,
+    dorsalNumero,
+    dorsalNombre,
+    imagen: producto.imagen,
+    precio: producto.precio,
+    cantidad: 1,
+  };
+
+  addItem(newItem);
+  openCart();
+
+  setShowToast(true);
+  setTimeout(() => setShowToast(false), 2500);
+};
+
+
+  // === ESTADOS DE CARGA / ERROR ===
+  if (loading) return <Loader text="Cargando opciones..." />;
+
+  if (!producto)
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
-        <p>No se encontró este producto.</p>
-        <Button
-          variant="outline"
-          className="mt-6"
-          onClick={() => router.push("/catalogo")}
-        >
+        <h1 className="text-2xl font-bold mb-3">Producto no encontrado 😔</h1>
+        <Button variant="outline" onClick={() => router.push("/catalogo")}>
           Volver al catálogo
         </Button>
       </main>
     );
-  }
+
+  // === COLORES DEL AURA ===
+  const getAuraColors = (liga) => {
+    if (!liga) return "from-[#E50914]/25 via-black/80 to-black";
+    const map = {
+      "Barcelona": "from-[#004D98]/40 via-black/80 to-[#A50044]/40",
+      "Real Madrid": "from-[#FFFFFF]/10 via-[#A899CA]/20 to-black",
+      "PSG": "from-[#004170]/40 via-black/80 to-[#DA291C]/40",
+      "Manchester United": "from-[#DA291C]/40 via-black/80 to-[#FBE122]/30",
+      "Olimpia": "from-[#FFFFFF]/15 via-black/80 to-[#E50914]/40",
+    };
+    return map[liga] || "from-[#E50914]/30 via-black/80 to-black";
+  };
 
   return (
-    <main className="min-h-screen bg-black text-white pt-40 pb-24 px-4 relative overflow-hidden">
-      {/* 🔥 Fondo dinámico */}
-      <HeatmapBackground liga={producto?.liga} opacity={0.25} />
+    <motion.main
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.6, ease: "easeInOut" }}
+      className={`min-h-screen text-white pt-28 pb-24 px-6 relative overflow-hidden bg-gradient-to-b ${getAuraColors(
+        producto.liga
+      )}`}
+    >
+      <HeatmapBackground liga={producto.liga} opacity={0.15} />
 
-      <div className="max-w-6xl mx-auto relative z-10 grid grid-cols-1 md:grid-cols-2 gap-10">
-        {/* 🖼️ Imagen del producto */}
+      <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-10 relative z-10">
+        {/* 🖼️ IMAGEN CON ZOOM */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="flex justify-center items-start"
+          className="flex justify-center"
         >
-          <div className="relative group w-full max-w-md">
-            <div className="overflow-hidden rounded-3xl border border-[#222]">
-              <Image
-                src={producto.imagen}
-                alt={producto.modelo}
-                width={600}
-                height={600}
-                className="w-full h-auto rounded-3xl shadow-lg transition-transform duration-700 group-hover:scale-105 group-hover:brightness-110"
-                priority
-              />
-            </div>
-            {/* Glow sutil al hacer hover */}
-            <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-40 transition-all duration-700 bg-[radial-gradient(circle_at_center,rgba(229,9,20,0.4),transparent_70%)]"></div>
+          <div
+            ref={containerRef}
+            className="relative group rounded-3xl border border-[#222] overflow-hidden"
+            onMouseMove={handleZoomMove}
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+          >
+            <Image
+              src={producto.imagen}
+              alt={producto.modelo}
+              width={600}
+              height={600}
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+
+            <div
+              ref={blurRef}
+              className="absolute inset-0 backdrop-blur-[4px] opacity-0 transition-opacity duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+            ></div>
+
+            <div
+              ref={lensRef}
+              className="absolute w-40 h-40 rounded-full pointer-events-none border-2 border-[#E50914]/60 shadow-[0_0_12px_rgba(229,9,20,0.3)] opacity-0 transition-opacity duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform"
+              style={{
+                backgroundImage: `url(${producto.imagen})`,
+                backgroundSize: "1200px 1200px",
+                backgroundRepeat: "no-repeat",
+              }}
+            ></div>
           </div>
         </motion.div>
 
-        {/* 🧩 Panel de personalización */}
+        {/* 🧩 PANEL DE PERSONALIZACIÓN */}
         <motion.div
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="flex flex-col justify-center text-left space-y-6"
+          className="flex flex-col gap-6"
         >
-          {/* 🏷️ Encabezado */}
-          <div className="flex items-center gap-3 mb-2">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" /> Volver
+          </button>
+
+          <div className="flex items-center gap-3">
             {producto.logoEquipo && (
               <Image
                 src={producto.logoEquipo}
                 alt={producto.equipo}
-                width={36}
-                height={36}
-                className="object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.1)] brightness-95 contrast-125"
+                width={42}
+                height={42}
+                className="object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]"
               />
             )}
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-3xl font-bold drop-shadow-[0_0_25px_rgba(229,9,20,0.5)]">
               {producto.equipo}{" "}
               <span className="text-gray-400">| {producto.modelo}</span>
             </h1>
           </div>
 
-          <p className="text-[#E50914] text-2xl font-semibold mb-4">
-            L{producto.precio}
+          <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+            {producto.descripcion ||
+              "Selecciona tus opciones para crear tu versión personalizada de esta camiseta."}
           </p>
 
-          {/* 🧾 Versión */}
+          {/* Version */}
           {opciones?.versiones?.length > 0 && (
             <div>
-              <h3 className="font-semibold mb-2 text-gray-300">Versión</h3>
-              <div className="flex gap-3 flex-wrap">
+              <h3 className="font-semibold text-gray-300 mb-2">Versión</h3>
+              <div className="flex flex-wrap gap-3">
                 {opciones.versiones.map((v) => (
                   <button
                     key={v}
                     onClick={() => setVersion(v)}
-                    className={`px-5 py-2 rounded-full backdrop-blur-md border transition-all ${
+                    className={`px-5 py-2 rounded-full border transition-all ${
                       version === v
                         ? "border-[#E50914] bg-[#E50914]/30"
                         : "border-[#333] hover:border-[#E50914]/50"
@@ -208,16 +269,16 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* 📏 Talla */}
+          {/* Talla */}
           {opciones?.tallas?.length > 0 && (
             <div>
-              <h3 className="font-semibold mb-2 text-gray-300">Talla</h3>
-              <div className="flex gap-3 flex-wrap">
+              <h3 className="font-semibold text-gray-300 mb-2">Talla</h3>
+              <div className="flex flex-wrap gap-3">
                 {opciones.tallas.map((t) => (
                   <button
                     key={t}
                     onClick={() => setTalla(t)}
-                    className={`px-4 py-2 rounded-full backdrop-blur-md border transition-all ${
+                    className={`px-4 py-2 rounded-full border transition-all ${
                       talla === t
                         ? "border-[#E50914] bg-[#E50914]/30"
                         : "border-[#333] hover:border-[#E50914]/50"
@@ -230,16 +291,16 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* 🩶 Parche */}
+          {/* Parche */}
           {opciones?.parches?.length > 0 && (
             <div>
-              <h3 className="font-semibold mb-2 text-gray-300">Parche</h3>
-              <div className="flex gap-3 flex-wrap">
+              <h3 className="font-semibold text-gray-300 mb-2">Parche</h3>
+              <div className="flex flex-wrap gap-3">
                 {opciones.parches.map((p) => (
                   <button
                     key={p}
-                    onClick={() => handleParcheSelect(p)}
-                    className={`px-4 py-2 rounded-full backdrop-blur-md border transition-all ${
+                    onClick={() => setParche(p)}
+                    className={`px-4 py-2 rounded-full border transition-all ${
                       parche === p
                         ? "border-[#E50914] bg-[#E50914]/30"
                         : "border-[#333] hover:border-[#E50914]/50"
@@ -252,9 +313,9 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* 🏷️ Dorsal */}
+          {/* Dorsal */}
           <div>
-            <h3 className="font-semibold mb-2 text-gray-300">
+            <h3 className="font-semibold text-gray-300 mb-2">
               ¿Deseas agregar dorsal?
             </h3>
             <div className="flex gap-3">
@@ -286,40 +347,48 @@ export default function ProductoDetalle() {
               </button>
             </div>
 
-            {quiereDorsal && (
-              <div className="mt-4 space-y-4">
-                {/* Modo de dorsal */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setModoDorsal("jugador")}
-                    className={`px-5 py-2 rounded-full border transition-all ${
-                      modoDorsal === "jugador"
-                        ? "border-[#E50914] bg-[#E50914]/30"
-                        : "border-[#333] hover:border-[#E50914]/50"
-                    }`}
-                  >
-                    Escoger jugador
-                  </button>
-                  <button
-                    onClick={() => setModoDorsal("personalizado")}
-                    className={`px-5 py-2 rounded-full border transition-all ${
-                      modoDorsal === "personalizado"
-                        ? "border-[#E50914] bg-[#E50914]/30"
-                        : "border-[#333] hover:border-[#E50914]/50"
-                    }`}
-                  >
-                    Personalizado
-                  </button>
-                </div>
+            <AnimatePresence>
+              {quiereDorsal && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.3 }}
+                  className="mt-4 space-y-4"
+                >
+                  {/* Modo dorsal */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setModoDorsal("jugador")}
+                      className={`px-5 py-2 rounded-full border transition-all ${
+                        modoDorsal === "jugador"
+                          ? "border-[#E50914] bg-[#E50914]/30"
+                          : "border-[#333] hover:border-[#E50914]/50"
+                      }`}
+                    >
+                      Escoger jugador
+                    </button>
+                    <button
+                      onClick={() => setModoDorsal("personalizado")}
+                      className={`px-5 py-2 rounded-full border transition-all ${
+                        modoDorsal === "personalizado"
+                          ? "border-[#E50914] bg-[#E50914]/30"
+                          : "border-[#333] hover:border-[#E50914]/50"
+                      }`}
+                    >
+                      Personalizado
+                    </button>
+                  </div>
 
-                {/* Lista de jugadores */}
-                {modoDorsal === "jugador" && (
-                  <div className="relative w-full max-w-md">
-                    <div className="bg-[#111]/70 backdrop-blur-md border border-[#333] rounded-lg px-4 py-3 shadow-lg transition-all hover:border-[#E50914]/50">
+                  {/* Jugador oficial */}
+                  {modoDorsal === "jugador" && (
+                    <div className="relative w-full max-w-md">
                       <select
                         value={jugadorSeleccionado}
-                        onChange={(e) => setJugadorSeleccionado(e.target.value)}
-                        className="w-full bg-transparent text-gray-100 outline-none text-sm appearance-none cursor-pointer"
+                        onChange={(e) =>
+                          setJugadorSeleccionado(e.target.value)
+                        }
+                        className="w-full bg-transparent border border-[#333] rounded-lg px-4 py-2 text-sm text-gray-200 focus:border-[#E50914]/70 outline-none backdrop-blur-md"
                       >
                         <option value="">Selecciona jugador...</option>
                         {opciones?.dorsales
@@ -327,53 +396,49 @@ export default function ProductoDetalle() {
                           .map((d, i) => (
                             <option
                               key={i}
-                              value={d.jugador}
-                              className="bg-[#0A0A0A] text-gray-100 hover:bg-[#E50914]/20"
+                              value={`${d.numero} - ${d.jugador}`}
                             >
                               {d.numero ? `${d.numero}. ${d.jugador}` : d.jugador}
                             </option>
                           ))}
                       </select>
                     </div>
-                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none">
-                      ▼
-                    </span>
-                  </div>
-                )}
+                  )}
 
-                {/* Personalizado */}
-                {modoDorsal === "personalizado" && (
-                  <div className="flex gap-3 items-center">
-                    <input
-                      type="text"
-                      placeholder="Número (1-99)"
-                      value={numeroPersonalizado}
-                      onChange={handleNumeroChange}
-                      maxLength={2}
-                      className="w-20 bg-transparent border border-[#333] rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-[#E50914]/70 outline-none backdrop-blur-md text-center"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Nombre (máx. 12)"
-                      value={nombrePersonalizado}
-                      onChange={handleNombreChange}
-                      className="flex-1 bg-transparent border border-[#333] rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-[#E50914]/70 outline-none backdrop-blur-md"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+                  {/* Personalizado */}
+                  {modoDorsal === "personalizado" && (
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="text"
+                        placeholder="Número (1-99)"
+                        value={numeroPersonalizado}
+                        onChange={handleNumeroChange}
+                        maxLength={2}
+                        className="w-20 bg-transparent border border-[#333] rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-[#E50914]/70 outline-none backdrop-blur-md text-center"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nombre (máx. 12)"
+                        value={nombrePersonalizado}
+                        onChange={handleNombreChange}
+                        className="flex-1 bg-transparent border border-[#333] rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-[#E50914]/70 outline-none backdrop-blur-md"
+                      />
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* 🛒 Botones finales */}
-          <div className="flex gap-4 pt-6">
-            <Button className="flex-1 py-3" onClick={handleAddToCart}>
-              Agregar al carrito
+          {/* Botones finales */}
+          <div className="flex gap-4 pt-4">
+            <Button onClick={handleAddToCart} className="flex-1 py-3">
+              Añadir al carrito
             </Button>
             <Button
               variant="outline"
-              className="flex-1 py-3"
               onClick={() => router.push("/catalogo")}
+              className="flex-1 py-3"
             >
               Volver
             </Button>
@@ -381,21 +446,22 @@ export default function ProductoDetalle() {
         </motion.div>
       </div>
 
-      {/* ✅ Toast de producto añadido */}
+      {/* ✅ TOAST */}
       <AnimatePresence>
         {showToast && (
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
             className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-xl border border-white/10 bg-white/10 backdrop-blur-md shadow-lg text-white text-sm flex items-center gap-2"
           >
             <span className="inline-block w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse" />
-            Producto añadido al carrito
+            Añadido al carrito correctamente
           </motion.div>
         )}
       </AnimatePresence>
-    </main>
+    </motion.main>
   );
 }
+

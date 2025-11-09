@@ -24,8 +24,10 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errores, setErrores] = useState({});
   const anticipo = total * 0.5;
+  const API_URL = "/api/proxy";
 
-  // === LISTADO DE DEPARTAMENTOS Y MUNICIPIOS ===
+
+  // === LISTADO DE DEPARTAMENTOS Y MUNICIPIOS (completo) ===
   const departamentos = {
     "Atlántida": ["La Ceiba", "Tela", "Jutiapa", "La Masica", "San Francisco", "Arizona", "El Porvenir", "Esparta"],
     "Colón": ["Trujillo", "Tocoa", "Sonaguera", "Balfate", "Santa Fe", "Santa Rosa de Aguán", "Limón", "Iriona", "Bonito Oriental", "Juan Francisco Bulnes"],
@@ -45,10 +47,10 @@ export default function CheckoutPage() {
     "Santa Bárbara": ["Santa Bárbara", "Arada", "Atima", "Azacualpa", "Ceguaca", "Concepción del Norte", "Concepción del Sur", "Chinda", "El Níspero", "Gualala", "Ilama", "Las Vegas", "Macuelizo", "Naranjito", "Nueva Frontera", "Nuevo Celilac", "Petoa", "Protección", "Quimistán", "San Francisco de Ojuera", "San José de Colinas", "San Luis", "San Marcos", "San Nicolás", "San Pedro Zacapa", "Santa Rita", "San Vicente Centenario", "Trinidad", "Las Vegas", "Teupasenti"],
     "Valle": ["Nacaome", "Alianza", "Amapala", "Aramecina", "Caridad", "Goascorán", "Langue", "San Francisco de Coray", "San Lorenzo"],
     "Yoro": ["El Progreso", "Olanchito", "Yoro", "Arenal", "El Negrito", "Jocón", "Morazán", "Olanchito", "Santa Rita", "Sulaco", "Victoria", "Yorito"]
-}
+  };
 
-  // === Mapa geográfico básico (coordenadas promedio)
-const zonas = [
+  // === Mapa geográfico básico (coordenadas promedio) ===
+  const zonas = [
     { nombre: "Tegucigalpa", lat: 14.0723, lon: -87.1921, departamento: "Francisco Morazán" },
     { nombre: "San Pedro Sula", lat: 15.5, lon: -88.0333, departamento: "Cortés" },
     { nombre: "La Ceiba", lat: 15.7631, lon: -86.7967, departamento: "Atlántida" },
@@ -84,7 +86,6 @@ const zonas = [
     { nombre: "Sonaguera", lat: 15.6333, lon: -86.2667, departamento: "Colón" },
     { nombre: "Copán Ruinas", lat: 14.8333, lon: -89.15, departamento: "Copán" },
     { nombre: "Santa Rita", lat: 15.1667, lon: -87.2833, departamento: "Yoro" },
-    { nombre: "Yuscarán", lat: 13.95, lon: -86.85, departamento: "El Paraíso" },
     { nombre: "Valle de Ángeles", lat: 14.15, lon: -87.0333, departamento: "Francisco Morazán" },
     { nombre: "Santa Lucía", lat: 14.1, lon: -87.1167, departamento: "Francisco Morazán" },
     { nombre: "San Juan de Flores", lat: 14.2667, lon: -87.0333, departamento: "Francisco Morazán" },
@@ -99,9 +100,9 @@ const zonas = [
     { nombre: "El Paraíso", lat: 13.8667, lon: -86.55, departamento: "El Paraíso" },
     { nombre: "Yoro", lat: 15.1333, lon: -87.1333, departamento: "Yoro" },
     { nombre: "Morazán", lat: 15.3167, lon: -87.6, departamento: "Yoro" }
-];
+  ];
 
-  // === GEOLOCALIZACIÓN AUTOMÁTICA ===
+  // === GEOLOCALIZACIÓN AUTOMÁTICA (auto-fill departamento/municipio) ===
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -132,48 +133,7 @@ const zonas = [
     }
   }, []);
 
-  // === SCRIPT DE TILOPAY ===
-useEffect(() => {
-  if (metodoPago === "tarjeta") {
-    // Limpiamos si ya existía un botón previo
-    const container = document.getElementById("tilopay-container");
-    container.innerHTML = "";
-
-    // Creamos el botón <a> de pago
-    const link = document.createElement("a");
-    link.id = "tlpmbd-btn-pay";
-    link.href = "https://tp.cr/s/MjQ1NzEy"; // 🔗 tu link de pago
-    link.target = "_blank";
-    link.innerText = "Pagar con Tilopay";
-    link.setAttribute("referer", "https://storage.googleapis.com/tilo-uploads/assets");
-    link.setAttribute("amount", anticipo.toFixed(2)); // 💵 monto dinámico
-    link.setAttribute("currency", "HNL");
-
-    // Añadimos el botón al contenedor
-    container.appendChild(link);
-
-    // Cargamos el script de Tilopay
-    const script = document.createElement("script");
-    script.id = "tlpmbd-platform";
-    script.src =
-      "https://storage.googleapis.com/tilo-uploads/assets/js/embed.js?generation=1673969891224302";
-    script.async = true;
-    script.onload = () => {
-      if (typeof window.tlpmbdInit === "function") window.tlpmbdInit();
-    };
-
-    document.body.appendChild(script);
-
-    // Limpieza al desmontar
-    return () => {
-      document.body.removeChild(script);
-      container.innerHTML = "";
-    };
-  }
-}, [metodoPago, anticipo]);
-
-
-  // === FORMATO AUTOMÁTICO DEL TELÉFONO ===
+  // === FORMATEO DEL TELÉFONO ===
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "telefono") {
@@ -201,56 +161,128 @@ useEffect(() => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // === ENVÍO DEL PEDIDO ===
-  const handleSubmit = (e) => {
+  // === ENVÍO COMPLETO: REGISTRO CLIENTE + PEDIDO ===
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
       alert("Por favor completa todos los campos correctamente.");
       return;
     }
-
-    const pedido = { ...formData, metodoPago, items, total, anticipo };
-    localStorage.setItem("pedido90mas5", JSON.stringify(pedido));
     setIsSubmitting(true);
 
-    if (metodoPago === "transferencia") {
-      router.push("/checkout/transferencia");
-    } else if (metodoPago === "whatsapp") {
-      const mensaje = encodeURIComponent(
-        `Hola 👋, quiero confirmar mi pedido en *90+5 Store*:\n\n` +
-          items
-            .map(
-              (item) =>
-                `• ${item.equipo} - ${item.modelo} - Talla ${item.talla} x${item.cantidad} = L${item.precio * item.cantidad}`
-            )
-            .join("\n") +
-          `\n\n*Total:* L${total.toFixed(2)}\n*Anticipo (50%):* L${anticipo.toFixed(
-            2
-          )}\n\n*Cliente:* ${formData.nombre}\n📞 ${formData.telefono}\n📍 ${formData.direccion}`
-      );
-      window.open(`https://wa.me/504XXXXXXXX?text=${mensaje}`, "_blank");
-      clearCart();
+    try {
+      // 1️⃣ Registrar cliente
+      const clientPayload = {
+        nombre: formData.nombre,
+        correo: formData.correo,
+        telefono: "+504" + formData.telefono.replace("-", ""),
+        pais: "Honduras",
+        ciudad: formData.municipio,
+        direccion: formData.direccion,
+      };
+
+      const clientRes = await fetch(API_URL, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    action: "registerOrUpdateClient",
+    payload: clientPayload,
+  }),
+});
+
+      const clientData = await clientRes.json();
+if (!clientData.success) throw new Error("No se pudo registrar cliente.");
+const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
+
+      // 2️⃣ Guardar pedido
+      const orderPayload = {
+        cliente: idCliente,
+        clienteEmail: formData.correo,
+        clienteTelefono: "+504" + formData.telefono.replace("-", ""),
+        pais: "Honduras",
+        departamento: formData.departamento,
+        municipio: formData.municipio,
+        direccion: formData.direccion,
+        metodoPago,
+        notasCliente: "",
+        items: items.map((item) => ({
+          idProducto: item.id,
+          equipo: item.equipo,
+          modelo: item.modelo,
+          liga: item.liga,
+          tipo: item.tipo || "",
+          version: item.version || "",
+          talla: item.talla || "",
+          color: item.color || "",
+          cantidad: item.cantidad,
+          precioUnitario: item.precio,
+          dorsalNumero: item.dorsalNumero || "",
+          dorsalNombre: item.dorsalNombre || "",
+          parches: item.parche ? [item.parche] : [],
+        })),
+      };
+
+      const orderRes = await fetch(API_URL, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    action: "saveOrder",
+    payload: orderPayload,
+  }),
+});
+
+      const orderData = await orderRes.json();
+
+      if (orderData.success) {
+        clearCart();
+        if (metodoPago === "whatsapp") {
+          window.open(orderData.whatsappLink, "_blank");
+        } else if (metodoPago === "transferencia") {
+          router.push("/checkout/transferencia");
+        } else {
+          alert("✅ Pedido registrado correctamente.");
+        }
+      } else {
+        alert("❌ Error al guardar pedido: " + (orderData.error || "Desconocido"));
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error al procesar el pedido. Intenta nuevamente.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // === SCRIPT DE TILOPAY ===
+  // === TILOPAY ===
   useEffect(() => {
     if (metodoPago === "tarjeta") {
+      const container = document.getElementById("tilopay-container");
+      if (container) container.innerHTML = "";
+      const link = document.createElement("a");
+      link.id = "tlpmbd-btn-pay";
+      link.href = "https://tp.cr/s/MjQ1NzEy";
+      link.target = "_blank";
+      link.innerText = "Pagar con Tilopay";
+      link.setAttribute("amount", anticipo.toFixed(2));
+      link.setAttribute("currency", "HNL");
+      container?.appendChild(link);
+
       const script = document.createElement("script");
-      script.src = "https://storage.googleapis.com/tilo-uploads/a.js";
+      script.src =
+        "https://storage.googleapis.com/tilo-uploads/assets/js/embed.js";
       script.async = true;
       script.onload = () => {
-        const payBtn = document.getElementById("tlpmbd-btn-pay");
-        if (payBtn) {
-          payBtn.setAttribute("amount", anticipo.toFixed(2));
-          payBtn.setAttribute("currency", "HNL");
-        }
+        if (typeof window.tlpmbdInit === "function") window.tlpmbdInit();
       };
       document.body.appendChild(script);
-      return () => document.body.removeChild(script);
+      return () => {
+        document.body.removeChild(script);
+        if (container) container.innerHTML = "";
+      };
     }
   }, [metodoPago, anticipo]);
 
+  // === UI ===
   if (items.length === 0) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
@@ -273,7 +305,6 @@ useEffect(() => {
           <h2 className="text-2xl font-bold mb-6 text-[#E50914]">
             Detalles de facturación
           </h2>
-
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Nombre */}
             <div>
@@ -328,50 +359,58 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Departamento */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Departamento *
-              </label>
-              <select
-                name="departamento"
-                value={formData.departamento}
-                onChange={handleChange}
-                className={`w-full p-3 rounded-lg bg-black/30 border ${
-                  errores.departamento ? "border-red-500/70" : "border-white/10"
-                } text-white focus:ring-2 focus:ring-[#E50914]/50 outline-none`}
-              >
-                <option value="">Selecciona un departamento</option>
-                {Object.keys(departamentos).map((dep) => (
-                  <option key={dep} value={dep}>
-                    {dep}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Municipio */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Municipio *
-              </label>
-              <select
-                name="municipio"
-                value={formData.municipio}
-                onChange={handleChange}
-                disabled={!formData.departamento}
-                className={`w-full p-3 rounded-lg bg-black/30 border ${
-                  errores.municipio ? "border-red-500/70" : "border-white/10"
-                } text-white focus:ring-2 focus:ring-[#E50914]/50 outline-none disabled:opacity-50`}
-              >
-                <option value="">Selecciona un municipio</option>
-                {formData.departamento &&
-                  departamentos[formData.departamento]?.map((mun) => (
-                    <option key={mun} value={mun}>
-                      {mun}
+            {/* Departamento y municipio */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Departamento *
+                </label>
+                <select
+                  name="departamento"
+                  value={formData.departamento}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      departamento: e.target.value,
+                      municipio: "",
+                    })
+                  }
+                  className={`w-full p-3 rounded-lg bg-black/30 border ${
+                    errores.departamento
+                      ? "border-red-500/70"
+                      : "border-white/10"
+                  } text-white focus:ring-2 focus:ring-[#E50914]/50 outline-none`}
+                >
+                  <option value="">Selecciona un departamento</option>
+                  {Object.keys(departamentos).map((dep) => (
+                    <option key={dep} value={dep}>
+                      {dep}
                     </option>
                   ))}
-              </select>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Municipio *
+                </label>
+                <select
+                  name="municipio"
+                  value={formData.municipio}
+                  onChange={handleChange}
+                  disabled={!formData.departamento}
+                  className={`w-full p-3 rounded-lg bg-black/30 border ${
+                    errores.municipio ? "border-red-500/70" : "border-white/10"
+                  } text-white focus:ring-2 focus:ring-[#E50914]/50 outline-none disabled:opacity-50`}
+                >
+                  <option value="">Selecciona un municipio</option>
+                  {formData.departamento &&
+                    departamentos[formData.departamento]?.map((mun) => (
+                      <option key={mun} value={mun}>
+                        {mun}
+                      </option>
+                    ))}
+                </select>
+              </div>
             </div>
 
             {/* Dirección */}
@@ -395,36 +434,67 @@ useEffect(() => {
         {/* 🛒 RESUMEN DEL PEDIDO */}
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-lg h-fit">
           <h2 className="text-2xl font-bold mb-6 text-[#E50914]">Tu pedido</h2>
-
           <div className="space-y-4 mb-6">
-            {items.map((item) => (
-              <div
-                key={item.id + item.talla}
-                className="flex items-center justify-between border-b border-white/10 pb-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative w-14 h-14 rounded-md overflow-hidden bg-white/10">
-                    <Image
-                      src={item.imagen}
-                      alt={item.equipo}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-white">
-                      {item.equipo}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {item.modelo} - {item.talla}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-white">
-                  L{(item.precio * item.cantidad).toFixed(2)}
-                </span>
-              </div>
-            ))}
+ {items.map((item) => (
+  <div
+    key={`${item.id}-${item.talla}-${item.version || "base"}`}
+    className="flex items-center justify-between border-b border-white/10 pb-3"
+  >
+    <div className="flex items-center gap-3">
+      <div className="relative w-14 h-14 rounded-md overflow-hidden bg-white/10">
+        <Image
+          src={item.imagen}
+          alt={item.equipo}
+          fill
+          className="object-cover"
+        />
+      </div>
+
+      <div className="flex flex-col leading-tight">
+        {/* 🏟️ Equipo */}
+        <p className="text-sm font-medium text-white">
+          {item.equipo}
+        </p>
+
+        {/* 🧢 Modelo + Versión */}
+        <p className="text-xs text-gray-400">
+          {item.modelo}
+          {item.version ? ` · ${item.version}` : ""}
+        </p>
+
+        {/* 📏 Talla */}
+        {item.talla && (
+          <p className="text-xs text-gray-500 italic">
+            Talla: {item.talla}
+          </p>
+        )}
+
+        {/* 🩶 Parche */}
+        {item.parche && (
+          <p className="text-xs text-gray-500 italic">
+            Parche: {item.parche}
+          </p>
+        )}
+
+        {/* 🎽 Dorsal */}
+        {(item.dorsalNumero || item.dorsalNombre) && (
+          <p className="text-xs text-gray-500 italic">
+            Dorsal:{" "}
+            {item.dorsalNumero && `${item.dorsalNumero} `}
+            {item.dorsalNombre && `- ${item.dorsalNombre}`}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {/* 💰 Precio total del ítem */}
+    <span className="text-sm font-semibold text-white whitespace-nowrap">
+      L{(item.precio * item.cantidad).toFixed(2)}
+    </span>
+  </div>
+))}
+
+
           </div>
 
           <div className="border-t border-white/10 pt-4 space-y-1 text-sm">
@@ -447,46 +517,43 @@ useEffect(() => {
             <p className="text-sm text-gray-400 mb-2">
               Selecciona tu método de pago *
             </p>
-            <div className="flex flex-col gap-2">
-              {[
-                { value: "transferencia", label: "Transferencia bancaria" },
-                { value: "tarjeta", label: "Tarjeta de débito / crédito (Tilopay)" },
-                { value: "whatsapp", label: "Confirmar por WhatsApp" },
-              ].map((opt) => (
-                <label
-                  key={opt.value}
-                  className={`flex items-center justify-between p-3 rounded-lg border transition cursor-pointer ${
-                    metodoPago === opt.value
-                      ? "border-[#E50914] bg-[#E50914]/20"
-                      : "border-white/10 hover:border-[#E50914]/40"
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  <input
-                    type="radio"
-                    name="metodoPago"
-                    value={opt.value}
-                    checked={metodoPago === opt.value}
-                    onChange={(e) => setMetodoPago(e.target.value)}
-                    className="accent-[#E50914]"
-                  />
-                </label>
-              ))}
-            </div>
+            {["transferencia", "tarjeta", "whatsapp"].map((opt) => (
+              <label
+                key={opt}
+                className={`flex items-center justify-between p-3 rounded-lg border transition cursor-pointer ${
+                  metodoPago === opt
+                    ? "border-[#E50914] bg-[#E50914]/20"
+                    : "border-white/10 hover:border-[#E50914]/40"
+                }`}
+              >
+                <span>
+                  {opt === "tarjeta"
+                    ? "Tarjeta (Tilopay)"
+                    : opt === "whatsapp"
+                    ? "Confirmar por WhatsApp"
+                    : "Transferencia bancaria"}
+                </span>
+                <input
+                  type="radio"
+                  name="metodoPago"
+                  value={opt}
+                  checked={metodoPago === opt}
+                  onChange={(e) => setMetodoPago(e.target.value)}
+                  className="accent-[#E50914]"
+                />
+              </label>
+            ))}
           </div>
 
-          {/* 💳 Tilopay embed solo si elige Tarjeta */}
-{metodoPago === "tarjeta" && (
-  <div className="mt-6 p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-lg text-center">
-    <p className="text-gray-300 mb-3">
-      Completa tu pago con tarjeta a través de Tilopay:
-    </p>
-
-    {/* Botón de Tilopay (insertado dinámicamente) */}
-    <div id="tilopay-container" className="flex justify-center"></div>
-  </div>
-)}
-
+          {/* Tilopay */}
+          {metodoPago === "tarjeta" && (
+            <div className="mt-6 p-4 rounded-2xl border border-white/10 bg-white/5 text-center">
+              <p className="text-gray-300 mb-3">
+                Completa tu pago con tarjeta a través de Tilopay:
+              </p>
+              <div id="tilopay-container" className="flex justify-center"></div>
+            </div>
+          )}
 
           {/* Botón Confirmar */}
           {metodoPago !== "tarjeta" && (
