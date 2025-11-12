@@ -40,7 +40,7 @@ export default function Loader({ show = true, text = "Cargando..." }) {
             className="relative z-10 flex flex-col items-center"
           >
             <Image
-              src="/logo.png"
+              src="/logo.svg"
               alt="90+5 Store"
               width={96}
               height={96}
