@@ -2,17 +2,18 @@
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Button from "../../components/ui/Button";
 import { useCart } from "../../context/CartContext";
+import useToastMessage from "../../hooks/useToastMessage";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, total, clearCart } = useCart();
+  const toastMsg = useToastMessage();
 
   const [formData, setFormData] = useState({
     nombre: "",
@@ -29,8 +30,7 @@ export default function CheckoutPage() {
   const anticipo = total * 0.5;
   const API_URL = "/api/proxy";
 
-
-  // === LISTADO DE DEPARTAMENTOS Y MUNICIPIOS (completo) ===
+  // === DEPARTAMENTOS Y MUNICIPIOS ===
   const departamentos = {
     "Atlántida": ["La Ceiba", "Tela", "Jutiapa", "La Masica", "San Francisco", "Arizona", "El Porvenir", "Esparta"],
     "Colón": ["Trujillo", "Tocoa", "Sonaguera", "Balfate", "Santa Fe", "Santa Rosa de Aguán", "Limón", "Iriona", "Bonito Oriental", "Juan Francisco Bulnes"],
@@ -52,9 +52,9 @@ export default function CheckoutPage() {
     "Yoro": ["El Progreso", "Olanchito", "Yoro", "Arenal", "El Negrito", "Jocón", "Morazán", "Olanchito", "Santa Rita", "Sulaco", "Victoria", "Yorito"]
   };
 
-  // === Mapa geográfico básico (coordenadas promedio) ===
+  // === ZONAS GEOLOCALIZACIÓN ===
   const zonas = [
-    { nombre: "Tegucigalpa", lat: 14.0723, lon: -87.1921, departamento: "Francisco Morazán" },
+   { nombre: "Tegucigalpa", lat: 14.0723, lon: -87.1921, departamento: "Francisco Morazán" },
     { nombre: "San Pedro Sula", lat: 15.5, lon: -88.0333, departamento: "Cortés" },
     { nombre: "La Ceiba", lat: 15.7631, lon: -86.7967, departamento: "Atlántida" },
     { nombre: "Comayagua", lat: 14.4514, lon: -87.637, departamento: "Comayagua" },
@@ -89,6 +89,7 @@ export default function CheckoutPage() {
     { nombre: "Sonaguera", lat: 15.6333, lon: -86.2667, departamento: "Colón" },
     { nombre: "Copán Ruinas", lat: 14.8333, lon: -89.15, departamento: "Copán" },
     { nombre: "Santa Rita", lat: 15.1667, lon: -87.2833, departamento: "Yoro" },
+    { nombre: "Yuscarán", lat: 13.95, lon: -86.85, departamento: "El Paraíso" },
     { nombre: "Valle de Ángeles", lat: 14.15, lon: -87.0333, departamento: "Francisco Morazán" },
     { nombre: "Santa Lucía", lat: 14.1, lon: -87.1167, departamento: "Francisco Morazán" },
     { nombre: "San Juan de Flores", lat: 14.2667, lon: -87.0333, departamento: "Francisco Morazán" },
@@ -105,7 +106,6 @@ export default function CheckoutPage() {
     { nombre: "Morazán", lat: 15.3167, lon: -87.6, departamento: "Yoro" }
   ];
 
-  // === GEOLOCALIZACIÓN AUTOMÁTICA (auto-fill departamento/municipio) ===
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -114,15 +114,14 @@ export default function CheckoutPage() {
           let masCercano = null;
           let menorDist = Infinity;
           for (const zona of zonas) {
-            const d = Math.sqrt(
-              Math.pow(latitude - zona.lat, 2) + Math.pow(longitude - zona.lon, 2)
-            );
+            const d = Math.sqrt(Math.pow(latitude - zona.lat, 2) + Math.pow(longitude - zona.lon, 2));
             if (d < menorDist) {
               menorDist = d;
               masCercano = zona;
             }
           }
           if (masCercano) {
+            toastMsg.success(`📍 Ubicación detectada: ${masCercano.nombre}`);
             setFormData((prev) => ({
               ...prev,
               departamento: masCercano.departamento,
@@ -130,24 +129,11 @@ export default function CheckoutPage() {
             }));
           }
         },
-        (err) => console.log("Ubicación no permitida:", err),
-        { enableHighAccuracy: false, timeout: 5000 }
+        () => {},
+        { timeout: 5000 }
       );
     }
   }, []);
-
-  // === FORMATEO DEL TELÉFONO ===
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === "telefono") {
-      const digits = value.replace(/\D/g, "").slice(0, 8);
-      const formatted =
-        digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
-      setFormData({ ...formData, telefono: formatted });
-      return;
-    }
-    setFormData({ ...formData, [name]: value });
-  };
 
   // === VALIDACIÓN ===
   const validate = () => {
@@ -159,22 +145,34 @@ export default function CheckoutPage() {
     if (!formData.direccion.trim()) newErrors.direccion = true;
     if (!formData.departamento) newErrors.departamento = true;
     if (!formData.municipio) newErrors.municipio = true;
-    if (!metodoPago) newErrors.metodoPago = true;
+    if (!metodoPago.trim()) newErrors.metodoPago = true;
     setErrores(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // === ENVÍO COMPLETO: REGISTRO CLIENTE + PEDIDO ===
+  // === INPUT HANDLER ===
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "telefono") {
+      const digits = value.replace(/\D/g, "").slice(0, 8);
+      const formatted = digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
+      setFormData({ ...formData, telefono: formatted });
+      return;
+    }
+    setFormData({ ...formData, [name]: value });
+  };
+
+  // === SUBMIT ===
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
-      alert("Por favor completa todos los campos correctamente.");
+      toastMsg.error("⚠️ Completa todos los campos obligatorios.");
       return;
     }
+
     setIsSubmitting(true);
 
     try {
-      // 1️⃣ Registrar cliente
       const clientPayload = {
         nombre: formData.nombre,
         correo: formData.correo,
@@ -185,19 +183,16 @@ export default function CheckoutPage() {
       };
 
       const clientRes = await fetch(API_URL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    action: "registerOrUpdateClient",
-    payload: clientPayload,
-  }),
-});
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "registerOrUpdateClient", payload: clientPayload }),
+      });
 
       const clientData = await clientRes.json();
-if (!clientData.success) throw new Error("No se pudo registrar cliente.");
-const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
+      if (!clientData.success) throw new Error("No se pudo registrar cliente.");
 
-      // 2️⃣ Guardar pedido
+      const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
+
       const orderPayload = {
         cliente: idCliente,
         clienteEmail: formData.correo,
@@ -207,12 +202,11 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
         municipio: formData.municipio,
         direccion: formData.direccion,
         metodoPago,
-        notasCliente: "",
         items: items.map((item) => ({
           idProducto: item.id,
           equipo: item.equipo,
           modelo: item.modelo,
-          liga: item.liga,
+          liga: item.liga || "",
           tipo: item.tipo || "",
           version: item.version || "",
           talla: item.talla || "",
@@ -226,31 +220,34 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
       };
 
       const orderRes = await fetch(API_URL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    action: "saveOrder",
-    payload: orderPayload,
-  }),
-});
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "saveOrder", payload: orderPayload }),
+      });
 
       const orderData = await orderRes.json();
+      if (!orderData.success) throw new Error(orderData.error || "Error al guardar pedido.");
 
-      if (orderData.success) {
-        clearCart();
-        if (metodoPago === "whatsapp") {
-          window.open(orderData.whatsappLink, "_blank");
-        } else if (metodoPago === "transferencia") {
-          router.push("/checkout/transferencia");
-        } else {
-          alert("✅ Pedido registrado correctamente.");
-        }
-      } else {
-        alert("❌ Error al guardar pedido: " + (orderData.error || "Desconocido"));
+      clearCart();
+      toastMsg.success("✅ Pedido registrado correctamente.");
+
+      const query = new URLSearchParams({
+        orderId: orderData.idPedido || "ORD-" + Date.now(),
+        metodo: metodoPago,
+        nombre: formData.nombre,
+        total: total.toFixed(2),
+        municipio: formData.municipio,
+        departamento: formData.departamento,
+      }).toString();
+
+      if (metodoPago === "whatsapp" && orderData.whatsappLink) {
+        window.open(orderData.whatsappLink, "_blank");
       }
+
+      router.push(`/checkout/done?${query}`);
     } catch (error) {
       console.error(error);
-      alert("Error al procesar el pedido. Intenta nuevamente.");
+      toastMsg.error("❌ Error al procesar el pedido. Intenta nuevamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -269,14 +266,10 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
       link.setAttribute("amount", anticipo.toFixed(2));
       link.setAttribute("currency", "HNL");
       container?.appendChild(link);
-
       const script = document.createElement("script");
-      script.src =
-        "https://storage.googleapis.com/tilo-uploads/assets/js/embed.js";
+      script.src = "https://storage.googleapis.com/tilo-uploads/assets/js/embed.js";
       script.async = true;
-      script.onload = () => {
-        if (typeof window.tlpmbdInit === "function") window.tlpmbdInit();
-      };
+      script.onload = () => typeof window.tlpmbdInit === "function" && window.tlpmbdInit();
       document.body.appendChild(script);
       return () => {
         document.body.removeChild(script);
@@ -303,17 +296,13 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
         transition={{ duration: 0.8 }}
         className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10"
       >
-        {/* 🧾 DETALLES DEL CLIENTE */}
+        {/* 🧾 FORMULARIO CLIENTE */}
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-lg">
-          <h2 className="text-2xl font-bold mb-6 text-[#E50914]">
-            Detalles de facturación
-          </h2>
+          <h2 className="text-2xl font-bold mb-6 text-[#E50914]">Detalles de facturación</h2>
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Nombre */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Nombre completo *
-              </label>
+              <label className="block text-sm text-gray-400 mb-2">Nombre completo *</label>
               <input
                 name="nombre"
                 value={formData.nombre}
@@ -323,12 +312,9 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
                 } focus:ring-2 focus:ring-[#E50914]/50 outline-none text-white`}
               />
             </div>
-
             {/* Correo */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Correo electrónico *
-              </label>
+              <label className="block text-sm text-gray-400 mb-2">Correo electrónico *</label>
               <input
                 type="email"
                 name="correo"
@@ -339,16 +325,11 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
                 } focus:ring-2 focus:ring-[#E50914]/50 outline-none text-white`}
               />
             </div>
-
             {/* Teléfono */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Teléfono *
-              </label>
+              <label className="block text-sm text-gray-400 mb-2">Teléfono *</label>
               <div className="flex items-center gap-2">
-                <span className="text-white/70 bg-black/30 border border-white/10 px-3 py-2 rounded-lg">
-                  +504
-                </span>
+                <span className="text-white/70 bg-black/30 border border-white/10 px-3 py-2 rounded-lg">+504</span>
                 <input
                   type="text"
                   name="telefono"
@@ -361,27 +342,18 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
                 />
               </div>
             </div>
-
             {/* Departamento y municipio */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">
-                  Departamento *
-                </label>
+                <label className="block text-sm text-gray-400 mb-2">Departamento *</label>
                 <select
                   name="departamento"
                   value={formData.departamento}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      departamento: e.target.value,
-                      municipio: "",
-                    })
+                    setFormData({ ...formData, departamento: e.target.value, municipio: "" })
                   }
                   className={`w-full p-3 rounded-lg bg-black/30 border ${
-                    errores.departamento
-                      ? "border-red-500/70"
-                      : "border-white/10"
+                    errores.departamento ? "border-red-500/70" : "border-white/10"
                   } text-white focus:ring-2 focus:ring-[#E50914]/50 outline-none`}
                 >
                   <option value="">Selecciona un departamento</option>
@@ -393,9 +365,7 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">
-                  Municipio *
-                </label>
+                <label className="block text-sm text-gray-400 mb-2">Municipio *</label>
                 <select
                   name="municipio"
                   value={formData.municipio}
@@ -415,12 +385,9 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
                 </select>
               </div>
             </div>
-
             {/* Dirección */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Dirección de entrega *
-              </label>
+              <label className="block text-sm text-gray-400 mb-2">Dirección de entrega *</label>
               <textarea
                 name="direccion"
                 rows="3"
@@ -434,92 +401,64 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
           </form>
         </div>
 
-        {/* 🛒 RESUMEN DEL PEDIDO */}
+        {/* 🛒 RESUMEN PEDIDO */}
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-lg h-fit">
           <h2 className="text-2xl font-bold mb-6 text-[#E50914]">Tu pedido</h2>
           <div className="space-y-4 mb-6">
- {items.map((item) => (
-  <div
-    key={`${item.id}-${item.talla}-${item.version || "base"}`}
-    className="flex items-center justify-between border-b border-white/10 pb-3"
-  >
-    <div className="flex items-center gap-3">
-      <div className="relative w-14 h-14 rounded-md overflow-hidden bg-white/10">
-        <Image
-          src={item.imagen}
-          alt={item.equipo}
-          fill
-          className="object-cover"
-        />
-      </div>
-
-      <div className="flex flex-col leading-tight">
-        {/* 🏟️ Equipo */}
-        <p className="text-sm font-medium text-white">
-          {item.equipo}
-        </p>
-
-        {/* 🧢 Modelo + Versión */}
-        <p className="text-xs text-gray-400">
-          {item.modelo}
-          {item.version ? ` · ${item.version}` : ""}
-        </p>
-
-        {/* 📏 Talla */}
-        {item.talla && (
-          <p className="text-xs text-gray-500 italic">
-            Talla: {item.talla}
-          </p>
-        )}
-
-        {/* 🩶 Parche */}
-        {item.parche && (
-          <p className="text-xs text-gray-500 italic">
-            Parche: {item.parche}
-          </p>
-        )}
-
-        {/* 🎽 Dorsal */}
-        {(item.dorsalNumero || item.dorsalNombre) && (
-          <p className="text-xs text-gray-500 italic">
-            Dorsal:{" "}
-            {item.dorsalNumero && `${item.dorsalNumero} `}
-            {item.dorsalNombre && `- ${item.dorsalNombre}`}
-          </p>
-        )}
-      </div>
-    </div>
-
-    {/* 💰 Precio total del ítem */}
-    <span className="text-sm font-semibold text-white whitespace-nowrap">
-      L{(item.precio * item.cantidad).toFixed(2)}
-    </span>
-  </div>
-))}
-
-
+            {items.map((item) => (
+              <div
+                key={`${item.id}-${item.talla}-${item.version || "base"}`}
+                className="flex items-center justify-between border-b border-white/10 pb-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative w-14 h-14 rounded-md overflow-hidden bg-white/10">
+                    <Image src={item.imagen} alt={item.equipo} fill className="object-cover" />
+                  </div>
+                  <div className="flex flex-col leading-tight">
+                    <p className="text-sm font-medium text-white">
+                      {item.equipo} <span className="text-gray-400">× {item.cantidad}</span>
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {item.modelo} {item.version && `· ${item.version}`}
+                    </p>
+                    {item.liga && <p className="text-xs text-gray-500 italic">Liga: {item.liga}</p>}
+                    {item.talla && <p className="text-xs text-gray-500 italic">Talla: {item.talla}</p>}
+                    {item.parche && <p className="text-xs text-gray-500 italic">Parche: {item.parche}</p>}
+                    {(item.dorsalNumero || item.dorsalNombre) && (
+                      <p className="text-xs text-gray-500 italic">
+                        Dorsal:{" "}
+                        {item.dorsalNumero && (
+                          <span className="text-white font-semibold">{item.dorsalNumero}</span>
+                        )}{" "}
+                        {item.dorsalNombre && (
+                          <span className="text-white font-semibold uppercase">- {item.dorsalNombre}</span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span className="text-sm font-semibold text-white whitespace-nowrap">
+                  L{(item.precio * item.cantidad).toFixed(2)}
+                </span>
+              </div>
+            ))}
           </div>
 
+          {/* Totales */}
           <div className="border-t border-white/10 pt-4 space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-white/70">Subtotal</span>
-              <span className="font-medium text-white">
-                L{total.toFixed(2)}
-              </span>
+              <span className="font-medium text-white">L{total.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/70">Anticipo (50%)</span>
-              <span className="font-semibold text-[#E50914]">
-                L{anticipo.toFixed(2)}
-              </span>
+              <span className="font-semibold text-[#E50914]">L{anticipo.toFixed(2)}</span>
             </div>
           </div>
 
           {/* Métodos de pago */}
           <div className="mt-6 space-y-3">
-            <p className="text-sm text-gray-400 mb-2">
-              Selecciona tu método de pago *
-            </p>
+            <p className="text-sm text-gray-400 mb-2">Selecciona tu método de pago *</p>
             {["transferencia", "tarjeta", "whatsapp"].map((opt) => (
               <label
                 key={opt}
@@ -548,23 +487,15 @@ const idCliente = clientData.idCliente || clientData.id || "CLI-TEMP";
             ))}
           </div>
 
-          {/* Tilopay */}
           {metodoPago === "tarjeta" && (
             <div className="mt-6 p-4 rounded-2xl border border-white/10 bg-white/5 text-center">
-              <p className="text-gray-300 mb-3">
-                Completa tu pago con tarjeta a través de Tilopay:
-              </p>
+              <p className="text-gray-300 mb-3">Completa tu pago con tarjeta a través de Tilopay:</p>
               <div id="tilopay-container" className="flex justify-center"></div>
             </div>
           )}
 
-          {/* Botón Confirmar */}
           {metodoPago !== "tarjeta" && (
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="w-full mt-6 py-3"
-            >
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full mt-6 py-3">
               {isSubmitting ? "Procesando..." : "Confirmar compra"}
             </Button>
           )}
