@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { User, LogOut } from "lucide-react";
 import HistorialPedidos from "../../components/perfil/HistorialPedidos";
 import DatosUsuario from "../../components/perfil/DatosUsuario";
-import Button from "../../components/ui/Button";
+import Button from "../../components/ui/MainButton";
 
 export default function PerfilPage() {
   const [usuario, setUsuario] = useState(null);

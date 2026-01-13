@@ -18,8 +18,11 @@ module.exports = {
         secondary: "#000000",
         accent: "#651FFF",
         background: "#0A0A0A",
+        surface: "#111111", // Color de tarjetas/superficies
+        "surface-highlight": "#222222", // Color de bordes/hovers
         textLight: "#FFFFFF",
         textDark: "#111111",
+        textMuted: "#9CA3AF", // gray-400
       },
 
       fontFamily: {
@@ -31,6 +34,7 @@ module.exports = {
         glowRed: "0 0 25px rgba(229,9,20,0.3)",
         glowWhite: "0 0 20px rgba(255,255,255,0.1)",
         glowSoft: "0 0 35px rgba(255,255,255,0.06)",
+        card: "0 0 25px rgba(0,0,0,0.5)",
       },
 
       // 🌌 Gradientes suaves reutilizables para fondo de aura

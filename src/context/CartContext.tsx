@@ -17,8 +17,13 @@ type CartItem = {
   color?: string;
   dorsalNumero?: string;
   dorsalNombre?: string;
-  parche?: string;
+  parche?: string | null;
   parches?: string[];
+  // UUIDs para Supabase
+  variant_id?: string | null;
+  size_id?: string | null;
+  patch_id?: string | null;
+  player_id?: string | null;
 };
 
 // 👉 Tipo del contexto
@@ -61,15 +66,42 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     0
   );
 
-  // 💾 Cargar carrito desde localStorage
+  // 💾 Cargar carrito desde localStorage al montar
   useEffect(() => {
-    const saved = localStorage.getItem("cart90mas5");
-    if (saved) setItems(JSON.parse(saved));
+    // Verificar que estamos en el cliente
+    if (typeof window === 'undefined') return;
+
+    try {
+      const saved = localStorage.getItem("cart90mas5");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setItems(parsed);
+          // ✅ Carrito cargado desde localStorage
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+      // Si hay error, limpiar localStorage corrupto
+      localStorage.removeItem("cart90mas5");
+      localStorage.removeItem("cartItems");
+    }
   }, []);
 
   // 💾 Guardar carrito al cambiar
   useEffect(() => {
-    localStorage.setItem("cart90mas5", JSON.stringify(items));
+    // Verificar que estamos en el cliente
+    if (typeof window === 'undefined') return;
+
+    try {
+      const cartData = JSON.stringify(items);
+      localStorage.setItem("cart90mas5", cartData);
+      // También guardar en 'cartItems' para compatibilidad con checkout/done
+      localStorage.setItem("cartItems", cartData);
+      // ✅ Carrito guardado en localStorage
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error);
+    }
   }, [items]);
 
   // 🧩 Función auxiliar para comparar ítems idénticos
@@ -136,11 +168,11 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     setItems((prev) =>
       prev.map((item) =>
         item.id === id &&
-        item.talla === talla &&
-        item.version === version &&
-        item.parche === parche &&
-        item.dorsalNumero === dorsalNumero &&
-        item.dorsalNombre === dorsalNombre
+          item.talla === talla &&
+          item.version === version &&
+          item.parche === parche &&
+          item.dorsalNumero === dorsalNumero &&
+          item.dorsalNombre === dorsalNombre
           ? { ...item, cantidad: Math.max(1, nuevaCantidad) }
           : item
       )

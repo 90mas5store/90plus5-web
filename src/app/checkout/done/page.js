@@ -5,7 +5,15 @@ import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Button from "../../../components/ui/Button";
+import {
+  CheckCircle2,
+  Copy,
+  Building2,
+  Share2,
+  ArrowLeft
+} from "lucide-react";
+import Button from "../../../components/ui/MainButton";
+import { BANK_ACCOUNTS } from "../../../lib/config/banks";
 
 export default function CheckoutDonePage() {
   const params = useSearchParams();
@@ -14,12 +22,13 @@ export default function CheckoutDonePage() {
   const orderId = params.get("orderId");
   const nombre = params.get("nombre");
   const total = params.get("total");
+  const anticipo = params.get("anticipo");
   const metodo = params.get("metodo") || "transferencia";
   const municipio = params.get("municipio");
   const departamento = params.get("departamento");
 
-  // 🛒 Recuperar carrito del localStorage antes de limpiar
   const [productos, setProductos] = useState([]);
+  const [copied, setCopied] = useState("");
 
   useEffect(() => {
     const savedCart = localStorage.getItem("cartItems");
@@ -27,7 +36,7 @@ export default function CheckoutDonePage() {
       setProductos(JSON.parse(savedCart));
     }
 
-    // 🎊 Confetti animación
+    // 🎊 Confetti
     const duration = 2 * 1000;
     const end = Date.now() + duration;
     (function frame() {
@@ -47,131 +56,276 @@ export default function CheckoutDonePage() {
     })();
   }, []);
 
+  const copyToClipboard = (text, field) => {
+    navigator.clipboard.writeText(text);
+    setCopied(field);
+    setTimeout(() => setCopied(""), 2000);
+  };
+
   const handleShare = () => {
     const message = `👋 Hola, soy ${nombre}. Te comparto el comprobante de mi pedido *${orderId}* por un monto de *L${total}* (${metodo}).`;
-    const whatsappURL = `https://wa.me/50499999999?text=${encodeURIComponent(message)}`;
+    const whatsappURL = `https://wa.me/50496649622?text=${encodeURIComponent(message)}`;
     window.open(whatsappURL, "_blank");
   };
 
+  // 🏦 DATOS BANCARIOS (Desde Config Central)
+  const bancosDisponibles = BANK_ACCOUNTS;
+
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 py-20">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="max-w-3xl w-full bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-xl text-center"
-      >
-        <div className="text-5xl mb-4">✅</div>
-        <h1 className="text-2xl font-bold mb-4 text-[#E50914]">¡Pedido completado!</h1>
+    <main className="min-h-screen bg-[#0a0a0a] text-white pt-4 pb-20 px-4 sm:px-6 relative overflow-hidden">
+      {/* Background Glows */}
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-green-500/5 blur-[120px] -z-10" />
 
-        <p className="text-gray-300 mb-6">
-          Gracias por tu compra, <span className="font-semibold text-white">{nombre}</span>.  
-          En breve recibirás confirmación por correo o WhatsApp.
-        </p>
+      <div className="max-w-4xl mx-auto">
 
-        {/* Detalles del pedido */}
-        <div className="bg-black/40 border border-white/10 rounded-xl p-5 text-sm text-left mb-8 space-y-2">
-          <p>
-            <span className="text-white/70">ID del pedido:</span>{" "}
-            <span className="text-white font-semibold">{orderId}</span>
+        {/* ✅ SUCCESS HEADER */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center mb-12"
+        >
+          <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center border-2 border-green-500 mx-auto mb-6">
+            <CheckCircle2 className="w-10 h-10 text-green-500" />
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tighter uppercase mb-3">
+            ¡Pedido Confirmado!
+          </h1>
+          <p className="text-gray-400 text-lg">
+            Gracias por tu compra, <span className="text-white font-bold">{nombre}</span>
           </p>
-          <p>
-            <span className="text-white/70">Método de pago:</span>{" "}
-            <span className="capitalize text-white">{metodo}</span>
-          </p>
-          <p>
-            <span className="text-white/70">Monto total:</span>{" "}
-            <span className="text-[#E50914] font-semibold">L{total}</span>
-          </p>
-          {municipio && (
-            <p>
-              <span className="text-white/70">Dirección de envío:</span>{" "}
-              <span className="text-white">
-                {municipio}, {departamento}
-              </span>
-            </p>
-          )}
+        </motion.div>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+
+          {/* 📋 COLUMNA IZQUIERDA: DETALLES DEL PEDIDO */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Resumen del Pedido */}
+            <section className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem]">
+              <h2 className="text-xl font-black uppercase tracking-tight mb-6">Resumen del Pedido</h2>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                  <span className="text-gray-400 text-sm">ID del Pedido</span>
+                  <span className="font-black text-primary">{orderId}</span>
+                </div>
+
+                <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                  <span className="text-gray-400 text-sm">Total</span>
+                  <span className="text-2xl font-black text-white">L{total}</span>
+                </div>
+
+                <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                  <span className="text-gray-400 text-sm">Anticipo (50%)</span>
+                  <span className="text-xl font-black text-green-500">L{anticipo}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">Método de Pago</span>
+                  <span className="capitalize font-bold text-white">{metodo}</span>
+                </div>
+
+                {municipio && (
+                  <div className="pt-3 border-t border-white/5">
+                    <span className="text-gray-400 text-sm block mb-1">Dirección de Envío</span>
+                    <span className="text-white font-medium">{municipio}, {departamento}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Productos */}
+            {productos.length > 0 && (
+              <section className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem]">
+                <h2 className="text-xl font-black uppercase tracking-tight mb-6">Artículos</h2>
+                <div className="space-y-4">
+                  {productos.map((item, idx) => (
+                    <div key={idx} className="flex gap-4 pb-4 border-b border-white/5 last:border-0">
+                      <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-black border border-white/10 shrink-0">
+                        <Image
+                          src={item.imagen}
+                          alt={item.equipo}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-white truncate">{item.equipo}</p>
+                        <p className="text-xs text-gray-400">{item.modelo}</p>
+                        {item.talla && <p className="text-xs text-gray-500">Talla: {item.talla}</p>}
+                        {item.dorsalNombre && (
+                          <p className="text-xs text-primary font-bold">
+                            Dorsal: {item.dorsalNumero} {item.dorsalNombre}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-white">L{item.precio}</p>
+                        <p className="text-xs text-gray-500">x{item.cantidad}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </motion.div>
+
+          {/* 🏦 COLUMNA DERECHA: INFORMACIÓN DE PAGO */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="space-y-6"
+          >
+            {metodo === "transferencia" && (
+              <>
+                {/* Instrucciones */}
+                <section className="bg-primary/10 backdrop-blur-xl border border-primary/20 p-6 rounded-[2rem]">
+                  <h2 className="text-xl font-black uppercase tracking-tight mb-4 text-primary">
+                    📋 Instrucciones de Pago
+                  </h2>
+                  <ol className="space-y-3 text-sm text-gray-300">
+                    <li className="flex gap-3">
+                      <span className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-xs font-black shrink-0">1</span>
+                      <span>Realiza la transferencia del <strong className="text-white">anticipo de L{anticipo}</strong> a cualquiera de las cuentas de abajo</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-xs font-black shrink-0">2</span>
+                      <span>Guarda tu comprobante de pago</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-xs font-black shrink-0">3</span>
+                      <span>Envíanos el comprobante por WhatsApp con tu número de pedido</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-xs font-black shrink-0">4</span>
+                      <span>Procesaremos tu pedido en menos de 24 horas</span>
+                    </li>
+                  </ol>
+                </section>
+
+                {/* Cuentas Bancarias */}
+                {bancosDisponibles.map((banco, idx) => (
+                  <section
+                    key={idx}
+                    className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem]"
+                  >
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden p-1">
+                        {banco.logo ? (
+                          <Image src={banco.logo} alt={banco.banco} width={48} height={48} className="object-contain" />
+                        ) : (
+                          <Building2 className="w-6 h-6 text-primary" />
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-black text-white">{banco.banco}</h3>
+                        <p className="text-xs text-gray-500">{banco.tipo}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
+                          Titular de la Cuenta
+                        </label>
+                        <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-3">
+                          <span className="font-bold text-white">{banco.titular}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
+                          Número de Cuenta
+                        </label>
+                        <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-3">
+                          <span className="font-black text-primary text-lg tracking-wider">{banco.numero}</span>
+                          <button
+                            onClick={() => copyToClipboard(banco.numero, `cuenta-${idx}`)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          >
+                            {copied === `cuenta-${idx}` ? (
+                              <CheckCircle2 className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <Copy className="w-5 h-5 text-gray-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
+                          Monto a Transferir
+                        </label>
+                        <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                          <span className="font-black text-green-500 text-2xl">L{anticipo}</span>
+                          <button
+                            onClick={() => copyToClipboard(anticipo, `monto-${idx}`)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          >
+                            {copied === `monto-${idx}` ? (
+                              <CheckCircle2 className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <Copy className="w-5 h-5 text-gray-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                ))}
+
+                {/* Botón WhatsApp */}
+                <Button
+                  onClick={handleShare}
+                  className="w-full py-5 bg-green-600 hover:bg-green-700 text-white font-black rounded-2xl flex items-center justify-center gap-3"
+                >
+                  <Share2 className="w-5 h-5" />
+                  <span>ENVIAR COMPROBANTE POR WHATSAPP</span>
+                </Button>
+              </>
+            )}
+
+            {metodo === "whatsapp" && (
+              <section className="bg-green-500/10 backdrop-blur-xl border border-green-500/20 p-6 rounded-[2rem] text-center">
+                <h2 className="text-xl font-black uppercase tracking-tight mb-4 text-green-500">
+                  ✅ Confirmación por WhatsApp
+                </h2>
+                <p className="text-gray-300 mb-6">
+                  Te hemos redirigido a WhatsApp. Completa tu pedido enviando el mensaje.
+                </p>
+                <Button
+                  onClick={handleShare}
+                  className="w-full py-4 bg-green-600 hover:bg-green-700"
+                >
+                  Abrir WhatsApp de nuevo
+                </Button>
+              </section>
+            )}
+          </motion.div>
         </div>
 
-        {/* 🧾 Lista de productos */}
-        {productos.length > 0 && (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6 mb-8">
-            <h2 className="text-lg font-semibold text-[#E50914] mb-4 text-left">
-              Resumen de tu pedido
-            </h2>
-            <div className="divide-y divide-white/10">
-              {productos.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-white/10">
-                      <Image
-                        src={item.imagen}
-                        alt={item.equipo}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="flex flex-col text-left leading-tight">
-                      <p className="text-sm font-medium text-white">
-                        {item.equipo}{" "}
-                        <span className="text-gray-400">× {item.cantidad}</span>
-                      </p>
-                      <p className="text-xs text-gray-400">{item.modelo}</p>
-                      {item.version && (
-                        <p className="text-xs text-gray-500 italic">
-                          Versión: {item.version}
-                        </p>
-                      )}
-                      {item.talla && (
-                        <p className="text-xs text-gray-500 italic">
-                          Talla: {item.talla}
-                        </p>
-                      )}
-                      {(item.dorsalNumero || item.dorsalNombre) && (
-                        <p className="text-xs text-gray-500 italic">
-                          Dorsal:{" "}
-                          {item.dorsalNumero && (
-                            <span className="text-white font-semibold">
-                              {item.dorsalNumero}
-                            </span>
-                          )}{" "}
-                          {item.dorsalNombre && (
-                            <span className="text-white font-semibold uppercase">
-                              - {item.dorsalNombre}
-                            </span>
-                          )}
-                        </p>
-                      )}
-                      {item.parche && (
-                        <p className="text-xs text-gray-500 italic">
-                          Parche: {item.parche}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-sm font-semibold text-white whitespace-nowrap">
-                    L{(item.precio * item.cantidad).toFixed(2)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Acciones finales */}
-        {(metodo === "transferencia" || metodo === "whatsapp") && (
-          <Button onClick={handleShare} className="w-full py-3 mb-4">
-            Compartir por WhatsApp
-          </Button>
-        )}
-
-        <button
-          onClick={() => router.push("/catalogo")}
-          className="w-full text-sm text-gray-400 hover:text-white transition"
+        {/* Botón Volver */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mt-12 text-center"
         >
-          ← Volver al catálogo
-        </button>
-      </motion.div>
+          <button
+            onClick={() => router.push("/catalogo")}
+            className="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm font-bold uppercase tracking-widest">Volver al Catálogo</span>
+          </button>
+        </motion.div>
+      </div>
     </main>
   );
 }

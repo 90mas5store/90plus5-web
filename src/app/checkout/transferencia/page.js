@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import Button from "../../../components/ui/Button";
+import Button from "../../../components/ui/MainButton";
 import { useEffect } from "react";
 
 export default function TransferenciaPage() {
@@ -43,7 +43,7 @@ export default function TransferenciaPage() {
 
         <p className="text-gray-300 text-center mb-6">
           Gracias <span className="text-white font-semibold">{nombre}</span>,
-          tu pedido ha sido registrado correctamente.  
+          tu pedido ha sido registrado correctamente.
           Solo falta realizar el pago por transferencia.
         </p>
 

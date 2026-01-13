@@ -1,0 +1,520 @@
+import { Product, Config, ShippingZone } from "./types";
+import { supabase } from "./supabase/client";
+
+// ✅ Cliente Supabase inicializado correctamente
+// ⚠️ NUNCA hacer console.log del cliente - expone credenciales
+
+async function fetchCatalogFromSupabase(): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select(`
+            id,
+            name,
+            slug,
+            description,
+            image_url,
+            featured,
+            category_id,
+            league_id,
+            team_id,
+            teams (
+            name,
+            logo_url
+          ),
+            product_variants (
+                id,
+                version,
+                price,
+                active
+            )
+        `)
+    .eq("active", true);
+
+  if (error) {
+    console.error("Error fetching catalog from Supabase:", error);
+    throw error;
+  }
+
+  // Adaptar estructura de Supabase al formato interno
+  return data.map(adaptSupabaseProductToProduct);
+
+}
+
+function adaptSupabaseProductToProduct(raw: any): Product {
+  const variants = raw.product_variants || [];
+
+  const basePrice =
+    variants.length > 0
+      ? Math.min(...variants.filter((v: any) => v.active).map((v: any) => v.price))
+      : 0;
+
+  return {
+    id: raw.id,
+    slug: raw.slug, // ✅ Added slug
+    equipo: raw.teams?.name ?? "",
+    logoEquipo: raw.teams?.logo_url ?? null,
+    modelo: raw.name,
+    precio: basePrice,
+    imagen: raw.image_url,
+    destacado: raw.featured ?? false,
+    team_id: raw.team_id,
+    category_id: raw.category_id,
+    league_id: raw.league_id,
+  };
+}
+
+
+
+async function fetchFeaturedFromSupabase(): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select(`
+      id,
+      name,
+      slug,
+      image_url,
+      featured,
+      team_id,
+      category_id,
+      league_id,
+      teams (
+        id,
+        name,
+        logo_url
+      ),
+      product_variants (
+        id,
+        version,
+        price,
+        active
+      )
+    `)
+    .eq("active", true)
+    .eq("featured", true);
+
+  if (error) {
+    console.error("Error fetching featured from Supabase:", error);
+    throw error;
+  }
+
+  return data.map(adaptSupabaseProductToProduct);
+}
+
+
+async function fetchConfigFromSupabase(): Promise<Config> {
+  // 1️⃣ Traemos categorías y ligas en paralelo
+  const [
+    { data: categories, error: catError },
+    { data: leagues, error: leagueError },
+  ] = await Promise.all([
+    supabase
+      .from("categories")
+      .select("id,name,slug,order_index,icon_url")
+      .eq("active", true)
+      .order("order_index"),
+
+    supabase
+      .from("leagues")
+      .select("id,name,slug,image_url,category_id")
+      .eq("active", true),
+  ]);
+
+  if (catError) {
+    console.error("Error fetching categories:", catError);
+    throw catError;
+  }
+
+  if (leagueError) {
+    console.error("Error fetching leagues:", leagueError);
+    throw leagueError;
+  }
+
+  // 2️⃣ Adaptamos categorías al shape que espera el frontend
+  const adaptedCategorias = (categories ?? []).map((cat: any) => ({
+    id: cat.id,
+    nombre: cat.name,
+    slug: cat.slug,
+    order: cat.order_index,
+    icon_url: cat.icon_url,
+  }));
+
+  // 3️⃣ Adaptamos ligas al shape que espera el frontend
+  // Config.ligas = League[]
+  const adaptedLigas = (leagues ?? []).map((league: any) => ({
+    id: league.id,
+    nombre: league.name,
+    slug: league.slug,
+    imagen: league.image_url ?? "",
+    category_id: league.category_id,
+  }));
+
+  // 4️⃣ Devolvemos EXACTAMENTE el Config esperado
+  return {
+    categorias: adaptedCategorias,
+    ligas: adaptedLigas,
+  } as Config;
+}
+
+async function fetchShippingZonesFromSupabase(): Promise<ShippingZone[]> {
+  const { data, error } = await supabase
+    .from('shipping_zones')
+    .select('*')
+    .eq('is_active', true)
+    .order('department', { ascending: true })
+    .order('municipality', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching shipping zones:', error);
+    throw error;
+  }
+
+  return data as ShippingZone[];
+}
+
+export async function getPlayersByTeam(teamId: string) {
+  const { data, error } = await supabase
+    .from("players")
+    .select("id, name, number")
+    .eq("team_id", teamId)
+    .eq("active", true)
+    .order("number");
+
+  if (error) {
+    console.error("Error fetching players:", error);
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function getRelatedProducts(currentProductId: string, leagueId?: string, categoryId?: string): Promise<Product[]> {
+  let query = supabase
+    .from("products")
+    .select(`
+      id,
+      name,
+      slug,
+      image_url,
+      featured,
+      team_id,
+      category_id,
+      league_id,
+      teams (
+        name,
+        logo_url
+      ),
+      product_variants (
+        price,
+        active
+      )
+    `)
+    .eq("active", true)
+    .neq("id", currentProductId)
+    .limit(4);
+
+  if (leagueId) {
+    query = query.eq("league_id", leagueId);
+  } else if (categoryId) {
+    query = query.eq("category_id", categoryId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching related products:", error);
+    return [];
+  }
+
+  return data.map(adaptSupabaseProductToProduct);
+}
+
+export async function getProductOptionsFromSupabase(productId: string) {
+  /* =========================
+   * 1️⃣ VARIANTES (con ID + label)
+   * ========================= */
+  const { data: variants, error: variantsError } = await supabase
+    .from("product_variants")
+    .select("id, version")
+    .eq("product_id", productId)
+    .eq("active", true);
+
+  if (variantsError) throw variantsError;
+
+  // Crear mapa de versión -> id (para lookup)
+  const versionesMap: Record<string, string> = {};
+  (variants ?? []).forEach(v => {
+    if (!versionesMap[v.version]) {
+      versionesMap[v.version] = v.id;
+    }
+  });
+
+  // Array de objetos {id, label} para versiones
+  const versiones = Object.entries(versionesMap).map(([label, id]) => ({ id, label }));
+  const variantIds = (variants ?? []).map(v => v.id);
+
+  /* =========================
+   * 2️⃣ TALLAS (con ID + label)
+   * ========================= */
+  let tallas: { id: string; label: string }[] = [];
+
+  if (variantIds.length > 0) {
+    const { data: variantSizes, error: vsError } = await supabase
+      .from("variant_sizes")
+      .select("size_id")
+      .in("variant_id", variantIds)
+      .eq("active", true);
+
+    if (vsError) throw vsError;
+
+    const sizeIds = [...new Set(variantSizes.map(vs => vs.size_id))];
+
+    if (sizeIds.length > 0) {
+      const { data: sizes, error: sizesError } = await supabase
+        .from("sizes")
+        .select("id, label")
+        .in("id", sizeIds)
+        .eq("active", true)
+        .order("sort_order");
+
+      if (sizesError) throw sizesError;
+
+      tallas = sizes.map(s => ({ id: s.id, label: s.label }));
+    }
+  }
+
+  /* =========================
+   * 3️⃣ PARCHES (con ID + label)
+   * ========================= */
+  const { data: productPatches, error: ppError } = await supabase
+    .from("product_patches")
+    .select("patch_id")
+    .eq("product_id", productId);
+
+  if (ppError) throw ppError;
+
+  const patchIds = [...new Set(productPatches.map(pp => pp.patch_id))];
+
+  let parches: { id: string; label: string }[] = [];
+
+  if (patchIds.length > 0) {
+    const { data: patches, error: patchesError } = await supabase
+      .from("patches")
+      .select("id, name")
+      .in("id", patchIds)
+      .eq("active", true);
+
+    if (patchesError) throw patchesError;
+
+    parches = patches.map(p => ({ id: p.id, label: p.name }));
+  }
+
+  /* =========================
+   * ✅ RESULTADO FINAL
+   * Cada opción es { id: uuid, label: string }
+   * ========================= */
+  return {
+    versiones,
+    tallas,
+    parches,
+  };
+}
+
+
+
+
+
+
+/**
+ * API Helper con caché inteligente para 90+5 Store
+ * ------------------------------------------------
+ * Combina:
+ *  1️⃣ Cache en memoria (instantáneo entre rutas)
+ *  2️⃣ sessionStorage persistente (sobrevive refresh)
+ *  3️⃣ Revalidación silenciosa en background
+ */
+
+/* 🧠 Cache global en memoria (solo vive mientras la app está abierta) */
+interface CacheStore {
+  catalog: Product[] | null;
+  config: Config | null;
+  featured: Product[] | null;
+  lastUpdated: Record<string, number> | null;
+  [key: string]: any;
+}
+
+const memoryCache: CacheStore = {
+  catalog: null,
+  config: null,
+  featured: null,
+  lastUpdated: null,
+};
+
+/* 💾 Helper para manejar sessionStorage seguro (Next.js SSR-safe) */
+function safeSessionStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+/* ⏱ Tiempo máximo antes de revalidar (ms) — 10 minutos */
+const REVALIDATE_INTERVAL = 10 * 60 * 1000;
+
+/* 🧩 Utilidad general para leer o refrescar caché */
+async function getCached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const store = safeSessionStorage();
+  const now = Date.now();
+
+  // 1️⃣ Intenta cache en memoria
+  if (memoryCache[key] && memoryCache.lastUpdated && memoryCache.lastUpdated[key]) {
+    const age = now - memoryCache.lastUpdated[key];
+    if (age < REVALIDATE_INTERVAL) return memoryCache[key] as T;
+  }
+
+  // 2️⃣ Intenta sessionStorage
+  if (store) {
+    const cachedRaw = store.getItem(`cache_${key}`);
+    if (cachedRaw) {
+      try {
+        const parsed = JSON.parse(cachedRaw);
+        if (parsed && typeof parsed === 'object' && parsed.data) {
+          const { data, timestamp } = parsed;
+          const age = now - timestamp;
+
+          // Revalida en segundo plano si pasó el tiempo límite
+          if (age > REVALIDATE_INTERVAL) {
+            refreshInBackground(key, fetcher);
+          }
+
+          // Actualizamos memoria para la próxima vez
+          memoryCache[key] = data;
+          memoryCache.lastUpdated = memoryCache.lastUpdated || {};
+          memoryCache.lastUpdated[key] = timestamp;
+
+          return data as T;
+        }
+      } catch (err) {
+        console.warn("Cache corrupta en sessionStorage, ignorando...", err);
+      }
+    }
+  }
+
+  // 3️⃣ Si no hay nada, fetch fresco
+  const data = await fetcher();
+  setCache(key, data);
+  return data;
+}
+
+/* 💫 Guarda en memoria + sessionStorage */
+function setCache<T>(key: string, data: T) {
+  const store = safeSessionStorage();
+  const now = Date.now();
+
+  memoryCache[key] = data;
+  memoryCache.lastUpdated = memoryCache.lastUpdated || {};
+  memoryCache.lastUpdated[key] = now;
+
+  if (store) {
+    store.setItem(`cache_${key}`, JSON.stringify({ data, timestamp: now }));
+  }
+}
+
+/* 🔄 Revalida en background (silenciosamente) */
+async function refreshInBackground<T>(key: string, fetcher: () => Promise<T>) {
+  try {
+    const fresh = await fetcher();
+    setCache(key, fresh);
+    console.info(`Cache ${key} actualizada en background ✅`);
+  } catch (err) {
+    console.warn(`No se pudo refrescar ${key}:`, err);
+  }
+}
+
+/* === API principal con cache integrado === */
+
+/** 🏪 Obtener catálogo completo */
+export async function getCatalog(): Promise<Product[]> {
+  return getCached<Product[]>("catalog", () =>
+    fetchCatalogFromSupabase()
+  );
+}
+
+
+/** ⚙️ Obtener configuración global (ligas, banners, etc.) */
+export async function getConfig(): Promise<Config> {
+  return getCached<Config>("config", () =>
+    fetchConfigFromSupabase()
+  );
+}
+
+
+
+/** ⭐ Obtener productos destacados */
+export async function getFeatured(): Promise<Product[]> {
+  return getCached<Product[]>("featured", () =>
+    fetchFeaturedFromSupabase()
+  );
+}
+
+/** 🔍 Obtener producto por ID o Slug (Supabase) */
+export async function getProductById(idOrSlug: string): Promise<Product> {
+  if (!idOrSlug) throw new Error("ID/Slug no proporcionado");
+
+  // Intentamos buscar por slug primero (asumimos que slugs no son UUIDs)
+  // O podemos buscar por ambos con un OR
+  const { data, error } = await supabase
+    .from("products")
+    .select(`
+      id,
+      name,
+      slug,
+      description,
+      image_url,
+      featured,
+      team_id,
+      category_id,
+      league_id,
+      teams (
+        name,
+        logo_url
+      ),
+      product_variants (
+         id,
+         version,
+         price,
+         active,
+         original_price,
+         active_original_price
+      )
+    `)
+    // Buscamos coincidencia en id (si es uuid válido) O slug
+    .or(`id.eq.${idOrSlug},slug.eq.${idOrSlug}`)
+    .eq("active", true)
+    .single();
+
+  if (error) {
+    console.warn(`Producto no encontrado (${idOrSlug}):`, error.message);
+    throw error;
+  }
+
+  if (!data) throw new Error("Producto no encontrado");
+
+  return adaptSupabaseProductToProduct(data);
+}
+
+/** ⚙️ Obtener opciones del producto (Legacy - Deprecated)
+ * Se mantiene temporalmente por si algún componente antiguo lo usa,
+ * pero devuelve objeto vacío. Usar getProductOptionsFromSupabase.
+ */
+export async function getProductOptions(liga: string, equipo: string): Promise<any> {
+  console.warn("Using deprecated getProductOptions. Please migrate to getProductOptionsFromSupabase.");
+  return {};
+}
+/** 🚚 Obtener zonas de envío (departamentos y municipios) */
+export async function getShippingZones(): Promise<ShippingZone[]> {
+  return getCached<ShippingZone[]>("shipping_zones", () =>
+    fetchShippingZonesFromSupabase()
+  );
+}

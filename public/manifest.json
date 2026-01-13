@@ -1,0 +1,21 @@
+{
+    "name": "90+5 Store",
+    "short_name": "90+5",
+    "description": "Camisetas y equipaciones oficiales que viven más allá del minuto 90.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0A0A0A",
+    "theme_color": "#E50914",
+    "icons": [
+        {
+            "src": "/logo.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "/logo.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}

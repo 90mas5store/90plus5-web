@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
+  <rect width="200" height="60" fill="#8B0000" rx="8"/>
+  <path d="M100 10 L120 50 H80 Z" fill="#DAA520"/>
+  <text x="50%" y="80%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="12" fill="white" letter-spacing="1">BANCO ATLANTIDA</text>
+</svg>

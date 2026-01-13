@@ -13,8 +13,8 @@ section[id] {
 }
 
 body {
-  background-color: #000;
-  color: #fff;
+  background-color: theme('colors.background');
+  color: theme('colors.textLight');
 }
 
 img {
@@ -25,9 +25,12 @@ img {
 
 /* 🔥 Glow animado 90+5 */
 @keyframes pulse-slow {
-  0%, 100% {
+
+  0%,
+  100% {
     filter: drop-shadow(0 0 10px rgba(229, 9, 20, 0.5));
   }
+
   50% {
     filter: drop-shadow(0 0 20px rgba(229, 9, 20, 0.9));
   }
