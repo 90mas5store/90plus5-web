@@ -16,6 +16,9 @@ export default function Header() {
     const searchParams = useSearchParams();
     const categoriaActual = searchParams.get("categoria");
 
+    // 🛡️ Ocultar header en rutas de admin
+    if (pathname?.startsWith('/admin')) return null;
+
     const { categorias, loading: loaded } = useCategories();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);

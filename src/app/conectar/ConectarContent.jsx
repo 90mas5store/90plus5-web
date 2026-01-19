@@ -50,8 +50,8 @@ export default function ContactoPage() {
           transition={{ delay: 0.2, duration: 0.6 }}
           className="text-gray-300 max-w-xl leading-relaxed"
         >
-          Somos fanáticos del fútbol, la moda retro y los detalles que hacen historia.  
-          Si querés colaborar, tenés una duda o simplemente querés saludar, escribinos.  
+          Somos fanáticos del fútbol, la moda retro y los detalles que hacen historia.
+          Si querés colaborar, tenés una duda o simplemente querés saludar, escribinos.
           <br />
           Basados en <span className="text-[#E50914] font-semibold">Tegucigalpa, Honduras</span> ⚽
         </motion.p>
@@ -60,11 +60,11 @@ export default function ContactoPage() {
         <div className="mt-10 flex flex-col sm:flex-row sm:justify-center gap-8 text-gray-300">
           <div className="flex items-center gap-3">
             <Mail className="w-5 h-5 text-[#E50914]" />
-            <span>contacto@90mas5store.com</span>
+            <span>contacto@90mas5.store</span>
           </div>
           <div className="flex items-center gap-3">
             <Phone className="w-5 h-5 text-[#E50914]" />
-            <span>+504 9XX-XXX-XX</span>
+            <span>+504 3248-8860</span>
           </div>
           <div className="flex items-center gap-3">
             <MapPin className="w-5 h-5 text-[#E50914]" />
@@ -74,7 +74,7 @@ export default function ContactoPage() {
 
         {/* WHATSAPP */}
         <motion.a
-          href="https://wa.me/5049XXXXXXXX?text=¡Hola!%20Quiero%20hacer%20una%20consulta%20sobre%20un%20producto."
+          href="https://wa.me/50432488860?text=¡Hola!%20Quiero%20hacer%20una%20consulta%20sobre%20un%20producto."
           target="_blank"
           rel="noopener noreferrer"
           initial={{ opacity: 0, scale: 0.9 }}
@@ -96,8 +96,8 @@ export default function ContactoPage() {
           Políticas de Privacidad
         </h2>
         <p className="text-gray-400 max-w-3xl leading-relaxed">
-          En <span className="text-white font-semibold">90+5 Store</span> valoramos tu privacidad.  
-          No compartimos tus datos personales con terceros y solo utilizamos tu información para procesar tus pedidos, mejorar tu experiencia y ofrecerte un mejor servicio.  
+          En <span className="text-white font-semibold">90+5 Store</span> valoramos tu privacidad.
+          No compartimos tus datos personales con terceros y solo utilizamos tu información para procesar tus pedidos, mejorar tu experiencia y ofrecerte un mejor servicio.
           Pronto encontrarás aquí los detalles completos de nuestras políticas.
         </p>
       </section>

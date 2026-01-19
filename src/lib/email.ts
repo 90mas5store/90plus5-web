@@ -4,40 +4,51 @@ import { BANK_ACCOUNTS } from "@/lib/config/banks";
 // const resend = new Resend(process.env.RESEND_API_KEY); // Movido dentro de la función para mayor robustez
 
 interface OrderEmailProps {
-    customerName: string;
-    customerEmail: string;
-    orderId: string;
-    totalAmount: number;
-    depositAmount: number;
-    items: {
-        name: string;
-        team?: string;
-        image?: string;
-        quantity: number;
-        details?: string;
-    }[];
+  customerName: string;
+  customerEmail: string;
+  orderId: string;
+  totalAmount: number;
+  depositAmount: number;
+  items: {
+    name: string;
+    team?: string;
+    image?: string;
+    quantity: number;
+    details?: string;
+  }[];
 }
 
 export const sendOrderConfirmationEmail = async ({
-    customerName,
-    customerEmail,
-    orderId,
-    totalAmount,
-    depositAmount,
-    items,
+  customerName,
+  customerEmail,
+  orderId,
+  totalAmount,
+  depositAmount,
+  items,
 }: OrderEmailProps) => {
-    // Inicializar cliente aquí para evitar crash si falta la ENV al cargar el módulo
-    const resend = new Resend(process.env.RESEND_API_KEY);
+  // Inicializar cliente aquí para evitar crash si falta la ENV al cargar el módulo
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
-    // 🏦 Cuentas bancarias
-    const banksHtml = BANK_ACCOUNTS.map(
-        (bank) => `
-    <div style="background:#111;border:1px solid #222;border-radius:14px;padding:18px;margin-bottom:12px;display:flex;justify-content:space-between;gap:10px;">
-      <div>
-        <strong style="color:#fff;font-size:14px;">
+  // 🏦 Cuentas bancarias
+  const banksHtml = BANK_ACCOUNTS.map(
+    (bank) => {
+      // Convertir rutas relativas a URLs absolutas para emails
+      const logoUrl = bank.logo?.startsWith('/')
+        ? `https://90mas5.store${bank.logo}`
+        : bank.logo;
+
+      return `
+    <div style="background:#111;border:1px solid #222;border-radius:14px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">
+      ${logoUrl ? `
+      <div style="width:40px;height:40px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:4px;flex-shrink:0;">
+        <img src="${logoUrl}" alt="${bank.banco}" style="width:100%;height:100%;object-fit:contain;" />
+      </div>
+      ` : ''}
+      <div style="flex:1;">
+        <strong style="color:#fff;font-size:14px;display:block;margin-bottom:4px;">
           ${bank.banco}
         </strong>
-        <p style="margin:4px 0 0;color:#777;font-size:11px;text-transform:uppercase;">
+        <p style="margin:0;color:#777;font-size:11px;text-transform:uppercase;">
           ${bank.tipo}
         </p>
       </div>
@@ -50,19 +61,20 @@ export const sendOrderConfirmationEmail = async ({
         </p>
       </div>
     </div>
-  `
-    ).join("");
+  `;
+    }
+  ).join("");
 
-    // 👕 Productos
-    const itemsHtml = items
-        .map(
-            (item) => `
+  // 👕 Productos
+  const itemsHtml = items
+    .map(
+      (item) => `
     <div style="display:flex;gap:16px;padding:18px 0;border-bottom:1px solid #222;">
       <div style="width:70px;height:70px;border-radius:10px;overflow:hidden;background:#000;border:1px solid #333;">
         ${item.image
-                    ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;" />`
-                    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#333;font-size:9px;">SIN FOTO</div>`
-                }
+          ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;" />`
+          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#333;font-size:9px;">SIN FOTO</div>`
+        }
       </div>
       <div style="flex:1;">
         <p style="margin:0;color:#fff;font-size:14px;font-weight:700;">
@@ -77,10 +89,10 @@ export const sendOrderConfirmationEmail = async ({
       </div>
     </div>
   `
-        )
-        .join("");
+    )
+    .join("");
 
-    const htmlContent = `
+  const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -164,10 +176,10 @@ export const sendOrderConfirmationEmail = async ({
               </table>
 
               <!-- WhatsApp soporte -->
-              <a href="https://wa.me/50496649622?text=Hola,%20tengo%20una%20consulta%20sobre%20mi%20pedido%20#${orderId.slice(
-        0,
-        8
-    ).toUpperCase()}"
+              <a href="https://wa.me/50432488860?text=Hola,%20tengo%20una%20consulta%20sobre%20mi%20pedido%20#${orderId.slice(
+    0,
+    8
+  ).toUpperCase()}"
                  style="display:block;margin-top:30px;text-align:center;
                         color:#25D366;text-decoration:none;font-size:13px;font-weight:700;">
                 ¿Necesitas ayuda? Escríbenos por WhatsApp
@@ -190,17 +202,17 @@ export const sendOrderConfirmationEmail = async ({
 </html>
 `;
 
-    try {
-        const data = await resend.emails.send({
-            from: "90+5 Store <hola@90mas5.store>",
-            to: [customerEmail],
-            subject: `Pedido confirmado #${orderId.slice(0, 8).toUpperCase()} – 90+5 Store`,
-            html: htmlContent,
-        });
+  try {
+    const data = await resend.emails.send({
+      from: "90+5 Store <contacto@90mas5.store>",
+      to: [customerEmail],
+      subject: `Pedido confirmado #${orderId.slice(0, 8).toUpperCase()} – 90+5 Store`,
+      html: htmlContent,
+    });
 
-        return { success: true, data };
-    } catch (error) {
-        console.error("Error enviando correo:", error);
-        return { success: false, error };
-    }
+    return { success: true, data };
+  } catch (error) {
+    console.error("Error enviando correo:", error);
+    return { success: false, error };
+  }
 };

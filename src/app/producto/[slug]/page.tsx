@@ -51,26 +51,30 @@ export async function generateMetadata(
     const data = await getProduct(params.slug);
 
     // Redirect handled in component, here just return generic or null if not found (will 404 in comp)
-    if (!data || 'redirect' in data) return { title: 'Producto no encontrado | 90+5 Store' };
+    if (!data || 'redirect' in data) return { title: 'Producto no encontrado' };
 
     const previousImages = (await parent).openGraph?.images || [];
     const mainImage = data.image_url || "/og-image.jpg";
     const teamName = data.teams?.name || "Fútbol";
-    const title = `${data.name} - ${teamName} | 90+5 Store`;
+
+    // Formato solicitado: Equipo - Producto (El template del layout añade " | 90+5 Store")
+    const title = `${teamName} - ${data.name}`;
+    const fullTitle = `${title} | 90+5 Store`; // Para OpenGraph/Twitter que no usan template
+
     const description = data.description || `Compra la camiseta del ${teamName} al mejor precio. Envíos a todo Honduras.`;
 
     return {
-        title,
+        title, // Se aplicará el template: "%s | 90+5 Store"
         description,
         openGraph: {
-            title,
+            title: fullTitle,
             description,
             url: `https://90mas5.store/producto/${params.slug}`,
             images: [{ url: mainImage, width: 800, height: 800, alt: data.name }, ...previousImages],
         },
         twitter: {
             card: "summary_large_image",
-            title,
+            title: fullTitle,
             description,
             images: [mainImage],
         },

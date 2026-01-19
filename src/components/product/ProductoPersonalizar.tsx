@@ -297,7 +297,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
         <motion.main
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className={`min-h-screen text-white pt-8 pb-20 px-4 md:px-8 relative overflow-hidden bg-gradient-to-b ${getAuraColors(producto.liga)}`}
+            className={`min-h-screen text-white pt-24 pb-20 px-4 md:px-8 relative overflow-hidden bg-gradient-to-b ${getAuraColors(producto.liga)}`}
         >
             <HeatmapBackground liga={producto.liga} opacity={0.1} />
 
@@ -311,15 +311,15 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                     <span className="text-sm font-bold uppercase tracking-widest">Regresar</span>
                 </button>
 
-                <div className="grid lg:grid-cols-12 gap-12 items-start">
+                <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
 
-                    {/* 🖼️ SECCIÓN IMAGEN (Sticky en Desktop) */}
-                    <div className="lg:col-span-7 lg:sticky lg:top-28">
+                    {/* 🖼️ SECCIÓN IMAGEN */}
+                    <div className="lg:col-span-7">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.8 }}
-                            className="relative aspect-[4/5] md:aspect-square rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl group cursor-crosshair"
+                            className="relative aspect-[4/5] md:aspect-square rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl group cursor-crosshair p-0"
                             ref={containerRef}
                             onMouseMove={handleZoomMove}
                             onTouchMove={handleZoomMove}
@@ -336,7 +336,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                                 priority
                                 quality={95}
                                 sizes="(max-width: 1024px) 100vw, 60vw"
-                                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                                className="w-full h-full object-contain transition-transform duration-1000 group-hover:scale-105"
                             />
 
                             {/* Blur Overlay */}
@@ -363,11 +363,11 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                     </div>
 
                     {/* ⚙️ SECCIÓN PERSONALIZACIÓN */}
-                    <div className="lg:col-span-5 flex flex-col gap-8">
+                    <div className="lg:col-span-5 flex flex-col gap-4">
 
                         {/* Header Info */}
                         <div className="flex flex-col gap-4">
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-start gap-4">
                                 <TeamLogo src={producto.logoEquipo} alt={producto.equipo} size={56} />
                                 <div>
                                     <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-none text-white">
@@ -403,7 +403,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
 
                         {/* Opciones de Versión */}
                         {opciones?.versiones && opciones.versiones.length > 0 && (
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                                 <div className="flex justify-between items-center">
                                     <h3 className="text-sm font-semibold text-gray-300">Versión</h3>
                                     {versionSeleccionada && <span className="text-xs text-primary font-medium flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Seleccionado</span>}
@@ -433,7 +433,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
 
                         {/* Opciones de Talla */}
                         {opciones?.tallas && opciones.tallas.length > 0 && (
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                                 <h3 className="text-sm font-semibold text-gray-300">Talla</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {opciones.tallas.map((t) => (
@@ -454,7 +454,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
 
                         {/* Opciones de Parche */}
                         {opciones?.parches && opciones.parches.length > 0 && (
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                                 <h3 className="text-sm font-semibold text-gray-300">Parche Oficial</h3>
                                 <div className="flex flex-wrap gap-3">
                                     {opciones.parches.map((p) => (
@@ -474,7 +474,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                         )}
 
                         {/* Sección Dorsal */}
-                        <div className="space-y-4 p-6 rounded-3xl bg-white/5 border border-white/5">
+                        <div className="space-y-2 p-5 rounded-3xl bg-white/5 border border-white/5">
                             <h3 className="text-sm font-semibold text-gray-300">Personalización de Dorsal</h3>
                             <div className="flex gap-3">
                                 <button
@@ -596,13 +596,13 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
 
                                     const fmt = new Intl.DateTimeFormat('es-HN', { day: 'numeric', month: 'long' });
 
-                                    return `Entrega estimada entre ${fmt.format(start)} y ${fmt.format(end)}`;
+                                    return `Entrega: ${fmt.format(start)} - ${fmt.format(end)}`;
                                 })()}
                             </p>
                             <Button
                                 onClick={handleAddToCart}
                                 disabled={isAdding || precioActual <= 0}
-                                className="w-full py-6 bg-primary hover:bg-primary-dark disabled:bg-gray-800 disabled:cursor-not-allowed text-white font-bold rounded-[1.5rem] shadow-[0_20px_40px_rgba(229,9,20,0.3)] flex items-center justify-center gap-3 text-lg group relative overflow-hidden transition-all"
+                                className="w-full py-4 bg-primary hover:bg-primary-dark disabled:bg-gray-800 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-[0_10px_30px_rgba(229,9,20,0.2)] flex items-center justify-center gap-2 text-base group relative overflow-hidden transition-all"
                             >
                                 <AnimatePresence mode="wait">
                                     {isAdding ? (
@@ -613,8 +613,8 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                                             exit={{ opacity: 0, y: -10 }}
                                             className="flex items-center gap-2"
                                         >
-                                            <CheckCircle2 className="w-6 h-6 animate-pulse" />
-                                            <span>¡AGREGANDO!</span>
+                                            <CheckCircle2 className="w-5 h-5 animate-pulse" />
+                                            <span>AGREGANDO...</span>
                                         </motion.div>
                                     ) : (
                                         <motion.div
@@ -622,15 +622,15 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
-                                            className="flex items-center gap-3"
+                                            className="flex items-center gap-2"
                                         >
                                             {precioActual > 0 ? (
                                                 <>
                                                     <Shirt className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                                                    <span className="font-bold tracking-wide">Añadir al carrito</span>
+                                                    <span className="font-bold tracking-wide">AÑADIR AL CARRITO</span>
                                                 </>
                                             ) : (
-                                                <span className="font-bold">Producto no disponible</span>
+                                                <span className="font-bold">NO DISPONIBLE</span>
                                             )}
                                         </motion.div>
                                     )}

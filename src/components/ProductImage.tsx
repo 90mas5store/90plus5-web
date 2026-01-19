@@ -95,7 +95,7 @@ function ProductImageComponent({
         width={!useFill ? width : undefined}
         height={!useFill ? height : undefined}
         quality={quality}
-        className={`${className} ${useFill ? 'object-cover' : ''} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-500`}
+        className={`${className} ${useFill && !className?.includes('object-') ? 'object-cover' : ''} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-500`}
         sizes={sizes || "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"}
         priority={priority}
         loading={priority ? undefined : "lazy"}

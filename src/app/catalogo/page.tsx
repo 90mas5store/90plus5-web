@@ -4,7 +4,7 @@ import { CatalogPageSkeleton } from "../../components/skeletons/ProductSkeletons
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Catálogo | 90+5 Store",
+  title: "Catálogo",
   description: "Explora nuestra colección completa de camisetas y equipaciones.",
 };
 

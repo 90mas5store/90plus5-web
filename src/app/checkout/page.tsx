@@ -352,7 +352,7 @@ export default function CheckoutPage() {
     }
 
     return (
-        <main className="min-h-screen bg-[#0a0a0a] text-white pt-4 pb-20 px-4 sm:px-6 relative overflow-hidden">
+        <main className="min-h-screen bg-[#0a0a0a] text-white pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
             {/* ✨ Background Glows */}
             <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
             <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />

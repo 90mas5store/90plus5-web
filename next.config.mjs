@@ -28,6 +28,9 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+    // 🎨 Permitir SVG en el componente Image (necesario para logos de bancos)
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
   },
 
   /**

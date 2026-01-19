@@ -17,7 +17,7 @@ export default function DatosUsuario({ usuario }) {
           <Mail className="w-4 h-4 text-[#E50914]" /> {usuario.correo}
         </div>
         <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-[#E50914]" /> +504 9XX-XXX-XX
+          <Phone className="w-4 h-4 text-[#E50914]" /> +504 3248-8860
         </div>
         <div className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-[#E50914]" /> Tegucigalpa, Honduras

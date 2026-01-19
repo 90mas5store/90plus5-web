@@ -15,19 +15,20 @@ export const BANK_ACCOUNTS: BankAccount[] = [
     {
         id: "bac",
         banco: "BAC Credomatic",
-        titular: "Oscar Amador",
-        numero: "746368301",
+        titular: "Daniel Alejandro Urbizo",
+        numero: "759045731",
         tipo: "Cuenta de Ahorros",
-        // 📧 IMPORTANTE: Para correos, estas URL deben ser públicas (https).
-        // Si estás en local, no se verán en el correo hasta que despliegues.
-        logo: "https://90mas5.store/banks/bac.svg"
+        // 📧 IMPORTANTE: En producción, Next.js convertirá esto a URL absoluta para emails.
+        // En desarrollo local, funcionará con la ruta relativa.
+        // 🔄 El parámetro ?v=X fuerza la recarga cuando cambias el logo (incrementa el número)
+        logo: "/banks/bac.svg?v=2"
     },
     {
         id: "atlantida",
         banco: "Banco Atlántida",
-        titular: "Oscar Amador",
-        numero: "0987654321",
+        titular: "Daniel Alejandro Urbizo",
+        numero: "00002020850354",
         tipo: "Cuenta de Ahorros",
-        logo: "https://90mas5.store/banks/atlantida.svg"
+        logo: "/banks/atlantida.svg?v=2"
     }
 ];

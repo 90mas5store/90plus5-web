@@ -95,6 +95,7 @@ export default function CarruselDeCategoria({
                     src={imagen}
                     alt={nombre}
                     fill
+                    unoptimized={imagen.endsWith('.svg')}
                     className="object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.35)]"
                     sizes="(max-width: 768px) 56px, 64px"
                   />

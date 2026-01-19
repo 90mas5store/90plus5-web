@@ -10,7 +10,8 @@ import {
   Copy,
   Building2,
   Share2,
-  ArrowLeft
+  ArrowLeft,
+  ChevronDown
 } from "lucide-react";
 import Button from "../../../components/ui/MainButton";
 import { BANK_ACCOUNTS } from "../../../lib/config/banks";
@@ -29,6 +30,7 @@ export default function CheckoutDonePage() {
 
   const [productos, setProductos] = useState([]);
   const [copied, setCopied] = useState("");
+  const [expandedBank, setExpandedBank] = useState(null); // null = todas colapsadas
 
   useEffect(() => {
     const savedCart = localStorage.getItem("cartItems");
@@ -64,7 +66,7 @@ export default function CheckoutDonePage() {
 
   const handleShare = () => {
     const message = `👋 Hola, soy ${nombre}. Te comparto el comprobante de mi pedido *${orderId}* por un monto de *L${total}* (${metodo}).`;
-    const whatsappURL = `https://wa.me/50496649622?text=${encodeURIComponent(message)}`;
+    const whatsappURL = `https://wa.me/50432488860?text=${encodeURIComponent(message)}`;
     window.open(whatsappURL, "_blank");
   };
 
@@ -72,7 +74,7 @@ export default function CheckoutDonePage() {
   const bancosDisponibles = BANK_ACCOUNTS;
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white pt-4 pb-20 px-4 sm:px-6 relative overflow-hidden">
+    <main className="min-h-screen bg-[#0a0a0a] text-white pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
       {/* Background Glows */}
       <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
       <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-green-500/5 blur-[120px] -z-10" />
@@ -209,76 +211,117 @@ export default function CheckoutDonePage() {
                   </ol>
                 </section>
 
-                {/* Cuentas Bancarias */}
-                {bancosDisponibles.map((banco, idx) => (
-                  <section
-                    key={idx}
-                    className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem]"
-                  >
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden p-1">
-                        {banco.logo ? (
-                          <Image src={banco.logo} alt={banco.banco} width={48} height={48} className="object-contain" />
-                        ) : (
-                          <Building2 className="w-6 h-6 text-primary" />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="font-black text-white">{banco.banco}</h3>
-                        <p className="text-xs text-gray-500">{banco.tipo}</p>
-                      </div>
-                    </div>
+                {/* Cuentas Bancarias - Acordeón */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">
+                    💳 Selecciona una cuenta para transferir
+                  </h3>
 
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
-                          Titular de la Cuenta
-                        </label>
-                        <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-3">
-                          <span className="font-bold text-white">{banco.titular}</span>
-                        </div>
-                      </div>
+                  {bancosDisponibles.map((banco, idx) => {
+                    const isExpanded = expandedBank === idx;
 
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
-                          Número de Cuenta
-                        </label>
-                        <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-3">
-                          <span className="font-black text-primary text-lg tracking-wider">{banco.numero}</span>
-                          <button
-                            onClick={() => copyToClipboard(banco.numero, `cuenta-${idx}`)}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                          >
-                            {copied === `cuenta-${idx}` ? (
-                              <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    return (
+                      <motion.div
+                        key={idx}
+                        initial={false}
+                        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] overflow-hidden"
+                      >
+                        {/* Header - Siempre visible */}
+                        <button
+                          onClick={() => setExpandedBank(isExpanded ? null : idx)}
+                          className="w-full p-5 flex items-center gap-4 hover:bg-white/5 transition-colors"
+                        >
+                          {/* Logo */}
+                          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden p-1 shrink-0">
+                            {banco.logo ? (
+                              <Image src={banco.logo} alt={banco.banco} width={48} height={48} className="object-contain" />
                             ) : (
-                              <Copy className="w-5 h-5 text-gray-400" />
+                              <Building2 className="w-6 h-6 text-primary" />
                             )}
-                          </button>
-                        </div>
-                      </div>
+                          </div>
 
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
-                          Monto a Transferir
-                        </label>
-                        <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-                          <span className="font-black text-green-500 text-2xl">L{anticipo}</span>
-                          <button
-                            onClick={() => copyToClipboard(anticipo, `monto-${idx}`)}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          {/* Nombre del banco */}
+                          <div className="flex-1 text-left">
+                            <h3 className="font-black text-white text-base">{banco.banco}</h3>
+                            <p className="text-xs text-gray-500">{banco.tipo}</p>
+                          </div>
+
+                          {/* Icono expandir/colapsar */}
+                          <motion.div
+                            animate={{ rotate: isExpanded ? 180 : 0 }}
+                            transition={{ duration: 0.2 }}
                           >
-                            {copied === `monto-${idx}` ? (
-                              <CheckCircle2 className="w-5 h-5 text-green-500" />
-                            ) : (
-                              <Copy className="w-5 h-5 text-gray-400" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-                ))}
+                            <ChevronDown className="w-5 h-5 text-gray-400" />
+                          </motion.div>
+                        </button>
+
+                        {/* Detalles - Expandible */}
+                        <motion.div
+                          initial={false}
+                          animate={{
+                            height: isExpanded ? "auto" : 0,
+                            opacity: isExpanded ? 1 : 0
+                          }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                          className="overflow-hidden"
+                        >
+                          <div className="px-5 pb-5 pt-2 space-y-4 border-t border-white/5">
+                            {/* Titular */}
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
+                                Titular de la Cuenta
+                              </label>
+                              <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-3">
+                                <span className="font-bold text-white text-sm">{banco.titular}</span>
+                              </div>
+                            </div>
+
+                            {/* Número de cuenta */}
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
+                                Número de Cuenta
+                              </label>
+                              <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-3">
+                                <span className="font-black text-primary text-lg tracking-wider">{banco.numero}</span>
+                                <button
+                                  onClick={() => copyToClipboard(banco.numero, `cuenta-${idx}`)}
+                                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                >
+                                  {copied === `cuenta-${idx}` ? (
+                                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                  ) : (
+                                    <Copy className="w-5 h-5 text-gray-400" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Monto a transferir */}
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
+                                Monto a Transferir
+                              </label>
+                              <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                                <span className="font-black text-green-500 text-2xl">L{anticipo}</span>
+                                <button
+                                  onClick={() => copyToClipboard(anticipo, `monto-${idx}`)}
+                                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                >
+                                  {copied === `monto-${idx}` ? (
+                                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                  ) : (
+                                    <Copy className="w-5 h-5 text-gray-400" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
 
                 {/* Botón WhatsApp */}
                 <Button

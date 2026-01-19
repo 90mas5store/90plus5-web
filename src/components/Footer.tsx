@@ -108,14 +108,14 @@ export default function Footer() {
         <div className="space-y-2 md:space-y-3">
           <h3 className="text-white font-semibold text-base md:text-lg mb-2 md:mb-3">Contacto</h3>
           <p className="flex items-center gap-2 text-xs md:text-sm">
-            <Mail size={14} className="text-[#E50914] md:w-4 md:h-4" /> hola@90plus5.store
+            <Mail size={14} className="text-[#E50914] md:w-4 md:h-4" /> contacto@90mas5.store
           </p>
           <p className="flex items-center gap-2 text-xs md:text-sm">
-            <Phone size={14} className="text-[#E50914] md:w-4 md:h-4" /> +504 9876-5432
+            <Phone size={14} className="text-[#E50914] md:w-4 md:h-4" /> +504 3248-8860
           </p>
           <motion.a
             whileHover={{ scale: 1.05 }}
-            href="https://wa.me/50496649622"
+            href="https://wa.me/50432488860"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 mt-2 md:mt-3 px-4 md:px-5 py-1.5 md:py-2 rounded-full bg-[#E50914]/20 border border-[#E50914]/50 hover:bg-[#E50914]/40 transition-all text-xs md:text-sm"
