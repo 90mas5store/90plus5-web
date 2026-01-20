@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendOrderConfirmationEmail } from '@/lib/email';
+import { sendOrderConfirmationEmail, sendAdminNewOrderEmail } from '@/lib/email';
 import { BUSINESS_LOGIC } from '@/lib/constants';
 
 // 📝 Payload esperado del frontend
@@ -274,6 +274,15 @@ export async function POST(request: NextRequest) {
                 orderId: order.id,
                 totalAmount: total_amount,
                 depositAmount: deposit_amount,
+                items: emailItems
+            });
+
+            // 👑 Admin Notification
+            await sendAdminNewOrderEmail({
+                customerName: payload.customer_name,
+                customerEmail: payload.customer_email,
+                orderId: order.id,
+                totalAmount: total_amount,
                 items: emailItems
             });
 

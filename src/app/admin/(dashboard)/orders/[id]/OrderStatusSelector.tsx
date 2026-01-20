@@ -21,8 +21,9 @@ export default function OrderStatusSelector({ orderId, currentStatus }: { orderI
     const handleStatusChange = async (newStatus: string) => {
         if (newStatus === status) return;
 
-        const confirm = window.confirm(`¿Seguro que quieres cambiar el estado a "${getStatusLabel(newStatus)}"?`);
-        if (!confirm) return;
+        // Removed confirm for smoother UX on mobile
+        // const confirm = window.confirm(...);
+        // if (!confirm) return;
 
         setLoading(true);
         try {

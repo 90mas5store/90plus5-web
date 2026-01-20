@@ -19,7 +19,9 @@ export interface Product {
   logoEquipo?: string;
   category_id?: string;
   league_id?: string;
+  league_ids?: string[]; // ✅ Support for multiple leagues
   slug?: string;
+  sort_order?: number;
 }
 
 

@@ -1,8 +1,7 @@
 'use client'
-// Force Refresh
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { clearProductCache } from '@/lib/api'
 import {
@@ -27,7 +26,7 @@ interface Patch {
 }
 
 interface Variant {
-    id?: string // UUID from DB
+    // id?: string // New variants won't have DB ID yet
     tempId: string // Internal UI ID
     version: string
     price: number
@@ -44,9 +43,7 @@ interface Player {
     active: boolean
 }
 
-export default function EditProductPage() {
-    const params = useParams()
-    const id = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : ''
+export default function CreateProductPage() {
     const router = useRouter()
     const supabase = createClient()
     const toast = useToastMessage()
@@ -106,20 +103,7 @@ export default function EditProductPage() {
                 setAllSizes(sizesRes.data || [])
                 setAllPatches(patchesRes.data || [])
 
-                // 2. Cargar Producto
-                const { data: product, error } = await supabase
-                    .from('products')
-                    .select(`
-                        *,
-                        product_variants(*),
-                        product_leagues(league_id)
-                    `)
-                    .eq('id', id)
-                    .single()
-
-                if (error) throw error
-
-                // 2.0 Cargar Versiones Existentes (para el dropdown)
+                // 2.0 Cargar Versiones Existentes (para el dropdown) - Opcional, pero útil para sugerencias
                 const { data: allVariants } = await supabase
                     .from('product_variants')
                     .select('version')
@@ -129,83 +113,28 @@ export default function EditProductPage() {
                     if (unique.length > 0) setAvailableVersions(unique)
                 }
 
-                // 2.1 Cargar Relaciones (Product Patches & Variant Sizes)
-                // Product Patches
-                const { data: pPatches } = await supabase
-                    .from('product_patches')
-                    .select('patch_id')
-                    .eq('product_id', id)
-
-                const loadedPatchIds = new Set(pPatches?.map(p => p.patch_id) || [])
-                setProductPatches(loadedPatchIds as Set<string>)
-
-                // Variant Sizes
-                const variantIds = product.product_variants?.map((v: any) => v.id) || []
-                let variantSizesMap: Record<string, string[]> = {}
-
-                if (variantIds.length > 0) {
-                    const { data: vSizes } = await supabase
-                        .from('variant_sizes')
-                        .select('variant_id, size_id')
-                        .in('variant_id', variantIds)
-                        .eq('active', true) // Solo activos
-
-                    vSizes?.forEach((vs: any) => {
-                        if (!variantSizesMap[vs.variant_id]) variantSizesMap[vs.variant_id] = []
-                        variantSizesMap[vs.variant_id].push(vs.size_id)
-                    })
+                // Default variants suggestion (optional)
+                const defaultVariant: Variant = {
+                    tempId: `default_${Date.now()}`,
+                    version: 'Versión Fan',
+                    price: 1200,
+                    active: true,
+                    original_price: 0,
+                    active_original_price: false,
+                    sizeIds: new Set(sizesRes.data?.map((s: any) => s.id) || [])
                 }
-
-                // 2.2 LEAGUES (Load Multi-Leagues)
-                const loadedLeagueIds = new Set<string>();
-                if (product.product_leagues && product.product_leagues.length > 0) {
-                    product.product_leagues.forEach((pl: any) => loadedLeagueIds.add(pl.league_id));
-                } else if (product.league_id) {
-                    loadedLeagueIds.add(product.league_id);
-                }
-                setSelectedLeagues(loadedLeagueIds); // ✅ Populate state
-
-                // 3. Set Estados
-                setFormData({
-                    name: product.name || '',
-                    description: product.description || '',
-                    slug: product.slug || '',
-                    image_url: product.image_url || '',
-                    team_id: product.team_id || '',
-                    league_id: product.league_id || '',
-                    category_id: product.category_id || '',
-                    active: product.active ?? true,
-                    featured: product.featured ?? false,
-                    sort_order: product.sort_order || 0
-                })
-
-                // Map Variants
-                const loadedVariants: Variant[] = (product.product_variants || []).map((v: any) => ({
-                    id: v.id,
-                    tempId: v.id, // Use real ID as temp ID for existing
-                    version: v.version,
-                    price: v.price,
-                    active: v.active,
-                    original_price: v.original_price || 0,
-                    active_original_price: v.active_original_price || false,
-                    sizeIds: new Set(variantSizesMap[v.id] || [])
-                }))
-
-                // Sort by Price or Version? Let's keep DB order or sort by price
-                loadedVariants.sort((a, b) => a.price - b.price)
-
-                setVariants(loadedVariants)
+                setVariants([defaultVariant])
 
             } catch (error: any) {
-                console.error('Error cargando producto:', error)
-                toast.error('Error al cargar datos del producto')
+                console.error('Error cargando catálogos:', error)
+                toast.error('Error al cargar datos iniciales')
             } finally {
                 setLoading(false)
             }
         }
 
         loadData()
-    }, [id])
+    }, [])
 
 
     // Handlers Generales
@@ -222,17 +151,17 @@ export default function EditProductPage() {
         const newVariant: Variant = {
             tempId: `new_${Date.now()}`,
             version: 'Versión Jugador', // Default fallback
-            price: 1200,
+            price: 1400,
             active: true,
             original_price: 0,
             active_original_price: false,
-            sizeIds: new Set()
+            sizeIds: new Set(allSizes.map(s => s.id)) // Pre-select all sizes for convenience? Or empty? Better pre-select common sizes or empty. Let's do all.
         }
         setVariants([...variants, newVariant])
     }
 
     const removeVariant = (tempId: string) => {
-        setVariantToDelete(tempId)
+        setVariantToDelete(tempId) // UI consistency
     }
 
     const handleConfirmDelete = () => {
@@ -267,8 +196,6 @@ export default function EditProductPage() {
         })
     }
 
-
-
     // --- Players Handlers ---
     useEffect(() => {
         if (!formData.team_id) {
@@ -288,7 +215,7 @@ export default function EditProductPage() {
         }
 
         fetchPlayers()
-    }, [formData.team_id])
+    }, [formData.team_id, supabase])
 
     const handleAddPlayer = async () => {
         if (!newPlayer.name || !newPlayer.number || !formData.team_id) return
@@ -347,130 +274,84 @@ export default function EditProductPage() {
 
         setSaving(true)
         try {
-            // 1. Update Product Basic Info
-            const { error: prodError } = await supabase
+            // 1. Insert Product Basic Info
+            const { data: newProd, error: prodError } = await supabase
                 .from('products')
-                .update({
+                .insert({
                     name: formData.name,
                     description: formData.description,
                     slug: formData.slug,
                     image_url: formData.image_url,
                     team_id: formData.team_id || null,
-                    // Usar la primera liga seleccionada como "Principal" para compatibilidad
-                    league_id: selectedLeagues.size > 0 ? Array.from(selectedLeagues)[0] : null,
+                    league_id: selectedLeagues.size > 0 ? Array.from(selectedLeagues)[0] : (formData.league_id || null),
                     category_id: formData.category_id || null,
                     active: formData.active,
                     featured: formData.featured,
                     sort_order: formData.sort_order
                 })
-                .eq('id', id)
+                .select('id')
+                .single()
 
             if (prodError) throw prodError
+            const createdId = newProd.id
 
-            /* -----------------------------------------------------------------
-             * 2. GESTIÓN AVANZADA: Product Patches
-             * Estrategia: Borrar todos y reinsertar seleccionados.
-             * ----------------------------------------------------------------- */
-            // Borrar existentes
-            await supabase.from('product_patches').delete().eq('product_id', id)
-
-            // Insertar seleccionados
+            // 2. Insert Product Patches
             if (productPatches.size > 0) {
                 const patchesPayload = Array.from(productPatches).map(pid => ({
-                    product_id: id,
+                    product_id: createdId,
                     patch_id: pid
                 }))
                 const { error: patchError } = await supabase.from('product_patches').insert(patchesPayload)
                 if (patchError) throw patchError
             }
 
-            /* -----------------------------------------------------------------
-             * 2.1 GESTIÓN AVANZADA: Product Leagues (Multi-League)
-             * ----------------------------------------------------------------- */
-            // Borrar existentes
-            await supabase.from('product_leagues').delete().eq('product_id', id)
-
-            // Insertar seleccionados
+            // 2.1 Insert Product Leagues (Multi-League)
             if (selectedLeagues.size > 0) {
                 const leaguesPayload = Array.from(selectedLeagues).map(lid => ({
-                    product_id: id,
+                    product_id: createdId,
                     league_id: lid
                 }))
                 const { error: leagueError } = await supabase.from('product_leagues').insert(leaguesPayload)
                 if (leagueError) throw leagueError
             }
 
-            /* -----------------------------------------------------------------
-             * 3. GESTIÓN AVANZADA: Variants & Sizes
-             * ----------------------------------------------------------------- */
-
-            // A. Identify Variants to Delete (those in DB but not in current state)
-            const currentVariantIds = variants.map(v => v.id).filter(Boolean) as string[]
-            // Fetch existing in DB to know what to delete
-            const { data: dbVariants } = await supabase.from('product_variants').select('id').eq('product_id', id)
-            const dbVariantIds = dbVariants?.map(v => v.id) || []
-            const toDeleteIds = dbVariantIds.filter(vid => !currentVariantIds.includes(vid))
-
-            if (toDeleteIds.length > 0) {
-                await supabase.from('product_variants').delete().in('id', toDeleteIds)
-            }
-
-            // B. Upsert Variants
+            // 3. Insert Variants & Sizes
             for (const v of variants) {
-                // Prepare Payload
-                const payload = {
-                    product_id: id,
-                    version: v.version,
-                    price: v.price,
-                    active: v.active,
-                    original_price: v.original_price,
-                    active_original_price: v.active_original_price
-                }
+                // Insert Variant
+                const { data: newV, error: inError } = await supabase
+                    .from('product_variants')
+                    .insert({
+                        product_id: createdId,
+                        version: v.version,
+                        price: v.price,
+                        active: v.active,
+                        original_price: v.original_price,
+                        active_original_price: v.active_original_price
+                    })
+                    .select('id')
+                    .single()
 
-                let variantId = v.id
+                if (inError) throw inError
+                const variantId = newV.id
 
-                if (variantId) {
-                    // Update
-                    const { error: upError } = await supabase
-                        .from('product_variants')
-                        .update(payload)
-                        .eq('id', variantId)
-                    if (upError) throw upError
-                } else {
-                    // Insert
-                    const { data: newV, error: inError } = await supabase
-                        .from('product_variants')
-                        .insert(payload)
-                        .select('id')
-                        .single()
-                    if (inError) throw inError
-                    variantId = newV.id
-                }
-
-                // C. Manage Variant Sizes (Delete All linked -> Insert Selected)
-                if (variantId) {
-                    // Delete all sizes for this variant
-                    await supabase.from('variant_sizes').delete().eq('variant_id', variantId)
-
-                    // Insert Active Sizes
-                    if (v.sizeIds.size > 0) {
-                        const sizesPayload = Array.from(v.sizeIds).map(sid => ({
-                            variant_id: variantId,
-                            size_id: sid,
-                            active: true
-                        }))
-                        const { error: szError } = await supabase.from('variant_sizes').insert(sizesPayload)
-                        if (szError) throw szError
-                    }
+                // Insert Variant Sizes
+                if (v.sizeIds.size > 0) {
+                    const sizesPayload = Array.from(v.sizeIds).map(sid => ({
+                        variant_id: variantId,
+                        size_id: sid,
+                        active: true
+                    }))
+                    const { error: szError } = await supabase.from('variant_sizes').insert(sizesPayload)
+                    if (szError) throw szError
                 }
             }
 
-            clearProductCache() // 🧹 Limpiar caché client-side para actualizar precios en home
-            toast.success('Producto guardado exitosamente')
-            router.refresh()
+            clearProductCache()
+            toast.success('Producto creado exitosamente')
+            router.push('/admin/productos')
 
         } catch (error: any) {
-            console.error('❌ Error al guardar:', error)
+            console.error('❌ Error al crear:', error)
             toast.error(`Error: ${error.message}`)
         } finally {
             setSaving(false)
@@ -513,7 +394,7 @@ export default function EditProductPage() {
                                 <div>
                                     <h3 className="text-xl font-bold text-white">¿Eliminar Variante?</h3>
                                     <p className="text-gray-400 text-sm mt-2">
-                                        Esta acción no se puede deshacer si guardas los cambios. La variante se borrará permanentemente al guardar.
+                                        Eliminarás esta variante de la lista de creación.
                                     </p>
                                 </div>
 
@@ -545,8 +426,8 @@ export default function EditProductPage() {
                             <ArrowLeft className="w-6 h-6" />
                         </Link>
                         <div>
-                            <h1 className="text-2xl font-black text-white tracking-tight">Editar Producto</h1>
-                            <p className="text-gray-400 text-xs font-mono opacity-60">ID: {id}</p>
+                            <h1 className="text-2xl font-black text-white tracking-tight">Nuevo Producto</h1>
+                            <p className="text-gray-400 text-xs font-mono opacity-60">Crear un nuevo ítem en el catálogo</p>
                         </div>
                     </div>
                     <button
@@ -556,7 +437,7 @@ export default function EditProductPage() {
                         className="bg-primary hover:bg-primary/90 text-black px-8 py-3 rounded-xl font-black text-sm uppercase tracking-wider flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] transform hover:-translate-y-1 active:translate-y-0"
                     >
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                        {saving ? 'Creando...' : 'Crear Producto'}
                     </button>
                 </div>
             </div>

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 export default function ContactoPage() {
   const searchParams = useSearchParams();
@@ -87,19 +88,59 @@ export default function ContactoPage() {
         </motion.a>
       </section>
 
-      {/* PRIVACIDAD */}
+
+
+
+
+      {/* INFORMACIÓN LEGAL */}
       <section
-        id="privacidad"
         className="relative z-10 px-6 sm:px-16 py-16 border-t border-white/10 bg-black/40 backdrop-blur-sm"
       >
-        <h2 className="text-2xl font-bold mb-4 text-white/90">
-          Políticas de Privacidad
-        </h2>
-        <p className="text-gray-400 max-w-3xl leading-relaxed">
-          En <span className="text-white font-semibold">90+5 Store</span> valoramos tu privacidad.
-          No compartimos tus datos personales con terceros y solo utilizamos tu información para procesar tus pedidos, mejorar tu experiencia y ofrecerte un mejor servicio.
-          Pronto encontrarás aquí los detalles completos de nuestras políticas.
-        </p>
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold mb-8 text-white/90 text-center">
+            Centro de Información
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Link
+              href="/legal/envios"
+              className="group bg-[#111] border border-white/10 hover:border-[#E50914] p-6 rounded-2xl transition-all hover:-translate-y-1 block"
+            >
+              <div className="text-[#E50914] mb-3 text-xl">🚚</div>
+              <h3 className="text-lg font-bold text-white mb-2 group-hover:text-[#E50914] transition-colors">
+                Envíos y Devoluciones
+              </h3>
+              <p className="text-gray-400 text-xs leading-relaxed">
+                Conoce nuestras coberturas, precios y políticas de cambio.
+              </p>
+            </Link>
+
+            <Link
+              href="/legal/terminos"
+              className="group bg-[#111] border border-white/10 hover:border-[#E50914] p-6 rounded-2xl transition-all hover:-translate-y-1 block"
+            >
+              <div className="text-[#E50914] mb-3 text-xl">📜</div>
+              <h3 className="text-lg font-bold text-white mb-2 group-hover:text-[#E50914] transition-colors">
+                Términos y Condiciones
+              </h3>
+              <p className="text-gray-400 text-xs leading-relaxed">
+                Reglas claras sobre pagos, anticipos y responsabilidades.
+              </p>
+            </Link>
+
+            <Link
+              href="/legal/privacidad"
+              className="group bg-[#111] border border-white/10 hover:border-[#E50914] p-6 rounded-2xl transition-all hover:-translate-y-1 block"
+            >
+              <div className="text-[#E50914] mb-3 text-xl">🔒</div>
+              <h3 className="text-lg font-bold text-white mb-2 group-hover:text-[#E50914] transition-colors">
+                Privacidad de Datos
+              </h3>
+              <p className="text-gray-400 text-xs leading-relaxed">
+                Cómo protegemos tu información y datos personales.
+              </p>
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* FAQ */}

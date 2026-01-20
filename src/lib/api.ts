@@ -26,9 +26,14 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
                 version,
                 price,
                 active
+            ),
+            product_leagues (
+                league_id
             )
         `)
-    .eq("active", true);
+
+    .eq("active", true)
+    .order("name", { ascending: true }); // 🔤 Orden alfabético para catálogo
 
   if (error) {
     console.error("Error fetching catalog from Supabase:", error);
@@ -36,8 +41,14 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
   }
 
   // Adaptar estructura de Supabase al formato interno
-  return data.map(adaptSupabaseProductToProduct);
+  const products = data.map(adaptSupabaseProductToProduct);
 
+  // 🔤 Ordenar por: 1. Nombre del Equipo (A-Z), 2. Nombre del Producto (A-Z)
+  return products.sort((a, b) => {
+    const teamCompare = a.equipo.localeCompare(b.equipo);
+    if (teamCompare !== 0) return teamCompare;
+    return a.modelo.localeCompare(b.modelo);
+  });
 }
 
 function adaptSupabaseProductToProduct(raw: any): Product {
@@ -60,6 +71,16 @@ function adaptSupabaseProductToProduct(raw: any): Product {
     team_id: raw.team_id,
     category_id: raw.category_id,
     league_id: raw.league_id,
+    league_ids: raw.product_leagues?.map((pl: any) => pl.league_id) || (raw.league_id ? [raw.league_id] : []),
+    sort_order: raw.sort_order || 0,
+    product_variants: variants.map((v: any) => ({
+      id: v.id,
+      version: v.version,
+      price: v.price,
+      active: v.active,
+      original_price: v.original_price,
+      active_original_price: v.active_original_price
+    })),
   };
 }
 
@@ -69,28 +90,33 @@ async function fetchFeaturedFromSupabase(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
     .select(`
+  id,
+    name,
+    slug,
+    image_url,
+    featured,
+    sort_order,
+    team_id,
+    category_id,
+    league_id,
+    teams(
       id,
       name,
-      slug,
-      image_url,
-      featured,
-      team_id,
-      category_id,
-      league_id,
-      teams (
-        id,
-        name,
-        logo_url
-      ),
-      product_variants (
-        id,
-        version,
-        price,
-        active
-      )
-    `)
+      logo_url
+    ),
+    product_variants(
+      id,
+      version,
+      price,
+      active
+    ),
+    product_leagues(
+      league_id
+    )
+      `)
     .eq("active", true)
-    .eq("featured", true);
+    .eq("featured", true)
+    .order("sort_order", { ascending: true }); // 🔢 Orden personalizado para destacados
 
   if (error) {
     console.error("Error fetching featured from Supabase:", error);
@@ -191,23 +217,23 @@ export async function getRelatedProducts(currentProductId: string, leagueId?: st
   let query = supabase
     .from("products")
     .select(`
-      id,
+  id,
+    name,
+    slug,
+    image_url,
+    featured,
+    team_id,
+    category_id,
+    league_id,
+    teams(
       name,
-      slug,
-      image_url,
-      featured,
-      team_id,
-      category_id,
-      league_id,
-      teams (
-        name,
-        logo_url
-      ),
-      product_variants (
-        price,
-        active
-      )
-    `)
+      logo_url
+    ),
+    product_variants(
+      price,
+      active
+    )
+      `)
     .eq("active", true)
     .neq("id", currentProductId)
     .limit(4);
@@ -253,20 +279,29 @@ export async function getProductOptionsFromSupabase(productId: string) {
   const variantIds = (variants ?? []).map(v => v.id);
 
   /* =========================
-   * 2️⃣ TALLAS (con ID + label)
+   * 2️⃣ TALLAS (con ID + label) & MAPPING
    * ========================= */
   let tallas: { id: string; label: string }[] = [];
+  const variantSizesMap: Record<string, string[]> = {};
 
   if (variantIds.length > 0) {
     const { data: variantSizes, error: vsError } = await supabase
       .from("variant_sizes")
-      .select("size_id")
+      .select("variant_id, size_id")
       .in("variant_id", variantIds)
       .eq("active", true);
 
     if (vsError) throw vsError;
 
-    const sizeIds = [...new Set(variantSizes.map(vs => vs.size_id))];
+    // Build the map: variant_id -> [size_id, size_id, ...]
+    (variantSizes || []).forEach(vs => {
+      if (!variantSizesMap[vs.variant_id]) {
+        variantSizesMap[vs.variant_id] = [];
+      }
+      variantSizesMap[vs.variant_id].push(vs.size_id);
+    });
+
+    const sizeIds = [...new Set(variantSizes?.map(vs => vs.size_id))];
 
     if (sizeIds.length > 0) {
       const { data: sizes, error: sizesError } = await supabase
@@ -316,6 +351,7 @@ export async function getProductOptionsFromSupabase(productId: string) {
     versiones,
     tallas,
     parches,
+    variantSizesMap // ✅ New field
   };
 }
 
@@ -375,7 +411,7 @@ async function getCached<T>(key: string, fetcher: () => Promise<T>): Promise<T> 
 
   // 2️⃣ Intenta sessionStorage
   if (store) {
-    const cachedRaw = store.getItem(`cache_${key}`);
+    const cachedRaw = store.getItem(`cache_${key} `);
     if (cachedRaw) {
       try {
         const parsed = JSON.parse(cachedRaw);
@@ -417,7 +453,23 @@ function setCache<T>(key: string, data: T) {
   memoryCache.lastUpdated[key] = now;
 
   if (store) {
-    store.setItem(`cache_${key}`, JSON.stringify({ data, timestamp: now }));
+    store.setItem(`cache_${key} `, JSON.stringify({ data, timestamp: now }));
+  }
+}
+
+/* 🧹 Limpia todo el caché (se llama al actualizar productos) */
+export function clearProductCache() {
+  memoryCache.catalog = null;
+  memoryCache.featured = null;
+  memoryCache.config = null;
+  memoryCache.lastUpdated = {};
+
+  const store = safeSessionStorage();
+  if (store) {
+    store.removeItem('cache_catalog');
+    store.removeItem('cache_featured');
+    store.removeItem('cache_config');
+    store.removeItem('cache_shipping_zones');
   }
 }
 
@@ -428,7 +480,7 @@ async function refreshInBackground<T>(key: string, fetcher: () => Promise<T>) {
     setCache(key, fresh);
     console.info(`Cache ${key} actualizada en background ✅`);
   } catch (err) {
-    console.warn(`No se pudo refrescar ${key}:`, err);
+    console.warn(`No se pudo refrescar ${key}: `, err);
   }
 }
 
@@ -462,40 +514,46 @@ export async function getFeatured(): Promise<Product[]> {
 export async function getProductById(idOrSlug: string): Promise<Product> {
   if (!idOrSlug) throw new Error("ID/Slug no proporcionado");
 
-  // Intentamos buscar por slug primero (asumimos que slugs no son UUIDs)
-  // O podemos buscar por ambos con un OR
-  const { data, error } = await supabase
+  // Detectar si es UUID
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+
+  let query = supabase
     .from("products")
     .select(`
-      id,
+    id,
+    name,
+    slug,
+    description,
+    image_url,
+    featured,
+    team_id,
+    category_id,
+    league_id,
+    teams(
       name,
-      slug,
-      description,
-      image_url,
-      featured,
-      team_id,
-      category_id,
-      league_id,
-      teams (
-        name,
-        logo_url
-      ),
-      product_variants (
-         id,
-         version,
-         price,
-         active,
-         original_price,
-         active_original_price
-      )
-    `)
-    // Buscamos coincidencia en id (si es uuid válido) O slug
-    .or(`id.eq.${idOrSlug},slug.eq.${idOrSlug}`)
-    .eq("active", true)
-    .single();
+      logo_url
+    ),
+    product_variants(
+      id,
+      version,
+      price,
+      active,
+      original_price,
+      active_original_price
+    )
+      `)
+    .eq("active", true);
+
+  if (isUUID) {
+    query = query.eq("id", idOrSlug);
+  } else {
+    query = query.ilike("slug", idOrSlug);
+  }
+
+  const { data, error } = await query.single();
 
   if (error) {
-    console.warn(`Producto no encontrado (${idOrSlug}):`, error.message);
+    console.warn(`Producto no encontrado(${idOrSlug}): `, error.message);
     throw error;
   }
 

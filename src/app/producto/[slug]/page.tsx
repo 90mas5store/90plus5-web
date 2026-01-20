@@ -29,7 +29,7 @@ async function getProduct(slug: string) {
             teams (name, logo_url),
             product_variants (version, price, original_price, active_original_price, active)
         `)
-        .eq("slug", slug)
+        .ilike("slug", slug)
         .eq("active", true)
         .single();
 

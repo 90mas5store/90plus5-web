@@ -169,19 +169,17 @@ export default function CatalogoPage() {
       // 2. Filtro por Liga
       let ligaMatch = true;
       if (selectedLeagueObj) {
-        if (p.league_id && selectedLeagueObj.id) {
-          // Match exacto por ID
-          ligaMatch = p.league_id === selectedLeagueObj.id;
+        if (selectedLeagueObj.id) {
+          // Match exacto por ID (Check multi-leagues first)
+          if (p.league_ids && p.league_ids.length > 0) {
+            ligaMatch = p.league_ids.includes(selectedLeagueObj.id);
+          } else if (p.league_id) {
+            ligaMatch = p.league_id === selectedLeagueObj.id;
+          } else {
+            ligaMatch = false;
+          }
         } else {
           // Fallback por nombre (legacy)
-          // p.liga might be missing in Product type if not added explicitly, using (p as any).liga just in case or assuming type is correct
-          const pLiga = p.league_id ? null : (p as any).liga; // if league_id exists, we matched above, else check legacy
-          // Actually, the previous logic was:
-          // ligaMatch = normalize(p.liga) === normalize(selectedLeagueObj.nombre);
-          // Let's assume 'liga' exists on Product or is handled via loose typing for now, or update Type.
-          // In types.ts Product has NO 'liga' field explicitly, but 'league_id'.
-          // However raw data from 'getCatalog' might have it joined? 
-          // Let's stick to safe access.
           ligaMatch = normalize((p as any).liga || "") === normalize(selectedLeagueObj.nombre);
         }
       }

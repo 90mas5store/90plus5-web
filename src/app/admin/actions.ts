@@ -25,6 +25,26 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
         throw new Error(error.message)
     }
 
+    // 📧 Enviar correo de notificación (Nuevo)
+    // Primero obtenemos los datos del cliente que quizás no venían en el updateData
+    const { data: orderData } = await supabase
+        .from('orders')
+        .select('customer_email, customer_name')
+        .eq('id', orderId)
+        .single();
+
+    if (orderData?.customer_email) {
+        // Importación dinámica o directa, asumiendo que está en lib/email
+        // Nota: Asegúrate de importar la función arriba si no usas dynamic import
+        const { sendOrderStatusUpdateEmail } = await import('@/lib/email');
+        await sendOrderStatusUpdateEmail({
+            customerName: orderData.customer_name,
+            customerEmail: orderData.customer_email,
+            orderId,
+            status: newStatus
+        });
+    }
+
     revalidatePath('/admin/orders')
     revalidatePath(`/admin/orders/${orderId}`)
 
@@ -65,6 +85,23 @@ export async function updatePaymentStatus(paymentId: string, newStatus: 'pending
             .eq('status', 'pending_payment_50')
 
         if (orderError) console.error("Could not auto-update order status", orderError)
+
+        // 📧 Enviar correo de notificación de Anticipo
+        const { data: orderData } = await supabase
+            .from('orders')
+            .select('customer_email, customer_name')
+            .eq('id', payment.order_id)
+            .single();
+
+        if (orderData?.customer_email) {
+            const { sendOrderStatusUpdateEmail } = await import('@/lib/email');
+            await sendOrderStatusUpdateEmail({
+                customerName: orderData.customer_name,
+                customerEmail: orderData.customer_email,
+                orderId: payment.order_id,
+                status: 'deposit_paid'
+            });
+        }
     }
 
     revalidatePath('/admin/orders')

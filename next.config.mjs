@@ -27,6 +27,11 @@ const nextConfig = {
         hostname: '90mas5.store',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'fhvxolslqrrkefsvbcrq.supabase.co',
+        pathname: '/**',
+      },
     ],
     // 🎨 Permitir SVG en el componente Image (necesario para logos de bancos)
     dangerouslyAllowSVG: true,

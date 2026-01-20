@@ -12,6 +12,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { SiTiktok } from "react-icons/si";
+import { getWhatsappLink } from "@/lib/whatsapp";
 
 export default function Footer() {
   const router = useRouter();
@@ -80,23 +81,39 @@ export default function Footer() {
             <li>
               <button
                 onClick={() => handleScrollToSection("faq")}
-                className="hover:text-[#E50914] transition-colors"
+                className="hover:text-[#E50914] transition-colors text-left"
               >
                 Preguntas Frecuentes
               </button>
             </li>
             <li>
-              <button
-                onClick={() => handleScrollToSection("privacidad")}
+              <Link
+                href="/legal/privacidad"
                 className="hover:text-[#E50914] transition-colors"
               >
                 Política de Privacidad
-              </button>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/legal/envios"
+                className="hover:text-[#E50914] transition-colors"
+              >
+                Envíos y Devoluciones
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/legal/terminos"
+                className="hover:text-[#E50914] transition-colors"
+              >
+                Términos y Condiciones
+              </Link>
             </li>
             <li>
               <button
                 onClick={() => handleScrollToSection("contacto")}
-                className="hover:text-[#E50914] transition-colors"
+                className="hover:text-[#E50914] transition-colors text-left"
               >
                 Contáctanos
               </button>
@@ -115,7 +132,7 @@ export default function Footer() {
           </p>
           <motion.a
             whileHover={{ scale: 1.05 }}
-            href="https://wa.me/50432488860"
+            href={getWhatsappLink({ message: "¡Hola! Quisiera más información." })}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 mt-2 md:mt-3 px-4 md:px-5 py-1.5 md:py-2 rounded-full bg-[#E50914]/20 border border-[#E50914]/50 hover:bg-[#E50914]/40 transition-all text-xs md:text-sm"

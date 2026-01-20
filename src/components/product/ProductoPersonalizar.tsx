@@ -81,8 +81,9 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
         originalesPorVersion: Record<string, { price: number, active: boolean }>;
         versiones?: { id: string; label: string }[];
         tallas?: { id: string; label: string }[];
-        parches?: { id: string; label: string }[]
-    }>({ dorsales: [], preciosPorVersion: {}, originalesPorVersion: {} });
+        parches?: { id: string; label: string }[];
+        variantSizesMap?: Record<string, string[]>;
+    }>({ dorsales: [], preciosPorVersion: {}, originalesPorVersion: {}, variantSizesMap: {} });
     const [relatedProducts, setRelatedProducts] = useState<LibProduct[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -155,12 +156,30 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                 originalesPorVersion,
             });
 
+            // Auto-seleccionar primera versión si existe
+            if (opcionesProducto.versiones?.length && !versionSeleccionada) {
+                const firstVersion = opcionesProducto.versiones[0];
+                setVersionSeleccionada(firstVersion);
+                setPrecioActual(preciosPorVersion[firstVersion.label] ?? product.precio);
+                setPrecioOriginalActual(originalesPorVersion[firstVersion.label] ?? null);
+            }
+
             const related = await getRelatedProducts(product.id, product.league_id, product.category_id);
             setRelatedProducts(related);
             setLoading(false);
         }
         cargarOpciones();
     }, [product.id]);
+
+    // Cleanup talla si cambia versión y no está disponible
+    useEffect(() => {
+        if (versionSeleccionada && tallaSeleccionada && opciones.variantSizesMap) {
+            const availableSizes = opciones.variantSizesMap[versionSeleccionada.id] || [];
+            if (!availableSizes.includes(tallaSeleccionada.id)) {
+                setTallaSeleccionada(null);
+            }
+        }
+    }, [versionSeleccionada]);
 
     // === MANEJO DEL ZOOM (Mouse + Touch) ===
     const handleZoomMove = (e: React.MouseEvent | React.TouchEvent) => {
@@ -436,18 +455,27 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                             <div className="space-y-2">
                                 <h3 className="text-sm font-semibold text-gray-300">Talla</h3>
                                 <div className="flex flex-wrap gap-2">
-                                    {opciones.tallas.map((t) => (
-                                        <button
-                                            key={t.id}
-                                            onClick={() => setTallaSeleccionada(t)}
-                                            className={`w-12 h-12 md:w-14 md:h-14 rounded-xl border flex items-center justify-center font-bold transition-all duration-300 ${tallaSeleccionada?.id === t.id
-                                                ? "border-primary bg-primary text-white shadow-[0_0_15px_rgba(229,9,20,0.4)]"
-                                                : "border-white/10 bg-white/5 hover:border-white/30 text-gray-400"
-                                                }`}
-                                        >
-                                            {t.label}
-                                        </button>
-                                    ))}
+                                    {opciones.tallas
+                                        .filter(t => {
+                                            if (!versionSeleccionada || !opciones.variantSizesMap) return true;
+                                            const allowedSizes = opciones.variantSizesMap[versionSeleccionada.id];
+                                            return allowedSizes ? allowedSizes.includes(t.id) : true;
+                                        })
+                                        .map((t) => (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => setTallaSeleccionada(t)}
+                                                className={`w-12 h-12 md:w-14 md:h-14 rounded-xl border flex items-center justify-center font-bold transition-all duration-300 ${tallaSeleccionada?.id === t.id
+                                                    ? "border-primary bg-primary text-white shadow-[0_0_15px_rgba(229,9,20,0.4)]"
+                                                    : "border-white/10 bg-white/5 hover:border-white/30 text-gray-400"
+                                                    }`}
+                                            >
+                                                {t.label}
+                                            </button>
+                                        ))}
+                                    {versionSeleccionada && opciones.variantSizesMap && (!opciones.variantSizesMap[versionSeleccionada.id] || opciones.variantSizesMap[versionSeleccionada.id].length === 0) && (
+                                        <p className="text-xs text-red-400 italic">No hay tallas disponibles para esta versión.</p>
+                                    )}
                                 </div>
                             </div>
                         )}

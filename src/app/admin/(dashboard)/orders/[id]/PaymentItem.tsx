@@ -18,27 +18,34 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
     const [loading, setLoading] = useState(false)
 
     const handleVerify = async () => {
-        if (!confirm('¿Has verificado que el dinero ingresó a la cuenta? Esto actualizará el estado del pedido automáticamente.')) return;
+        // Removed confirm for smoother UX and debugging - Admin action is deliberate
+        // if (!confirm('...')) return; 
 
         setLoading(true)
         try {
+            console.log("Verifying payment...");
             await updatePaymentStatus(payment.id, 'completed')
             toast.success('Pago verificado y estado actualizado')
-        } catch (e) {
-            toast.error('Error al verificar')
+        } catch (e: any) {
+            console.error("Payment verify error:", e);
+            toast.error('Error al verificar: ' + (e?.message || 'Unknown'))
         } finally {
             setLoading(false)
         }
     }
 
     const handleReject = async () => {
-        if (!confirm('¿Marcar pago como fallido o rechazado?')) return;
+        // Removed confirm for smoother UX
+        // if (!confirm('¿Marcar pago como fallido o rechazado?')) return;
+
         setLoading(true)
         try {
+            console.log("Rejecting payment...");
             await updatePaymentStatus(payment.id, 'failed')
             toast.error('Pago marcado como fallido')
-        } catch (e) {
-            toast.error('Error')
+        } catch (e: any) {
+            console.error("Payment reject error:", e);
+            toast.error('Error: ' + (e?.message || 'Unknown'))
         } finally {
             setLoading(false)
         }

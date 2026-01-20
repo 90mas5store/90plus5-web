@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Button from "../../../components/ui/MainButton";
 import { BANK_ACCOUNTS } from "../../../lib/config/banks";
+import { getWhatsappLink } from "@/lib/whatsapp";
 
 export default function CheckoutDonePage() {
   const params = useSearchParams();
@@ -66,7 +67,7 @@ export default function CheckoutDonePage() {
 
   const handleShare = () => {
     const message = `👋 Hola, soy ${nombre}. Te comparto el comprobante de mi pedido *${orderId}* por un monto de *L${total}* (${metodo}).`;
-    const whatsappURL = `https://wa.me/50432488860?text=${encodeURIComponent(message)}`;
+    const whatsappURL = getWhatsappLink({ message });
     window.open(whatsappURL, "_blank");
   };
 

@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { BANK_ACCOUNTS } from "@/lib/config/banks";
+import { getWhatsappLink } from "@/lib/whatsapp";
 
 // const resend = new Resend(process.env.RESEND_API_KEY); // Movido dentro de la función para mayor robustez
 
@@ -39,11 +40,6 @@ export const sendOrderConfirmationEmail = async ({
 
       return `
     <div style="background:#111;border:1px solid #222;border-radius:14px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">
-      ${logoUrl ? `
-      <div style="width:40px;height:40px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:4px;flex-shrink:0;">
-        <img src="${logoUrl}" alt="${bank.banco}" style="width:100%;height:100%;object-fit:contain;" />
-      </div>
-      ` : ''}
       <div style="flex:1;">
         <strong style="color:#fff;font-size:14px;display:block;margin-bottom:4px;">
           ${bank.banco}
@@ -68,13 +64,19 @@ export const sendOrderConfirmationEmail = async ({
   // 👕 Productos
   const itemsHtml = items
     .map(
-      (item) => `
+      (item) => {
+        // Fix: Normalizar URL de imagen para que sea absoluta si es relativa
+        const imageUrl = item.image?.startsWith('/')
+          ? `https://90mas5.store${item.image}`
+          : item.image;
+
+        return `
     <div style="display:flex;gap:16px;padding:18px 0;border-bottom:1px solid #222;">
       <div style="width:70px;height:70px;border-radius:10px;overflow:hidden;background:#000;border:1px solid #333;">
-        ${item.image
-          ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;" />`
-          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#333;font-size:9px;">SIN FOTO</div>`
-        }
+        ${imageUrl && imageUrl.startsWith('http')
+            ? `<img src="${imageUrl}" style="width:100%;height:100%;object-fit:cover;" />`
+            : `<div style="width:100%;height:100%;background:#111;"></div>`
+          }
       </div>
       <div style="flex:1;">
         <p style="margin:0;color:#fff;font-size:14px;font-weight:700;">
@@ -88,7 +90,8 @@ export const sendOrderConfirmationEmail = async ({
         </p>
       </div>
     </div>
-  `
+  `;
+      }
     )
     .join("");
 
@@ -106,7 +109,7 @@ export const sendOrderConfirmationEmail = async ({
       <td align="center" style="padding:40px 12px;">
 
         <!-- Logo -->
-        <img src="https://90mas5.store/logo.svg" width="120" style="margin-bottom:40px;" />
+        <img src="https://90mas5.store/logo.png" width="120" style="margin-bottom:40px;" />
 
         <!-- Card -->
         <table width="100%" style="max-width:600px;background:#0a0a0a;border-radius:24px;border:1px solid #222;">
@@ -114,12 +117,13 @@ export const sendOrderConfirmationEmail = async ({
             <td style="padding:40px;">
 
               <!-- Header -->
-              <h1 style="margin:0 0 10px;font-size:30px;font-weight:900;text-align:center;">
-                Pedido confirmado ⚽
+              <h1 style="margin:0 0 10px;font-size:30px;font-weight:900;text-align:center;font-style:italic;">
+                "Here we go!" ⚽
               </h1>
 
               <p style="margin:0 0 30px;color:#aaa;text-align:center;font-size:15px;">
-                Hola ${customerName.split(" ")[0]}, tu pedido fue recibido correctamente.<br/>
+                Jugada inicial ${customerName.split(" ")[0]}, ya recibimos tu pedido.<br/>
+                Ahora sos parte del equipo.<br/>
                 <span style="display:inline-block;margin-top:10px;padding:6px 12px;background:#222;border-radius:8px;font-family:Courier,monospace;">
                   #${orderId.slice(0, 8).toUpperCase()}
                 </span>
@@ -128,19 +132,19 @@ export const sendOrderConfirmationEmail = async ({
               <!-- Depósito -->
               <div style="background:#120202;border:1px solid #2a0b0d;border-radius:16px;padding:26px;text-align:center;margin-bottom:30px;">
                 <p style="margin:0;color:#E50914;font-size:12px;font-weight:800;text-transform:uppercase;">
-                  Anticipo requerido
+                  Balón al centro (Anticipo)
                 </p>
                 <p style="margin:12px 0 4px;font-size:36px;font-weight:900;">
                   L ${depositAmount.toLocaleString()}
                 </p>
                 <p style="margin:0;color:#999;font-size:14px;">
-                  Pago inicial del 50% para procesar tu pedido.
+                  Mete el gol del 50% de anticipo para que empiece el partido.
                 </p>
               </div>
 
               <!-- CTA Rastreo -->
               <p style="margin:0 0 15px;color:#aaa;font-size:14px;text-align:center;">
-                Desde el rastreo podrás ver el estado del pedido y futuras actualizaciones.
+                No le perdás la pista a tu fichaje.
               </p>
 
               <a href="https://90mas5.store/rastreo?order=${orderId}"
@@ -148,19 +152,19 @@ export const sendOrderConfirmationEmail = async ({
                         padding:18px 0;border-radius:14px;
                         text-align:center;font-weight:900;
                         text-transform:uppercase;margin-bottom:40px;">
-                Rastrear mi pedido
+                Seguir la jugada
               </a>
 
               <!-- Bancos -->
               <h3 style="margin:0 0 16px;font-size:13px;text-transform:uppercase;letter-spacing:1px;">
-                Cuentas bancarias
+                Taquilla de Pago (Cuentas)
               </h3>
 
               ${banksHtml}
 
               <!-- Productos -->
               <h3 style="margin:40px 0 16px;font-size:13px;text-transform:uppercase;letter-spacing:1px;">
-                Resumen del pedido
+                Alineación (Resumen)
               </h3>
 
               ${itemsHtml}
@@ -176,13 +180,10 @@ export const sendOrderConfirmationEmail = async ({
               </table>
 
               <!-- WhatsApp soporte -->
-              <a href="https://wa.me/50432488860?text=Hola,%20tengo%20una%20consulta%20sobre%20mi%20pedido%20#${orderId.slice(
-    0,
-    8
-  ).toUpperCase()}"
+              <a href="${getWhatsappLink({ message: `Qué ondas, tengo una consulta sobre mi pedido #${orderId.slice(0, 8).toUpperCase()}` })}"
                  style="display:block;margin-top:30px;text-align:center;
                         color:#25D366;text-decoration:none;font-size:13px;font-weight:700;">
-                ¿Necesitas ayuda? Escríbenos por WhatsApp
+                ¿Consultas al árbitro? Escribinos por WhatsApp
               </a>
 
             </td>
@@ -214,5 +215,163 @@ export const sendOrderConfirmationEmail = async ({
   } catch (error) {
     console.error("Error enviando correo:", error);
     return { success: false, error };
+  }
+};
+
+export const sendOrderStatusUpdateEmail = async ({
+  customerName,
+  customerEmail,
+  orderId,
+  status,
+}: {
+  customerName: string;
+  customerEmail: string;
+  orderId: string;
+  status: string;
+}) => {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  let statusConfig = {
+    subject: `Actualización del partido #${orderId.slice(0, 8).toUpperCase()} ⚽`,
+    title: 'Cambio táctico',
+    message: `El estado de tu pedido ha cambiado a: ${status}.`,
+  };
+
+  switch (status) {
+    case 'deposit_paid':
+      statusConfig = {
+        subject: '¡Anticipo anotado! ⚽ A calentar',
+        title: '¡Gol del Anticipo!',
+        message: 'Ya recibimos tu pago inicial. El equipo entra en producción. ¡Se viene lo bueno!',
+      };
+      break;
+    case 'ready_for_delivery':
+      statusConfig = {
+        subject: '¡Tu pedido salta a la cancha! 🚚',
+        title: '¡Contragolpe Letal!',
+        message: 'Tu pedido ya va en camino hacia vos. Atento a la jugada que llega pronto.',
+      };
+      break;
+    case 'paid_full':
+      statusConfig = {
+        subject: '¡Victoria! Pedido entregado 🏆',
+        title: '¡Partido Ganado!',
+        message: 'Pedido entregado y pagado al 100%. Gracias por jugar con nosotros. ¡Hasta la próxima temporada!',
+      };
+      break;
+    case 'Cancelled':
+      statusConfig = {
+        subject: 'Tarjeta Roja: Pedido Cancelado 🔴',
+        title: 'Partido Suspendido',
+        message: 'Tu pedido ha sido cancelado. Si crees que fue un error del árbitro (nosotros), escribinos para revisar el VAR.',
+      };
+      break;
+  }
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>${statusConfig.subject}</title>
+</head>
+<body style="margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" style="padding:40px 12px;">
+        <img src="https://90mas5.store/logo.png" width="80" style="margin-bottom:40px;" />
+        <table width="100%" style="max-width:500px;background:#0a0a0a;border-radius:24px;border:1px solid #222;">
+          <tr>
+            <td style="padding:40px;text-align:center;">
+              <h1 style="margin:0 0 10px;font-size:28px;font-weight:900;">
+                ${statusConfig.title}
+              </h1>
+              <p style="margin:0 0 20px;color:#aaa;font-size:16px;line-height:1.5;">
+                Jugada inicial ${customerName.split(" ")[0]},<br/>
+                ${statusConfig.message}
+              </p>
+              
+              <a href="https://90mas5.store/rastreo?order=${orderId}"
+                 style="display:block;background:#fff;color:#000;text-decoration:none;
+                        padding:16px 0;border-radius:12px;
+                        font-weight:900;text-transform:uppercase;margin-top:30px;">
+                Ver marcador (Rastreo)
+              </a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin-top:30px;color:#444;font-size:12px;text-align:center;">
+          <strong>90+5 STORE</strong>
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+
+  try {
+    const data = await resend.emails.send({
+      from: "90+5 Store <contacto@90mas5.store>",
+      to: [customerEmail],
+      subject: statusConfig.subject,
+      html: htmlContent,
+    });
+    return { success: true, data };
+  } catch (error) {
+    console.error("Error enviando actualización:", error);
+    return { success: false, error };
+  }
+};
+
+export const sendAdminNewOrderEmail = async ({
+  customerName,
+  customerEmail,
+  orderId,
+  totalAmount,
+  items,
+}: {
+  customerName: string;
+  customerEmail: string;
+  orderId: string;
+  totalAmount: number;
+  items: any[];
+}) => {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  // Email del admin: contacto@90mas5.store (o el que prefiera el usuario)
+  const adminEmail = "contacto@90mas5.store";
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head><title>Nuevo Pedido</title></head>
+<body style="font-family:sans-serif;color:#333;">
+  <h1>¡Nuevo Fichaje! 🤑</h1>
+  <p>Has recibido un nuevo pedido de <strong>${customerName}</strong>.</p>
+  <p><strong>ID:</strong> ${orderId}</p>
+  <p><strong>Total:</strong> L ${totalAmount.toLocaleString()}</p>
+  
+  <h3>Alineación (Productos):</h3>
+  <ul>
+    ${items.map(i => `<li>${i.quantity}x ${i.team || ''} ${i.name} (${i.details || 'Estándar'})</li>`).join('')}
+  </ul>
+
+  <p>
+    <a href="https://90mas5.store/admin/orders/${orderId}">Ver pedido en Admin</a>
+  </p>
+</body>
+</html>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: "90+5 Store System <contacto@90mas5.store>",
+      to: [adminEmail],
+      subject: `Nuevo Pedido #${orderId.slice(0, 8)} - L ${totalAmount}`,
+      html: htmlContent,
+    });
+  } catch (e) {
+    console.error("Error sending admin notification", e);
   }
 };

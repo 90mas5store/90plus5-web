@@ -110,6 +110,7 @@ export default function CheckoutPage() {
     });
 
     const [metodoPago, setMetodoPago] = useState("");
+    const [aceptoTerminos, setAceptoTerminos] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errores, setErrores] = useState<FormErrors>({});
 
@@ -215,6 +216,10 @@ export default function CheckoutPage() {
         if (!formData.departamento) newErrors.departamento = true;
         if (!formData.municipio) newErrors.municipio = true;
         if (!metodoPago.trim()) newErrors.metodoPago = true;
+        if (!aceptoTerminos) {
+            toastMsg.warning("Debes aceptar los términos y condiciones");
+            return false;
+        }
 
         setErrores(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -667,19 +672,32 @@ export default function CheckoutPage() {
                                     </div>
                                 </div>
 
+
+                                <div className="mt-8 mb-4">
+                                    <label className="flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
+                                        <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-all ${aceptoTerminos ? 'bg-primary border-primary' : 'border-white/20 bg-black/40 group-hover:border-white/40'}`}>
+                                            {aceptoTerminos && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={aceptoTerminos}
+                                            onChange={(e) => setAceptoTerminos(e.target.checked)}
+                                        />
+                                        <p className="text-xs text-gray-500 font-medium leading-relaxed select-none">
+                                            He leído y acepto los <a href="/legal/terminos" target="_blank" className="text-white hover:text-primary underline decoration-white/30 hover:decoration-primary underline-offset-2 transition-colors" onClick={(e) => e.stopPropagation()}>términos de servicio</a> y <a href="/legal/privacidad" target="_blank" className="text-white hover:text-primary underline decoration-white/30 hover:decoration-primary underline-offset-2 transition-colors" onClick={(e) => e.stopPropagation()}>políticas de privacidad</a>.
+                                        </p>
+                                    </label>
+                                </div>
+
                                 <MainButton
                                     onClick={handleSubmit}
-                                    disabled={isSubmitting || !metodoPago || metodoPago === "tarjeta"}
-                                    className="w-full mt-8 py-5 bg-primary hover:bg-primary-dark text-white font-black rounded-2xl shadow-[0_20px_40px_rgba(229,9,20,0.25)] flex items-center justify-center gap-3 group disabled:opacity-50 disabled:grayscale"
-                                // type="button" se maneja internamente en Button o por default es submit si está dentro de form, pero aquí Button es un componente custom
+                                    disabled={isSubmitting || !metodoPago || metodoPago === "tarjeta" || !aceptoTerminos}
+                                    className="w-full py-5 bg-primary hover:bg-primary-dark text-white font-black rounded-2xl shadow-[0_20px_40px_rgba(229,9,20,0.25)] flex items-center justify-center gap-3 group disabled:opacity-50 disabled:grayscale transition-all disabled:cursor-not-allowed"
                                 >
                                     <span>{isSubmitting ? "PROCESANDO..." : "CONFIRMAR PEDIDO"}</span>
                                     <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </MainButton>
-
-                                <p className="text-[9px] text-center text-gray-600 font-bold uppercase tracking-widest mt-6 leading-relaxed">
-                                    Al confirmar, aceptas nuestros términos de servicio y políticas de privacidad.
-                                </p>
                             </section>
                         </div>
                     </div>

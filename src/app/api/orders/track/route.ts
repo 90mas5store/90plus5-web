@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -10,9 +10,25 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const supabase = await createClient();
+        // ⚠️ Usar Service Role Key para saltar RLS (Policies) ya que el rastreo es público
+        // y el usuario anónimo no tiene permiso de leer 'orders' normalmente.
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
-        // Buscar la orden por ID (UUID)
+        // Helper to perform range search on UUIDs (native support without casting)
+        const cleanId = orderId.toLowerCase().replace(/[^a-f0-9]/g, '');
+        const padChar = (char: string) => {
+            let padded = cleanId.padEnd(32, char);
+            // Insert hyphens: 8-4-4-4-12
+            return `${padded.slice(0, 8)}-${padded.slice(8, 12)}-${padded.slice(12, 16)}-${padded.slice(16, 20)}-${padded.slice(20, 32)}`;
+        };
+
+        const minUuid = padChar('0');
+        const maxUuid = padChar('f');
+
+        // Buscar la orden por rango de ID (funciona para parcial y completo)
         const { data: order, error } = await supabase
             .from('orders')
             .select(`
@@ -40,23 +56,73 @@ export async function GET(request: NextRequest) {
                     )
                 )
             `)
-            .eq('id', orderId)
-            .single();
+            .gte('id', minUuid)
+            .lte('id', maxUuid)
+            .limit(1)
+            .maybeSingle();
 
         if (error || !order) {
             return NextResponse.json({ success: false, error: 'Pedido no encontrado' }, { status: 404 });
         }
 
         // Mapear estado a texto amigable
+        // Mapear estado a texto amigable (Modo Futbolero Leve)
         const statusMap: Record<string, { label: string; progress: number; desc: string }> = {
-            'pending_payment_50': { label: 'Esperando Anticipo', progress: 10, desc: 'Estamos esperando tu comprobante de pago.' },
-            'payment_verified': { label: 'Pago Verificado', progress: 25, desc: 'Tu pago ha sido validado. Procesando orden.' },
-            'processing': { label: 'En Producción', progress: 40, desc: 'Tu pedido se está fabricando con los mejores estándares.' },
-            'shipped_to_hn': { label: 'En Tránsito Internacional', progress: 60, desc: 'Tu pedido vuela hacia Honduras.' },
-            'in_customs': { label: 'En Aduana', progress: 75, desc: 'Trámites de importación en proceso.' },
-            'ready_for_delivery': { label: 'Listo para Entrega', progress: 90, desc: 'Tu pedido está en nuestra bodega listo para envío local.' },
-            'completed': { label: 'Entregado', progress: 100, desc: '¡Que lo disfrutes!' },
-            'cancelled': { label: 'Cancelado', progress: 0, desc: 'Este pedido ha sido cancelado.' },
+            'pending_payment_50': {
+                label: 'Calentamiento (Espera)',
+                progress: 10,
+                desc: 'Todo listo. Esperamos tu anticipo para el pitazo inicial.'
+            },
+            'deposit_paid': { // Added explicit deposit_paid if missing in previous logic, or mapping it. Correcting based on standard flow.
+                label: '¡Gol del Anticipo!',
+                progress: 25,
+                desc: 'Anticipo recibido. El equipo entra en producción.'
+            },
+            'payment_verified': { // Legacy or synonym
+                label: 'Anticipo Confirmado',
+                progress: 25,
+                desc: 'Pago de entrada validado. ¡A jugar!'
+            },
+            'processing': {
+                label: 'En Cancha (Producción)',
+                progress: 40,
+                desc: 'Estamos jugando el partido. Tu pedido se está fabricando.'
+            },
+            'shipped_to_hn': {
+                label: 'Balón en el aire (Tránsito)',
+                progress: 60,
+                desc: 'El pedido vuela hacia Honduras. ¡Contragolpe en proceso!'
+            },
+            'in_customs': {
+                label: 'Revisión (Aduana)',
+                progress: 75,
+                desc: 'El árbitro está revisando la jugada (Trámites de aduana).'
+            },
+            'ready_for_delivery': {
+                label: 'Tiempo Extra (Listo)',
+                progress: 90,
+                desc: 'A punto de terminar el partido. Listo para entrega final.'
+            },
+            'paid_full': { // Specific state for fully paid before completion? Or mapped to ready?
+                label: '90 Minutos (Pagado)',
+                progress: 95,
+                desc: 'Pedido pagado al 100%. Solo falta entregarte la copa.'
+            },
+            'completed': {
+                label: '¡Final del Partido! (Entregado)',
+                progress: 100,
+                desc: '¡Victoria! Gracias por fichar con nosotros. ¡Hasta la próxima temporada!'
+            },
+            'cancelled': {
+                label: 'Partido Suspendido',
+                progress: 0,
+                desc: 'Tarjeta Roja. Este pedido ha sido cancelado.'
+            },
+            'Cancelled': { // Case sensitivity handling
+                label: 'Partido Suspendido',
+                progress: 0,
+                desc: 'Tarjeta Roja. Este pedido ha sido cancelado.'
+            },
         };
 
         const currentStatus = statusMap[order.status] || { label: 'En Proceso', progress: 20, desc: 'Tu pedido está siendo atendido.' };

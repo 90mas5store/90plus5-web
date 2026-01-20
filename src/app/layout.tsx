@@ -7,6 +7,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer"; // Re-import
 import CartDrawer from "../components/cart/CartDrawer";
 import ClientLayout from "./ClientLayout";
+import Analytics from "../components/Analytics";
 import { Metadata, Viewport } from "next";
 
 // 🧠 Fuente local Satoshi
@@ -24,38 +25,63 @@ const satoshi = localFont({
 export const metadata: Metadata = {
     metadataBase: new URL("https://90mas5.store"),
     title: {
-        default: "90+5 Store",
+        default: "90+5 Store | Tienda Deportiva Honduras",
         template: "%s | 90+5 Store",
     },
-    description:
-        "Camisetas y equipaciones oficiales que viven más allá del minuto 90.",
+    description: "La tienda oficial de los verdaderos fanáticos en Honduras. La pasión vive mas allá del minuto 90.",
+    applicationName: "90+5 Store",
+    authors: [{ name: "90+5 Store", url: "https://90mas5.store" }],
+    generator: "Next.js",
+    keywords: [
+        "camisetas de fútbol",
+        "tienda de futbol honduras",
+        "jerseys originales",
+        "equipaciones 25/26",
+        "camisetas versión jugador",
+        "ropa deportiva tegucigalpa",
+        "real madrid",
+        "barcelona",
+        "premier league",
+        "olimpia",
+        "motagua",
+        "messi",
+        "cristiano ronaldo",
+        "liga nacional honduras"
+    ],
+    referrer: "origin-when-cross-origin",
     icons: {
         icon: "/logo.svg",
         apple: "/logo.svg",
+        shortcut: "/logo.svg",
     },
     manifest: "/manifest.json",
     openGraph: {
-        title: "90+5 Store",
-        description: "Donde los goles viven más allá del minuto 90.",
+        title: "90+5 Store | El fútbol más allá del minuto 90",
+        description: "La tienda oficial de los verdaderos fanáticos en Honduras. La pasión vive mas allá del minuto 90.",
         url: "https://90mas5.store",
         siteName: "90+5 Store",
-        locale: "es_ES",
+        locale: "es_HN",
         type: "website",
         images: [
             {
                 url: "/og-image.jpg",
                 width: 1200,
                 height: 630,
-                alt: "90+5 Store - El tiempo se rompe aquí",
+                alt: "90+5 Store - Colección Premium",
             },
         ],
     },
     twitter: {
         card: "summary_large_image",
         title: "90+5 Store",
-        description: "El tiempo se rompe aquí ⚽🔥",
+        description: "El tiempo se rompe aquí. Camisetas de fútbol y equipaciones premium en Honduras. ⚽🔥",
         images: ["/og-image.jpg"],
+        creator: "@90mas5store",
     },
+    alternates: {
+        canonical: "/",
+    },
+    category: "ecommerce",
 };
 
 export const viewport: Viewport = {
@@ -70,6 +96,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/* 💫 Overlay global */}
                 <div className="fixed inset-0 -z-10 bg-gradient-to-b from-primary/10 via-background/90 to-black/95 pointer-events-none" />
                 <div className="fixed inset-0 -z-[9] backdrop-blur-[1px] bg-black/40 pointer-events-none" />
+
+                <Analytics />
 
                 {/* ✅ Suspense global */}
                 <Suspense
