@@ -1,7 +1,10 @@
 import { MetadataRoute } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 
 const BASE_URL = 'https://90mas5.store'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 3600 // Revalidate every hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // 1. Rutas Estáticas
@@ -17,7 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     // 2. Rutas Dinámicas (Productos)
     try {
-        const supabase = await createClient();
+        const supabase = createClient();
         const { data: products } = await supabase
             .from('products')
             .select('slug, updated_at')

@@ -3,11 +3,11 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { CartProvider } from "../context/CartContext";
-import Header from "../components/Header";
+import HeaderWrapper from "../components/HeaderWrapper";
 import Footer from "../components/Footer"; // Re-import
 import CartDrawer from "../components/cart/CartDrawer";
 import ClientLayout from "./ClientLayout";
-import Analytics from "../components/Analytics";
+import AnalyticsWrapper from "../components/AnalyticsWrapper";
 import { Metadata, Viewport } from "next";
 
 // 🧠 Fuente local Satoshi
@@ -97,7 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div className="fixed inset-0 -z-10 bg-gradient-to-b from-primary/10 via-background/90 to-black/95 pointer-events-none" />
                 <div className="fixed inset-0 -z-[9] backdrop-blur-[1px] bg-black/40 pointer-events-none" />
 
-                <Analytics />
+                <AnalyticsWrapper />
 
                 {/* ✅ Suspense global */}
                 <Suspense
@@ -109,7 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 >
                     <CartProvider>
                         <ClientLayout>
-                            <Header />
+                            <HeaderWrapper />
                             <CartDrawer />
                             <main className="pt-0 min-h-screen">{children}</main>
                             <Footer />
