@@ -109,7 +109,7 @@ export default function CreateProductPage() {
                     .select('version')
 
                 if (allVariants) {
-                    const unique = Array.from(new Set(allVariants.map((v: any) => v.version as string))).sort()
+                    const unique: string[] = Array.from(new Set<string>((allVariants as any[]).map((v) => String(v.version)))).sort()
                     if (unique.length > 0) setAvailableVersions(unique)
                 }
 
