@@ -374,7 +374,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                             />
 
                             {/* Badge de Zoom */}
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 md:bg-black/40 md:backdrop-blur-md rounded-full border border-white/10 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Info className="w-4 h-4 text-primary" />
                                 <span className="text-[10px] font-bold uppercase tracking-tighter">Pasa el mouse o toca para zoom</span>
                             </div>
@@ -654,7 +654,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                                         >
                                             {precioActual > 0 ? (
                                                 <>
-                                                    <Shirt className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                                                    <Shirt className="w-5 h-5 group-hover:rotate-12 transition-transform hidden md:block" />
                                                     <span className="font-bold tracking-wide">AÑADIR AL CARRITO</span>
                                                 </>
                                             ) : (

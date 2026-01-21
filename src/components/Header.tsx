@@ -121,8 +121,8 @@ export default function Header() {
                 initial={{ y: -100 }}
                 animate={{ y: 0 }}
                 className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled
-                    ? "bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
-                    : "bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/5"
+                    ? "bg-[#0a0a0a]/95 md:backdrop-blur-xl border-b border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
+                    : "bg-[#0a0a0a]/90 md:bg-[#0a0a0a]/80 md:backdrop-blur-md border-b border-white/5"
                     }`}
             >
                 <div className="max-w-7xl mx-auto px-6">
@@ -426,7 +426,7 @@ export default function Header() {
                             animate={{ x: 0 }}
                             exit={{ x: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed top-0 right-0 h-full w-80 bg-[#0a0a0a]/95 backdrop-blur-2xl border-l border-white/10 shadow-[-20px_0_60px_rgba(0,0,0,0.5)] z-50 lg:hidden overflow-y-auto"
+                            className="fixed top-0 right-0 h-full w-80 bg-[#0a0a0a] border-l border-white/10 shadow-[-20px_0_60px_rgba(0,0,0,0.5)] z-50 lg:hidden overflow-y-auto"
                         >
                             <div className="p-6 space-y-6">
                                 {/* Header del drawer */}
@@ -453,36 +453,71 @@ export default function Header() {
                                     {/* Categorías en mobile */}
                                     <div className="space-y-2 pt-4 border-t border-white/10">
                                         <span className="text-xs uppercase tracking-wider text-gray-500 font-bold px-5">Categorías</span>
-                                        {!loaded && categorias.map((categoria) => (
-                                            <Link
-                                                key={categoria.id}
-                                                href={`/catalogo?categoria=${encodeURIComponent(categoria.slug)}`}
-                                                onClick={() => setMobileOpen(false)}
-                                                className="group relative"
-                                            >
-                                                <motion.div
-                                                    whileHover={{ scale: 1.02, x: 4 }}
-                                                    whileTap={{ scale: 0.98 }}
-                                                    className="relative px-5 py-3 rounded-2xl transition-all duration-300 flex items-center gap-3 text-gray-400 hover:text-white"
+                                        {!loaded && categorias.map((categoria) => {
+                                            const isActive = categoriaActual === categoria.slug;
+                                            return (
+                                                <Link
+                                                    key={categoria.id}
+                                                    href={`/catalogo?categoria=${encodeURIComponent(categoria.slug)}`}
+                                                    onClick={() => setMobileOpen(false)}
+                                                    className="group relative"
                                                 >
-                                                    {/* Hover glow */}
-                                                    <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                                                    {categoria.icon_url && (
-                                                        <div className="w-8 h-8 flex items-center justify-center relative z-10">
-                                                            <Image
-                                                                src={categoria.icon_url}
-                                                                alt={categoria.nombre}
-                                                                width={32}
-                                                                height={32}
-                                                                className="object-contain brightness-0 invert opacity-60 group-hover:opacity-100 transition-opacity duration-300 max-w-full max-h-full"
+                                                    <motion.div
+                                                        whileHover={{ scale: 1.05, y: -2 }}
+                                                        whileTap={{ scale: 0.98 }}
+                                                        className={`relative px-5 py-2.5 rounded-2xl transition-all duration-300 flex items-center gap-3 ${isActive ? "text-white" : "text-gray-400 hover:text-white"
+                                                            }`}
+                                                    >
+                                                        {/* Glow pulsante en activo */}
+                                                        {isActive && (
+                                                            <motion.div
+                                                                className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 rounded-2xl blur-xl"
+                                                                animate={!prefersReducedMotion ? {
+                                                                    opacity: [0.5, 0.8, 0.5],
+                                                                    scale: [0.95, 1.05, 0.95],
+                                                                } : { opacity: 0.5, scale: 1 }}
+                                                                transition={{
+                                                                    duration: 3,
+                                                                    repeat: Infinity,
+                                                                    ease: "easeInOut"
+                                                                }}
                                                             />
-                                                        </div>
-                                                    )}
-                                                    <span className="font-semibold text-sm relative z-10">{categoria.nombre}</span>
-                                                </motion.div>
-                                            </Link>
-                                        ))}
+                                                        )}
+
+                                                        {/* Active Indicator (Bottom Line) */}
+                                                        {isActive && (
+                                                            <motion.div
+                                                                layoutId="mobileActiveIndicator"
+                                                                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent rounded-full"
+                                                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                                            />
+                                                        )}
+
+                                                        {/* Hover glow */}
+                                                        <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                                                        {categoria.icon_url && (
+                                                            <div className="w-8 h-8 flex items-center justify-center relative z-10">
+                                                                <Image
+                                                                    src={categoria.icon_url}
+                                                                    alt={categoria.nombre}
+                                                                    width={32}
+                                                                    height={32}
+                                                                    className={`object-contain brightness-0 invert max-w-full max-h-full transition-all duration-300 ${isActive
+                                                                        ? "drop-shadow-[0_0_8px_rgba(229,9,20,0.6)] opacity-100 scale-110"
+                                                                        : "opacity-60 group-hover:opacity-100"
+                                                                        }`}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        <span className={`font-medium text-[15px] tracking-wide relative z-10 transition-colors duration-300 ${isActive ? "text-white" : "text-gray-300 group-hover:text-white"
+                                                            }`}>
+                                                            {categoria.nombre}
+                                                        </span>
+                                                    </motion.div>
+                                                </Link>
+                                            );
+                                        })}
                                     </div>
 
                                     <LinkItem href="/catalogo" onClick={() => setMobileOpen(false)} icon={Sparkles}>

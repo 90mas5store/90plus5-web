@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, LogOut, Menu, X, Shirt, Users, Settings, FileSpreadsheet } from 'lucide-react';
+import { LayoutDashboard, Package, LogOut, Menu, X, Shirt, Users, Settings, FileSpreadsheet, Tag, Trophy, Shield } from 'lucide-react';
 
 interface AdminSidebarProps {
     userEmail?: string;
@@ -105,6 +105,37 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                                         Pronto
                                     </span>
                                 )}
+                            </Link>
+                        );
+                    })}
+
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-6 mb-3 px-4">
+                        Catálogos
+                    </div>
+
+                    {[
+                        { label: 'Categorías', href: '/admin/categorias', icon: Tag },
+                        { label: 'Ligas', href: '/admin/ligas', icon: Trophy },
+                        { label: 'Equipos', href: '/admin/equipos', icon: Shield },
+                    ].map((item) => {
+                        const active = isActive(item.href);
+                        return (
+                            <Link
+                                key={item.label}
+                                href={item.href}
+                                onClick={() => setIsMobileOpen(false)}
+                                className={`
+                                    flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 group
+                                    hover:bg-white/5
+                                    ${active
+                                        ? 'bg-primary text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]'
+                                        : 'text-gray-400 hover:text-white'
+                                    }
+                                `}
+                                style={active ? { backgroundColor: '#fff', color: '#000' } : {}}
+                            >
+                                <item.icon size={20} className={active ? 'text-black' : 'group-hover:text-white transition-colors'} />
+                                <span>{item.label}</span>
                             </Link>
                         );
                     })}

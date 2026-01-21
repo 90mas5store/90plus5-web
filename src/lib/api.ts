@@ -142,7 +142,8 @@ async function fetchConfigFromSupabase(): Promise<Config> {
     supabase
       .from("leagues")
       .select("id,name,slug,image_url,category_id")
-      .eq("active", true),
+      .eq("active", true)
+      .order("sort_order", { ascending: true }),
   ]);
 
   if (catError) {

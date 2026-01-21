@@ -84,7 +84,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                     <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm font-medium tracking-wide mt-0.5 sm:mt-1">
                         {modelo}
                     </p>
-                    <div className="mt-1.5 sm:mt-2 md:mt-3 inline-block px-2.5 py-0.5 sm:px-3 md:px-4 md:py-1 bg-white/10 backdrop-blur-xl border border-white/10 rounded-full">
+                    <div className="mt-1.5 sm:mt-2 md:mt-3 inline-block px-2.5 py-0.5 sm:px-3 md:px-4 md:py-1 bg-black/60 md:bg-white/10 md:backdrop-blur-xl border border-white/10 rounded-full">
                         <p className="text-primary font-bold text-xs sm:text-sm md:text-lg">
                             L {precio.toLocaleString()}
                         </p>
@@ -97,7 +97,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                 <MainButton
                     className="w-full py-3 md:py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl md:rounded-2xl shadow-[0_15px_30px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2 md:gap-3 group/btn"
                 >
-                    <Shirt className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:rotate-12 transition-transform" />
+                    <Shirt className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:rotate-12 transition-transform hidden md:block" />
                     <span className="tracking-wide text-xs md:text-[15px]">Personalizar</span>
                     <ArrowRight className="w-3 h-3 md:w-4 md:h-4 opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all" />
                 </MainButton>

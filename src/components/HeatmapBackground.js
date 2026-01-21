@@ -71,7 +71,7 @@ export default function HeatmapBackground({ liga = "default", opacity = 0.25 }) 
       {heatSpots.map((spot, i) => (
         <motion.div
           key={`spot-${i}`}
-          className="absolute rounded-full blur-[120px]"
+          className="absolute rounded-full blur-[60px] md:blur-[120px] will-change-transform"
           style={{
             background: `radial-gradient(circle, ${c1}AA, transparent 70%)`,
             width: `${spot.size}px`,

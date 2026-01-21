@@ -115,9 +115,10 @@ export default function Home() {
         const selectedLeagueObj = ligas.find(l => normalize(l.nombre) === normalize(ligaSeleccionada));
 
         return destacados.filter((item) => {
-            // 1. Intentar match por ID si ambos tienen ID
-            if (selectedLeagueObj?.id && item.league_id) {
-                return item.league_id === selectedLeagueObj.id;
+            // 1. Intentar match por ID (Soporte Multi-Liga)
+            if (selectedLeagueObj?.id) {
+                if (item.league_ids?.includes(selectedLeagueObj.id)) return true;
+                if (item.league_id === selectedLeagueObj.id) return true;
             }
 
             // 2. Fallback: Match por nombre de liga (legacy o si falta ID)

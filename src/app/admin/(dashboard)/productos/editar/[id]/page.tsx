@@ -298,7 +298,7 @@ export default function EditProductPage() {
             const { data, error } = await supabase
                 .from('players')
                 .insert({
-                    name: newPlayer.name.toUpperCase(),
+                    name: newPlayer.name,
                     number: parseInt(newPlayer.number),
                     team_id: formData.team_id,
                     active: true
@@ -667,7 +667,7 @@ export default function EditProductPage() {
                                     <input
                                         type="text"
                                         placeholder="Nombre del Jugador"
-                                        className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white focus:border-purple-500 outline-none uppercase"
+                                        className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white focus:border-purple-500 outline-none"
                                         value={newPlayer.name}
                                         onChange={e => setNewPlayer(prev => ({ ...prev, name: e.target.value }))}
                                         onKeyDown={e => e.key === 'Enter' && handleAddPlayer()}

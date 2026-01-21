@@ -30,11 +30,23 @@ export default function CarruselDeCategoria({
   const scroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
       const { current } = scrollContainerRef;
-      const scrollAmount = 300; // Adjust scroll amount as needed
+      const scrollAmount = 300;
+      const maxScroll = current.scrollWidth - current.clientWidth;
+
       if (direction === "left") {
-        current.scrollBy({ left: -scrollAmount, behavior: "smooth" });
+        // Si está al inicio, ir al final
+        if (current.scrollLeft <= 5) { // Pequeña tolerancia
+          current.scrollTo({ left: maxScroll, behavior: "smooth" });
+        } else {
+          current.scrollBy({ left: -scrollAmount, behavior: "smooth" });
+        }
       } else {
-        current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+        // Si está al final, volver al inicio
+        if (current.scrollLeft >= maxScroll - 5) {
+          current.scrollTo({ left: 0, behavior: "smooth" });
+        } else {
+          current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+        }
       }
     }
   };
