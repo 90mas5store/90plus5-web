@@ -60,11 +60,11 @@ interface HeroBannerProps {
 // 🎭 SKELETON LOADER COMPONENT
 // ============================================
 
-function HeroSkeleton({ minHeight }: { minHeight: string }) {
+function HeroSkeleton({ minHeight, className }: { minHeight?: string, className?: string }) {
     return (
         <div
-            className="relative overflow-hidden bg-gradient-to-br from-[#0a0a0a] via-[#1a1a2e] to-[#0a0a0a]"
-            style={{ minHeight }}
+            className={`relative overflow-hidden bg-gradient-to-br from-[#0a0a0a] via-[#1a1a2e] to-[#0a0a0a] ${className || ''}`}
+            style={minHeight ? { minHeight } : undefined}
         >
             {/* Animated shimmer effect */}
             <div className="absolute inset-0">
@@ -199,7 +199,7 @@ export default function HeroBanner({
     slides,
     slideInterval = 5000,
     fallbackImage = "/fondo.jpg",
-    minHeight = "30vh", // Más compacto en móvil
+    minHeight, // Opcional, si no se pasa usa clases
     alt = "Hero Banner 90+5",
     categorySlug,
     overlayOpacity = 0.5,
@@ -215,10 +215,21 @@ export default function HeroBanner({
     const videoRef = useRef<HTMLVideoElement>(null);
 
     const [isLoading, setIsLoading] = useState(true);
-    const [mediaError, setMediaError] = useState(false);
+    const [videoError, setVideoError] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [parallaxOffset, setParallaxOffset] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+
+    // 🔄 Resetear estados cuando cambia la categoría o el contenido principal
+    useEffect(() => {
+        setIsLoading(true);
+        setVideoError(false);
+        setCurrentSlide(0);
+    }, [categorySlug, imageSrc, videoSrc, slides]);
+
+    // ============================================
+    // 📸 PREPARAR SLIDES
+    // ============================================
 
     // ============================================
     // 📸 PREPARAR SLIDES
@@ -228,7 +239,8 @@ export default function HeroBanner({
         ? slides
         : [{
             imageSrc: imageSrc || (categorySlug ? `/heroes/${categorySlug}.jpg` : fallbackImage),
-            videoSrc: videoSrc,
+            // Si no hay videoSrc explícito pero hay categorySlug, intentamos cargar el video de la categoría
+            videoSrc: videoSrc || (categorySlug ? `/heroes/${categorySlug}.mp4` : undefined),
             title: title,
             subtitle: subtitle,
         }];
@@ -244,6 +256,7 @@ export default function HeroBanner({
 
         const interval = setInterval(() => {
             setCurrentSlide((prev) => (prev + 1) % preparedSlides.length);
+            setVideoError(false); // Reset error for new slide
         }, slideInterval);
 
         return () => clearInterval(interval);
@@ -309,24 +322,28 @@ export default function HeroBanner({
 
     const handleMediaLoad = useCallback(() => {
         setIsLoading(false);
-        setMediaError(false);
     }, []);
 
-    const handleMediaError = useCallback(() => {
+    const handleVideoError = useCallback(() => {
+        // Silently fail to fallback image if video doesn't exist
+        setVideoError(true);
+    }, []);
+
+    const handleImageError = useCallback(() => {
         setIsLoading(false);
-        setMediaError(true);
+        // Image failed, fallback is handled in render by showing fallbackImage
     }, []);
 
     const goToSlide = useCallback((index: number) => {
         setCurrentSlide(index);
+        setVideoError(false);
     }, []);
 
-    // Determinar la imagen final a mostrar
-    const finalImageSrc = mediaError
-        ? fallbackImage
-        : (currentSlideData.imageSrc || fallbackImage);
+    // Determinar si mostramos video
+    const showVideo = !!currentSlideData.videoSrc && !videoError;
 
-    const hasVideo = !!currentSlideData.videoSrc && !mediaError;
+    // Determinar la imagen final (si el video falla o no hay video)
+    const finalImageSrc = currentSlideData.imageSrc || fallbackImage;
 
     // ============================================
     // 🎨 RENDER
@@ -335,8 +352,8 @@ export default function HeroBanner({
     return (
         <section
             ref={containerRef}
-            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden ${className}`}
-            style={{ minHeight: 'clamp(30vh, 40vw, 45vh)' }} // Responsive height
+            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden ${className} ${!minHeight ? 'min-h-[35vh] md:min-h-[55vh]' : ''}`}
+            style={minHeight ? { minHeight } : undefined}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
@@ -349,7 +366,7 @@ export default function HeroBanner({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.5 }}
                     >
-                        <HeroSkeleton minHeight={minHeight} />
+                        <HeroSkeleton minHeight={minHeight} className={!minHeight ? "h-full" : undefined} />
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -365,7 +382,7 @@ export default function HeroBanner({
             >
                 <AnimatePresence mode="wait">
                     <motion.div
-                        key={`slide-${currentSlide}`}
+                        key={`${categorySlug || imageSrc || 'hero'}-${currentSlide}`}
                         className="absolute inset-0"
                         initial={{ opacity: 0, scale: 1.05 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -373,7 +390,7 @@ export default function HeroBanner({
                         transition={{ duration: 0.8, ease: "easeInOut" }}
                     >
                         {/* Video Background */}
-                        {hasVideo && (
+                        {showVideo && (
                             <video
                                 ref={videoRef}
                                 autoPlay
@@ -382,7 +399,7 @@ export default function HeroBanner({
                                 playsInline
                                 className="absolute inset-0 w-full h-full object-cover"
                                 onLoadedData={handleMediaLoad}
-                                onError={handleMediaError}
+                                onError={handleVideoError}
                             >
                                 <source
                                     src={currentSlideData.videoSrc}
@@ -391,17 +408,17 @@ export default function HeroBanner({
                             </video>
                         )}
 
-                        {/* Image Background */}
-                        {!hasVideo && (
+                        {/* Image Background (Fallback or Primary) */}
+                        {(!showVideo || isLoading) && (
                             <Image
                                 src={finalImageSrc}
                                 alt={alt}
                                 fill
                                 priority
-                                className="object-cover object-center"
-                                style={{ objectPosition: 'center 30%' }} // Centrar mejor en móvil
+                                className={`object-cover object-center ${showVideo ? 'opacity-0' : 'opacity-100'}`}
+                                style={{ objectPosition: 'center 30%' }}
                                 onLoad={handleMediaLoad}
-                                onError={handleMediaError}
+                                onError={handleImageError}
                                 sizes="100vw"
                             />
                         )}
@@ -475,7 +492,7 @@ export default function HeroBanner({
 
 export function CategoryHeroBanner({
     categorySlug,
-    minHeight = "30vh",
+    minHeight,
     adjacentCategories = [],
     children
 }: {

@@ -30,6 +30,7 @@ import ProductCard from "../components/ui/ProductCard";
 import { ProductGridSkeleton } from "../components/skeletons/ProductSkeletons";
 import { usePrefetch, useProductPrefetch } from "../hooks/usePrefetch";
 import { useDebounce, usePrefersReducedMotion } from "../hooks/useOptimization";
+import SpecialEventBanner from "../components/ui/SpecialEventBanner";
 
 
 
@@ -84,8 +85,10 @@ export default function Home() {
                     getConfig(),
                 ]);
                 setDestacados(featuredData || []);
+
+                let ligasProcesadas = [];
                 if (configData?.ligas?.length) {
-                    setLigas(configData.ligas);
+                    ligasProcesadas = configData.ligas;
                 } else {
                     // Fallback legacy
                     const ligasUnicas = [
@@ -93,8 +96,12 @@ export default function Home() {
                             (featuredData || []).map((p) => (p as any).liga).filter(Boolean)
                         ),
                     ].map((l) => ({ nombre: l as string, imagen: null, id: null }));
-                    setLigas(ligasUnicas);
+                    ligasProcesadas = ligasUnicas;
                 }
+
+                // Filtrar "Mundial 2026" de las ligas para evitar duplicidad
+                ligasProcesadas = ligasProcesadas.filter(l => !normalize(l.nombre).includes("mundial"));
+                setLigas(ligasProcesadas);
 
                 if (configData?.categorias?.length) {
                     setCategorias(configData.categorias);
@@ -144,7 +151,9 @@ export default function Home() {
                 {/* 🏟️ HERO - Solo imagen/video personalizable */}
                 <HeroBanner
                     categorySlug="home"
-                    minHeight="45vh"
+                    className="min-h-[35vh] md:min-h-[55vh]"
+                    // 🎥 PARA PONER VIDEO: Descomenta la siguiente línea y pon tu archivo en /public
+                    // videoSrc="/video-home.mp4"
                     alt="90+5 Store Hero"
                     overlayOpacity={0.6}
                     enableParallax={!prefersReducedMotion}
@@ -159,6 +168,9 @@ export default function Home() {
                         placeholder="Buscar por equipo, modelo o jugador..."
                     />
                 </section>
+
+                {/* 🏆 EVENTO ESPECIAL (MUNDIAL) */}
+                <SpecialEventBanner />
 
                 {/* 🏆 LIGAS */}
                 <div id="ligas">

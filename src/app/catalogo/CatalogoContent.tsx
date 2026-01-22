@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, FormEvent } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { getCatalog, getConfig } from "../../lib/api";
 import dynamic from "next/dynamic";
 import { Product, Config, Category, League } from "../../lib/types";
@@ -247,10 +247,9 @@ export default function CatalogoPage() {
       {/* HERO */}
       <HeroBanner
         categorySlug={categoriaSeleccionada || "catalogo"}
-        minHeight="30vh"
+        className="min-h-[35vh] md:min-h-[55vh] mb-4"
         alt={selectedCategoryObj ? `Hero ${selectedCategoryObj.nombre}` : "Catálogo 90+5"}
         overlayOpacity={0.6}
-        className="mb-4"
         adjacentCategories={adjacentCategories}
         enableParallax={!prefersReducedMotion}
       />
@@ -267,14 +266,41 @@ export default function CatalogoPage() {
 
       {/* CARRUSEL DE LIGAS (Filtrado por Categoría) */}
       {currentCarrusel && currentCarrusel.items.length > 0 && (
-        <CarruselDeCategoria
-          title={currentCarrusel.title}
-          items={currentCarrusel.items}
-          selected={ligaSeleccionada}
-          onSelect={(nombre: string) =>
-            setLigaSeleccionada(ligaSeleccionada === nombre ? null : nombre)
-          }
-        />
+        <>
+          <CarruselDeCategoria
+            title={currentCarrusel.title}
+            items={currentCarrusel.items}
+            selected={ligaSeleccionada}
+            onSelect={(nombre: string) =>
+              setLigaSeleccionada(ligaSeleccionada === nombre ? null : nombre)
+            }
+          />
+
+          {/* Mobile: Nombre de la Categoría con diseño premium */}
+          <AnimatePresence>
+            {selectedCategoryObj && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="md:hidden flex flex-col items-center justify-center pb-6 -mt-1 relative z-10"
+              >
+                <motion.h2
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  className="text-2xl font-black text-[#E50914] drop-shadow-[0_0_20px_rgba(229,9,20,0.6)] uppercase tracking-widest text-center"
+                >
+                  {selectedCategoryObj.nombre}
+                </motion.h2>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: 40 }}
+                  className="h-1 bg-gradient-to-r from-transparent via-[#E50914] to-transparent mt-2 rounded-full shadow-[0_0_10px_rgba(229,9,20,0.8)]"
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
       )}
 
       {/* GRID DE PRODUCTOS */}
