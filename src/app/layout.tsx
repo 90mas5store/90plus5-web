@@ -81,6 +81,9 @@ export const metadata: Metadata = {
     alternates: {
         canonical: "/",
     },
+    verification: {
+        google: "CzTKVzB0AjaAMCpZbKFoVnPrICCmgkyRV70C5sJO8Qo",
+    },
     category: "ecommerce",
 };
 
