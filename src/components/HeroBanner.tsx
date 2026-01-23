@@ -198,7 +198,7 @@ export default function HeroBanner({
     videoSrc,
     slides,
     slideInterval = 5000,
-    fallbackImage = "/fondo.jpg",
+    fallbackImage = "/heroes/fondo.jpg",
     minHeight, // Opcional, si no se pasa usa clases
     alt = "Hero Banner 90+5",
     categorySlug,
