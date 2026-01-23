@@ -217,6 +217,7 @@ export default function HeroBanner({
     const [isLoading, setIsLoading] = useState(true);
     const [videoError, setVideoError] = useState(false);
     const [isVideoReady, setIsVideoReady] = useState(false); // 🆕 Nuevo estado
+    const [useFallbackImage, setUseFallbackImage] = useState(false); // 🆕 Estado para imagen rota
     const [currentSlide, setCurrentSlide] = useState(0);
     const [parallaxOffset, setParallaxOffset] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
@@ -240,13 +241,14 @@ export default function HeroBanner({
     const showVideo = !!currentSlideData.videoSrc && !videoError;
 
     // Determinar la imagen final (si el video falla o no hay video)
-    const finalImageSrc = currentSlideData.imageSrc || fallbackImage;
+    const finalImageSrc = useFallbackImage ? fallbackImage : (currentSlideData.imageSrc || fallbackImage);
 
     // 🔄 Resetear estados cuando cambia la categoría o el contenido principal
     useEffect(() => {
         setIsLoading(true);
         setVideoError(false);
         setIsVideoReady(false); // Reset video state
+        setUseFallbackImage(false); // Reset fallback
         setCurrentSlide(0);
     }, [categorySlug, imageSrc, videoSrc, slides]);
 
@@ -342,8 +344,9 @@ export default function HeroBanner({
     }, []);
 
     const handleImageError = useCallback(() => {
-        console.warn("Error loading hero image");
-        setIsLoading(false); // Quitamos loader aunque falle
+        console.warn("Error loading hero image, switching to fallback.");
+        setUseFallbackImage(true); // 🚨 Activar fallback para repintar con imagen segura
+        // No quitamos el loading aún, dejamos que la nueva imagen (fallback) dispare onLoad
     }, []);
 
     const handleVideoLoad = useCallback(() => {
@@ -360,6 +363,7 @@ export default function HeroBanner({
         setCurrentSlide(index);
         setVideoError(false);
         setIsVideoReady(false);
+        setUseFallbackImage(false);
         setIsLoading(true);
     }, []);
 
@@ -403,7 +407,7 @@ export default function HeroBanner({
             >
                 <AnimatePresence mode="wait">
                     <motion.div
-                        key={`${categorySlug || imageSrc || 'hero'}-${currentSlide}`}
+                        key={`${categorySlug || imageSrc || 'hero'}-${currentSlide}-${useFallbackImage ? 'fallback' : 'main'}`}
                         className="absolute inset-0"
                         initial={{ opacity: 0, scale: 1.05 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -424,7 +428,7 @@ export default function HeroBanner({
                         />
 
                         {/* 2. Video Layer - SUPERPUESTO */}
-                        {currentSlideData.videoSrc && !videoError && (
+                        {currentSlideData.videoSrc && !videoError && !useFallbackImage && (
                             <motion.div
                                 className="absolute inset-0 z-10"
                                 initial={{ opacity: 0 }}
