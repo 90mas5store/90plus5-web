@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@supabase/supabase-js'
 
 const BASE_URL = 'https://90mas5.store'
 
@@ -25,7 +25,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     // 2. Rutas Dinámicas (Productos)
     try {
-        const supabase = createClient();
+        // Usamos el cliente directo de supabase-js para el entorno de servidor (Node.js)
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
         const { data: products } = await supabase
             .from('products')
             .select('slug, updated_at')

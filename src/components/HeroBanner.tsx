@@ -216,14 +216,37 @@ export default function HeroBanner({
 
     const [isLoading, setIsLoading] = useState(true);
     const [videoError, setVideoError] = useState(false);
+    const [isVideoReady, setIsVideoReady] = useState(false); // 🆕 Nuevo estado
     const [currentSlide, setCurrentSlide] = useState(0);
     const [parallaxOffset, setParallaxOffset] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+
+    // ============================================
+    // 📸 PREPARAR CONSTANTES
+    // ============================================
+
+    const preparedSlides: HeroSlide[] = slides && slides.length > 0
+        ? slides
+        : [{
+            imageSrc: imageSrc || (categorySlug ? `/heroes/${categorySlug}.jpg` : fallbackImage),
+            videoSrc: videoSrc || (categorySlug ? `/heroes/${categorySlug}.mp4` : undefined),
+            title: title,
+            subtitle: subtitle,
+        }];
+
+    const currentSlideData = preparedSlides[currentSlide];
+
+    // Determinar si mostramos video
+    const showVideo = !!currentSlideData.videoSrc && !videoError;
+
+    // Determinar la imagen final (si el video falla o no hay video)
+    const finalImageSrc = currentSlideData.imageSrc || fallbackImage;
 
     // 🔄 Resetear estados cuando cambia la categoría o el contenido principal
     useEffect(() => {
         setIsLoading(true);
         setVideoError(false);
+        setIsVideoReady(false); // Reset video state
         setCurrentSlide(0);
     }, [categorySlug, imageSrc, videoSrc, slides]);
 
@@ -235,17 +258,7 @@ export default function HeroBanner({
     // 📸 PREPARAR SLIDES
     // ============================================
 
-    const preparedSlides: HeroSlide[] = slides && slides.length > 0
-        ? slides
-        : [{
-            imageSrc: imageSrc || (categorySlug ? `/heroes/${categorySlug}.jpg` : fallbackImage),
-            // Si no hay videoSrc explícito pero hay categorySlug, intentamos cargar el video de la categoría
-            videoSrc: videoSrc || (categorySlug ? `/heroes/${categorySlug}.mp4` : undefined),
-            title: title,
-            subtitle: subtitle,
-        }];
 
-    const currentSlideData = preparedSlides[currentSlide];
 
     // ============================================
     // 🎠 CARRUSEL AUTOMÁTICO
@@ -307,43 +320,50 @@ export default function HeroBanner({
     // 🖼️ PRELOAD SLIDES DEL CARRUSEL
     // ============================================
 
+    // 🕰️ TIMEOUT DE SEGURIDAD PARA CARGA INFINITA
     useEffect(() => {
-        preparedSlides.forEach((slide) => {
-            if (slide.imageSrc) {
-                const img = new window.Image();
-                img.src = slide.imageSrc;
+        const timer = setTimeout(() => {
+            if (isLoading) {
+                // Si la imagen tarda demasiado, asumimos que cargó o falló para desbloquear
+                setIsLoading(false);
             }
-        });
-    }, [preparedSlides]);
+        }, 3000);
+
+        return () => clearTimeout(timer);
+    }, [isLoading]);
 
     // ============================================
     // 📥 HANDLERS
     // ============================================
 
-    const handleMediaLoad = useCallback(() => {
+    // La imagen es la que manda sobre el Loader principal
+    const handleImageLoad = useCallback(() => {
         setIsLoading(false);
-    }, []);
-
-    const handleVideoError = useCallback(() => {
-        // Silently fail to fallback image if video doesn't exist
-        setVideoError(true);
     }, []);
 
     const handleImageError = useCallback(() => {
-        setIsLoading(false);
-        // Image failed, fallback is handled in render by showing fallbackImage
+        console.warn("Error loading hero image");
+        setIsLoading(false); // Quitamos loader aunque falle
+    }, []);
+
+    const handleVideoLoad = useCallback(() => {
+        setIsVideoReady(true); // El video está listo para mostrarse
+    }, []);
+
+    const handleVideoError = useCallback(() => {
+        console.warn("Video failed to load (404/Error) - Keeping image");
+        setVideoError(true);
+        // No tocamos isLoading, porque la imagen se encarga de eso
     }, []);
 
     const goToSlide = useCallback((index: number) => {
         setCurrentSlide(index);
         setVideoError(false);
+        setIsVideoReady(false);
+        setIsLoading(true);
     }, []);
 
-    // Determinar si mostramos video
-    const showVideo = !!currentSlideData.videoSrc && !videoError;
 
-    // Determinar la imagen final (si el video falla o no hay video)
-    const finalImageSrc = currentSlideData.imageSrc || fallbackImage;
 
     // ============================================
     // 🎨 RENDER
@@ -372,6 +392,7 @@ export default function HeroBanner({
             </AnimatePresence>
 
             {/* Background Media Container with Parallax */}
+            {/* Background Media Container with Parallax */}
             <motion.div
                 className="absolute inset-0"
                 style={{
@@ -389,45 +410,50 @@ export default function HeroBanner({
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.8, ease: "easeInOut" }}
                     >
-                        {/* Video Background */}
-                        {showVideo && (
-                            <video
-                                ref={videoRef}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="absolute inset-0 w-full h-full object-cover"
-                                onLoadedData={handleMediaLoad}
-                                onError={handleVideoError}
-                            >
-                                <source
-                                    src={currentSlideData.videoSrc}
-                                    type={currentSlideData.videoSrc?.endsWith(".webm") ? "video/webm" : "video/mp4"}
-                                />
-                            </video>
-                        )}
+                        {/* 1. Base Image Layer - SIEMPRE VISIBLE */}
+                        <Image
+                            src={finalImageSrc}
+                            alt={alt}
+                            fill
+                            priority
+                            className="object-cover object-center z-0"
+                            style={{ objectPosition: 'center 30%' }}
+                            onLoad={handleImageLoad}
+                            onError={handleImageError}
+                            sizes="100vw"
+                        />
 
-                        {/* Image Background (Fallback or Primary) */}
-                        {(!showVideo || isLoading) && (
-                            <Image
-                                src={finalImageSrc}
-                                alt={alt}
-                                fill
-                                priority
-                                className={`object-cover object-center ${showVideo ? 'opacity-0' : 'opacity-100'}`}
-                                style={{ objectPosition: 'center 30%' }}
-                                onLoad={handleMediaLoad}
-                                onError={handleImageError}
-                                sizes="100vw"
-                            />
+                        {/* 2. Video Layer - SUPERPUESTO */}
+                        {currentSlideData.videoSrc && !videoError && (
+                            <motion.div
+                                className="absolute inset-0 z-10"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: isVideoReady ? 1 : 0 }}
+                                transition={{ duration: 0.8 }}
+                            >
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="w-full h-full object-cover"
+                                    onLoadedData={handleVideoLoad}
+                                    onError={handleVideoError}
+                                >
+                                    <source
+                                        src={currentSlideData.videoSrc}
+                                        type={currentSlideData.videoSrc?.endsWith(".webm") ? "video/webm" : "video/mp4"}
+                                    />
+                                </video>
+                            </motion.div>
                         )}
                     </motion.div>
                 </AnimatePresence>
 
                 {/* Gradient Overlays */}
                 <div
-                    className="absolute inset-0 bg-gradient-to-b from-black/80 via-[#0A0A0A]/70 to-[#150021]/90 pointer-events-none"
+                    className="absolute inset-0 bg-gradient-to-b from-black/80 via-[#0A0A0A]/70 to-[#150021]/90 pointer-events-none z-20"
                     style={{ opacity: overlayOpacity }}
                 />
 
