@@ -1,0 +1,70 @@
+🏎️  STRESS TEST AGRESIVO - 90+5 STORE
+=====================================
+📈 Configuración: 100 peticiones simultáneas x 5 rondas
+🎯 Total de peticiones: 500
+
+🔥 Calentando servidor...
+
+🔥 RONDA 1: Lanzando 100 peticiones simultáneas...
+✅ Éxitos: 100/100 (100.0%)
+❌ Fallos: 0
+⏱️  Promedio: 287.22ms
+📊 P50 (mediana): 330.64ms
+📊 P95: 336.28ms
+📊 P99: 337.54ms
+🚀 Más rápida: 51.88ms
+🐢 Más lenta: 337.54ms
+✨ ESTATUS: EXCELENTE - Servidor aguanta tráfico viral sin problemas
+
+🔥 RONDA 2: Lanzando 100 peticiones simultáneas...
+✅ Éxitos: 100/100 (100.0%)
+❌ Fallos: 0
+⏱️  Promedio: 182.39ms
+📊 P50 (mediana): 234.51ms
+📊 P95: 238.09ms
+📊 P99: 238.87ms
+🚀 Más rápida: 76.18ms
+🐢 Más lenta: 238.87ms
+✨ ESTATUS: EXCELENTE - Servidor aguanta tráfico viral sin problemas
+
+🔥 RONDA 3: Lanzando 100 peticiones simultáneas...
+✅ Éxitos: 100/100 (100.0%)
+❌ Fallos: 0
+⏱️  Promedio: 172.71ms
+📊 P50 (mediana): 216.34ms
+📊 P95: 224.09ms
+📊 P99: 226.15ms
+🚀 Más rápida: 67.45ms
+🐢 Más lenta: 226.15ms
+✨ ESTATUS: EXCELENTE - Servidor aguanta tráfico viral sin problemas
+
+🔥 RONDA 4: Lanzando 100 peticiones simultáneas...
+✅ Éxitos: 100/100 (100.0%)
+❌ Fallos: 0
+⏱️  Promedio: 164.99ms
+📊 P50 (mediana): 213.87ms
+📊 P95: 217.38ms
+📊 P99: 217.40ms
+🚀 Más rápida: 81.75ms
+🐢 Más lenta: 217.40ms
+✨ ESTATUS: EXCELENTE - Servidor aguanta tráfico viral sin problemas
+
+🔥 RONDA 5: Lanzando 100 peticiones simultáneas...
+✅ Éxitos: 100/100 (100.0%)
+❌ Fallos: 0
+⏱️  Promedio: 175.00ms
+📊 P50 (mediana): 227.16ms
+📊 P95: 235.86ms
+📊 P99: 236.39ms
+🚀 Más rápida: 76.68ms
+🐢 Más lenta: 236.39ms
+✨ ESTATUS: EXCELENTE - Servidor aguanta tráfico viral sin problemas
+
+🏁 STRESS TEST COMPLETADO
+=====================================
+✅ Total de peticiones procesadas: 500
+
+📊 RESUMEN GENERAL:
+   Promedio global: 196.46ms
+   P95 global: 250.34ms
+   Tasa de éxito: 100.00%

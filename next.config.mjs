@@ -36,6 +36,13 @@ const nextConfig = {
     // 🎨 Permitir SVG en el componente Image (necesario para logos de bancos)
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
+
+    // 🚀 OPTIMIZACIONES DE IMAGEN (Lighthouse recommendations)
+    formats: ['image/webp', 'image/avif'], // Formatos modernos primero
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840], // Tamaños responsive
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // Tamaños de íconos
+    minimumCacheTTL: 60 * 60 * 24 * 365, // Cache de 1 año
+    unoptimized: false, // Asegurar que las imágenes se optimicen
   },
 
   /**
@@ -80,6 +87,27 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production'
       ? { exclude: ['error', 'warn'] }
       : false,
+  },
+
+  /**
+   * ⚡ Optimizaciones de rendimiento (Lighthouse recommendations)
+   */
+  compress: true, // Habilitar compresión gzip
+  swcMinify: true, // Usar SWC para minificación (más rápido que Terser)
+
+  /**
+   * 🔬 Características experimentales para mejor rendimiento
+   */
+  experimental: {
+    // optimizeCss: true, // Temporarily disabled to test LCP
+    optimizePackageImports: ['framer-motion', 'lucide-react'], // Optimizar imports grandes
+  },
+
+  /**
+   * 📊 Configuración de webpack para optimizaciones adicionales
+   */
+  webpack: (config) => {
+    return config;
   },
 };
 

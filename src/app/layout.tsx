@@ -25,28 +25,28 @@ const satoshi = localFont({
 export const metadata: Metadata = {
     metadataBase: new URL("https://90mas5.store"),
     title: {
-        default: "90+5 Store | Tienda Deportiva Honduras",
+        default: "90+5 Store | Camisetas de Fútbol y Ropa Deportiva en Honduras",
         template: "%s | 90+5 Store",
     },
-    description: "La tienda oficial de los verdaderos fanáticos en Honduras. La pasión vive mas allá del minuto 90.",
+    description: "Compra las mejores camisetas de fútbol temporada 25/26 versión jugador y aficionado. Envíos a todo Honduras. Real Madrid, Barcelona, Olimpia, Motagua y más. Calidad Premium Garantizada.",
     applicationName: "90+5 Store",
     authors: [{ name: "90+5 Store", url: "https://90mas5.store" }],
     generator: "Next.js",
     keywords: [
-        "camisetas de fútbol",
-        "tienda de futbol honduras",
+        "camisetas de fútbol honduras",
+        "tienda deportiva tegucigalpa",
         "jerseys originales",
-        "equipaciones 25/26",
+        "ropa deportiva honduras",
         "camisetas versión jugador",
-        "ropa deportiva tegucigalpa",
+        "uniformes de futbol",
         "real madrid",
         "barcelona",
         "premier league",
+        "liga nacional honduras",
         "olimpia",
         "motagua",
-        "messi",
-        "cristiano ronaldo",
-        "liga nacional honduras"
+        "comprar camisetas futbol",
+        "tienda 90 min"
     ],
     referrer: "origin-when-cross-origin",
     icons: {
@@ -56,8 +56,8 @@ export const metadata: Metadata = {
     },
     manifest: "/manifest.json",
     openGraph: {
-        title: "90+5 Store | El fútbol más allá del minuto 90",
-        description: "La tienda oficial de los verdaderos fanáticos en Honduras. La pasión vive mas allá del minuto 90.",
+        title: "90+5 Store | Camisetas de Fútbol Premium en Honduras",
+        description: "Encuentra las equipaciones oficiales 25/26 de tus equipos favoritos. Calidad versión jugador, envíos rápidos y seguros en todo Honduras.",
         url: "https://90mas5.store",
         siteName: "90+5 Store",
         locale: "es_HN",
@@ -67,14 +67,14 @@ export const metadata: Metadata = {
                 url: "/og-image.jpg",
                 width: 1200,
                 height: 630,
-                alt: "90+5 Store - Colección Premium",
+                alt: "90+5 Store - Colección de Camisetas de Fútbol",
             },
         ],
     },
     twitter: {
         card: "summary_large_image",
-        title: "90+5 Store",
-        description: "El tiempo se rompe aquí. Camisetas de fútbol y equipaciones premium en Honduras. ⚽🔥",
+        title: "90+5 Store | #1 en Camisetas de Fútbol",
+        description: "El tiempo se rompe aquí. Las mejores equipaciones del mundo en Honduras. ⚽🔥",
         images: ["/og-image.jpg"],
         creator: "@90mas5store",
     },
@@ -89,12 +89,19 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
     themeColor: "#E50914",
+    width: "device-width",
+    initialScale: 1,
 };
 
 // 🧱 Layout base (Server Component)
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="es" className={`dark ${satoshi.className}`}>
+            <head>
+                <link rel="preconnect" href="https://i.imgur.com" />
+                <link rel="preconnect" href="https://res.cloudinary.com" />
+                <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
+            </head>
             <body className="bg-background text-textLight antialiased relative overflow-x-hidden">
                 {/* 💫 Overlay global */}
                 <div className="fixed inset-0 -z-10 bg-gradient-to-b from-primary/10 via-background/90 to-black/95 pointer-events-none" />

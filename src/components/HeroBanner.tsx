@@ -126,7 +126,7 @@ function SlideIndicators({
     if (total <= 1) return null;
 
     return (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+        <div className="absolute bottom-6 right-6 md:bottom-10 md:right-10 z-30 flex gap-2 pointer-events-auto">
             {Array.from({ length: total }).map((_, index) => (
                 <button
                     key={index}
@@ -166,14 +166,14 @@ function HeroOverlayText({
             className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4"
         >
             {title && (
-                <motion.h1
+                <motion.h2
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.4 }}
                     className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white tracking-tight drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)]"
                 >
                     {title}
-                </motion.h1>
+                </motion.h2>
             )}
             {subtitle && (
                 <motion.p
@@ -214,13 +214,18 @@ export default function HeroBanner({
     const containerRef = useRef<HTMLElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
 
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true); // Should be true, but we'll hide the skeleton logic
     const [videoError, setVideoError] = useState(false);
-    const [isVideoReady, setIsVideoReady] = useState(false); // 🆕 Nuevo estado
-    const [useFallbackImage, setUseFallbackImage] = useState(false); // 🆕 Estado para imagen rota
+    const [isVideoReady, setIsVideoReady] = useState(false);
+    const [useFallbackImage, setUseFallbackImage] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [parallaxOffset, setParallaxOffset] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+    const [isInitialMount, setIsInitialMount] = useState(true);
+
+    useEffect(() => {
+        setIsInitialMount(false);
+    }, []);
 
     // ============================================
     // 📸 PREPARAR CONSTANTES
@@ -243,9 +248,11 @@ export default function HeroBanner({
     // Determinar la imagen final (si el video falla o no hay video)
     const finalImageSrc = useFallbackImage ? fallbackImage : (currentSlideData.imageSrc || fallbackImage);
 
-    // 🔄 Resetear estados cuando cambia la categoría o el contenido principal
     useEffect(() => {
-        setIsLoading(true);
+        // Only set loading if it's not the initial mount to avoid LCP delay
+        if (!isInitialMount) {
+            setIsLoading(true);
+        }
         setVideoError(false);
         setIsVideoReady(false); // Reset video state
         setUseFallbackImage(false); // Reset fallback
@@ -364,7 +371,7 @@ export default function HeroBanner({
         setVideoError(false);
         setIsVideoReady(false);
         setUseFallbackImage(false);
-        setIsLoading(true);
+        setIsLoading(true); // Here we want the skeleton for transitions
     }, []);
 
 
@@ -381,9 +388,9 @@ export default function HeroBanner({
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Skeleton Loader */}
+            {/* Skeleton Loader - Only show if not initial mount to avoid LCP delay */}
             <AnimatePresence>
-                {isLoading && (
+                {isLoading && !isInitialMount && (
                     <motion.div
                         className="absolute inset-0 z-40"
                         initial={{ opacity: 1 }}
@@ -409,7 +416,7 @@ export default function HeroBanner({
                     <motion.div
                         key={`${categorySlug || imageSrc || 'hero'}-${currentSlide}-${useFallbackImage ? 'fallback' : 'main'}`}
                         className="absolute inset-0"
-                        initial={{ opacity: 0, scale: 1.05 }}
+                        initial={isInitialMount ? false : { opacity: 0, scale: 1 }} // Skip animation or reduce scale impact mount
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.8, ease: "easeInOut" }}
@@ -420,6 +427,7 @@ export default function HeroBanner({
                             alt={alt}
                             fill
                             priority
+                            quality={75}
                             className="object-cover object-center z-0"
                             style={{ objectPosition: 'center 30%' }}
                             onLoad={handleImageLoad}
@@ -428,7 +436,7 @@ export default function HeroBanner({
                         />
 
                         {/* 2. Video Layer - SUPERPUESTO */}
-                        {currentSlideData.videoSrc && !videoError && !useFallbackImage && (
+                        {currentSlideData.videoSrc && !videoError && !useFallbackImage && !isLoading && !isInitialMount && (
                             <motion.div
                                 className="absolute inset-0 z-10"
                                 initial={{ opacity: 0 }}

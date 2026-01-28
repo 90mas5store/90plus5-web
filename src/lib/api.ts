@@ -1,6 +1,14 @@
 import { Product, Config, ShippingZone } from "./types";
 import { supabase } from "./supabase/client";
 
+export interface CatalogParams {
+  page?: number;
+  limit?: number;
+  query?: string;
+  categoryId?: string;
+  leagueId?: string;
+}
+
 // ✅ Cliente Supabase inicializado correctamente
 // ⚠️ NUNCA hacer console.log del cliente - expone credenciales
 
@@ -51,7 +59,7 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
   });
 }
 
-function adaptSupabaseProductToProduct(raw: any): Product {
+export function adaptSupabaseProductToProduct(raw: any): Product {
   const variants = raw.product_variants || [];
 
   const basePrice =
@@ -400,9 +408,16 @@ function safeSessionStorage(): Storage | null {
 const REVALIDATE_INTERVAL = 10 * 60 * 1000;
 
 /* 🧩 Utilidad general para leer o refrescar caché */
-async function getCached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+async function getCached<T>(key: string, fetcher: () => Promise<T>, forceRefresh = false): Promise<T> {
   const store = safeSessionStorage();
   const now = Date.now();
+
+  // 0️⃣ Si forzamos refresh, saltamos directo al fetch
+  if (forceRefresh) {
+    const data = await fetcher();
+    setCache(key, data);
+    return data;
+  }
 
   // 1️⃣ Intenta cache en memoria
   if (memoryCache[key] && memoryCache.lastUpdated && memoryCache.lastUpdated[key]) {
@@ -444,6 +459,30 @@ async function getCached<T>(key: string, fetcher: () => Promise<T>): Promise<T> 
   return data;
 }
 
+/* 🧹 Limpia todo el caché (se llama al actualizar productos) */
+export function clearProductCache(filter: 'all' | 'catalog' | 'config' = 'all') {
+  const store = safeSessionStorage();
+
+  if (filter === 'all' || filter === 'catalog') {
+    memoryCache.catalog = null;
+    memoryCache.featured = null;
+    if (store) {
+      store.removeItem('cache_catalog');
+      store.removeItem('cache_featured');
+    }
+  }
+
+  if (filter === 'all' || filter === 'config') {
+    memoryCache.config = null;
+    if (store) {
+      store.removeItem('cache_config');
+      store.removeItem('cache_shipping_zones');
+    }
+  }
+
+  memoryCache.lastUpdated = {};
+}
+
 /* 💫 Guarda en memoria + sessionStorage */
 function setCache<T>(key: string, data: T) {
   const store = safeSessionStorage();
@@ -458,21 +497,6 @@ function setCache<T>(key: string, data: T) {
   }
 }
 
-/* 🧹 Limpia todo el caché (se llama al actualizar productos) */
-export function clearProductCache() {
-  memoryCache.catalog = null;
-  memoryCache.featured = null;
-  memoryCache.config = null;
-  memoryCache.lastUpdated = {};
-
-  const store = safeSessionStorage();
-  if (store) {
-    store.removeItem('cache_catalog');
-    store.removeItem('cache_featured');
-    store.removeItem('cache_config');
-    store.removeItem('cache_shipping_zones');
-  }
-}
 
 /* 🔄 Revalida en background (silenciosamente) */
 async function refreshInBackground<T>(key: string, fetcher: () => Promise<T>) {
@@ -487,11 +511,149 @@ async function refreshInBackground<T>(key: string, fetcher: () => Promise<T>) {
 
 /* === API principal con cache integrado === */
 
-/** 🏪 Obtener catálogo completo */
+/** 🏪 Obtener catálogo completo (Legacy - Para compatibilidad) */
 export async function getCatalog(): Promise<Product[]> {
   return getCached<Product[]>("catalog", () =>
     fetchCatalogFromSupabase()
   );
+}
+
+// Cache LRU simple para paginación
+const paginatedCache = new Map<string, { data: any, timestamp: number }>();
+
+/** 🚀 Obtener catálogo paginado (Nuevo - Escalable) 
+ *  Ahora con caché en memoria de 60s para navegación instantánea
+ */
+export async function getCatalogPaginated(params: CatalogParams) {
+  const {
+    page = 1,
+    limit = 24,
+    query: searchQuery,
+    categoryId,
+    leagueId
+  } = params;
+
+  // 1️⃣ Revisar Caché
+  const cacheKey = JSON.stringify(params);
+  const now = Date.now();
+  const cached = paginatedCache.get(cacheKey);
+
+  if (cached && (now - cached.timestamp < 60 * 1000)) { // 1 minuto de vida
+    return cached.data;
+  }
+
+  // Lógica bifurcada: Búsqueda con typos (RPC) vs Navegación normal (Standard)
+
+  // A) Búsqueda Inteligente (Fuzzy)
+  if (searchQuery) {
+    const from = (page - 1) * limit;
+
+    // 1. Obtener IDs relevantes tolerando errores
+    const { data: fuzzyIds, error: rpcError } = await supabase.rpc('search_fuzzy_products', {
+      search_term: searchQuery,
+      p_category_id: categoryId || null,
+      p_league_id: leagueId || null,
+      p_limit: limit,
+      p_offset: from
+    });
+
+    if (rpcError) {
+      console.error("Fuzzy search error:", rpcError);
+      // Fallback a búsqueda normal si falla el RPC (ej: no creado aun)
+      // No lanzamos error, dejamos que fluya a la lógica estandard abajo o retornamos vacío?
+      // Mejor fallback a like simple abajo cambiando searchQuery
+    } else if (fuzzyIds && fuzzyIds.length > 0) {
+      // 2. Traer el detalle completo de esos IDs
+      const ids = fuzzyIds.map((item: any) => item.id);
+
+      const { data: productsData, error: productsError } = await supabase
+        .from("products")
+        .select(`
+            id, name, slug, description, image_url, featured,
+            category_id, league_id, team_id,
+            teams ( name, logo_url ),
+            product_variants ( id, version, price, active, original_price, active_original_price ),
+            product_leagues ( league_id )
+        `)
+        .in('id', ids)
+        .eq("active", true);
+
+      if (productsError) throw productsError;
+
+      // 3. Reordenar en JS para respetar la relevancia del Fuzzy (SQL 'IN' no garantiza orden)
+      const productsMap = new Map(productsData?.map((p: any) => [p.id, p]));
+      const sortedProducts = ids.map((id: string) => productsMap.get(id)).filter(Boolean);
+
+      const result = {
+        data: sortedProducts.map(adaptSupabaseProductToProduct),
+        count: 100 // Estimado, ya que RPC fuzzy difícilmente da count exacto sin coste extra
+      };
+
+      // Cache y retorno
+      paginatedCache.set(cacheKey, { data: result, timestamp: now });
+      return result;
+    } else {
+      // Búsqueda no arrojó resultados
+      return { data: [], count: 0 };
+    }
+  }
+
+  // B) Navegación Normal (Sin búsqueda o Fallback)
+  let supabaseQuery = supabase
+    .from("products")
+    .select(`
+            id,
+            name,
+            slug,
+            description,
+            image_url,
+            featured,
+            category_id,
+            league_id,
+            team_id,
+            teams ( name, logo_url ),
+            product_variants ( id, version, price, active, original_price, active_original_price ),
+            product_leagues ( league_id )
+        `, { count: 'exact' })
+    .eq("active", true);
+
+  // Filtros
+  if (categoryId) supabaseQuery = supabaseQuery.eq('category_id', categoryId);
+  if (leagueId) supabaseQuery = supabaseQuery.eq('league_id', leagueId);
+
+  // (La búsqueda simple se elimina aquí porque ya manejamos el caso Search arriba)
+
+  // Ordenamiento
+  supabaseQuery = supabaseQuery.order('name', { ascending: true });
+
+  // Paginación
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  supabaseQuery = supabaseQuery.range(from, to);
+
+  const { data, error, count } = await supabaseQuery;
+
+  if (error) {
+    console.error("Error fetching paginated catalog:", error);
+    throw error;
+  }
+
+  const result = {
+    data: (data || []).map(adaptSupabaseProductToProduct),
+    count: count || 0
+  };
+
+  // 3️⃣ Guardar en Caché
+  paginatedCache.set(cacheKey, { data: result, timestamp: now });
+
+  // Limpieza preventiva si crece mucho
+  if (paginatedCache.size > 100) {
+    const firstKey = paginatedCache.keys().next().value;
+    if (firstKey) paginatedCache.delete(firstKey); // Borrar el más viejo
+  }
+
+  return result;
 }
 
 
@@ -509,6 +671,24 @@ export async function getFeatured(): Promise<Product[]> {
   return getCached<Product[]>("featured", () =>
     fetchFeaturedFromSupabase()
   );
+}
+
+/** 🖼️ Obtener Banners Home */
+export async function getBanners() {
+  return getCached<any[]>("banners", async () => {
+    const { data, error } = await supabase
+      .from("banners")
+      .select("id, title, description, image_url, video_url, link_url, button_text")
+      .eq("active", true)
+      .eq("show_on_home", true)
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching banners:", error);
+      return [];
+    }
+    return data;
+  });
 }
 
 /** 🔍 Obtener producto por ID o Slug (Supabase) */

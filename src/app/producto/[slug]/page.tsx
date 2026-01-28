@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProductoPersonalizar from "@/components/product/ProductoPersonalizar";
+import RelatedProducts from "@/components/product/RelatedProducts";
+import { adaptSupabaseProductToProduct } from "@/lib/api";
 import { Metadata, ResolvingMetadata } from "next";
 
 // Regex to detect if the slug is actually a UUID (Legacy URL support)
@@ -25,7 +27,7 @@ async function getProduct(slug: string) {
     const { data: product } = await supabase
         .from("products")
         .select(`
-            id, name, description, image_url, team_id,
+            id, name, description, image_url, team_id, league_id, category_id,
             teams (name, logo_url),
             product_variants (version, price, original_price, active_original_price, active)
         `)
@@ -77,12 +79,14 @@ export async function generateMetadata(
             title: fullTitle,
             description,
             images: [mainImage],
+            creator: "@90mas5store",
         },
     };
 }
 
 export default async function ProductoPage({ params }: Props) {
     const result = await getProduct(params.slug);
+    const supabase = await createClient();
 
     if (!result) notFound();
 
@@ -91,10 +95,36 @@ export default async function ProductoPage({ params }: Props) {
         redirect(result.redirect);
     }
 
-    // Now 'result' is guaranteed to be the product object (excluding redirect wrapper)
-    // However, TypeScript might still complain if the return type of getProduct implies the union persists.
-    // We can cast or assign after the check.
+    // Now 'result' is guaranteed to be the product object
     const productData = result as Exclude<typeof result, { redirect: string }>;
+
+    // 🔄 Fetch Productos Relacionados
+    // Prioridad: Misma Liga -> Misma Categoría -> Cualquiera
+    let relatedQuery = supabase
+        .from("products")
+        .select(`
+            id, name, slug, description, image_url, featured,
+            team_id, category_id, league_id,
+            teams (name, logo_url),
+            product_variants (id, version, price, active, original_price, active_original_price),
+            product_leagues (league_id)
+        `)
+        .eq("active", true)
+        .neq("id", productData.id)
+        .limit(4);
+
+    // Estrategia Mejorada: Buscar por Categoría (amplio) pero priorizar Destacados
+    // Esto asegura que casi siempre haya resultados si hay productos en la categoría
+    if (productData.category_id) {
+        relatedQuery = relatedQuery.eq("category_id", productData.category_id);
+    }
+
+    // Opcional: Si queremos priorizar la liga podemos ordenar, pero Supabase no permite ordenar complejo sin RPC
+    // Así que confiamos en "Destacados" dentro de la categoría
+    relatedQuery = relatedQuery.order("featured", { ascending: false });
+
+    const { data: relatedRaw } = await relatedQuery;
+    const relatedProducts = (relatedRaw || []).map(adaptSupabaseProductToProduct);
 
     // 🧠 Structured Data (JSON-LD) for Google Rich Results
     const price = productData.variants?.[0]?.price || 0;
@@ -127,6 +157,9 @@ export default async function ProductoPage({ params }: Props) {
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
             />
             <ProductoPersonalizar product={productData} />
+
+            {/* 🔗 Relacionados */}
+            <RelatedProducts products={relatedProducts} />
         </>
     );
 }

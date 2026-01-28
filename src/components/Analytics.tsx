@@ -32,12 +32,12 @@ export default function Analytics() {
             {process.env.NEXT_PUBLIC_GA_ID && (
                 <>
                     <Script
-                        strategy="afterInteractive"
+                        strategy="lazyOnload"
                         src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
                     />
                     <Script
                         id="google-analytics"
-                        strategy="afterInteractive"
+                        strategy="lazyOnload"
                         dangerouslySetInnerHTML={{
                             __html: `
                             window.dataLayer = window.dataLayer || [];
@@ -56,7 +56,7 @@ export default function Analytics() {
             {process.env.NEXT_PUBLIC_FB_PIXEL_ID && (
                 <Script
                     id="facebook-pixel"
-                    strategy="afterInteractive"
+                    strategy="lazyOnload"
                     dangerouslySetInnerHTML={{
                         __html: `
                         !function(f,b,e,v,n,t,s)

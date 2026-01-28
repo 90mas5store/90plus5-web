@@ -65,6 +65,7 @@ export default function ProductsPage() {
                     teams (name),
                     product_variants (price, active)
                 `)
+                .is('deleted_at', null)
                 .order('created_at', { ascending: false })
 
             if (error) throw error
@@ -98,6 +99,25 @@ export default function ProductsPage() {
             toast.error(`Error: ${error.message}`)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('¿Mover a la papelera? Podrás recuperarlo después.')) return
+
+        try {
+            const { error } = await supabase
+                .from('products')
+                .update({ deleted_at: new Date().toISOString() })
+                .eq('id', id)
+
+            if (error) throw error
+
+            toast.success('Producto movido a la papelera')
+            setProducts(products.filter(p => p.id !== id))
+        } catch (error: any) {
+            toast.error('Error al eliminar')
+            console.error(error)
         }
     }
 
@@ -305,7 +325,7 @@ export default function ProductsPage() {
                                                         </Link>
                                                         <button
                                                             className="p-2 bg-white/5 hover:bg-red-500/20 text-white hover:text-red-500 rounded-lg transition-colors"
-                                                            onClick={() => toast.warning('Función eliminar próximamente')}
+                                                            onClick={() => handleDelete(product.id)}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
