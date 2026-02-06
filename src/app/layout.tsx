@@ -4,7 +4,11 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { CartProvider } from "../context/CartContext";
 import HeaderWrapper from "../components/HeaderWrapper";
-import Footer from "../components/Footer"; // Re-import
+import dynamic from "next/dynamic";
+const Footer = dynamic(() => import("../components/Footer"), {
+    loading: () => <div className="h-64 bg-black" />,
+    ssr: true // Keep SSR for SEO, but defer hydration
+});
 import CartDrawer from "../components/cart/CartDrawer";
 import ClientLayout from "./ClientLayout";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";

@@ -104,6 +104,23 @@ const nextConfig = {
           },
         ],
       },
+      // ⚡ Permitir bfcache (Back/Forward Cache) para navegación instantánea
+      // Next.js por defecto usa no-store en páginas dinámicas, lo relajamos un poco.
+      // private: solo caché del navegador (no CDN pública para datos de usuario)
+      // must-revalidate: verificar con el servidor antes de usar (304 Not Modified)
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, max-age=0, must-revalidate',
+          },
+        ],
+        missing: [
+          { type: 'header', key: 'next-router-prefetch' },
+          { type: 'header', key: 'purpose', value: 'prefetch' },
+        ],
+      },
     ];
   },
 
