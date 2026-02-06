@@ -102,12 +102,12 @@ export default function HomeClient({
 
     return (
         <main className="bg-background text-textLight min-h-screen relative overflow-hidden">
-            106:
-            107:                 {/* 🏟️ HERO */}
-            108:                 <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>
-            109:                 <HomeBannerContainer initialBanners={banners} />
-            110:
-            111:                 <LazyMotion features={domAnimation}>
+
+            {/* 🏟️ HERO */}
+            <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>
+            <HomeBannerContainer initialBanners={banners} />
+
+            <LazyMotion features={domAnimation}>
 
                 {/* 🔍 BUSCADOR */}
                 <section className="flex justify-center -mt-4 md:-mt-6 mb-6 md:mb-8 px-4 z-20 relative">
