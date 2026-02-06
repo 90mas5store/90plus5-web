@@ -42,7 +42,17 @@ interface ExtendedLeague {
   slug?: string;
 }
 
-export default function CatalogoContent() {
+interface CatalogoContentProps {
+  initialConfig?: Config | null;
+  initialProducts?: Product[];
+  initialTotal?: number;
+}
+
+export default function CatalogoContent({
+  initialConfig = null,
+  initialProducts = [],
+  initialTotal = 0
+}: CatalogoContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoriaParam = searchParams.get("categoria");
@@ -50,15 +60,15 @@ export default function CatalogoContent() {
   const ligaParam = searchParams.get("liga");
 
   // === ESTADOS ===
-  const [productos, setProductos] = useState<Product[]>([]);
-  const [totalProducts, setTotalProducts] = useState(0);
+  const [productos, setProductos] = useState<Product[]>(initialProducts);
+  const [totalProducts, setTotalProducts] = useState(initialTotal);
   const [page, setPage] = useState(1);
   const PRODUCTS_PER_PAGE = 24;
 
-  const [config, setConfig] = useState<Config | null>(null);
-  const [ligas, setLigas] = useState<ExtendedLeague[]>([]);
+  const [config, setConfig] = useState<Config | null>(initialConfig);
+  const [ligas, setLigas] = useState<ExtendedLeague[]>(initialConfig?.ligas || []);
   const [ligaSeleccionada, setLigaSeleccionada] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialProducts.length); // Solo loading si no hay datos iniciales
   const [loadingMore, setLoadingMore] = useState(false); // Estado para "Cargar más"
 
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(categoriaParam || null);
@@ -93,8 +103,10 @@ export default function CatalogoContent() {
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "");
 
-  // === Carga Inicial de Configuración ===
+  // === Carga Inicial de Configuración (Solo si no viene del server) ===
   useEffect(() => {
+    if (initialConfig) return; // ✅ Skip si ya tenemos config
+
     async function fetchConfigData() {
       try {
         const cfg = await getConfig();
@@ -108,7 +120,7 @@ export default function CatalogoContent() {
       }
     }
     fetchConfigData();
-  }, []);
+  }, [initialConfig]);
 
   // === Sincronización de URL con Estados ===
   useEffect(() => {
@@ -133,8 +145,13 @@ export default function CatalogoContent() {
 
   const selectedLeagueObj = useMemo(() => {
     if (!ligaSeleccionada) return null;
-    return ligas.find(l => normalize(l.nombre) === normalize(ligaSeleccionada));
-  }, [ligas, ligaSeleccionada]);
+    const lObj = ligas.find(l => normalize(l.nombre) === normalize(ligaSeleccionada));
+    // Fallback para ligas en URL que aun no cargan su objeto
+    if (!lObj && ligaParam && normalize(ligaParam) === normalize(ligaSeleccionada)) {
+      return { id: null, nombre: ligaParam, imagen: null, slug: ligaParam } as any;
+    }
+    return lObj;
+  }, [ligas, ligaSeleccionada, ligaParam]);
 
   // === CARGA DE PRODUCTOS (Server-Side Filtered & Paginated) ===
 
@@ -193,6 +210,17 @@ export default function CatalogoContent() {
 
   // 1. Cuando cambian filtros: Resetear a Pág 1
   useEffect(() => {
+    // 🛡️ Skip fetch inicial si ya tenemos datos del servidor que coinciden con los params
+    // Esto es complejo de validar perfectamente, pero asumimos que si hay initialProducts y es el primer render, no hacemos fetch.
+    if (isFirstMount.current && initialProducts.length > 0) {
+      // Ya tenemos datos, solo marcamos que ya no es el primer mount
+      // PERO: Si los params de URL cambiaron respecto a lo que trajo el server (edge case), deberíamos fetchear.
+      // Por simplicidad, asumimos que el server respondió a la URL actual.
+      // isFirstMount se setea false en el bloque 'finally' de fetchProducts, o aquí.
+      isFirstMount.current = false;
+      return;
+    }
+
     setPage(1);
     fetchProducts(1, false);
   }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj]);

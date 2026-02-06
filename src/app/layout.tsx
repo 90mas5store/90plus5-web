@@ -103,6 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link rel="dns-prefetch" href="https://i.imgur.com" />
                 <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+                <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
                 <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
                 <Partytown debug={process.env.NODE_ENV === 'development'} forward={['gtag', 'fbq', 'dataLayer.push']} />
