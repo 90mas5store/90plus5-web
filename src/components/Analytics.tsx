@@ -1,7 +1,6 @@
 'use client';
 
 import { usePathname, useSearchParams } from 'next/navigation';
-import Script from 'next/script';
 import { useEffect } from 'react';
 
 declare global {
@@ -28,16 +27,16 @@ export default function Analytics() {
 
     return (
         <>
-            {/* --- GOOGLE ANALYTICS 4 --- */}
+            {/* --- GOOGLE ANALYTICS 4 (Partytown) --- */}
             {process.env.NEXT_PUBLIC_GA_ID && (
                 <>
-                    <Script
-                        strategy="lazyOnload"
+                    <script
+                        type="text/partytown"
                         src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
                     />
-                    <Script
+                    <script
+                        type="text/partytown"
                         id="google-analytics"
-                        strategy="lazyOnload"
                         dangerouslySetInnerHTML={{
                             __html: `
                             window.dataLayer = window.dataLayer || [];
@@ -52,11 +51,11 @@ export default function Analytics() {
                 </>
             )}
 
-            {/* --- FACEBOOK PIXEL --- */}
+            {/* --- FACEBOOK PIXEL (Partytown) --- */}
             {process.env.NEXT_PUBLIC_FB_PIXEL_ID && (
-                <Script
+                <script
+                    type="text/partytown"
                     id="facebook-pixel"
-                    strategy="lazyOnload"
                     dangerouslySetInnerHTML={{
                         __html: `
                         !function(f,b,e,v,n,t,s)

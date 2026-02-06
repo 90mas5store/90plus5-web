@@ -9,6 +9,7 @@ import CartDrawer from "../components/cart/CartDrawer";
 import ClientLayout from "./ClientLayout";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
 import { Metadata, Viewport } from "next";
+import { Partytown } from '@builder.io/partytown/react';
 
 // 🧠 Fuente local Satoshi
 const satoshi = localFont({
@@ -104,6 +105,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link rel="dns-prefetch" href="https://res.cloudinary.com" />
                 <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
+                <Partytown debug={process.env.NODE_ENV === 'development'} forward={['gtag', 'fbq', 'dataLayer.push']} />
             </head>
             <body className="bg-background text-textLight antialiased relative overflow-x-hidden">
                 {/* 💫 Overlay global */}
