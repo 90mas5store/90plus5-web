@@ -5,6 +5,7 @@ const nextConfig = {
    * - Usamos remotePatterns en lugar de domains (deprecated en Next.js 14+)
    * - Más seguro: permite especificar protocolo y rutas
    */
+  transpilePackages: ['lucide-react', 'framer-motion'],
   images: {
     remotePatterns: [
       {
@@ -139,6 +140,26 @@ const nextConfig = {
    * 📊 Configuración de webpack para optimizaciones adicionales
    */
   webpack: (config) => {
+    config.optimization.splitChunks = {
+      chunks: 'all',
+      minSize: 20000,
+      maxSize: 244000,
+      minChunks: 1,
+      maxAsyncRequests: 30,
+      maxInitialRequests: 30,
+      cacheGroups: {
+        defaultVendors: {
+          test: /[\\/]node_modules[\\/]/,
+          priority: -10,
+          reuseExistingChunk: true,
+        },
+        default: {
+          minChunks: 2,
+          priority: -20,
+          reuseExistingChunk: true,
+        },
+      },
+    };
     return config;
   },
 };
