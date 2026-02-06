@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/lib/motion";
 import { getProductOptionsFromSupabase, getPlayersByTeam, getRelatedProducts } from "@/lib/api";
 import HeatmapBackground from "@/components/HeatmapBackground";
 import TeamLogo from "@/components/TeamLogo";

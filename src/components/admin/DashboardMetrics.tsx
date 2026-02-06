@@ -1,5 +1,5 @@
 'use client';
-import { motion } from 'framer-motion';
+import { motion } from '@/lib/motion';
 import { TrendingUp, ShoppingBag, CreditCard } from 'lucide-react';
 
 interface DashboardMetricsProps {

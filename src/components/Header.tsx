@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ShoppingCart, Menu, X, Home, Grid3x3, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/lib/motion";
 import { useCart } from "../context/CartContext";
 import { useCategories } from "../hooks/useCategories";
 import { useState, useEffect } from "react";
@@ -117,9 +117,7 @@ export default function Header() {
 
     return (
         <>
-            <motion.header
-                initial={{ y: -100 }}
-                animate={{ y: 0 }}
+            <header
                 className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled
                     ? "bg-[#0a0a0a]/95 md:backdrop-blur-xl border-b border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
                     : "bg-[#0a0a0a]/90 md:bg-[#0a0a0a]/80 md:backdrop-blur-md border-b border-white/5"
@@ -422,7 +420,7 @@ export default function Header() {
                         </div>
                     </div>
                 </div>
-            </motion.header>
+            </header>
 
             {/* 📱 MOBILE DRAWER - ULTRA MODERN */}
             <AnimatePresence>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import MainButton from "./ui/MainButton";
@@ -107,139 +107,137 @@ export default function HomeClient({
             <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>
             <HomeBannerContainer initialBanners={banners} />
 
-            <LazyMotion features={domAnimation}>
 
-                {/* 🔍 BUSCADOR */}
-                <section className="flex justify-center -mt-4 md:-mt-6 mb-6 md:mb-8 px-4 z-20 relative">
-                    <SearchBar
-                        value={searchTerm}
-                        onChange={setSearchTerm}
-                        onSearch={handleSearch}
-                        placeholder="Buscar por equipo, modelo o jugador..."
-                    />
-                </section>
+            {/* 🔍 BUSCADOR */}
+            <section className="flex justify-center -mt-4 md:-mt-6 mb-6 md:mb-8 px-4 z-20 relative">
+                <SearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    onSearch={handleSearch}
+                    placeholder="Buscar por equipo, modelo o jugador..."
+                />
+            </section>
 
-                {/* 🏆 EVENTO ESPECIAL (MUNDIAL) */}
-                <SpecialEventBanner />
+            {/* 🏆 EVENTO ESPECIAL (MUNDIAL) */}
+            <SpecialEventBanner />
 
-                {/* 🏆 LIGAS */}
-                <div id="ligas">
-                    <CarruselDeCategoria
-                        title="Ligas disponibles"
-                        items={ligas.map((l) => ({
-                            nombre: l.nombre,
-                            imagen: l.imagen || "/logos/ligas/placeholder.svg",
-                        }))}
-                        selected={ligaSeleccionada}
-                        onSelect={(nombre: string) => {
-                            const nuevaLiga = ligaSeleccionada === nombre ? null : nombre;
-                            setLigaSeleccionada(nuevaLiga);
+            {/* 🏆 LIGAS */}
+            <div id="ligas">
+                <CarruselDeCategoria
+                    title="Ligas disponibles"
+                    items={ligas.map((l) => ({
+                        nombre: l.nombre,
+                        imagen: l.imagen || "/logos/ligas/placeholder.svg",
+                    }))}
+                    selected={ligaSeleccionada}
+                    onSelect={(nombre: string) => {
+                        const nuevaLiga = ligaSeleccionada === nombre ? null : nombre;
+                        setLigaSeleccionada(nuevaLiga);
 
-                            // 🎯 Scroll automático suave al seleccionar liga
-                            if (nuevaLiga) {
-                                console.log('🎯 Ejecutando scroll a ligas...', nuevaLiga);
-                                setTimeout(() => {
-                                    const element = document.getElementById('ligas');
-                                    console.log('📍 Elemento ligas encontrado:', element);
-                                    if (element) {
-                                        const yOffset = -80; // Offset para dejar visible el título y carrusel
-                                        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                                        window.scrollTo({ top: y, behavior: 'smooth' });
-                                    }
-                                }, 100);
-                            }
-                        }}
-                    />
-                </div>
+                        // 🎯 Scroll automático suave al seleccionar liga
+                        if (nuevaLiga) {
+                            console.log('🎯 Ejecutando scroll a ligas...', nuevaLiga);
+                            setTimeout(() => {
+                                const element = document.getElementById('ligas');
+                                console.log('📍 Elemento ligas encontrado:', element);
+                                if (element) {
+                                    const yOffset = -80; // Offset para dejar visible el título y carrusel
+                                    const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                                    window.scrollTo({ top: y, behavior: 'smooth' });
+                                }
+                            }, 100);
+                        }
+                    }}
+                />
+            </div>
 
-                {/* ⭐ DESTACADOS */}
-                <section id="destacados" className="py-6 md:py-10 px-4 max-w-7xl mx-auto">
-                    <h2 className="text-center text-3xl md:text-4xl font-bold text-primary mb-6 md:mb-8 drop-shadow-[0_0_20px_rgba(229,9,20,0.4)]">
-                        {ligaSeleccionada
-                            ? `Destacados de ${ligaSeleccionada}`
-                            : "Destacados 90+5"}
-                    </h2>
+            {/* ⭐ DESTACADOS */}
+            <section id="destacados" className="py-6 md:py-10 px-4 max-w-7xl mx-auto">
+                <h2 className="text-center text-3xl md:text-4xl font-bold text-primary mb-6 md:mb-8 drop-shadow-[0_0_20px_rgba(229,9,20,0.4)]">
+                    {ligaSeleccionada
+                        ? `Destacados de ${ligaSeleccionada}`
+                        : "Destacados 90+5"}
+                </h2>
 
 
-                    <AnimatePresence mode="wait">
-                        <m.div
-                            key={ligaSeleccionada || "all"}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.4 }}
-                            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6"
-                        >
-                            {destacadosFiltrados.map((item, i) => (
-                                <div
-                                    key={item.id}
-                                    className="h-full animate-in fade-in zoom-in-95 fill-mode-both duration-500"
-                                    style={{ animationDelay: `${i * 50}ms` }}
-                                >
-                                    <ProductCard
-                                        item={item}
-                                        priority={i < 4}
-                                        enableGlow={!prefersReducedMotion}
-                                        onPress={(product) => {
-                                            toast.loading("Cargando personalización...");
-                                            navigate(`/producto/${product.slug || product.id}`);
-                                        }}
-                                    />
-                                </div>
-                            ))}
-                        </m.div>
-
-                        {ligaSeleccionada && (
-                            <m.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="flex justify-center mt-16"
+                <AnimatePresence mode="wait">
+                    <m.div
+                        key={ligaSeleccionada || "all"}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6"
+                    >
+                        {destacadosFiltrados.map((item, i) => (
+                            <div
+                                key={item.id}
+                                className="h-full animate-in fade-in zoom-in-95 fill-mode-both duration-500"
+                                style={{ animationDelay: `${i * 50}ms` }}
                             >
-                                <MainButton
-                                    onClick={() => {
-                                        const selectedLeagueObj = ligas.find(l => normalize(l.nombre) === normalize(ligaSeleccionada));
-                                        const categoryObj = selectedLeagueObj?.category_id
-                                            ? categorias.find(c => c.id === selectedLeagueObj.category_id)
-                                            : null;
-
-                                        const catSlug = categoryObj?.slug;
-                                        const leagueSlug = selectedLeagueObj?.slug || encodeURIComponent(ligaSeleccionada || "");
-
-                                        let url = "/catalogo";
-                                        if (catSlug) {
-                                            url += `?categoria=${catSlug}&liga=${leagueSlug}`;
-                                        } else {
-                                            url += `?query=${encodeURIComponent(ligaSeleccionada || "")}`;
-                                        }
-
-                                        router.push(url);
+                                <ProductCard
+                                    item={item}
+                                    priority={i < 4}
+                                    enableGlow={!prefersReducedMotion}
+                                    onPress={(product) => {
+                                        toast.loading("Cargando personalización...");
+                                        navigate(`/producto/${product.slug || product.id}`);
                                     }}
-                                    className="group relative px-8 py-4 bg-gradient-to-r from-[#E50914] to-[#b00710] text-white rounded-full font-bold tracking-wider uppercase text-sm shadow-[0_0_20px_rgba(229,9,20,0.4)] hover:shadow-[0_0_35px_rgba(229,9,20,0.6)] hover:scale-105 transition-all duration-300 flex items-center gap-2"
-                                >
-                                    <span>Ver colección completa {ligaSeleccionada}</span>
-                                    <svg
-                                        aria-hidden="true"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="group-hover:translate-x-1 transition-transform"
-                                    >
-                                        <path d="M5 12h14" />
-                                        <path d="m12 5 7 7-7 7" />
-                                    </svg>
-                                </MainButton>
-                            </m.div>
-                        )}
-                    </AnimatePresence>
+                                />
+                            </div>
+                        ))}
+                    </m.div>
 
-                </section>
-            </LazyMotion>
+                    {ligaSeleccionada && (
+                        <m.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex justify-center mt-16"
+                        >
+                            <MainButton
+                                onClick={() => {
+                                    const selectedLeagueObj = ligas.find(l => normalize(l.nombre) === normalize(ligaSeleccionada));
+                                    const categoryObj = selectedLeagueObj?.category_id
+                                        ? categorias.find(c => c.id === selectedLeagueObj.category_id)
+                                        : null;
+
+                                    const catSlug = categoryObj?.slug;
+                                    const leagueSlug = selectedLeagueObj?.slug || encodeURIComponent(ligaSeleccionada || "");
+
+                                    let url = "/catalogo";
+                                    if (catSlug) {
+                                        url += `?categoria=${catSlug}&liga=${leagueSlug}`;
+                                    } else {
+                                        url += `?query=${encodeURIComponent(ligaSeleccionada || "")}`;
+                                    }
+
+                                    router.push(url);
+                                }}
+                                className="group relative px-8 py-4 bg-gradient-to-r from-[#E50914] to-[#b00710] text-white rounded-full font-bold tracking-wider uppercase text-sm shadow-[0_0_20px_rgba(229,9,20,0.4)] hover:shadow-[0_0_35px_rgba(229,9,20,0.6)] hover:scale-105 transition-all duration-300 flex items-center gap-2"
+                            >
+                                <span>Ver colección completa {ligaSeleccionada}</span>
+                                <svg
+                                    aria-hidden="true"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="group-hover:translate-x-1 transition-transform"
+                                >
+                                    <path d="M5 12h14" />
+                                    <path d="m12 5 7 7-7 7" />
+                                </svg>
+                            </MainButton>
+                        </m.div>
+                    )}
+                </AnimatePresence>
+
+            </section>
         </main>
     );
 }

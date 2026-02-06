@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { getCatalog } from "../../lib/api";
 import { Product } from "../../lib/types";
 import ProductImage from "../ProductImage";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/lib/motion";
 import { useRouter, usePathname } from "next/navigation";
 
 interface SearchBarProps {

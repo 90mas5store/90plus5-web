@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/lib/motion";
 import { getCatalogPaginated, getConfig } from "../../lib/api";
 import dynamic from "next/dynamic";
 import { Product, Config, Category, League } from "../../lib/types";

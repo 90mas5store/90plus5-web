@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/lib/motion";
 import { useRef, useState, useEffect, useCallback } from "react";
 
 // ============================================
@@ -437,64 +437,44 @@ export default function HeroBanner({
 
             {/* Background Media Container with Parallax */}
             {/* Background Media Container with Parallax */}
-            <motion.div
-                className="absolute inset-0"
-                style={{
-                    y: enableParallax ? parallaxOffset : 0,
-                    scale: enableParallax ? 1.1 : 1, // Extra scale to prevent edges showing during parallax
-                }}
-                transition={{ type: "tween", duration: 0 }}
-            >
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={`${categorySlug || imageSrc || 'hero'}-${currentSlide}-${useFallbackImage ? 'fallback' : 'main'}`}
-                        className="absolute inset-0"
-                        initial={isInitialMount ? false : { opacity: 0, scale: 1 }} // Skip animation or reduce scale impact mount
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.8, ease: "easeInOut" }}
-                    >
-                        {/* 1. Base Image Layer - SIEMPRE VISIBLE */}
-                        <Image
-                            src={finalImageSrc}
-                            alt={alt}
-                            fill
-                            priority
-                            quality={75}
-                            className="object-cover object-center z-0"
-                            style={{ objectPosition: 'center 30%' }}
-                            onLoad={handleImageLoad}
-                            onError={handleImageError}
-                            sizes="100vw"
-                        />
+            <div className="absolute inset-0">
+                {/* 1. Base Image Layer - SIEMPRE VISIBLE - SIN ANIMACIONES */}
+                <Image
+                    src={finalImageSrc}
+                    alt={alt}
+                    fill
+                    priority={true}
+                    quality={75}
+                    loading="eager"
+                    fetchPriority="high"
+                    className="object-cover object-center z-0"
+                    style={{ objectPosition: 'center 30%' }}
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
+                    sizes="100vw"
+                    unoptimized={false}
+                />
 
-                        {/* 2. Video Layer - SUPERPUESTO */}
-                        {currentSlideData.videoSrc && !videoError && !useFallbackImage && !isLoading && !isInitialMount && (
-                            <motion.div
-                                className="absolute inset-0 z-10"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: isVideoReady ? 1 : 0 }}
-                                transition={{ duration: 0.8 }}
-                            >
-                                <video
-                                    ref={videoRef}
-                                    autoPlay
-                                    loop
-                                    muted
-                                    playsInline
-                                    className="w-full h-full object-cover"
-                                    onLoadedData={handleVideoLoad}
-                                    onError={handleVideoError}
-                                >
-                                    <source
-                                        src={currentSlideData.videoSrc}
-                                        type={currentSlideData.videoSrc?.endsWith(".webm") ? "video/webm" : "video/mp4"}
-                                    />
-                                </video>
-                            </motion.div>
-                        )}
-                    </motion.div>
-                </AnimatePresence>
+                {/* 2. Video Layer - SUPERPUESTO */}
+                {currentSlideData.videoSrc && !videoError && !useFallbackImage && !isLoading && !isInitialMount && (
+                    <div className="absolute inset-0 z-10" style={{ opacity: isVideoReady ? 1 : 0 }}>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            className="w-full h-full object-cover"
+                            onLoadedData={handleVideoLoad}
+                            onError={handleVideoError}
+                        >
+                            <source
+                                src={currentSlideData.videoSrc}
+                                type={currentSlideData.videoSrc?.endsWith(".webm") ? "video/webm" : "video/mp4"}
+                            />
+                        </video>
+                    </div>
+                )}
 
                 {/* Gradient Overlays */}
                 <div
@@ -512,7 +492,8 @@ export default function HeroBanner({
 
                 {/* Bottom Fade for seamless transition */}
                 <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-            </motion.div>
+            </div>
+
 
             {/* Overlay Text (optional) */}
             <HeroOverlayText
@@ -528,32 +509,29 @@ export default function HeroBanner({
             />
 
             {/* Content */}
-            <motion.div
-                initial={{ opacity: 0, y: 25 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.2, ease: "easeOut" }}
-                className="z-10 px-4 w-full"
-            >
+            <div className="z-10 px-4 w-full">
                 {children}
-            </motion.div>
+            </div>
 
             {/* Progress Bar for Slideshow */}
-            {preparedSlides.length > 1 && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-30">
-                    <motion.div
-                        className="h-full bg-primary"
-                        initial={{ width: "0%" }}
-                        animate={{ width: "100%" }}
-                        transition={{
-                            duration: slideInterval / 1000,
-                            ease: "linear",
-                            repeat: Infinity,
-                        }}
-                        key={currentSlide} // Reset animation on slide change
-                    />
-                </div>
-            )}
-        </section>
+            {
+                preparedSlides.length > 1 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-30">
+                        <motion.div
+                            className="h-full bg-primary"
+                            initial={{ width: "0%" }}
+                            animate={{ width: "100%" }}
+                            transition={{
+                                duration: slideInterval / 1000,
+                                ease: "linear",
+                                repeat: Infinity,
+                            }}
+                            key={currentSlide} // Reset animation on slide change
+                        />
+                    </div>
+                )
+            }
+        </section >
     );
 }
 

@@ -2,7 +2,7 @@
 
 import { Product } from "@/lib/types";
 import ProductCard from "@/components/ui/ProductCard";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 import { useProductPrefetch, usePrefetch } from "@/hooks/usePrefetch";
 import useToastMessage from "@/hooks/useToastMessage";
 

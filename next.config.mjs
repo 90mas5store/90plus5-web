@@ -39,10 +39,10 @@ const nextConfig = {
     contentDispositionType: 'attachment',
 
     // 🚀 OPTIMIZACIONES DE IMAGEN (Lighthouse recommendations)
-    formats: ['image/webp', 'image/avif'], // Formatos modernos primero
+    formats: ['image/avif', 'image/webp'], // AVIF primero (mejor compresión)
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840], // Tamaños responsive
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // Tamaños de íconos
-    minimumCacheTTL: 60 * 60 * 24 * 365, // Cache de 1 año
+    minimumCacheTTL: 31536000, // Cache de 1 año
     unoptimized: false, // Asegurar que las imágenes se optimicen
   },
 
@@ -54,6 +54,10 @@ const nextConfig = {
       {
         source: '/(.*)',
         headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
@@ -75,17 +79,12 @@ const nextConfig = {
             value: 'max-age=63072000; includeSubDomains; preload',
           },
           {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
-          },
-          {
             key: 'Content-Security-Policy',
             value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://connect.facebook.net https://www.google-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://i.imgur.com https://res.cloudinary.com https://upload.wikimedia.org https://90mas5.store https://fhvxolslqrrkefsvbcrq.supabase.co https://*.facebook.com; media-src 'self' blob: data: https://fhvxolslqrrkefsvbcrq.supabase.co https://res.cloudinary.com https://i.imgur.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; connect-src 'self' https://*.facebook.com https://fhvxolslqrrkefsvbcrq.supabase.co;",
           },
         ],
       },
-      // 🚀 Cache Control para assets estáticos inmutables (Fonts, Images)
-      // Next.js ya maneja los JS/CSS con hash, pero esto refuerza imágenes
+      // Cache Control para assets estáticos
       {
         source: '/_next/static/(.*)',
         headers: [
@@ -104,10 +103,15 @@ const nextConfig = {
           },
         ],
       },
-      // ⚡ Permitir bfcache (Back/Forward Cache) para navegación instantánea
-      // Next.js por defecto usa no-store en páginas dinámicas, lo relajamos un poco.
-      // private: solo caché del navegador (no CDN pública para datos de usuario)
-      // must-revalidate: verificar con el servidor antes de usar (304 Not Modified)
+      {
+        source: '/:all*(svg|jpg|jpeg|png|webp|avif|gif)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
       {
         source: '/:path*',
         headers: [
@@ -171,34 +175,54 @@ const nextConfig = {
    * 🔬 Características experimentales para mejor rendimiento
    */
   experimental: {
-    optimizeCss: false, // Disabled due to performance regression
+    optimizeCss: true, // Re-enabled con configuración mejorada
     optimizePackageImports: ['framer-motion', 'lucide-react'], // Optimizar imports grandes
   },
 
   /**
    * 📊 Configuración de webpack para optimizaciones adicionales
    */
-  webpack: (config) => {
-    config.optimization.splitChunks = {
-      chunks: 'all',
-      minSize: 20000,
-      maxSize: 244000,
-      minChunks: 1,
-      maxAsyncRequests: 30,
-      maxInitialRequests: 30,
-      cacheGroups: {
-        defaultVendors: {
-          test: /[\\/]node_modules[\\/]/,
-          priority: -10,
-          reuseExistingChunk: true,
+  webpack: (config, { isServer }) => {
+    // Optimizaciones de code splitting solo en cliente
+    if (!isServer) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        minSize: 10000,
+        maxSize: 150000,
+        minChunks: 1,
+        maxAsyncRequests: 50,
+        maxInitialRequests: 50,
+        cacheGroups: {
+          // Separar react-icons
+          reactIcons: {
+            test: /[\\/]node_modules[\\/]react-icons[\\/]/,
+            name: 'react-icons',
+            priority: 30,
+            reuseExistingChunk: true,
+          },
+          // Separar framer-motion
+          framerMotion: {
+            test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+            name: 'framer-motion',
+            priority: 25,
+            reuseExistingChunk: true,
+          },
+          // Vendors
+          defaultVendors: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            priority: -10,
+            reuseExistingChunk: true,
+          },
+          default: {
+            minChunks: 2,
+            priority: -20,
+            reuseExistingChunk: true,
+          },
         },
-        default: {
-          minChunks: 2,
-          priority: -20,
-          reuseExistingChunk: true,
-        },
-      },
-    };
+      };
+    }
+
     return config;
   },
 };

@@ -6,7 +6,7 @@ import { Plus, Edit, Trash2, Search, X, Save, Loader2, Trophy, Tag } from 'lucid
 import Image from 'next/image'
 import useToastMessage from '@/hooks/useToastMessage'
 import ImageUpload from '@/components/admin/ImageUpload'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/motion'
 
 interface League {
     id: string

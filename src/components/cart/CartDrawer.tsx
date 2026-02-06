@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/lib/motion";
 import Image from "next/image";
 import { useCart } from "../../context/CartContext";
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, Shirt } from "lucide-react";

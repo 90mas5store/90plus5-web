@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/lib/motion";
 import { Search, Package, MapPin, Calendar, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import Button from "@/components/ui/MainButton";
 import ProductImage from "@/components/ProductImage";

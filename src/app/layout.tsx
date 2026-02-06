@@ -14,6 +14,7 @@ import ClientLayout from "./ClientLayout";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
 import { Metadata, Viewport } from "next";
 import { Partytown } from '@builder.io/partytown/react';
+import { MotionProvider } from "@/lib/motion";
 
 // 🧠 Fuente local Satoshi
 const satoshi = localFont({
@@ -103,11 +104,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang="es" className={`dark ${satoshi.className}`}>
             <head>
+                {/* Preload crítico para LCP - Imagen del Hero Banner */}
+                <link
+                    rel="preload"
+                    as="image"
+                    href="/_next/image?url=%2Fhero-default.jpg&w=3840&q=75"
+                    fetchPriority="high"
+                />
+
+                {/* Preconnect optimizado */}
                 <link rel="preconnect" href="https://i.imgur.com" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://i.imgur.com" />
                 <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://res.cloudinary.com" />
-                <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
                 <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
                 <Partytown
@@ -146,12 +155,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     }
                 >
                     <CartProvider>
-                        <ClientLayout>
-                            <HeaderWrapper />
-                            <CartDrawer />
-                            <main className="pt-0 min-h-screen">{children}</main>
-                            <Footer />
-                        </ClientLayout>
+                        <MotionProvider>
+                            <ClientLayout>
+                                <HeaderWrapper />
+                                <CartDrawer />
+                                <main className="pt-0 min-h-screen">{children}</main>
+                                <Footer />
+                            </ClientLayout>
+                        </MotionProvider>
                     </CartProvider>
                 </Suspense>
 

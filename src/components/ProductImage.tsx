@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, memo } from "react";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 
 type ProductImageProps = {
   src?: string;
@@ -98,7 +98,8 @@ function ProductImageComponent({
         className={`${className} ${useFill && !className?.includes('object-') ? 'object-cover' : ''} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-500`}
         sizes={sizes || "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"}
         priority={priority}
-        loading={priority ? undefined : "lazy"}
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : "auto"}
         onLoad={handleLoad}
         onError={handleError}
         // Blur placeholder para imágenes externas

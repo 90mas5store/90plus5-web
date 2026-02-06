@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,7 +13,7 @@ import {
   MessageCircle,
   ChevronDown,
 } from "lucide-react";
-import { SiTiktok } from "react-icons/si";
+import { TikTokIcon } from "@/components/icons/TikTokIcon";
 import { getWhatsappLink } from "@/lib/whatsapp";
 
 export default function Footer() {
@@ -177,7 +177,7 @@ export default function Footer() {
             { href: "https://instagram.com/90mas5.store", label: "Instagram", icon: <Instagram size={22} /> },
             { href: "https://facebook.com/90mas5.store", label: "Facebook", icon: <Facebook size={22} /> },
             { href: "https://x.com/90plus5", label: "X (Twitter)", icon: <Twitter size={22} /> },
-            { href: "https://www.tiktok.com/@90mas5", label: "TikTok", icon: <SiTiktok size={20} /> },
+            { href: "https://www.tiktok.com/@90mas5", label: "TikTok", icon: <TikTokIcon size={20} /> },
           ].map((social, index) => (
             <motion.div
               key={index}
