@@ -234,8 +234,8 @@ export default function HeroBanner({
     const preparedSlides: HeroSlide[] = slides && slides.length > 0
         ? slides
         : [{
-            imageSrc: imageSrc || (categorySlug ? `/heroes/${categorySlug}.jpg` : fallbackImage),
-            videoSrc: videoSrc || (categorySlug ? `/heroes/${categorySlug}.mp4` : undefined),
+            imageSrc: imageSrc || (categorySlug ? `/heroes/${categorySlug.toLowerCase()}.jpg` : fallbackImage),
+            videoSrc: videoSrc || (categorySlug ? `/heroes/${categorySlug.toLowerCase()}.mp4` : undefined),
             title: title,
             subtitle: subtitle,
         }];
