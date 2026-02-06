@@ -62,7 +62,6 @@ export default function SpecialEventBanner() {
                                     alt="Mundial 2026"
                                     fill
                                     className="object-contain"
-                                    priority
                                     unoptimized
                                 />
                             </div>
@@ -103,7 +102,6 @@ export default function SpecialEventBanner() {
                                 alt="Trofeo Mundial"
                                 fill
                                 className="object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]"
-                                priority
                             />
                         </div>
                     </motion.div>

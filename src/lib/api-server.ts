@@ -44,7 +44,7 @@ function adaptSupabaseProductToProduct(raw: any): Product {
     };
 }
 
-/** ⭐ Obtener productos destacados (Server Side) */
+/** ⭐ Obtener productos destacados (Server Side) - USA SORT_ORDER MANUAL */
 export async function getFeaturedServer(): Promise<Product[]> {
     const { data, error } = await supabase
         .from("products")
@@ -75,13 +75,14 @@ export async function getFeaturedServer(): Promise<Product[]> {
         `)
         .eq("active", true)
         .eq("featured", true)
-        .order("sort_order", { ascending: true });
+        .order("sort_order", { ascending: true }); // 🎯 HOME = ORDEN MANUAL (sort_order)
 
     if (error) {
         console.error("Error fetching featured from Supabase (Server):", error);
         return [];
     }
 
+    // ✅ NO aplicamos sort - respetamos el orden de la BD
     return data.map(adaptSupabaseProductToProduct);
 }
 
@@ -95,7 +96,7 @@ export async function getConfigServer(): Promise<Config> {
             .from("categories")
             .select("id,name,slug,order_index,icon_url")
             .eq("active", true)
-            .order("order_index"),
+            .order("order_index", { ascending: true }),
 
         supabase
             .from("leagues")
@@ -104,10 +105,16 @@ export async function getConfigServer(): Promise<Config> {
             .order("sort_order", { ascending: true }),
     ]);
 
-    if (catError) console.error("Error fetching categories (Server):", catError);
-    if (leagueError) console.error("Error fetching leagues (Server):", leagueError);
+    if (catError) {
+        console.error("Error fetching categories:", catError);
+        throw catError;
+    }
 
-    // Adaptar categorías
+    if (leagueError) {
+        console.error("Error fetching leagues:", leagueError);
+        throw leagueError;
+    }
+
     const adaptedCategorias = (categories ?? []).map((cat: any) => ({
         id: cat.id,
         nombre: cat.name,
@@ -116,7 +123,6 @@ export async function getConfigServer(): Promise<Config> {
         icon_url: cat.icon_url,
     }));
 
-    // Adaptar ligas
     const adaptedLigas = (leagues ?? []).map((league: any) => ({
         id: league.id,
         nombre: league.name,
@@ -131,7 +137,7 @@ export async function getConfigServer(): Promise<Config> {
     } as Config;
 }
 
-/** 🖼️ Obtener Banners Home (Server Side) */
+/** 🖼️ Obtener Banners (Server Side) */
 export async function getBannersServer() {
     const { data, error } = await supabase
         .from("banners")
@@ -141,8 +147,9 @@ export async function getBannersServer() {
         .order("sort_order", { ascending: true });
 
     if (error) {
-        console.error("Error fetching banners (Server):", error);
+        console.error("Error fetching banners:", error);
         return [];
     }
+
     return data;
 }

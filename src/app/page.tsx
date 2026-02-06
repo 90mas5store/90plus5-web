@@ -3,7 +3,8 @@ import HomeClient from "../components/HomeClient";
 import { getBannersServer, getConfigServer, getFeaturedServer } from "../lib/api-server";
 
 // 🚀 Optimización: Revalidación cada hora (ISR)
-export const revalidate = 3600;
+// ⚠️ TEMPORAL: 0 para desarrollo - cambiar a 3600 en producción
+export const revalidate = 0;
 
 export default async function Home() {
     // 🚀 Cargar datos en PARALELO desde el servidor

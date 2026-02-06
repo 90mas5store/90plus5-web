@@ -69,6 +69,18 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://connect.facebook.net https://www.google-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://i.imgur.com https://res.cloudinary.com https://upload.wikimedia.org https://90mas5.store https://fhvxolslqrrkefsvbcrq.supabase.co https://*.facebook.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; connect-src 'self' https://*.facebook.com https://fhvxolslqrrkefsvbcrq.supabase.co;",
+          },
         ],
       },
       // 🚀 Cache Control para assets estáticos inmutables (Fonts, Images)

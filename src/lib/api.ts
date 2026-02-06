@@ -49,14 +49,8 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
   }
 
   // Adaptar estructura de Supabase al formato interno
-  const products = data.map(adaptSupabaseProductToProduct);
-
-  // 🔤 Ordenar por: 1. Nombre del Equipo (A-Z), 2. Nombre del Producto (A-Z)
-  return products.sort((a, b) => {
-    const teamCompare = a.equipo.localeCompare(b.equipo);
-    if (teamCompare !== 0) return teamCompare;
-    return a.modelo.localeCompare(b.modelo);
-  });
+  //  NO aplicamos sort - respetamos el orden de la BD (sort_order)
+  return (data || []).map(adaptSupabaseProductToProduct);
 }
 
 export function adaptSupabaseProductToProduct(raw: any): Product {
@@ -124,13 +118,14 @@ async function fetchFeaturedFromSupabase(): Promise<Product[]> {
       `)
     .eq("active", true)
     .eq("featured", true)
-    .order("sort_order", { ascending: true }); // 🔢 Orden personalizado para destacados
+    .order("sort_order", { ascending: true }); // 🎯 HOME = ORDEN MANUAL
 
   if (error) {
     console.error("Error fetching featured from Supabase:", error);
     throw error;
   }
 
+  // ✅ NO aplicamos sort - respetamos el orden de la BD (sort_order)
   return data.map(adaptSupabaseProductToProduct);
 }
 
@@ -145,7 +140,7 @@ async function fetchConfigFromSupabase(): Promise<Config> {
       .from("categories")
       .select("id,name,slug,order_index,icon_url")
       .eq("active", true)
-      .order("order_index"),
+      .order("order_index", { ascending: true }),
 
     supabase
       .from("leagues")
@@ -534,7 +529,7 @@ export async function getCatalogPaginated(params: CatalogParams) {
   } = params;
 
   // 1️⃣ Revisar Caché
-  const cacheKey = JSON.stringify(params);
+  const cacheKey = JSON.stringify(params) + "_v10_sorted"; // 🔥 v10: Force cache refresh
   const now = Date.now();
   const cached = paginatedCache.get(cacheKey);
 
@@ -560,8 +555,6 @@ export async function getCatalogPaginated(params: CatalogParams) {
     if (rpcError) {
       console.error("Fuzzy search error:", rpcError);
       // Fallback a búsqueda normal si falla el RPC (ej: no creado aun)
-      // No lanzamos error, dejamos que fluya a la lógica estandard abajo o retornamos vacío?
-      // Mejor fallback a like simple abajo cambiando searchQuery
     } else if (fuzzyIds && fuzzyIds.length > 0) {
       // 2. Traer el detalle completo de esos IDs
       const ids = fuzzyIds.map((item: any) => item.id);
@@ -586,7 +579,7 @@ export async function getCatalogPaginated(params: CatalogParams) {
 
       const result = {
         data: sortedProducts.map(adaptSupabaseProductToProduct),
-        count: 100 // Estimado, ya que RPC fuzzy difícilmente da count exacto sin coste extra
+        count: 100 // Estimado
       };
 
       // Cache y retorno
@@ -599,67 +592,106 @@ export async function getCatalogPaginated(params: CatalogParams) {
   }
 
   // B) Navegación Normal (Sin búsqueda o Fallback)
-  let supabaseQuery = supabase
+  // 🟢 ESTRATEGIA "SORT-IN-MEMORY" V2 (Simplificada y Robusta)
+
+  // 1. Obtener Metadatos para Ordenamiento (ID, Nombre Equipo, Nombre Producto)
+  const leagueJoinType = leagueId ? "!inner" : "left";
+
+  let metadataQuery = supabase
     .from("products")
     .select(`
-            id,
-            name,
-            slug,
-            description,
-            image_url,
-            featured,
-            category_id,
-            league_id,
-            team_id,
-            teams ( name, logo_url ),
-            product_variants ( id, version, price, active, original_price, active_original_price ),
-            product_leagues ( league_id )
-        `, { count: 'exact' })
+        id,
+        name,
+        teams!inner ( name ),
+        product_leagues${leagueId ? "!inner" : ""} ( league_id )
+    `)
     .eq("active", true);
 
-  // Filtros
-  if (categoryId) supabaseQuery = supabaseQuery.eq('category_id', categoryId);
-  if (leagueId) supabaseQuery = supabaseQuery.eq('league_id', leagueId);
+  // 2. Aplicar Filtros
+  if (categoryId) metadataQuery = metadataQuery.eq('category_id', categoryId);
+  if (leagueId) metadataQuery = metadataQuery.eq('product_leagues.league_id', leagueId);
 
-  // (La búsqueda simple se elimina aquí porque ya manejamos el caso Search arriba)
+  // 3. Ejecutar Query Ligera
+  const { data: allMetadata, error: metaError } = await metadataQuery;
 
-  // Ordenamiento
-  supabaseQuery = supabaseQuery.order('name', { ascending: true });
-
-  // Paginación
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
-
-  supabaseQuery = supabaseQuery.range(from, to);
-
-  const { data, error, count } = await supabaseQuery;
-
-  if (error) {
-    console.error("Error fetching paginated catalog:", error);
-    throw error;
+  if (metaError) {
+    console.error("Error fetching metadata for sort:", metaError);
+    throw metaError;
   }
 
+  // 4. Ordenamiento Estricto en Memoria
+  const sortedMetadata = (allMetadata || []).sort((a: any, b: any) => {
+    // Normalización de seguridad (usamos "zzz" para items sin equipo)
+    const teamA = (a.teams?.name || "zzz").toLowerCase().trim();
+    const teamB = (b.teams?.name || "zzz").toLowerCase().trim();
+
+    // Nivel 1: Equipo
+    const teamCompare = teamA.localeCompare(teamB);
+    if (teamCompare !== 0) return teamCompare;
+
+    // Nivel 2: Producto (Modelo)
+    const nameA = (a.name || "").toLowerCase().trim();
+    const nameB = (b.name || "").toLowerCase().trim();
+    return nameA.localeCompare(nameB);
+  });
+
+  // 5. Paginación sobre IDs ya ordenados
+  const totalCount = sortedMetadata.length;
+  const pageIds = sortedMetadata
+    .slice((page - 1) * limit, page * limit)
+    .map((item: any) => item.id);
+
+  // 6. Si la página está vacía
+  if (pageIds.length === 0) {
+    return { data: [], count: totalCount };
+  }
+
+  // 7. Fetch de Datos Completos
+  const { data: productsData, error: productsError } = await supabase
+    .from("products")
+    .select(`
+        id, name, slug, description, image_url, featured,
+        category_id, league_id, team_id,
+        teams ( name, logo_url ),
+        product_variants ( id, version, price, active, original_price, active_original_price ),
+        product_leagues ( league_id )
+    `)
+    .in('id', pageIds)
+    .eq("active", true);
+
+  if (productsError) throw productsError;
+
+  // 8. Reconstrucción Estricta del Orden (Mapping)
+  // Usamos un Map para acceso eficiente y respetamos el orden de 'pageIds'
+  const productsMap = new Map(productsData?.map((p: any) => [p.id, p]));
+
+  const finalSortedData = pageIds
+    .map((id: string) => {
+      const p = productsMap.get(id);
+      return p ? adaptSupabaseProductToProduct(p) : null;
+    })
+    .filter((p): p is Product => p !== null);
+
   const result = {
-    data: (data || []).map(adaptSupabaseProductToProduct),
-    count: count || 0
+    data: finalSortedData,
+    count: totalCount
   };
 
-  // 3️⃣ Guardar en Caché
+  // Cache
   paginatedCache.set(cacheKey, { data: result, timestamp: now });
 
-  // Limpieza preventiva si crece mucho
+  // Limpieza simple
   if (paginatedCache.size > 100) {
     const firstKey = paginatedCache.keys().next().value;
-    if (firstKey) paginatedCache.delete(firstKey); // Borrar el más viejo
+    if (firstKey) paginatedCache.delete(firstKey);
   }
 
   return result;
 }
 
-
 /** ⚙️ Obtener configuración global (ligas, banners, etc.) */
 export async function getConfig(): Promise<Config> {
-  return getCached<Config>("config", () =>
+  return getCached<Config>("config_v5", () =>
     fetchConfigFromSupabase()
   );
 }
@@ -668,7 +700,8 @@ export async function getConfig(): Promise<Config> {
 
 /** ⭐ Obtener productos destacados */
 export async function getFeatured(): Promise<Product[]> {
-  return getCached<Product[]>("featured", () =>
+  // 🔥 v5: Reverted to sort_order (manual curation)
+  return getCached<Product[]>("featured_v5", () =>
     fetchFeaturedFromSupabase()
   );
 }

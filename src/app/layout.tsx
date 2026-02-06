@@ -98,9 +98,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang="es" className={`dark ${satoshi.className}`}>
             <head>
-                <link rel="preconnect" href="https://i.imgur.com" />
-                <link rel="preconnect" href="https://res.cloudinary.com" />
-                <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
+                <link rel="preconnect" href="https://i.imgur.com" crossOrigin="anonymous" />
+                <link rel="dns-prefetch" href="https://i.imgur.com" />
+                <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
+                <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+                <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" crossOrigin="anonymous" />
+                <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
             </head>
             <body className="bg-background text-textLight antialiased relative overflow-x-hidden">
                 {/* 💫 Overlay global */}

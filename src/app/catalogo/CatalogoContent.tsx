@@ -69,6 +69,10 @@ export default function CatalogoContent() {
 
   // Flag para evitar doble fetch en mount
   const isFirstMount = useRef(true);
+  // Ref para scroll automático
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Flag para saber si debemos hacer scroll (solo al seleccionar liga)
+  const shouldScrollOnFilter = useRef(false);
 
   // 🔄 Actualizar URL (Live Search)
   useEffect(() => {
@@ -163,8 +167,14 @@ export default function CatalogoContent() {
         setProductos(prev => [...prev, ...data]);
       } else {
         setProductos(data);
-        // Scroll top si es nueva búsqueda
-        if (!isFirstMount.current) window.scrollTo({ top: 0, behavior: 'smooth' });
+        // 🎯 Scroll SOLO cuando se selecciona una liga
+        if (shouldScrollOnFilter.current && contentRef.current) {
+          const yOffset = -85; // Offset para dejar visible el carrusel de ligas
+          const element = contentRef.current;
+          const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+          shouldScrollOnFilter.current = false; // Reset
+        }
       }
 
       setTotalProducts(count);
@@ -244,7 +254,10 @@ export default function CatalogoContent() {
       />
 
       {/* BUSCADOR */}
-      <div className="flex justify-center mb-6 px-4 relative z-10">
+      <div
+        ref={contentRef}
+        className="flex justify-center mb-6 px-4 relative z-10"
+      >
         <SearchBar
           value={searchTerm}
           onChange={setSearchTerm}
@@ -264,6 +277,11 @@ export default function CatalogoContent() {
               const nuevaLiga = ligaSeleccionada === nombre ? null : nombre;
               setLigaSeleccionada(nuevaLiga);
 
+              // 🎯 Activar scroll SOLO al seleccionar liga
+              if (nuevaLiga) {
+                shouldScrollOnFilter.current = true;
+              }
+
               // Actualizamos URL manualmente para UX perfecto
               const params = new URLSearchParams(searchParams.toString());
               if (nuevaLiga) {
@@ -272,7 +290,11 @@ export default function CatalogoContent() {
               } else {
                 params.delete('liga');
               }
-              router.push(`/catalogo?${params.toString()}`, { scroll: false });
+
+              // 🎯 Usar replace en lugar de push
+              router.replace(`/catalogo?${params.toString()}`, { scroll: false });
+
+              // El scroll lo manejará fetchProducts automáticamente
             }}
           />
 

@@ -347,6 +347,7 @@ export default function Header() {
                                 whileHover={{ scale: 1.05, y: -2 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={openCart}
+                                aria-label="Carrito de compras"
                                 className="relative p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group"
                             >
                                 {/* Hover glow */}
@@ -373,6 +374,7 @@ export default function Header() {
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setMobileOpen(!mobileOpen)}
+                                aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
                                 className="lg:hidden relative p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group"
                             >
                                 {/* Hover glow */}
@@ -438,6 +440,7 @@ export default function Header() {
                                         whileHover={{ scale: 1.1, rotate: 90 }}
                                         whileTap={{ scale: 0.9 }}
                                         onClick={() => setMobileOpen(false)}
+                                        aria-label="Cerrar menú"
                                         className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-300"
                                     >
                                         <X className="w-5 h-5" />

@@ -69,12 +69,13 @@ export default function HomeClient({
             .normalize("NFD")
             .replace(/\p{Diacritic}/gu, "");
 
-    // 🔍 Filtrado por liga
+    // 🔍 Filtrado por liga (PRESERVANDO ORDEN ORIGINAL)
     const destacadosFiltrados = useMemo(() => {
         if (!ligaSeleccionada) return destacados;
 
         const selectedLeagueObj = ligas.find(l => normalize(l.nombre) === normalize(ligaSeleccionada));
 
+        // Filtrar SIN alterar el orden original (sort_order del servidor)
         return destacados.filter((item) => {
             // 1. Intentar match por ID (Soporte Multi-Liga)
             if (selectedLeagueObj?.id) {
@@ -86,6 +87,7 @@ export default function HomeClient({
             const itemLiga = (item as any).liga || "";
             return normalize(itemLiga) === normalize(ligaSeleccionada);
         });
+        // ✅ NO aplicamos .sort() aquí - respetamos el orden que viene del servidor
     }, [destacados, ligaSeleccionada, ligas]);
 
     // 🔎 Buscar
@@ -99,12 +101,13 @@ export default function HomeClient({
     };
 
     return (
-        <LazyMotion features={domAnimation}>
-            <main className="bg-background text-textLight min-h-screen relative overflow-hidden">
-
-                {/* 🏟️ HERO */}
-                <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>
-                <HomeBannerContainer initialBanners={banners} />
+        <main className="bg-background text-textLight min-h-screen relative overflow-hidden">
+            106:
+            107:                 {/* 🏟️ HERO */}
+            108:                 <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>
+            109:                 <HomeBannerContainer initialBanners={banners} />
+            110:
+            111:                 <LazyMotion features={domAnimation}>
 
                 {/* 🔍 BUSCADOR */}
                 <section className="flex justify-center -mt-4 md:-mt-6 mb-6 md:mb-8 px-4 z-20 relative">
@@ -128,9 +131,24 @@ export default function HomeClient({
                             imagen: l.imagen || "/logos/ligas/placeholder.svg",
                         }))}
                         selected={ligaSeleccionada}
-                        onSelect={(nombre: string) =>
-                            setLigaSeleccionada(ligaSeleccionada === nombre ? null : nombre)
-                        }
+                        onSelect={(nombre: string) => {
+                            const nuevaLiga = ligaSeleccionada === nombre ? null : nombre;
+                            setLigaSeleccionada(nuevaLiga);
+
+                            // 🎯 Scroll automático suave al seleccionar liga
+                            if (nuevaLiga) {
+                                console.log('🎯 Ejecutando scroll a ligas...', nuevaLiga);
+                                setTimeout(() => {
+                                    const element = document.getElementById('ligas');
+                                    console.log('📍 Elemento ligas encontrado:', element);
+                                    if (element) {
+                                        const yOffset = -80; // Offset para dejar visible el título y carrusel
+                                        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                                        window.scrollTo({ top: y, behavior: 'smooth' });
+                                    }
+                                }, 100);
+                            }
+                        }}
                     />
                 </div>
 
@@ -221,7 +239,7 @@ export default function HomeClient({
                     </AnimatePresence>
 
                 </section>
-            </main>
-        </LazyMotion>
+            </LazyMotion>
+        </main>
     );
 }
