@@ -248,6 +248,8 @@ export default function HeroBanner({
     // Determinar la imagen final (si el video falla o no hay video)
     const finalImageSrc = useFallbackImage ? fallbackImage : (currentSlideData.imageSrc || fallbackImage);
 
+
+
     useEffect(() => {
         // Only set loading if it's not the initial mount to avoid LCP delay
         if (!isInitialMount) {
@@ -352,9 +354,10 @@ export default function HeroBanner({
 
     const handleImageError = useCallback(() => {
         console.warn("Error loading hero image, switching to fallback.");
-        setUseFallbackImage(true); // 🚨 Activar fallback para repintar con imagen segura
-        // No quitamos el loading aún, dejamos que la nueva imagen (fallback) dispare onLoad
+        setUseFallbackImage(true);
+        setIsLoading(false); // 🚨 Force unlock loading to show fallback immediately
     }, []);
+
 
     const handleVideoLoad = useCallback(() => {
         setIsVideoReady(true); // El video está listo para mostrarse
