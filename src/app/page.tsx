@@ -4,7 +4,7 @@ import { getBannersServer, getConfigServer, getFeaturedServer } from "../lib/api
 
 // 🚀 Optimización: Revalidación cada hora (ISR)
 // ⚠️ TEMPORAL: 0 para desarrollo - cambiar a 3600 en producción
-export const revalidate = 0;
+export const revalidate = 3600;
 
 export default async function Home() {
     // 🚀 Cargar datos en PARALELO desde el servidor
