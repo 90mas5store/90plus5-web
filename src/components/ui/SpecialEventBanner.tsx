@@ -7,22 +7,20 @@ import { ArrowRight, Star, Globe } from "lucide-react";
 
 export default function SpecialEventBanner() {
     return (
-        <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="px-4 max-w-7xl mx-auto mb-8 relative z-10"
+        <section
+            className="px-4 max-w-7xl mx-auto mb-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both"
         >
             <Link href="/catalogo?categoria=Mundial2026" className="block group relative overflow-hidden rounded-xl w-full h-auto min-h-[220px] md:min-h-[260px] border border-white/10 shadow-2xl bg-black/90 hover:border-white/20 transition-colors duration-500">
                 {/* === BACKGROUND LAYERS === */}
                 {/* 1. Official Pattern VIDEO Loop */}
-                <div className="absolute inset-0 z-0">
+                <div className="absolute inset-0 z-0 bg-neutral-900">
                     <video
                         src="/img/mundial2026/bg-loop.mp4"
                         autoPlay
                         loop
                         muted
                         playsInline
+                        poster="/img/mundial2026/poster.jpg" // Fallback hipotético o dejar vacío si no existe, pero bg-neutral-900 ayuda
                         className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90"
                     />
                     {/* Dark Gradient Overlay: Vignette for focus */}
@@ -32,12 +30,8 @@ export default function SpecialEventBanner() {
                 <div className="relative w-full h-full px-5 md:px-12 py-8 md:py-10 flex items-center justify-between z-10">
 
                     {/* === CONTENT LEFT (EDITORIAL / GATEWAY) === */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.7, ease: "easeOut" }}
-                        viewport={{ once: true }}
-                        className="flex flex-col justify-center gap-3 z-10 w-full max-w-4xl"
+                    <div
+                        className="flex flex-col justify-center gap-3 z-10 w-full max-w-4xl animate-in fade-in slide-in-from-left-4 duration-700 delay-100 fill-mode-both"
                     >
 
                         {/* Context & Badges */}
@@ -86,15 +80,11 @@ export default function SpecialEventBanner() {
                                 <ArrowRight className="w-3 h-3" />
                             </button>
                         </div>
-                    </motion.div>
+                    </div>
 
                     {/* === VISUAL ELEMENTS (ATMOSPHERE) === */}
-                    {/* === VISUAL ELEMENTS (ATMOSPHERE) === */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.8, delay: 0.2 }}
-                        className="absolute right-[-10px] bottom-[-10px] md:right-10 md:bottom-[-40px] w-28 h-28 md:w-[400px] md:h-[400px] pointer-events-none z-10 md:z-20 opacity-40 md:opacity-100"
+                    <div
+                        className="absolute right-[-10px] bottom-[-10px] md:right-10 md:bottom-[-40px] w-28 h-28 md:w-[400px] md:h-[400px] pointer-events-none z-10 md:z-20 opacity-40 md:opacity-100 animate-in fade-in zoom-in-90 duration-1000 delay-200 fill-mode-both"
                     >
                         <div className="w-full h-full relative transition-transform duration-700 ease-out group-hover:scale-110 group-hover:-rotate-3 group-hover:-translate-y-2">
                             <Image
@@ -104,22 +94,20 @@ export default function SpecialEventBanner() {
                                 className="object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]"
                             />
                         </div>
-                    </motion.div>
+                    </div>
 
                     {/* 2. Desktop CTA Button (NAVIGATIONAL / CLEAN) */}
                     <div className="hidden md:flex flex-col justify-end pb-4 h-full z-20 relative">
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="flex items-center gap-3 bg-white hover:bg-[#f0f0f0] text-black px-8 py-3 rounded-full font-bold uppercase text-sm tracking-widest shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-300 group/btn"
+                        <button
+                            className="flex items-center gap-3 bg-white hover:bg-[#f0f0f0] text-black px-8 py-3 rounded-full font-bold uppercase text-sm tracking-widest shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-300 group/btn transform hover:scale-105 active:scale-95"
                         >
                             <span>Explorar Colección</span>
                             <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                        </motion.button>
+                        </button>
                     </div>
 
                 </div>
             </Link >
-        </motion.section >
+        </section >
     );
 }

@@ -123,6 +123,28 @@ const nextConfig = {
       },
     ];
   },
+  // ⚡ Configuración de Rewrites para Partytown (CORS Proxy)
+  async rewrites() {
+    return [
+      {
+        source: '/~partytown/:path*',
+        destination: '/~partytown/:path*',
+      },
+      // Proxy para Google Analytics / GTM
+      {
+        source: '/proxytown/google-analytics/:path*',
+        destination: 'https://www.google-analytics.com/:path*',
+      },
+      {
+        source: '/proxytown/googletagmanager/:path*',
+        destination: 'https://www.googletagmanager.com/:path*',
+      },
+      {
+        source: '/proxytown/facebook/:path*',
+        destination: 'https://connect.facebook.net/:path*',
+      },
+    ];
+  },
 
   /**
    * 🚀 Optimizaciones para producción

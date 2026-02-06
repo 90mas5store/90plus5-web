@@ -110,7 +110,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
                 <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
-                <Partytown debug={process.env.NODE_ENV === 'development'} forward={['gtag', 'fbq', 'dataLayer.push']} />
+                <Partytown
+                    debug={process.env.NODE_ENV === 'development'}
+                    forward={['gtag', 'fbq', 'dataLayer.push']}
+                    resolveUrl={(url, location, type) => {
+                        if (url.hostname === 'www.google-analytics.com') {
+                            const proxyUrl = new URL('/proxytown/google-analytics' + url.pathname + url.search, location.href);
+                            return proxyUrl;
+                        }
+                        if (url.hostname === 'www.googletagmanager.com') {
+                            const proxyUrl = new URL('/proxytown/googletagmanager' + url.pathname + url.search, location.href);
+                            return proxyUrl;
+                        }
+                        if (url.hostname === 'connect.facebook.net') {
+                            const proxyUrl = new URL('/proxytown/facebook' + url.pathname + url.search, location.href);
+                            return proxyUrl;
+                        }
+                        return url;
+                    }}
+                />
             </head>
             <body className="bg-background text-textLight antialiased relative overflow-x-hidden">
                 {/* 💫 Overlay global */}

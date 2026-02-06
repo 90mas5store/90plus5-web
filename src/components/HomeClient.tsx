@@ -171,10 +171,10 @@ export default function HomeClient({
                             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6"
                         >
                             {destacadosFiltrados.map((item, i) => (
-                                <m.div
+                                <div
                                     key={item.id}
-                                    {...fadeInItem(i)}
-                                    className="h-full"
+                                    className="h-full animate-in fade-in zoom-in-95 fill-mode-both duration-500"
+                                    style={{ animationDelay: `${i * 50}ms` }}
                                 >
                                     <ProductCard
                                         item={item}
@@ -185,7 +185,7 @@ export default function HomeClient({
                                             navigate(`/producto/${product.slug || product.id}`);
                                         }}
                                     />
-                                </m.div>
+                                </div>
                             ))}
                         </m.div>
 
