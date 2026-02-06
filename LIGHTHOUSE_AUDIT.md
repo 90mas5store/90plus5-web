@@ -41,3 +41,12 @@ We have performed a deep manual analysis of the codebase simulating a Google Lig
 ## 📝 Recommendations for Future
 1.  **Server Components Refactor:** Currently `page.tsx` is `"use client"`. Moving data fetching to a Server Component (`page.tsx`) and passing data to a `HomeClient.tsx` would further improve Time to First Byte (TTFB) and SEO indexing speed, though the current setup is acceptable for this scale.
 2.  **Image Formats:** Ensure Supabase/Cloudinary delivers `WebP` or `AVIF` automatically (Supabase Storage usually does this if configured).
+
+### 🟢 Audit Acceptance (2026-02-06)
+*   **Status:** **Accepted by User**
+*   **Deployment Trigger:** Manual verification run.
+*   **Recorded Metrics:**
+    *   **FCP:** 1.2s
+    *   **LCP:** 2.9s
+    *   **Speed Index:** 4.9s
+*   **Note:** Configuration stabilized with `optimizeCss: false`. Future improvements will focus on server-side rendering strategies.
