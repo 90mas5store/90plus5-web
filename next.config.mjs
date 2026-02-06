@@ -131,7 +131,7 @@ const nextConfig = {
    * 🔬 Características experimentales para mejor rendimiento
    */
   experimental: {
-    // optimizeCss: true, // Temporarily disabled to test LCP
+    optimizeCss: true, // Enabled for production builds
     optimizePackageImports: ['framer-motion', 'lucide-react'], // Optimizar imports grandes
   },
 
