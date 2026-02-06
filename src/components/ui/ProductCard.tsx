@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+// Removed heavy framer-motion import for grid items to improve TBT
 import { Shirt, ArrowRight } from "lucide-react";
 import ProductImage from "../../components/ProductImage";
 import TeamLogo from "../../components/TeamLogo";
@@ -29,6 +29,7 @@ const glowHover = {
     transition: { duration: 0.3, ease: "easeOut" as const }
 };
 
+// Use standard div instead of motion.div for better performance in lists
 export default function ProductCard({ item, priority = false, onPress, enableGlow = true }: ProductCardProps) {
 
     // Extraer datos asegurando que no fallen
@@ -41,11 +42,12 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
     } = item;
 
     return (
-        <motion.div
-            variants={fadeInItem} // Se aplicará si el padre es motion/AnimatePresence o si se pasa explicitamente
-            whileHover={enableGlow ? glowHover : {}}
+        <div
             onClick={() => onPress(item)}
-            className="group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5 hover:border-primary/40 transition-all duration-700 cursor-pointer aspect-[4/5] shadow-2xl"
+            className={`group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5 
+            ${enableGlow ? 'hover:shadow-[0_0_22px_rgba(229,9,20,0.25)] hover:border-primary/45' : 'hover:border-primary/40'} 
+            transition-all duration-500 ease-out cursor-pointer aspect-[4/5] shadow-2xl animate-in fade-in zoom-in-95 fill-mode-both`}
+            style={{ animationDuration: '600ms' }}
         >
             {/* 🖼️ Main Image */}
             <div className="absolute inset-0">
@@ -102,6 +104,6 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                     <ArrowRight className="w-3 h-3 md:w-4 md:h-4 opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all" />
                 </MainButton>
             </div>
-        </motion.div>
+        </div>
     );
 }

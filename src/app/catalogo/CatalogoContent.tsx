@@ -370,17 +370,17 @@ export default function CatalogoContent({
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-8">
               {productos.map((item, i) => (
-                <motion.div
-                  key={`${item.id}-${i}`} // index as fallback key to avoid collisions in strict mode
-                  {...fadeInItem(i % PRODUCTS_PER_PAGE)} // Limit animation delay
+                <div
+                  key={`${item.id}-${i}`}
                   className="h-full"
+                  style={{ animationDelay: `${(i % PRODUCTS_PER_PAGE) * 50}ms` }}
                 >
                   <ProductCard
                     item={item}
                     priority={i < 4}
                     onPress={handlePersonalizar}
                   />
-                </motion.div>
+                </div>
               ))}
             </div>
 
