@@ -214,7 +214,18 @@ export default function HeroBanner({
     const containerRef = useRef<HTMLElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
 
-    const [isLoading, setIsLoading] = useState(true); // Should be true, but we'll hide the skeleton logic
+    // Check if this resource was previously loaded (cache hint)
+    const getCacheKey = () => {
+        if (slides && slides.length > 0) return `hero_${slides[0].imageSrc}`;
+        if (categorySlug) return `hero_${categorySlug}`;
+        return 'hero_default';
+    };
+
+    const wasPreviouslyLoaded = typeof window !== 'undefined'
+        ? sessionStorage.getItem(getCacheKey()) === 'loaded'
+        : false;
+
+    const [isLoading, setIsLoading] = useState(!wasPreviouslyLoaded); // Skip loading if cached
     const [videoError, setVideoError] = useState(false);
     const [isVideoReady, setIsVideoReady] = useState(false);
     const [useFallbackImage, setUseFallbackImage] = useState(false);
@@ -252,9 +263,18 @@ export default function HeroBanner({
 
     useEffect(() => {
         // Only set loading if it's not the initial mount to avoid LCP delay
-        if (!isInitialMount) {
+        // Also check if this resource was previously loaded
+        const cacheKey = getCacheKey();
+        const wasCached = typeof window !== 'undefined'
+            ? sessionStorage.getItem(cacheKey) === 'loaded'
+            : false;
+
+        if (!isInitialMount && !wasCached) {
             setIsLoading(true);
+        } else if (wasCached) {
+            setIsLoading(false); // Skip loading state for cached resources
         }
+
         setVideoError(false);
         setIsVideoReady(false); // Reset video state
         setUseFallbackImage(false); // Reset fallback
@@ -331,17 +351,23 @@ export default function HeroBanner({
     // 🖼️ PRELOAD SLIDES DEL CARRUSEL
     // ============================================
 
-    // 🕰️ TIMEOUT DE SEGURIDAD PARA CARGA INFINITA
+    // 🕰️ TIMEOUT DE SEGURIDAD PARA CARGA INFINITA (reducido para mejor UX)
     useEffect(() => {
+        // Shorter timeout for better perceived performance
+        const timeout = wasPreviouslyLoaded ? 500 : 2000;
         const timer = setTimeout(() => {
             if (isLoading) {
                 // Si la imagen tarda demasiado, asumimos que cargó o falló para desbloquear
                 setIsLoading(false);
+                // Mark as loaded anyway to prevent future delays
+                if (typeof window !== 'undefined') {
+                    sessionStorage.setItem(getCacheKey(), 'loaded');
+                }
             }
-        }, 3000);
+        }, timeout);
 
         return () => clearTimeout(timer);
-    }, [isLoading]);
+    }, [isLoading, wasPreviouslyLoaded]);
 
     // ============================================
     // 📥 HANDLERS
@@ -350,7 +376,11 @@ export default function HeroBanner({
     // La imagen es la que manda sobre el Loader principal
     const handleImageLoad = useCallback(() => {
         setIsLoading(false);
-    }, []);
+        // Mark this resource as loaded in cache
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem(getCacheKey(), 'loaded');
+        }
+    }, [categorySlug, slides]);
 
     const handleImageError = useCallback(() => {
         console.warn("Error loading hero image, switching to fallback.");

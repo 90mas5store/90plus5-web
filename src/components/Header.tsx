@@ -129,7 +129,22 @@ export default function Header() {
                     <div className="flex items-center justify-between h-16 md:h-[70px]">
 
                         {/* 🎨 LOGO */}
-                        <Link href="/" className="flex items-center gap-3 group">
+                        <Link
+                            href="/"
+                            className="flex items-center gap-3 group"
+                            onClick={(e) => {
+                                // Only add transition if navigating away from home
+                                if (pathname !== "/") {
+                                    e.preventDefault();
+                                    // Add fade-out effect
+                                    document.body.style.opacity = "0.7";
+                                    document.body.style.transition = "opacity 0.3s ease-out";
+                                    setTimeout(() => {
+                                        window.location.href = "/";
+                                    }, 150);
+                                }
+                            }}
+                        >
                             <Image
                                 src="/logo.svg"
                                 alt="90+5 Store"
