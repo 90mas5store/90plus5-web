@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Activity, Search, ShieldAlert, User, Clock, FileText } from "lucide-react";
 
@@ -8,7 +8,7 @@ interface Log {
     id: string;
     admin_email: string;
     action: string;
-    details: any;
+    details: Record<string, unknown>;
     created_at: string;
     severity?: 'info' | 'warning' | 'danger';
 }
@@ -19,11 +19,7 @@ export default function ActivityLogsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const supabase = createClient();
 
-    useEffect(() => {
-        fetchLogs();
-    }, []);
-
-    const fetchLogs = async () => {
+    const fetchLogs = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from("admin_logs")
@@ -38,7 +34,11 @@ export default function ActivityLogsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [supabase]);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
 
     // Filtrado simple en cliente
     const filteredLogs = logs.filter(log =>

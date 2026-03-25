@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// 🛡️ Regex para validar UUID v4 completo
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const orderId = searchParams.get('id');
 
     if (!orderId) {
         return NextResponse.json({ success: false, error: 'ID de pedido requerido' }, { status: 400 });
+    }
+
+    // 🛡️ C3 FIX: Requerir UUID completo — NO permitir búsqueda parcial/fuzzy
+    // Sanitizar: remover espacios y convertir a minúsculas
+    const cleanId = orderId.trim().toLowerCase();
+
+    if (!UUID_REGEX.test(cleanId)) {
+        return NextResponse.json(
+            { success: false, error: 'Formato de ID inválido. Usa el ID completo de tu pedido (ej: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).' },
+            { status: 400 }
+        );
     }
 
     try {
@@ -17,25 +31,13 @@ export async function GET(request: NextRequest) {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
-        // Helper to perform range search on UUIDs (native support without casting)
-        const cleanId = orderId.toLowerCase().replace(/[^a-f0-9]/g, '');
-        const padChar = (char: string) => {
-            let padded = cleanId.padEnd(32, char);
-            // Insert hyphens: 8-4-4-4-12
-            return `${padded.slice(0, 8)}-${padded.slice(8, 12)}-${padded.slice(12, 16)}-${padded.slice(16, 20)}-${padded.slice(20, 32)}`;
-        };
-
-        const minUuid = padChar('0');
-        const maxUuid = padChar('f');
-
-        // Buscar la orden por rango de ID (funciona para parcial y completo)
+        // 🛡️ FIX: Buscar por UUID EXACTO — ya no se usa rango/fuzzy
         const { data: order, error } = await supabase
             .from('orders')
             .select(`
                 id,
                 created_at,
                 status,
-                customer_name,
                 shipping_municipality,
                 shipping_department,
                 order_items (
@@ -56,16 +58,13 @@ export async function GET(request: NextRequest) {
                     )
                 )
             `)
-            .gte('id', minUuid)
-            .lte('id', maxUuid)
-            .limit(1)
-            .maybeSingle();
+            .eq('id', cleanId)
+            .single();
 
         if (error || !order) {
             return NextResponse.json({ success: false, error: 'Pedido no encontrado' }, { status: 404 });
         }
 
-        // Mapear estado a texto amigable
         // Mapear estado a texto amigable (Modo Futbolero Leve)
         const statusMap: Record<string, { label: string; progress: number; desc: string }> = {
             'pending_payment_50': {
@@ -73,12 +72,12 @@ export async function GET(request: NextRequest) {
                 progress: 10,
                 desc: 'Todo listo. Esperamos tu anticipo para el pitazo inicial.'
             },
-            'deposit_paid': { // Added explicit deposit_paid if missing in previous logic, or mapping it. Correcting based on standard flow.
+            'deposit_paid': {
                 label: '¡Gol del Anticipo!',
                 progress: 25,
                 desc: 'Anticipo recibido. El equipo entra en producción.'
             },
-            'payment_verified': { // Legacy or synonym
+            'payment_verified': {
                 label: 'Anticipo Confirmado',
                 progress: 25,
                 desc: 'Pago de entrada validado. ¡A jugar!'
@@ -103,7 +102,7 @@ export async function GET(request: NextRequest) {
                 progress: 90,
                 desc: 'A punto de terminar el partido. Listo para entrega final.'
             },
-            'paid_full': { // Specific state for fully paid before completion? Or mapped to ready?
+            'paid_full': {
                 label: '90 Minutos (Pagado)',
                 progress: 95,
                 desc: 'Pedido pagado al 100%. Solo falta entregarte la copa.'
@@ -118,7 +117,7 @@ export async function GET(request: NextRequest) {
                 progress: 0,
                 desc: 'Tarjeta Roja. Este pedido ha sido cancelado.'
             },
-            'Cancelled': { // Case sensitivity handling
+            'Cancelled': {
                 label: 'Partido Suspendido',
                 progress: 0,
                 desc: 'Tarjeta Roja. Este pedido ha sido cancelado.'
@@ -127,19 +126,19 @@ export async function GET(request: NextRequest) {
 
         const currentStatus = statusMap[order.status] || { label: 'En Proceso', progress: 20, desc: 'Tu pedido está siendo atendido.' };
 
+        // 🛡️ M7 FIX adicional: No exponer customer_name en la respuesta pública
         return NextResponse.json({
             success: true,
             order: {
                 id: order.id,
                 date: order.created_at,
-                customer: order.customer_name.split(' ')[0], // Solo primer nombre por privacidad
                 location: `${order.shipping_municipality}, ${order.shipping_department}`,
-                items: order.order_items.map((item: any) => ({
-                    product: item.products?.name,
-                    team: item.products?.teams?.name,
+                items: order.order_items.map((item: Record<string, unknown>) => ({
+                    product: (item.products as Record<string, unknown>)?.name,
+                    team: ((item.products as Record<string, unknown>)?.teams as Record<string, unknown>)?.name,
                     quantity: item.quantity,
-                    image: item.products?.image_url,
-                    version: item.product_variants?.version,
+                    image: (item.products as Record<string, unknown>)?.image_url,
+                    version: (item.product_variants as Record<string, unknown>)?.version,
                     personalization: item.personalization_type !== 'none'
                         ? `${item.custom_number || ''} ${item.custom_name || ''}`.trim()
                         : null

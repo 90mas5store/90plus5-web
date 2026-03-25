@@ -16,7 +16,7 @@ export default async function Home() {
     ]);
 
     // Procesar ligas (Lógica servida directamente ya procesada)
-    let ligasProcesadas: any[] = [];
+    let ligasProcesadas: import('@/lib/types').League[] = [];
     if (configData?.ligas?.length) {
         ligasProcesadas = configData.ligas;
     } else {
@@ -25,7 +25,12 @@ export default async function Home() {
             ...new Set(
                 (featuredData || []).map((p) => (p as any).liga).filter(Boolean)
             ),
-        ].map((l) => ({ nombre: l as string, imagen: null, id: null }));
+        ].map((l) => ({
+            id: normalize(l as string),
+            nombre: l as string,
+            slug: normalize(l as string),
+            imagen: ""
+        }));
         ligasProcesadas = ligasUnicas;
     }
 

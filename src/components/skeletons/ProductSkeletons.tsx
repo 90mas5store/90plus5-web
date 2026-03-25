@@ -74,7 +74,7 @@ export const ProductGridSkeleton = memo(ProductGridSkeletonComponent);
 
 function ProductCustomizationSkeletonComponent() {
     return (
-        <div className="min-h-screen bg-black text-white pt-8 pb-20 px-4 md:px-8">
+        <div className="min-h-dvh bg-black text-white pt-8 pb-20 px-4 md:px-8">
             <div className="max-w-7xl mx-auto">
                 {/* Back button skeleton */}
                 <div className="mb-8 w-24 h-6 bg-white/10 rounded" />
@@ -164,9 +164,9 @@ export const ProductCustomizationSkeleton = memo(ProductCustomizationSkeletonCom
 
 function CatalogPageSkeletonComponent() {
     return (
-        <main className="min-h-screen bg-black text-white pb-24 relative overflow-hidden">
+        <main className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden">
             {/* Hero skeleton */}
-            <div className="relative h-[30vh] bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 mb-4">
+            <div className="relative h-[30dvh] bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 mb-4">
                 <motion.div
                     className="absolute inset-0 bg-gradient-to-r from-transparent via-white/3 to-transparent"
                     animate={{

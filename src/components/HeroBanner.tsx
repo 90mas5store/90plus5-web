@@ -198,7 +198,7 @@ export default function HeroBanner({
     videoSrc,
     slides,
     slideInterval = 5000,
-    fallbackImage = "/heroes/fondo.jpg",
+    fallbackImage = "/heroes/default.jpg",
     minHeight, // Opcional, si no se pasa usa clases
     alt = "Hero Banner 90+5",
     categorySlug,
@@ -215,11 +215,11 @@ export default function HeroBanner({
     const videoRef = useRef<HTMLVideoElement>(null);
 
     // Check if this resource was previously loaded (cache hint)
-    const getCacheKey = () => {
+    const getCacheKey = useCallback(() => {
         if (slides && slides.length > 0) return `hero_${slides[0].imageSrc}`;
         if (categorySlug) return `hero_${categorySlug}`;
         return 'hero_default';
-    };
+    }, [slides, categorySlug]);
 
     const wasPreviouslyLoaded = typeof window !== 'undefined'
         ? sessionStorage.getItem(getCacheKey()) === 'loaded'
@@ -232,21 +232,23 @@ export default function HeroBanner({
     const [currentSlide, setCurrentSlide] = useState(0);
     const [parallaxOffset, setParallaxOffset] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
-    const [isInitialMount, setIsInitialMount] = useState(true);
-
-    useEffect(() => {
-        setIsInitialMount(false);
-    }, []);
+    // Ref en lugar de state para evitar setState síncrono en effect
+    const isInitialMountRef = useRef(true);
 
     // ============================================
     // 📸 PREPARAR CONSTANTES
     // ============================================
 
+    // Slugs que tienen video en /public/heroes/
+    const SLUGS_WITH_VIDEO = ['mundial2026'];
+
     const preparedSlides: HeroSlide[] = slides && slides.length > 0
         ? slides
         : [{
             imageSrc: imageSrc || (categorySlug ? `/heroes/${categorySlug.toLowerCase()}.jpg` : fallbackImage),
-            videoSrc: videoSrc || (categorySlug ? `/heroes/${categorySlug.toLowerCase()}.mp4` : undefined),
+            videoSrc: videoSrc || (categorySlug && SLUGS_WITH_VIDEO.includes(categorySlug.toLowerCase())
+                ? `/heroes/${categorySlug.toLowerCase()}.mp4`
+                : undefined),
             title: title,
             subtitle: subtitle,
         }];
@@ -269,16 +271,21 @@ export default function HeroBanner({
             ? sessionStorage.getItem(cacheKey) === 'loaded'
             : false;
 
-        if (!isInitialMount && !wasCached) {
-            setIsLoading(true);
-        } else if (wasCached) {
-            setIsLoading(false); // Skip loading state for cached resources
-        }
+        const shouldShowLoading = !isInitialMountRef.current && !wasCached;
+        // Marcar que el primer mount ya pasó
+        isInitialMountRef.current = false;
 
-        setVideoError(false);
-        setIsVideoReady(false); // Reset video state
-        setUseFallbackImage(false); // Reset fallback
-        setCurrentSlide(0);
+        // Deferir todos los setState para no llamarlos síncronamente en el body del effect
+        const id = setTimeout(() => {
+            if (shouldShowLoading) setIsLoading(true);
+            else if (wasCached) setIsLoading(false);
+            setVideoError(false);
+            setIsVideoReady(false);
+            setUseFallbackImage(false);
+            setCurrentSlide(0);
+        }, 0);
+        return () => clearTimeout(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categorySlug, imageSrc, videoSrc, slides]);
 
     // ============================================
@@ -367,7 +374,7 @@ export default function HeroBanner({
         }, timeout);
 
         return () => clearTimeout(timer);
-    }, [isLoading, wasPreviouslyLoaded]);
+    }, [isLoading, wasPreviouslyLoaded, getCacheKey]);
 
     // ============================================
     // 📥 HANDLERS
@@ -380,7 +387,7 @@ export default function HeroBanner({
         if (typeof window !== 'undefined') {
             sessionStorage.setItem(getCacheKey(), 'loaded');
         }
-    }, [categorySlug, slides]);
+    }, [getCacheKey]);
 
     const handleImageError = useCallback(() => {
         console.warn("Error loading hero image, switching to fallback.");
@@ -416,14 +423,14 @@ export default function HeroBanner({
     return (
         <section
             ref={containerRef}
-            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden ${className} ${!minHeight ? 'min-h-[35vh] md:min-h-[55vh]' : ''}`}
+            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden ${className} ${!minHeight ? 'min-h-[35dvh] md:min-h-[55dvh]' : ''}`}
             style={minHeight ? { minHeight } : undefined}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
             {/* Skeleton Loader - Only show if not initial mount to avoid LCP delay */}
             <AnimatePresence>
-                {isLoading && !isInitialMount && (
+                {isLoading && !isInitialMountRef.current && (
                     <motion.div
                         className="absolute inset-0 z-40"
                         initial={{ opacity: 1 }}
@@ -456,16 +463,21 @@ export default function HeroBanner({
                 />
 
                 {/* 2. Video Layer - SUPERPUESTO */}
-                {currentSlideData.videoSrc && !videoError && !useFallbackImage && !isLoading && !isInitialMount && (
-                    <div className="absolute inset-0 z-10" style={{ opacity: isVideoReady ? 1 : 0 }}>
+                {currentSlideData.videoSrc && !videoError && !useFallbackImage && (
+                    <div
+                        key={`video-${currentSlide}`}
+                        className="absolute inset-0 z-10"
+                        style={{ opacity: isVideoReady ? 1 : 0, transition: 'opacity 0.5s ease' }}
+                    >
                         <video
                             ref={videoRef}
                             autoPlay
                             loop
                             muted
                             playsInline
+                            preload="auto"
                             className="w-full h-full object-cover"
-                            onLoadedData={handleVideoLoad}
+                            onCanPlay={handleVideoLoad}
                             onError={handleVideoError}
                         >
                             <source

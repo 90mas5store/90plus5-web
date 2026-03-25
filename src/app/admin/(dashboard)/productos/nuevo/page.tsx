@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { clearProductCache } from '@/lib/api'
@@ -14,6 +14,7 @@ import Link from 'next/link'
 import useToastMessage from '@/hooks/useToastMessage'
 import { motion, AnimatePresence } from '@/lib/motion'
 import ImageUpload from '@/components/admin/ImageUpload'
+import ConfirmDialog from '@/components/admin/ConfirmDialog'
 
 interface Size {
     id: string
@@ -78,6 +79,7 @@ export default function CreateProductPage() {
     const [productPatches, setProductPatches] = useState<Set<string>>(new Set<string>())
     const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set<string>())
     const [variantToDelete, setVariantToDelete] = useState<string | null>(null)
+    const [playerToDelete, setPlayerToDelete] = useState<string | null>(null)
 
     // Players Management
     const [teamPlayers, setTeamPlayers] = useState<Player[]>([])
@@ -121,11 +123,11 @@ export default function CreateProductPage() {
                     active: true,
                     original_price: 0,
                     active_original_price: false,
-                    sizeIds: new Set(sizesRes.data?.map((s: any) => s.id) || [])
+                    sizeIds: new Set(sizesRes.data?.map((s: { id: string }) => s.id) || [])
                 }
                 setVariants([defaultVariant])
 
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.error('Error cargando catálogos:', error)
                 toast.error('Error al cargar datos iniciales')
             } finally {
@@ -134,7 +136,7 @@ export default function CreateProductPage() {
         }
 
         loadData()
-    }, [])
+    }, [supabase, toast])
 
 
     // Handlers Generales
@@ -172,7 +174,7 @@ export default function CreateProductPage() {
         }
     }
 
-    const updateVariant = (tempId: string, field: keyof Variant, value: any) => {
+    const updateVariant = (tempId: string, field: keyof Variant, value: string | number | boolean) => {
         setVariants(variants.map(v => v.tempId === tempId ? { ...v, [field]: value } : v))
     }
 
@@ -238,7 +240,7 @@ export default function CreateProductPage() {
             setTeamPlayers(prev => [...prev, data].sort((a, b) => a.number - b.number))
             setNewPlayer({ name: '', number: '' })
             toast.success('Jugador agregado al equipo')
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error adding player:', error)
             toast.error('Error al agregar jugador')
         } finally {
@@ -246,9 +248,9 @@ export default function CreateProductPage() {
         }
     }
 
-    const handleDeletePlayer = async (playerId: string) => {
-        if (!confirm('¿Eliminar jugador de la lista del equipo?')) return
+    const handleDeletePlayer = (playerId: string) => setPlayerToDelete(playerId)
 
+    const executeDeletePlayer = async (playerId: string) => {
         try {
             const { error } = await supabase
                 .from('players')
@@ -259,7 +261,7 @@ export default function CreateProductPage() {
 
             setTeamPlayers(prev => prev.filter(p => p.id !== playerId))
             toast.success('Jugador eliminado')
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error deleting player:', error)
             toast.error('Error al eliminar jugador')
         }
@@ -350,16 +352,16 @@ export default function CreateProductPage() {
             toast.success('Producto creado exitosamente')
             router.push('/admin/productos')
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('❌ Error al crear:', error)
-            toast.error(`Error: ${error.message}`)
+            toast.error(`Error: ${(error as Error).message}`)
         } finally {
             setSaving(false)
         }
     }
 
     if (loading) return (
-        <div className="flex items-center justify-center h-screen bg-neutral-950">
+        <div className="flex items-center justify-center h-dvh bg-neutral-950">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
         </div>
     )
@@ -909,6 +911,15 @@ export default function CreateProductPage() {
                     </div>
                 </div>
             </div >
+
+            <ConfirmDialog
+                open={playerToDelete !== null}
+                title="Eliminar jugador"
+                message="¿Eliminar este jugador de la lista del equipo?"
+                confirmLabel="Eliminar"
+                onConfirm={() => { if (playerToDelete) executeDeletePlayer(playerToDelete); setPlayerToDelete(null); }}
+                onCancel={() => setPlayerToDelete(null)}
+            />
         </div >
     )
 }

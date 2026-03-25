@@ -5,15 +5,31 @@ import { CatalogPageSkeleton } from "../../components/skeletons/ProductSkeletons
 import { Metadata } from "next";
 import { getConfig, getCatalogPaginated } from "../../lib/api";
 
-export const metadata: Metadata = {
-  title: "Catálogo",
-  description: "Explora nuestra colección completa de camisetas y equipaciones.",
-};
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const params = await Promise.resolve(searchParams);
+  const categoria = params?.categoria;
+  const liga = params?.liga;
+
+  const titleStr = typeof liga === 'string' ? `Camisetas de ${liga}` : typeof categoria === 'string' ? `Camisetas de ${categoria}` : "Catálogo de Camisetas de Fútbol";
+
+  return {
+    title: `${titleStr} | 90+5 Store Honduras`,
+    description: `Encuentra las equipaciones y ${titleStr} versión jugador y aficionado: Real Madrid, Barcelona, Olimpia, Motagua, Premier League y más. Envíos a todo Honduras.`,
+    openGraph: {
+      title: `${titleStr} | 90+5 Store`,
+      description: `Más de 100 equipaciones oficiales temporada 25/26. Versión jugador y aficionado. Envíos rápidos a todo Honduras.`,
+      url: "https://90mas5.store/catalogo",
+    },
+    alternates: {
+      canonical: "https://90mas5.store/catalogo",
+    },
+  };
+}
 
 // Next.js 15+ searchParams es una Promise, pero en 14 es objeto.
 // Asumimos Next 14 basado en el contexto, pero lo manejamos de forma segura.
 type Props = {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: { [key: string]: string | string[] | undefined } | Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export default async function CatalogoPage({ searchParams }: Props) {
@@ -21,7 +37,8 @@ export default async function CatalogoPage({ searchParams }: Props) {
   const config = await getConfig();
 
   // 2. Parsear parámetros de búsqueda
-  const { categoria, liga, query } = searchParams;
+  const params = await Promise.resolve(searchParams);
+  const { categoria, liga, query } = params || {};
   const categoriaSlug = Array.isArray(categoria) ? categoria[0] : categoria;
   const ligaParam = Array.isArray(liga) ? liga[0] : liga;
   const searchTerm = Array.isArray(query) ? query[0] : query;
@@ -57,7 +74,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   // 4. Fetch inicial de productos (SSR)
   // Obtenemos la primera página (24 items)
-  let initialProducts: any[] = [];
+  let initialProducts: import('@/lib/types').Product[] = [];
   let initialTotal = 0;
 
   try {

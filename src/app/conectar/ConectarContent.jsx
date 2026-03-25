@@ -27,7 +27,7 @@ export default function ContactoPage() {
   }, [searchParams]);
 
   return (
-    <main className="min-h-screen bg-black text-white relative overflow-hidden font-satoshi">
+    <main className="min-h-dvh bg-black text-white relative overflow-hidden font-satoshi">
       {/* AURA */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(229,9,20,0.15),transparent_60%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_70%)] pointer-events-none" />

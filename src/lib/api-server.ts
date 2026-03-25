@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { Product, Config } from "./types";
+import { Product, Config, SupabaseRawProduct } from "./types";
 
 // ✅ Cliente seguro para Server Components (solo necesita URL + ANON KEY para datos públicos)
 const supabase = createClient(
@@ -11,19 +11,21 @@ const supabase = createClient(
  * 🔄 Adaptador de datos de Supabase a nuestra interfaz Product
  * (Duplicado intencionalmente para evitar importar dependencias de cliente desde lib/api.ts)
  */
-function adaptSupabaseProductToProduct(raw: any): Product {
+function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product {
     const variants = raw.product_variants || [];
 
     const basePrice =
         variants.length > 0
-            ? Math.min(...variants.filter((v: any) => v.active).map((v: any) => v.price))
+            ? Math.min(...variants.filter(v => v.active).map(v => v.price))
             : 0;
+
+    const teams = Array.isArray(raw.teams) ? raw.teams[0] : raw.teams;
 
     return {
         id: raw.id,
         slug: raw.slug,
-        equipo: raw.teams?.name ?? "",
-        logoEquipo: raw.teams?.logo_url ?? null,
+        equipo: teams?.name ?? "",
+        logoEquipo: teams?.logo_url ?? undefined,
         modelo: raw.name,
         precio: basePrice,
         imagen: raw.image_url,
@@ -31,9 +33,9 @@ function adaptSupabaseProductToProduct(raw: any): Product {
         team_id: raw.team_id,
         category_id: raw.category_id,
         league_id: raw.league_id,
-        league_ids: raw.product_leagues?.map((pl: any) => pl.league_id) || (raw.league_id ? [raw.league_id] : []),
+        league_ids: raw.product_leagues?.map(pl => pl.league_id) || (raw.league_id ? [raw.league_id] : []),
         sort_order: raw.sort_order || 0,
-        product_variants: variants.map((v: any) => ({
+        product_variants: variants.map(v => ({
             id: v.id,
             version: v.version,
             price: v.price,
@@ -43,7 +45,6 @@ function adaptSupabaseProductToProduct(raw: any): Product {
         })),
     };
 }
-
 /** ⭐ Obtener productos destacados (Server Side) - USA SORT_ORDER MANUAL */
 export async function getFeaturedServer(): Promise<Product[]> {
     const { data, error } = await supabase
@@ -115,7 +116,7 @@ export async function getConfigServer(): Promise<Config> {
         throw leagueError;
     }
 
-    const adaptedCategorias = (categories ?? []).map((cat: any) => ({
+    const adaptedCategorias = (categories ?? []).map((cat: Record<string, unknown>) => ({
         id: cat.id,
         nombre: cat.name,
         slug: cat.slug,
@@ -123,7 +124,7 @@ export async function getConfigServer(): Promise<Config> {
         icon_url: cat.icon_url,
     }));
 
-    const adaptedLigas = (leagues ?? []).map((league: any) => ({
+    const adaptedLigas = (leagues ?? []).map((league: Record<string, unknown>) => ({
         id: league.id,
         nombre: league.name,
         slug: league.slug,

@@ -88,7 +88,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                     </p>
                     <div className="mt-1.5 sm:mt-2 md:mt-3 inline-block px-2.5 py-0.5 sm:px-3 md:px-4 md:py-1 bg-black/60 md:bg-white/10 md:backdrop-blur-xl border border-white/10 rounded-full">
                         <p className="text-primary font-bold text-xs sm:text-sm md:text-lg">
-                            L {precio.toLocaleString()}
+                            L {precio.toLocaleString("es-HN")}
                         </p>
                     </div>
                 </div>

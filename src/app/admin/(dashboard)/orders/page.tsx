@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Eye, Search, Filter } from 'lucide-react'
+import { Eye, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { formatDate, HONDURAS_TIMEZONE } from '@/lib/utils'
 
@@ -8,25 +8,33 @@ import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
 
 export const dynamic = 'force-dynamic';
 
+const PAGE_SIZE = 25;
+
 export default async function OrdersPage({
     searchParams
 }: {
-    searchParams?: { q?: string }
+    searchParams?: { q?: string; page?: string }
 }) {
     const supabase = await createClient()
-    const queryTerm = searchParams?.q || '';
+    // 🛡️ A4 FIX: Limitar longitud del queryTerm para evitar degradación de DB
+    const queryTerm = (searchParams?.q || '').slice(0, 100);
+    const currentPage = Math.max(1, parseInt(searchParams?.page || '1', 10));
+    const from = (currentPage - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
 
     let query = supabase
         .from('orders')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(50);
+        .range(from, to);
 
     if (queryTerm) {
-        query = query.or(`customer_name.ilike.%${queryTerm}%,customer_email.ilike.%${queryTerm}%`)
+        query = query.or(`customer_name.ilike.%${queryTerm}%,customer_email.ilike.%${queryTerm}%,id.ilike.%${queryTerm}%`)
     }
 
-    const { data: orders, error } = await query;
+    const { data: orders, error, count } = await query;
+
+    const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
 
     if (error) {
         return <div className="text-red-500 bg-red-500/10 p-4 rounded-xl">Error cargando pedidos: {error.message}</div>
@@ -55,7 +63,7 @@ export default async function OrdersPage({
             <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
-                        <thead className="bg-black/40 text-gray-400 text-[9px] md:text-[10px] uppercase font-bold tracking-wider">
+                        <thead className="bg-black/40 text-gray-400 text-xs uppercase font-bold tracking-wider">
                             <tr>
                                 <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5"># Referencia</th>
                                 <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5">Cliente</th>
@@ -88,7 +96,7 @@ export default async function OrdersPage({
                                         <OrderStatusBadge status={order.status} />
                                     </td>
                                     <td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold text-white text-sm md:text-base">
-                                        L {order.total_amount?.toLocaleString() ?? 0}
+                                        L {order.total_amount?.toLocaleString("es-HN") ?? 0}
                                     </td>
                                     <td className="px-3 md:px-6 py-3 md:py-4 text-right">
                                         <Link
@@ -112,6 +120,44 @@ export default async function OrdersPage({
                         </tbody>
                     </table>
                 </div>
+
+                {/* PAGINACIÓN */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
+                        <p className="text-xs text-gray-500">
+                            Mostrando {from + 1}–{Math.min(to + 1, count ?? 0)} de <span className="text-white font-bold">{count}</span> pedidos
+                        </p>
+                        <div className="flex items-center gap-2">
+                            {currentPage > 1 ? (
+                                <Link
+                                    href={`?${new URLSearchParams({ ...(queryTerm ? { q: queryTerm } : {}), page: String(currentPage - 1) })}`}
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold"
+                                >
+                                    <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+                                </Link>
+                            ) : (
+                                <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.02] text-gray-600 text-xs font-bold cursor-not-allowed">
+                                    <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+                                </span>
+                            )}
+                            <span className="text-xs text-gray-500 px-2">
+                                {currentPage} / {totalPages}
+                            </span>
+                            {currentPage < totalPages ? (
+                                <Link
+                                    href={`?${new URLSearchParams({ ...(queryTerm ? { q: queryTerm } : {}), page: String(currentPage + 1) })}`}
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold"
+                                >
+                                    Siguiente <ChevronRight className="w-3.5 h-3.5" />
+                                </Link>
+                            ) : (
+                                <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.02] text-gray-600 text-xs font-bold cursor-not-allowed">
+                                    Siguiente <ChevronRight className="w-3.5 h-3.5" />
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

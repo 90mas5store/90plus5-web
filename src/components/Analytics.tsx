@@ -1,18 +1,17 @@
 'use client';
 
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
 declare global {
     interface Window {
-        gtag: (command: string, targetId: string, config?: any) => void;
-        fbq: (command: string, eventName: string, params?: any) => void;
+        gtag: (command: string, targetId: string, config?: Record<string, unknown>) => void;
+        fbq: (command: string, eventName: string, params?: Record<string, unknown>) => void;
     }
 }
 
 export default function Analytics() {
     const pathname = usePathname();
-    const searchParams = useSearchParams();
 
     useEffect(() => {
         if (pathname && window.gtag) {
@@ -23,7 +22,7 @@ export default function Analytics() {
         if (pathname && window.fbq) {
             window.fbq('track', 'PageView');
         }
-    }, [pathname, searchParams]);
+    }, [pathname]);
 
     return (
         <>
@@ -31,6 +30,7 @@ export default function Analytics() {
             {process.env.NEXT_PUBLIC_GA_ID && (
                 <>
                     <script
+                        async
                         type="text/partytown"
                         src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
                     />

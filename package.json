@@ -6,10 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@builder.io/partytown": "^0.10.3",
+    "@pixelpay/sdk-core": "^2.4.10",
+    "@sentry/nextjs": "^10.42.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.90.1",
     "canvas-confetti": "^1.9.4",
@@ -25,18 +31,24 @@
     "resend": "^6.7.0",
     "svix": "^1.84.1",
     "tailwind-merge": "^3.4.0",
-    "use-debounce": "^10.1.0",
-    "xlsx": "^0.18.5"
+    "use-debounce": "^10.1.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "24.10.0",
     "@types/react": "19.2.2",
+    "@vitejs/plugin-react": "^5.1.4",
+    "@vitest/ui": "^4.0.18",
     "autoprefixer": "^10.4.21",
     "babel-plugin-react-compiler": "1.0.0",
     "critters": "^0.0.23",
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
+    "jsdom": "^28.1.0",
     "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.18"
+    "sharp": "^0.34.5",
+    "tailwindcss": "^3.4.18",
+    "vitest": "^4.0.18"
   }
 }

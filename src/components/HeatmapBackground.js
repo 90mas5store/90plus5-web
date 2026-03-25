@@ -16,14 +16,11 @@ export default function HeatmapBackground({ liga = "default", opacity = 0.25 }) 
 
   const [heatSpots, setHeatSpots] = useState([]);
   const [particles, setParticles] = useState([]);
-  const [mounted, setMounted] = useState(false);
 
   const [c1, c2] = colorMap[liga] || colorMap.default;
 
-  // ⚙️ Solo generar spots en cliente
+  // ⚙️ Solo generar spots en cliente — setState llamado en callback (no síncrono)
   useEffect(() => {
-    setMounted(true);
-
     const newSpots = Array.from({ length: 5 }, () => ({
       x: Math.random() * 100,
       y: Math.random() * 100,
@@ -39,11 +36,15 @@ export default function HeatmapBackground({ liga = "default", opacity = 0.25 }) 
       duration: 6 + Math.random() * 6,
     }));
 
-    setHeatSpots(newSpots);
-    setParticles(newParticles);
+    const id = setTimeout(() => {
+      setHeatSpots(newSpots);
+      setParticles(newParticles);
+    }, 0);
+    return () => clearTimeout(id);
   }, [liga]);
 
-  if (!mounted) return null; // Evita que SSR genere el mapa
+  // Evita que SSR genere el mapa (heatSpots vacío = no montado aún)
+  if (heatSpots.length === 0) return null;
 
   return (
     <motion.div

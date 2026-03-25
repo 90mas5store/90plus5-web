@@ -82,7 +82,7 @@ useEffect(() => {
 
   if (!producto)
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-black text-white text-center">
+      <main className="min-h-dvh flex flex-col items-center justify-center bg-black text-white text-center">
         <h1 className="text-2xl font-bold mb-3">Producto no encontrado 😔</h1>
         <button
           onClick={() => router.push("/catalogo")}
@@ -98,7 +98,7 @@ useEffect(() => {
       initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
-      className={`min-h-screen text-white pt-28 pb-16 px-6 relative overflow-hidden bg-gradient-to-b ${getAuraColors(
+      className={`min-h-dvh text-white pt-28 pb-16 px-6 relative overflow-hidden bg-gradient-to-b ${getAuraColors(
         producto.liga || producto.equipo
       )}`}
     >

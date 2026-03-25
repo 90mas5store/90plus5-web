@@ -2,6 +2,27 @@ import { Resend } from "resend";
 import { BANK_ACCOUNTS } from "@/lib/config/banks";
 import { getWhatsappLink } from "@/lib/whatsapp";
 
+// 🛡️ C4 FIX: Escapar HTML para prevenir XSS en emails
+function escapeHtml(str: string | number | undefined | null): string {
+  if (str === undefined || str === null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// 🛡️ Sanitizar URLs: solo permitir https:// para evitar javascript: y data: URIs
+function sanitizeUrl(url: string | undefined | null): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+    return escapeHtml(trimmed);
+  }
+  return '';
+}
+
 // const resend = new Resend(process.env.RESEND_API_KEY); // Movido dentro de la función para mayor robustez
 
 interface OrderEmailProps {
@@ -42,18 +63,18 @@ export const sendOrderConfirmationEmail = async ({
     <div style="background:#111;border:1px solid #222;border-radius:14px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">
       <div style="flex:1;">
         <strong style="color:#fff;font-size:14px;display:block;margin-bottom:4px;">
-          ${bank.banco}
+          ${escapeHtml(bank.banco)}
         </strong>
         <p style="margin:0;color:#777;font-size:11px;text-transform:uppercase;">
-          ${bank.tipo}
+          ${escapeHtml(bank.tipo)}
         </p>
       </div>
       <div style="text-align:right;">
         <p style="margin:0;color:#fff;font-family:Courier,monospace;font-size:17px;font-weight:700;">
-          ${bank.numero}
+          ${escapeHtml(bank.numero)}
         </p>
         <p style="margin:2px 0 0;color:#666;font-size:10px;">
-          ${bank.titular}
+          ${escapeHtml(bank.titular)}
         </p>
       </div>
     </div>
@@ -66,27 +87,29 @@ export const sendOrderConfirmationEmail = async ({
     .map(
       (item) => {
         // Fix: Normalizar URL de imagen para que sea absoluta si es relativa
-        const imageUrl = item.image?.startsWith('/')
+        const rawImageUrl = item.image?.startsWith('/')
           ? `https://90mas5.store${item.image}`
           : item.image;
+        // 🛡️ Sanitizar URL de imagen
+        const imageUrl = sanitizeUrl(rawImageUrl);
 
         return `
     <div style="display:flex;gap:16px;padding:18px 0;border-bottom:1px solid #222;">
       <div style="width:70px;height:70px;border-radius:10px;overflow:hidden;background:#000;border:1px solid #333;">
-        ${imageUrl && imageUrl.startsWith('http')
+        ${imageUrl
             ? `<img src="${imageUrl}" style="width:100%;height:100%;object-fit:cover;" />`
             : `<div style="width:100%;height:100%;background:#111;"></div>`
           }
       </div>
       <div style="flex:1;">
         <p style="margin:0;color:#fff;font-size:14px;font-weight:700;">
-          ${item.team ? `${item.team} – ` : ""}${item.name}
+          ${item.team ? `${escapeHtml(item.team)} – ` : ""}${escapeHtml(item.name)}
         </p>
         <p style="margin:6px 0;color:#aaa;font-size:12px;">
-          ${item.details || "Estándar"}
+          ${escapeHtml(item.details || "Estándar")}
         </p>
         <p style="margin:0;color:#E50914;font-size:12px;font-weight:700;">
-          Cantidad: ${item.quantity}
+          Cantidad: ${escapeHtml(item.quantity)}
         </p>
       </div>
     </div>
@@ -122,10 +145,10 @@ export const sendOrderConfirmationEmail = async ({
               </h1>
 
               <p style="margin:0 0 30px;color:#aaa;text-align:center;font-size:15px;">
-                Jugada inicial ${customerName.split(" ")[0]}, ya recibimos tu pedido.<br/>
+                Jugada inicial ${escapeHtml(customerName.split(" ")[0])}, ya recibimos tu pedido.<br/>
                 Ahora sos parte del equipo.<br/>
                 <span style="display:inline-block;margin-top:10px;padding:6px 12px;background:#222;border-radius:8px;font-family:Courier,monospace;">
-                  #${orderId.slice(0, 8).toUpperCase()}
+                  #${escapeHtml(orderId.slice(0, 8).toUpperCase())}
                 </span>
               </p>
 
@@ -147,7 +170,7 @@ export const sendOrderConfirmationEmail = async ({
                 No le perdás la pista a tu fichaje.
               </p>
 
-              <a href="https://90mas5.store/rastreo?order=${orderId}"
+              <a href="https://90mas5.store/rastreo?order=${escapeHtml(orderId)}"
                  style="display:block;background:#fff;color:#000;text-decoration:none;
                         padding:18px 0;border-radius:14px;
                         text-align:center;font-weight:900;
@@ -180,7 +203,7 @@ export const sendOrderConfirmationEmail = async ({
               </table>
 
               <!-- WhatsApp soporte -->
-              <a href="${getWhatsappLink({ message: `Qué ondas, tengo una consulta sobre mi pedido #${orderId.slice(0, 8).toUpperCase()}` })}"
+              <a href="${escapeHtml(getWhatsappLink({ message: `Qué ondas, tengo una consulta sobre mi pedido #${orderId.slice(0, 8).toUpperCase()}` }))}"
                  style="display:block;margin-top:30px;text-align:center;
                         color:#25D366;text-decoration:none;font-size:13px;font-weight:700;">
                 ¿Consultas al árbitro? Escribinos por WhatsApp
@@ -212,8 +235,14 @@ export const sendOrderConfirmationEmail = async ({
     });
 
     return { success: true, data };
-  } catch (error) {
-    console.error("Error enviando correo:", error);
+  } catch (error: unknown) {
+    // 🛡️ M8 FIX: Detectar errores de quota/rate limit de Resend
+    const errMsg = error instanceof Error ? error.message : String(error);
+    if (errMsg.includes('rate_limit') || errMsg.includes('quota') || errMsg.includes('429')) {
+      console.error('⚠️ EMAIL QUOTA: Límite de envío de Resend alcanzado:', errMsg);
+    } else {
+      console.error('Error enviando correo:', error);
+    }
     return { success: false, error };
   }
 };
@@ -285,14 +314,14 @@ export const sendOrderStatusUpdateEmail = async ({
           <tr>
             <td style="padding:40px;text-align:center;">
               <h1 style="margin:0 0 10px;font-size:28px;font-weight:900;">
-                ${statusConfig.title}
+                ${escapeHtml(statusConfig.title)}
               </h1>
               <p style="margin:0 0 20px;color:#aaa;font-size:16px;line-height:1.5;">
-                Jugada inicial ${customerName.split(" ")[0]},<br/>
-                ${statusConfig.message}
+                Jugada inicial ${escapeHtml(customerName.split(" ")[0])},<br/>
+                ${escapeHtml(statusConfig.message)}
               </p>
               
-              <a href="https://90mas5.store/rastreo?order=${orderId}"
+              <a href="https://90mas5.store/rastreo?order=${escapeHtml(orderId)}"
                  style="display:block;background:#fff;color:#000;text-decoration:none;
                         padding:16px 0;border-radius:12px;
                         font-weight:900;text-transform:uppercase;margin-top:30px;">
@@ -319,8 +348,14 @@ export const sendOrderStatusUpdateEmail = async ({
       html: htmlContent,
     });
     return { success: true, data };
-  } catch (error) {
-    console.error("Error enviando actualización:", error);
+  } catch (error: unknown) {
+    // 🛡️ M8 FIX: Detectar errores de quota/rate limit de Resend
+    const errMsg = error instanceof Error ? error.message : String(error);
+    if (errMsg.includes('rate_limit') || errMsg.includes('quota') || errMsg.includes('429')) {
+      console.error('⚠️ EMAIL QUOTA: Límite de envío de Resend alcanzado:', errMsg);
+    } else {
+      console.error('Error enviando actualización:', error);
+    }
     return { success: false, error };
   }
 };
@@ -336,11 +371,11 @@ export const sendAdminNewOrderEmail = async ({
   customerEmail: string;
   orderId: string;
   totalAmount: number;
-  items: any[];
+  items: Array<Record<string, unknown>>;
 }) => {
   const resend = new Resend(process.env.RESEND_API_KEY);
-  // Email del admin: contacto@90mas5.store (o el que prefiera el usuario)
-  const adminEmail = "contacto@90mas5.store";
+  // 🛡️ A7 FIX: Email configurable via ENV, no hardcodeado
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "contacto@90mas5.store";
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -348,17 +383,17 @@ export const sendAdminNewOrderEmail = async ({
 <head><title>Nuevo Pedido</title></head>
 <body style="font-family:sans-serif;color:#333;">
   <h1>¡Nuevo Fichaje! 🤑</h1>
-  <p>Has recibido un nuevo pedido de <strong>${customerName}</strong>.</p>
-  <p><strong>ID:</strong> ${orderId}</p>
-  <p><strong>Total:</strong> L ${totalAmount.toLocaleString()}</p>
+  <p>Has recibido un nuevo pedido de <strong>${escapeHtml(customerName)}</strong>.</p>
+  <p><strong>ID:</strong> ${escapeHtml(orderId)}</p>
+  <p><strong>Total:</strong> L ${escapeHtml(totalAmount.toLocaleString())}</p>
   
   <h3>Alineación (Productos):</h3>
   <ul>
-    ${items.map(i => `<li>${i.quantity}x ${i.team || ''} ${i.name} (${i.details || 'Estándar'})</li>`).join('')}
+    ${items.map(i => `<li>${escapeHtml(i.quantity as number)}x ${escapeHtml((i.team as string) || '')} ${escapeHtml(i.name as string)} (${escapeHtml((i.details as string) || 'Estándar')})</li>`).join('')}
   </ul>
 
   <p>
-    <a href="https://90mas5.store/admin/orders/${orderId}">Ver pedido en Admin</a>
+    <a href="https://90mas5.store/admin/orders/${escapeHtml(orderId)}">Ver pedido en Admin</a>
   </p>
 </body>
 </html>
@@ -371,7 +406,13 @@ export const sendAdminNewOrderEmail = async ({
       subject: `Nuevo Pedido #${orderId.slice(0, 8)} - L ${totalAmount}`,
       html: htmlContent,
     });
-  } catch (e) {
-    console.error("Error sending admin notification", e);
+  } catch (error: unknown) {
+    // 🛡️ M8 FIX: Detectar errores de quota/rate limit de Resend
+    const errMsg = error instanceof Error ? error.message : String(error);
+    if (errMsg.includes('rate_limit') || errMsg.includes('quota') || errMsg.includes('429')) {
+      console.error('⚠️ EMAIL QUOTA: Límite de envío de Resend alcanzado:', errMsg);
+    } else {
+      console.error('Error sending admin notification:', error);
+    }
   }
 };

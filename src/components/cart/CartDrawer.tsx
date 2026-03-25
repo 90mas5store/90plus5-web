@@ -62,7 +62,7 @@ export default function CartDrawer() {
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 blur-[100px] -z-10" />
 
               {/* 🏷️ Header */}
-              <div className="flex justify-between items-center p-6 border-b border-white/5 bg-black/20 backdrop-blur-xl">
+              <div className="flex justify-between items-center p-6 border-b border-white/5 bg-black/20 backdrop-blur-md sm:backdrop-blur-xl">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
                     <ShoppingBag className="w-5 h-5 text-primary" />

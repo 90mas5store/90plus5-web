@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 export async function updateOrderStatus(orderId: string, newStatus: string, notes?: string) {
     const supabase = await createClient()
@@ -12,7 +13,23 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
         throw new Error('Unauthorized')
     }
 
-    const updateData: any = { status: newStatus }
+    // 🛡️ A3 FIX: Rate limit — máximo 5 cambios de estado por orden por minuto
+    const { allowed } = checkRateLimit(`order-status:${orderId}`, 5, 60_000);
+    if (!allowed) {
+        throw new Error('Demasiados cambios de estado para esta orden. Espera un momento.');
+    }
+
+    // 🛡️ Validar que el nuevo estado sea un valor permitido
+    const ALLOWED_STATUSES = [
+        'pending_payment_50', 'deposit_paid', 'payment_verified',
+        'processing', 'shipped_to_hn', 'in_customs',
+        'ready_for_delivery', 'paid_full', 'completed', 'Cancelled'
+    ];
+    if (!ALLOWED_STATUSES.includes(newStatus)) {
+        throw new Error('Estado inválido');
+    }
+
+    const updateData = { status: newStatus }
     // Si quisieras guardar notas o tracking, podrías agregarlo a una columna 'admin_notes' o similar
     // Por ahora solo status.
 

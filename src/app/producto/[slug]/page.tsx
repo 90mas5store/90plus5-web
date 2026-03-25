@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProductoPersonalizar from "@/components/product/ProductoPersonalizar";
 import RelatedProducts from "@/components/product/RelatedProducts";
+import Breadcrumb from "@/components/ui/Breadcrumb";
 import { adaptSupabaseProductToProduct } from "@/lib/api";
 import { Metadata, ResolvingMetadata } from "next";
 
@@ -126,14 +127,23 @@ export default async function ProductoPage({ params }: Props) {
     const { data: relatedRaw } = await relatedQuery;
     const relatedProducts = (relatedRaw || []).map(adaptSupabaseProductToProduct);
 
+    // 🧭 Breadcrumb data
+    const teamName = productData.teams?.name || "Catálogo";
+    const breadcrumbItems = [
+        { label: "Catálogo", href: "/catalogo" },
+        { label: `${teamName} — ${productData.name}` },
+    ];
+
     // 🧠 Structured Data (JSON-LD) for Google Rich Results
-    const price = productData.variants?.[0]?.price || 0;
-    const jsonLd = {
+    const price = productData.variants?.[0]?.price ?? 0;
+    const productUrl = `https://90mas5.store/producto/${params.slug}`;
+
+    const productJsonLd = {
         "@context": "https://schema.org",
         "@type": "Product",
         "name": productData.name,
-        "image": [productData.image_url],
-        "description": productData.description,
+        ...(productData.image_url && { "image": [productData.image_url] }),
+        ...(productData.description && { "description": productData.description }),
         "sku": productData.id,
         "brand": {
             "@type": "Brand",
@@ -141,12 +151,41 @@ export default async function ProductoPage({ params }: Props) {
         },
         "offers": {
             "@type": "Offer",
-            "url": `https://90mas5.store/producto/${params.slug}`,
+            "url": productUrl,
             "priceCurrency": "HNL",
             "price": price,
             "availability": "https://schema.org/InStock",
-            "itemCondition": "https://schema.org/NewCondition"
+            "itemCondition": "https://schema.org/NewCondition",
+            "seller": {
+                "@type": "Organization",
+                "name": "90+5 Store"
+            }
         }
+    };
+
+    const breadcrumbJsonLd = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Inicio",
+                "item": "https://90mas5.store"
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Catálogo",
+                "item": "https://90mas5.store/catalogo"
+            },
+            {
+                "@type": "ListItem",
+                "position": 3,
+                "name": `${teamName} — ${productData.name}`,
+                "item": productUrl
+            }
+        ]
     };
 
     // @ts-ignore - Supabase type transformation handled above safely
@@ -154,9 +193,16 @@ export default async function ProductoPage({ params }: Props) {
         <>
             <script
                 type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
             />
-            <ProductoPersonalizar product={productData} />
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+            />
+            <ProductoPersonalizar
+                product={productData}
+                breadcrumb={<Breadcrumb items={breadcrumbItems} />}
+            />
 
             {/* 🔗 Relacionados */}
             <RelatedProducts products={relatedProducts} />

@@ -3,7 +3,55 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+
+// 🛡️ M6 FIX: Rate limit simple en cliente para login de admin
+// Máximo 5 intentos en 15 minutos. Después, bloqueo temporal.
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutos
+
+function getLoginAttempts(): { count: number; firstAttemptAt: number } {
+    if (typeof window === 'undefined') return { count: 0, firstAttemptAt: 0 };
+    try {
+        const stored = sessionStorage.getItem('admin_login_attempts');
+        if (!stored) return { count: 0, firstAttemptAt: 0 };
+        return JSON.parse(stored);
+    } catch {
+        return { count: 0, firstAttemptAt: 0 };
+    }
+}
+
+function recordLoginAttempt(): boolean {
+    const now = Date.now();
+    const attempts = getLoginAttempts();
+
+    // Si ha pasado el lockout, resetear
+    if (attempts.firstAttemptAt && (now - attempts.firstAttemptAt) > LOGIN_LOCKOUT_MS) {
+        sessionStorage.setItem('admin_login_attempts', JSON.stringify({ count: 1, firstAttemptAt: now }));
+        return true; // Permitido
+    }
+
+    const newCount = attempts.count + 1;
+    sessionStorage.setItem('admin_login_attempts', JSON.stringify({
+        count: newCount,
+        firstAttemptAt: attempts.firstAttemptAt || now,
+    }));
+
+    return newCount <= LOGIN_MAX_ATTEMPTS;
+}
+
+function clearLoginAttempts() {
+    if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('admin_login_attempts');
+    }
+}
+
+function getRemainingLockoutMinutes(): number {
+    const attempts = getLoginAttempts();
+    if (!attempts.firstAttemptAt) return 0;
+    const elapsed = Date.now() - attempts.firstAttemptAt;
+    const remaining = LOGIN_LOCKOUT_MS - elapsed;
+    return Math.max(0, Math.ceil(remaining / 60_000));
+}
 
 export default function AdminLogin() {
     const [email, setEmail] = useState('')
@@ -15,8 +63,19 @@ export default function AdminLogin() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
-        setLoading(true)
         setError(null)
+
+        // 🛡️ M6 FIX: Verificar rate limit antes de intentar login
+        const attempts = getLoginAttempts();
+        if (attempts.count >= LOGIN_MAX_ATTEMPTS) {
+            const remaining = getRemainingLockoutMinutes();
+            if (remaining > 0) {
+                setError(`Demasiados intentos fallidos. Espera ${remaining} minuto${remaining !== 1 ? 's' : ''} antes de intentar de nuevo.`);
+                return;
+            }
+        }
+
+        setLoading(true)
 
         const { error } = await supabase.auth.signInWithPassword({
             email,
@@ -24,17 +83,26 @@ export default function AdminLogin() {
         })
 
         if (error) {
-            setError(error.message)
+            // Registrar intento fallido
+            const allowed = recordLoginAttempt();
+            if (!allowed) {
+                const remaining = getRemainingLockoutMinutes();
+                setError(`Demasiados intentos fallidos. Espera ${remaining} minuto${remaining !== 1 ? 's' : ''} antes de intentar de nuevo.`);
+            } else {
+                const remaining = LOGIN_MAX_ATTEMPTS - getLoginAttempts().count;
+                setError(`${error.message}${remaining <= 2 ? ` (${remaining} intento${remaining !== 1 ? 's' : ''} restante${remaining !== 1 ? 's' : ''})` : ''}`);
+            }
             setLoading(false)
         } else {
-            // Login exitoso, redirigir al dashboard
+            // Login exitoso, limpiar contador
+            clearLoginAttempts();
             router.push('/admin')
             router.refresh()
         }
     }
 
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="min-h-dvh bg-black flex items-center justify-center p-4">
             <div className="bg-neutral-900 border border-white/10 p-8 rounded-3xl w-full max-w-md shadow-2xl">
                 <div className="flex justify-center mb-8">
                     {/* Asumiendo que tienes un logo, si no usa texto */}

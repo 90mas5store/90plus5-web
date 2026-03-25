@@ -99,7 +99,7 @@ export function usePrefetchOnVisible(href: string, options?: IntersectionObserve
  * Hook para precargar datos al idle
  * Ejecuta una función cuando el navegador está idle
  */
-export function useIdleCallback(callback: () => void, dependencies: any[] = []) {
+export function useIdleCallback(callback: () => void, dependencies: unknown[] = []) {
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
@@ -111,7 +111,7 @@ export function useIdleCallback(callback: () => void, dependencies: any[] = []) 
             const id = setTimeout(callback, 100);
             return () => clearTimeout(id);
         }
-    }, dependencies);
+    }, [callback, ...dependencies]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /**

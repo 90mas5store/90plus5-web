@@ -22,7 +22,6 @@ function TrackingContent() {
             setOrderId(urlOrderId);
             fetchOrder(urlOrderId);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
     const fetchOrder = async (id: string) => {
@@ -151,7 +150,6 @@ function TrackingContent() {
                             </div>
                         </div>
 
-                        {/* Productos */}
                         <div className="space-y-3">
                             {orderData.items.map((item: any, i: number) => (
                                 <div key={i} className="flex gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
@@ -182,7 +180,7 @@ function TrackingContent() {
 
 export default function TrackingPage() {
     return (
-        <main className="min-h-screen pt-20 md:pt-24 pb-12 px-4 bg-black text-white relative overflow-hidden">
+        <main className="min-h-dvh pt-20 md:pt-24 pb-12 px-4 bg-black text-white relative overflow-hidden">
             {/* Background Aura */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[500px] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
 

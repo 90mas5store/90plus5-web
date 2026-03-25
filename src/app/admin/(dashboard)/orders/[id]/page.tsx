@@ -108,7 +108,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                             <h3 className="font-black text-white text-base md:text-lg leading-tight mb-1">
                                                 {item.products?.name || 'Producto Desconocido'}
                                             </h3>
-                                            <p className="text-primary font-bold text-sm md:text-base">L {(item.unit_price * item.quantity).toLocaleString()}</p>
+                                            <p className="text-primary font-bold text-sm md:text-base">L {(item.unit_price * item.quantity).toLocaleString("es-HN")}</p>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-y-3 gap-x-8 text-sm">
@@ -162,7 +162,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                             <div className="w-full md:w-72 space-y-3">
                                 <div className="flex justify-between text-gray-400 text-sm">
                                     <span>Subtotal</span>
-                                    <span>L {order.subtotal?.toLocaleString() ?? 0}</span>
+                                    <span>L {order.subtotal?.toLocaleString("es-HN") ?? 0}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-400 text-sm">
                                     <span>Envío</span>
@@ -170,15 +170,15 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                 </div>
                                 <div className="flex justify-between text-white text-2xl font-black pt-4 border-t border-white/10">
                                     <span>Total</span>
-                                    <span>L {order.total_amount?.toLocaleString() ?? 0}</span>
+                                    <span>L {order.total_amount?.toLocaleString("es-HN") ?? 0}</span>
                                 </div>
                                 <div className="flex justify-between text-green-500 text-sm font-bold bg-green-500/10 p-3 rounded-lg border border-green-500/20">
                                     <span>Anticipo Pagado</span>
-                                    <span>- L {order.deposit_amount?.toLocaleString() ?? 0}</span>
+                                    <span>- L {order.deposit_amount?.toLocaleString("es-HN") ?? 0}</span>
                                 </div>
                                 <div className="flex justify-between text-orange-500 text-xl font-black bg-orange-500/10 p-4 rounded-xl border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
                                     <span>Pendiente</span>
-                                    <span>L {(order.total_amount - order.deposit_amount).toLocaleString()}</span>
+                                    <span>L {(order.total_amount - order.deposit_amount).toLocaleString("es-HN")}</span>
                                 </div>
                             </div>
                         </div>

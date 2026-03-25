@@ -31,8 +31,8 @@ const fadeInItem = (i = 0) => ({
 
 interface HomeClientProps {
     initialDestacados: Product[];
-    initialBanners: any[];
-    initialLigas: any[]; // Processed leagues
+    initialBanners: Record<string, unknown>[];
+    initialLigas: import('@/lib/types').League[];
     initialCategorias: Category[];
 }
 
@@ -101,7 +101,7 @@ export default function HomeClient({
     };
 
     return (
-        <main className="bg-background text-textLight min-h-screen relative overflow-hidden">
+        <main className="bg-background text-textLight min-h-dvh relative overflow-hidden">
 
             {/* 🏟️ HERO */}
             <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>

@@ -13,7 +13,7 @@ export default function DashboardMetrics({ totalOrders, totalSales }: DashboardM
     const cards = [
         {
             label: "Ventas Totales",
-            value: `L ${totalSales.toLocaleString()}`,
+            value: `L ${totalSales.toLocaleString("es-HN")}`,
             icon: CreditCard,
             color: "text-primary",
             bg: "bg-neutral-900 border-white/5" // Keeping base consistent but maybe adding glow
@@ -27,7 +27,7 @@ export default function DashboardMetrics({ totalOrders, totalSales }: DashboardM
         },
         {
             label: "Ticket Promedio",
-            value: `L ${averageOrder.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+            value: `L ${averageOrder.toLocaleString("es-HN", { maximumFractionDigits: 0 })}`,
             icon: TrendingUp,
             color: "text-emerald-400",
             bg: "bg-neutral-900 border-white/5"
@@ -55,7 +55,7 @@ export default function DashboardMetrics({ totalOrders, totalSales }: DashboardM
                             {/* <span className="text-xs font-bold bg-green-500/20 text-green-500 px-2 py-1 rounded">+12%</span> */}
                         </div>
                         <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">{card.label}</h3>
-                        <p className={`text-4xl font-black ${card.color} tracking-tight`}>{card.value}</p>
+                        <p className={`text-3xl md:text-4xl font-black ${card.color} tracking-tight`}>{card.value}</p>
                     </div>
                 </motion.div>
             ))}

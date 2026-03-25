@@ -30,7 +30,7 @@ export default function TransferenciaPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 py-20">
+    <main className="min-h-dvh bg-black text-white flex flex-col items-center justify-center px-6 py-20">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

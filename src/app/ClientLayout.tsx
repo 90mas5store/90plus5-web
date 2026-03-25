@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Loader from "../components/Loader";
 
 import WhatsAppButton from "@/components/ui/WhatsAppButton";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const [showSplash, setShowSplash] = useState(false);
+    const pathname = usePathname();
+    const isAdmin = pathname?.startsWith('/admin');
 
     useEffect(() => {
         // 🚀 Registrar Service Worker
@@ -18,27 +21,37 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             });
         }
 
+        // 🔴 No mostrar splash en el panel admin
+        if (isAdmin) return;
+
         const hasSeen = sessionStorage.getItem("hasSeenSplash");
 
         if (!hasSeen) {
-            setShowSplash(true);
-            const timer = setTimeout(() => {
+            // Llamar setState en callback (no síncronamente en el body del effect)
+            const showTimer = setTimeout(() => setShowSplash(true), 0);
+            const hideTimer = setTimeout(() => {
                 setShowSplash(false);
                 sessionStorage.setItem("hasSeenSplash", "true");
-            }, 1800);
-            return () => clearTimeout(timer);
+            }, 800);
+            return () => {
+                clearTimeout(showTimer);
+                clearTimeout(hideTimer);
+            };
         }
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAdmin]);
+
+    // En admin: renderizar directamente sin splash ni WhatsApp
+    if (isAdmin) {
+        return <>{children}</>;
+    }
 
     return (
         <>
             <Loader show={showSplash} text="Entrando al campo..." />
-            {!showSplash && (
-                <>
-                    <WhatsAppButton />
-                    {children}
-                </>
-            )}
+            <WhatsAppButton />
+            {children}
         </>
     );
 }
+

@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "@/lib/motion";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Star, Globe } from "lucide-react";
+import { ArrowRight, Globe } from "lucide-react";
 
 export default function SpecialEventBanner() {
+    const [videoFailed, setVideoFailed] = useState(false);
+
     return (
         <section
             className="px-4 max-w-7xl mx-auto mb-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both"
@@ -14,15 +17,25 @@ export default function SpecialEventBanner() {
                 {/* === BACKGROUND LAYERS === */}
                 {/* 1. Official Pattern VIDEO Loop */}
                 <div className="absolute inset-0 z-0 bg-neutral-900">
-                    <video
-                        src="/img/mundial2026/bg-loop.mp4"
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        poster="/img/mundial2026/poster.jpg" // Fallback hipotético o dejar vacío si no existe, pero bg-neutral-900 ayuda
-                        className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90"
-                    />
+                    {!videoFailed ? (
+                        <video
+                            src="/img/mundial2026/bg-loop.mp4"
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            poster="/heroes/mundial2026.jpg"
+                            className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90"
+                            onError={() => setVideoFailed(true)}
+                        />
+                    ) : (
+                        <Image
+                            src="/heroes/mundial2026.jpg"
+                            alt="Mundial 2026"
+                            fill
+                            className="object-cover opacity-60 brightness-75"
+                        />
+                    )}
                     {/* Dark Gradient Overlay: Vignette for focus */}
                     <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
                 </div>

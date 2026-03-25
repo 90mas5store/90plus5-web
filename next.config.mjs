@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /**
@@ -227,4 +229,28 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+    // Subir source maps solo en CI/CD para no exponer código en dev
+    silent: true,
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+
+    // Ocultar source maps del bundle público
+    hideSourceMaps: true,
+
+    webpack: {
+        // Eliminar logging de debug de Sentry (reemplaza disableLogger)
+        treeshake: {
+            removeDebugLogging: true,
+        },
+
+        // Tree-shaking de Sentry para reducir bundle size
+        automaticVercelMonitors: false,
+
+        // Deshabilitar anotaciones de componentes React — previene errores de hidratación
+        // (inyecta data-sentry-component attrs que deben coincidir SSR↔CSR exactamente)
+        reactComponentAnnotation: {
+            enabled: false,
+        },
+    },
+});

@@ -1,8 +1,48 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
     try {
+        // 🛡️ RATE LIMITING — máximo 5 invitaciones por IP cada 10 minutos
+        const ip = getClientIp(request);
+        const { allowed, retryAfterMs } = checkRateLimit(`admin-invite:${ip}`, 5, 10 * 60_000);
+        if (!allowed) {
+            return NextResponse.json(
+                { error: 'Demasiadas solicitudes. Intenta más tarde.' },
+                { status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
+            );
+        }
+
+        // 🔐 VERIFICAR AUTENTICACIÓN — Solo admins autenticados pueden crear admins
+        const supabaseUser = await createServerClient();
+        const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+        }
+
+        // 🔐 Verificar que el usuario está en la whitelist de admins Y tiene rol super_admin
+        const supabaseAdminCheck = createAdminClient();
+        const { data: adminRecord } = await supabaseAdminCheck
+            .from('admin_whitelist')
+            .select('id, role')
+            .eq('id', user.id)
+            .single();
+
+        if (!adminRecord) {
+            return NextResponse.json({ error: 'Acceso denegado: no eres administrador' }, { status: 403 });
+        }
+
+        // 🛡️ C2 FIX: Solo super_admin puede invitar nuevos administradores
+        if (adminRecord.role !== 'super_admin') {
+            console.warn(`🚫 Admin ${user.id} (${user.email}) intentó invitar sin ser super_admin (role: ${adminRecord.role})`);
+            return NextResponse.json(
+                { error: 'Solo un Super Admin puede invitar nuevos administradores.' },
+                { status: 403 }
+            );
+        }
+
         const { email, password } = await request.json();
 
         if (!email) {
@@ -10,11 +50,7 @@ export async function POST(request: Request) {
         }
 
         // 1. Crear cliente con permisos de SUPER ADMIN (Service Role)
-        // Esto es necesario para gestionar usuarios y enviar invitaciones
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        const supabaseAdmin = createAdminClient();
 
         console.log(`🔍 Buscando usuario: ${email} `);
 
@@ -46,7 +82,7 @@ export async function POST(request: Request) {
                 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
                 const { data: newUser, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-                    redirectTo: `${siteUrl} /admin/update - password`
+                    redirectTo: `${siteUrl}/admin/update-password`
                 });
                 if (inviteError) throw inviteError;
                 userId = newUser.user.id;
@@ -74,8 +110,9 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true, message: 'Administrador gestionado correctamente' });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('❌ Error en Invite API:', error);
-        return NextResponse.json({ error: error.message || 'Error interno del servidor' }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

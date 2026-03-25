@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js'
 
 const BASE_URL = 'https://90mas5.store'
 
-export const dynamic = 'force-dynamic'
 export const revalidate = 3600 // Revalidate every hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

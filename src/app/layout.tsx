@@ -84,9 +84,6 @@ export const metadata: Metadata = {
         images: ["/og-image.jpg"],
         creator: "@90mas5store",
     },
-    alternates: {
-        canonical: "/",
-    },
     verification: {
         google: "CzTKVzB0AjaAMCpZbKFoVnPrICCmgkyRV70C5sJO8Qo",
     },
@@ -97,6 +94,7 @@ export const viewport: Viewport = {
     themeColor: "#E50914",
     width: "device-width",
     initialScale: 1,
+    viewportFit: "cover",
 };
 
 // 🧱 Layout base (Server Component)
@@ -108,7 +106,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link
                     rel="preload"
                     as="image"
-                    href="/_next/image?url=%2Fhero-default.jpg&w=3840&q=75"
+                    href="/_next/image?url=%2Fheroes%2Fdefault.jpg&w=3840&q=75"
                     fetchPriority="high"
                 />
 
@@ -149,7 +147,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/* ✅ Suspense global */}
                 <Suspense
                     fallback={
-                        <main className="min-h-screen flex items-center justify-center text-white">
+                        <main className="min-h-dvh flex items-center justify-center text-white">
                             Cargando contenido...
                         </main>
                     }
@@ -159,7 +157,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             <ClientLayout>
                                 <HeaderWrapper />
                                 <CartDrawer />
-                                <main className="pt-0 min-h-screen">{children}</main>
+                                <main className="pt-0 min-h-dvh pb-[calc(4rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</main>
                                 <Footer />
                             </ClientLayout>
                         </MotionProvider>

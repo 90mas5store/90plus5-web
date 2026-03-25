@@ -104,7 +104,7 @@ export default function SearchBar({
                     value={value}
                     onFocus={() => setIsFocused(true)}
                     onChange={(e) => onChange(e.target.value)}
-                    className="relative w-full py-3 md:py-4 pl-10 md:pl-12 pr-10 md:pr-12 bg-transparent text-xs md:text-sm text-white placeholder-gray-400 outline-none rounded-2xl"
+                    className="relative w-full py-3 md:py-4 pl-10 md:pl-12 pr-10 md:pr-12 bg-transparent text-base md:text-sm text-white placeholder-gray-400 outline-none rounded-2xl"
                 />
                 <Search
                     onClick={handleSubmit}
@@ -157,7 +157,7 @@ export default function SearchBar({
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm font-black text-primary">
-                                            L {product.precio.toLocaleString()}
+                                            L {product.precio.toLocaleString("es-HN")}
                                         </p>
                                         <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-white group-hover:translate-x-1 transition-all ml-auto mt-1" />
                                     </div>
@@ -171,7 +171,7 @@ export default function SearchBar({
                                 className="w-full py-2 flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-[0.2em]"
                             >
                                 <Search className="w-3 h-3" />
-                                Ver todos los resultados para "{value}"
+                                Ver todos los resultados para &quot;{value}&quot;
                             </button>
                         </div>
                     </motion.div>

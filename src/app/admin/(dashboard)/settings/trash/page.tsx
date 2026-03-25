@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import { RotateCcw, Trash2, Search, AlertTriangle } from "lucide-react";
 import Image from "next/image";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 
 interface DeletedProduct {
     id: string;
@@ -17,13 +18,10 @@ interface DeletedProduct {
 export default function TrashPage() {
     const [products, setProducts] = useState<DeletedProduct[]>([]);
     const [loading, setLoading] = useState(true);
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const supabase = createClient();
 
-    useEffect(() => {
-        fetchDeleted();
-    }, []);
-
-    const fetchDeleted = async () => {
+    const fetchDeleted = useCallback(async () => {
         try {
             // Necesitamos seleccionar explícitamente los borrados.
             // Supabase no filtra automáticamente soft deletes a menos que usemos Views.
@@ -45,7 +43,11 @@ export default function TrashPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [supabase]);
+
+    useEffect(() => {
+        fetchDeleted();
+    }, [fetchDeleted]);
 
     const handleRestore = async (id: string) => {
         try {
@@ -63,9 +65,9 @@ export default function TrashPage() {
         }
     };
 
-    const handlePermanentDelete = async (id: string) => {
-        if (!confirm("⚠️ ¿Eliminar PERMANENTEMENTE? No se podrá recuperar.")) return;
+    const handlePermanentDelete = (id: string) => setDeleteTarget(id);
 
+    const executePermanentDelete = async (id: string) => {
         try {
             const { error } = await supabase.from("products").delete().eq("id", id);
             if (error) throw error;
@@ -127,7 +129,7 @@ export default function TrashPage() {
                                             </button>
                                             <button
                                                 onClick={() => handlePermanentDelete(p.id)}
-                                                className="p-2 text-gray-600 hover:text-red-500 transition-colors"
+                                                className="w-11 h-11 flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors"
                                                 title="Eliminar para siempre"
                                             >
                                                 <Trash2 size={16} />
@@ -140,6 +142,15 @@ export default function TrashPage() {
                     </table>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                title="Eliminación permanente"
+                message="¿Eliminar PERMANENTEMENTE este producto? Esta acción no se puede deshacer y no podrás recuperarlo."
+                confirmLabel="Eliminar para siempre"
+                onConfirm={() => { if (deleteTarget) executePermanentDelete(deleteTarget); setDeleteTarget(null); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     );
 }

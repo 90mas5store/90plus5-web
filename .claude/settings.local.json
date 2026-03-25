@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(find ~/.claude -name \"SKILL.md\" 2>/dev/null | xargs grep -l -i \"supabase\\\\|postgres\" 2>/dev/null)",
+      "Bash(npx:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(cd /c/Users/usuario/90plus5-web && npm uninstall xlsx 2>&1)",
+      "Bash(cd /c/Users/usuario/90plus5-web && npm audit fix 2>&1)",
+      "Bash(cd /c/Users/usuario/90plus5-web && node -e \"const sharp = require\\('sharp'\\)\" 2>&1)",
+      "Bash(node:*)",
+      "Bash(printf %s:*)",
+      "Bash(cd /c/Users/usuario/90plus5-web && npm audit 2>&1)",
+      "Bash(cd /c/Users/usuario/90plus5-web && npm run build 2>&1)",
+      "Bash(python3:*)",
+      "Bash(cd \"C:/Users/usuario/90plus5-web\" && npm test 2>&1)",
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(grep:*)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__apply_migration"
+    ]
+  }
+}

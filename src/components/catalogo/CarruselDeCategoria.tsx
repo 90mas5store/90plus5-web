@@ -9,7 +9,7 @@ interface CategoryItem {
   Liga?: string;
   imagen?: string;
   "Imagen Liga (URL)"?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface CarruselDeCategoriaProps {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
 import Image from "next/image";
@@ -70,6 +70,7 @@ interface CreateOrderPayload {
         custom_name: string | null;
     }>;
     _honey?: string; // Honeypot
+    idempotency_key?: string;
 }
 
 interface OrderResponse {
@@ -113,6 +114,26 @@ export default function CheckoutPage() {
     const [aceptoTerminos, setAceptoTerminos] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errores, setErrores] = useState<FormErrors>({});
+
+    // 🛡️ M9 FIX: Idempotency key determinista basada en contenido del carrito
+    // Mismos items = misma key → previene duplicados desde múltiples tabs
+    const idempotencyKey = useRef('');
+    useEffect(() => {
+        const cartFingerprint = items
+            .map(i => `${i.id}:${i.variant_id || ''}:${i.size_id || ''}:${i.cantidad}:${i.dorsalNombre || ''}:${i.dorsalNumero || ''}`)
+            .sort()
+            .join('|');
+        // Simple hash function (djb2)
+        let hash = 5381;
+        for (let i = 0; i < cartFingerprint.length; i++) {
+            hash = ((hash << 5) + hash) + cartFingerprint.charCodeAt(i);
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        // Combinar con timestamp de sesión para unicidad entre sesiones
+        const sessionId = sessionStorage.getItem('checkout_session') || crypto.randomUUID();
+        sessionStorage.setItem('checkout_session', sessionId);
+        idempotencyKey.current = `${Math.abs(hash).toString(36)}-${sessionId}`;
+    }, [items]);
 
     const anticipo = total * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
 
@@ -188,26 +209,13 @@ export default function CheckoutPage() {
         );
     };
 
-    // Auto-detect si ya hay permiso (silent)
-    useEffect(() => {
-        if (shippingZones.length > 0 && typeof navigator !== 'undefined' && "geolocation" in navigator) {
-            navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-                if (result.state === 'granted') {
-                    detectLocation();
-                }
-            });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shippingZones]);
-
-
-    // 📍 Efecto de Geolocalización
+    // 📍 Nota: La geolocalización solo se activa al pulsar el botón manual.
 
 
     // === VALIDACIÓN ===
     const validate = (): boolean => {
         const newErrors: FormErrors = {};
-        const telRegex = /^[0-9]{4}-[0-9]{4}$/;
+        const telRegex = BUSINESS_LOGIC.CONTACT.PHONE_REGEX;
 
         if (!formData.nombre.trim()) newErrors.nombre = true;
         if (!formData.correo.includes("@")) newErrors.correo = true;
@@ -232,14 +240,40 @@ export default function CheckoutPage() {
             const digits = value.replace(/\D/g, "").slice(0, 8);
             const formatted = digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
             setFormData({ ...formData, telefono: formatted });
+            // Clear error on valid input
+            if (/^[0-9]{4}-[0-9]{4}$/.test(formatted)) {
+                setErrores((prev) => ({ ...prev, telefono: undefined }));
+            }
             return;
         }
         setFormData((prev) => ({ ...prev, [name]: value as string }));
+        // Clear error when field has content
+        if (value.trim()) {
+            setErrores((prev) => ({ ...prev, [name]: undefined }));
+        }
+    };
+
+    // === BLUR HANDLER — validación al salir del campo ===
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        const telRegex = BUSINESS_LOGIC.CONTACT.PHONE_REGEX;
+        let hasError = false;
+        if (name === "nombre") hasError = !value.trim();
+        if (name === "correo") hasError = !value.includes("@");
+        if (name === "telefono") hasError = !telRegex.test(value);
+        if (name === "direccion") hasError = !value.trim();
+        if (name === "departamento") hasError = !value;
+        if (name === "municipio") hasError = !value;
+        setErrores((prev) => ({ ...prev, [name]: hasError || undefined }));
     };
 
     // === SUBMIT ===
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (items.length === 0) {
+            toastMsg.warning("Tu carrito está vacío");
+            return;
+        }
         if (!validate()) {
             toastMsg.warning("Completa todos los campos obligatorios");
             return;
@@ -300,6 +334,7 @@ export default function CheckoutPage() {
                 payment_method: metodoPago,
                 items: itemsPayload,
                 _honey: formData.description, // Enviar honeypot
+                idempotency_key: idempotencyKey.current,
             };
 
             const response = await fetch('/api/orders/create', {
@@ -332,9 +367,9 @@ export default function CheckoutPage() {
 
             router.push(`/checkout/done?${query}`);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Checkout error:', error);
-            toastMsg.error(error.message || "Error al procesar el pedido. Intenta nuevamente.");
+            toastMsg.error((error as Error).message || "Error al procesar el pedido. Intenta nuevamente.");
         } finally {
             setIsSubmitting(false);
         }
@@ -343,7 +378,7 @@ export default function CheckoutPage() {
     // === UI ===
     if (items.length === 0) {
         return (
-            <main className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] text-white px-6">
+            <main className="min-h-dvh flex flex-col items-center justify-center bg-[#0a0a0a] text-white px-6">
                 <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center border border-white/10 mb-6">
                     <ShoppingBag className="w-12 h-12 text-gray-600" />
                 </div>
@@ -357,7 +392,7 @@ export default function CheckoutPage() {
     }
 
     return (
-        <main className="min-h-screen bg-[#0a0a0a] text-white pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
+        <main className="min-h-dvh bg-[#0a0a0a] text-white pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
             {/* ✨ Background Glows */}
             <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
             <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
@@ -383,7 +418,7 @@ export default function CheckoutPage() {
                     <div className="lg:col-span-7 space-y-6 md:space-y-8">
 
                         {/* SECCIÓN 1: DATOS PERSONALES */}
-                        <section className="bg-white/5 backdrop-blur-xl border border-white/10 p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                        <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                             <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
                                 <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-xl md:rounded-2xl flex items-center justify-center border border-primary/20">
                                     <User className="w-5 h-5 md:w-6 md:h-6 text-primary" />
@@ -400,6 +435,7 @@ export default function CheckoutPage() {
                                             name="nombre"
                                             value={formData.nombre}
                                             onChange={handleChange}
+                                            onBlur={handleBlur}
                                             placeholder="Ej. Juan Pérez"
                                             className={`w-full pl-12 pr-4 py-4 rounded-2xl bg-black/40 border ${errores.nombre ? "border-red-500/50" : "border-white/10"
                                                 } focus:border-primary/50 outline-none text-white transition-all font-medium`}
@@ -416,6 +452,7 @@ export default function CheckoutPage() {
                                             name="correo"
                                             value={formData.correo}
                                             onChange={handleChange}
+                                            onBlur={handleBlur}
                                             placeholder="juan@ejemplo.com"
                                             className={`w-full pl-12 pr-4 py-4 rounded-2xl bg-black/40 border ${errores.correo ? "border-red-500/50" : "border-white/10"
                                                 } focus:border-primary/50 outline-none text-white transition-all font-medium`}
@@ -452,6 +489,7 @@ export default function CheckoutPage() {
                                             name="telefono"
                                             value={formData.telefono}
                                             onChange={handleChange}
+                                            onBlur={handleBlur}
                                             placeholder="0000-0000"
                                             className={`w-full pl-20 sm:pl-24 pr-4 py-4 rounded-2xl bg-black/40 border ${errores.telefono ? "border-red-500/50" : "border-white/10"
                                                 } focus:border-primary/50 outline-none text-white transition-all font-medium tracking-widest`}
@@ -462,7 +500,7 @@ export default function CheckoutPage() {
                         </section>
 
                         {/* SECCIÓN 2: ENTREGA */}
-                        <section className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                        <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                             <div className="flex items-center gap-4 mb-4">
                                 <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20">
                                     <MapPin className="w-6 h-6 text-primary" />
@@ -488,9 +526,11 @@ export default function CheckoutPage() {
                                     <select
                                         name="departamento"
                                         value={formData.departamento}
-                                        onChange={(e) =>
-                                            setFormData(prev => ({ ...prev, departamento: e.target.value, municipio: "" }))
-                                        }
+                                        onChange={(e) => {
+                                            setFormData(prev => ({ ...prev, departamento: e.target.value, municipio: "" }));
+                                            if (e.target.value) setErrores(prev => ({ ...prev, departamento: undefined }));
+                                        }}
+                                        onBlur={handleBlur}
                                         className={`w-full px-4 py-4 rounded-2xl bg-black/40 border ${errores.departamento ? "border-red-500/50" : "border-white/10"
                                             } text-white focus:border-primary/50 outline-none transition-all font-medium appearance-none`}
                                     >
@@ -509,6 +549,7 @@ export default function CheckoutPage() {
                                         name="municipio"
                                         value={formData.municipio}
                                         onChange={handleChange}
+                                        onBlur={handleBlur}
                                         disabled={!formData.departamento}
                                         className={`w-full px-4 py-4 rounded-2xl bg-black/40 border ${errores.municipio ? "border-red-500/50" : "border-white/10"
                                             } text-white focus:border-primary/50 outline-none transition-all font-medium appearance-none disabled:opacity-30`}
@@ -532,6 +573,7 @@ export default function CheckoutPage() {
                                             rows={3}
                                             value={formData.direccion}
                                             onChange={handleChange}
+                                            onBlur={handleBlur}
                                             placeholder="Barrio, calle, número de casa, puntos de referencia..."
                                             className={`w-full pl-12 pr-4 py-4 rounded-2xl bg-black/40 border ${errores.direccion ? "border-red-500/50" : "border-white/10"
                                                 } focus:border-primary/50 outline-none text-white transition-all font-medium resize-none`}
@@ -542,7 +584,7 @@ export default function CheckoutPage() {
                         </section>
 
                         {/* SECCIÓN 3: PAGO */}
-                        <section className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                        <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                             <div className="flex items-center gap-4 mb-8">
                                 <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20">
                                     <CreditCard className="w-6 h-6 text-primary" />
@@ -552,7 +594,7 @@ export default function CheckoutPage() {
 
                             <div className="grid grid-cols-1 gap-4">
                                 {[
-                                    { id: "transferencia", label: "Transferencia Bancaria", icon: Building2, desc: "Paga el 50% de anticipo vía transferencia.", disabled: false },
+                                    { id: "transferencia", label: "Transferencia Bancaria", icon: Building2, desc: `Paga el ${BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE * 100}% de anticipo vía transferencia.`, disabled: false },
                                     { id: "tarjeta", label: "Tarjeta de Crédito / Débito", icon: CreditCard, desc: "Pago seguro en línea.", disabled: true }
                                 ].map((opt) => (
                                     <label
@@ -615,7 +657,7 @@ export default function CheckoutPage() {
                     {/* 🛒 COLUMNA DERECHA: RESUMEN */}
                     <div className="lg:col-span-5">
                         <div className="sticky top-28 space-y-8">
-                            <section className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                            <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                                 <div className="flex items-center justify-between mb-8">
                                     <h2 className="text-xl font-black uppercase tracking-tight">Tu Pedido</h2>
                                     <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -644,7 +686,7 @@ export default function CheckoutPage() {
                                                 )}
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm font-black text-white">L{item.precio.toLocaleString()}</p>
+                                                <p className="text-sm font-black text-white">L{item.precio.toLocaleString("es-HN")}</p>
                                                 <p className="text-[10px] text-gray-500 font-bold mt-1">x{item.cantidad}</p>
                                             </div>
                                         </div>
@@ -654,7 +696,7 @@ export default function CheckoutPage() {
                                 <div className="space-y-4 pt-6 border-t border-white/5">
                                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
                                         <span>Subtotal</span>
-                                        <span className="text-white">L{total.toLocaleString()}</span>
+                                        <span className="text-white">L{total.toLocaleString("es-HN")}</span>
                                     </div>
                                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
                                         <span>Envío</span>
@@ -666,8 +708,8 @@ export default function CheckoutPage() {
                                             <span className="text-[10px] text-primary font-bold uppercase tracking-widest">Anticipo del {BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE * 100}% requerido</span>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-3xl font-black text-white tracking-tighter">L{total.toLocaleString()}</p>
-                                            <p className="text-sm font-black text-primary drop-shadow-[0_0_10px_rgba(229,9,20,0.3)]">Anticipo: L{anticipo.toLocaleString()}</p>
+                                            <p className="text-3xl font-black text-white tracking-tighter">L{total.toLocaleString("es-HN")}</p>
+                                            <p className="text-sm font-black text-primary drop-shadow-[0_0_10px_rgba(229,9,20,0.3)]">Anticipo: L{anticipo.toLocaleString("es-HN")}</p>
                                         </div>
                                     </div>
                                 </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import { Trash2, UserPlus, ShieldAlert } from "lucide-react";
@@ -21,11 +21,7 @@ export default function AdminUsersPage() {
     const [isDeleting, setIsDeleting] = useState(false);
     const supabase = createClient();
 
-    useEffect(() => {
-        fetchAdmins();
-    }, []);
-
-    const fetchAdmins = async () => {
+    const fetchAdmins = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from("admin_whitelist")
@@ -40,7 +36,11 @@ export default function AdminUsersPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [supabase]);
+
+    useEffect(() => {
+        fetchAdmins();
+    }, [fetchAdmins]);
 
     const handleAddAdmin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -76,8 +76,8 @@ export default function AdminUsersPage() {
             setNewEmail("");
             setNewPassword("");
             fetchAdmins();
-        } catch (error: any) {
-            toast.error(error.message || "Error al añadir admin");
+        } catch (error: unknown) {
+            toast.error((error as Error).message || "Error al añadir admin");
         } finally {
             setIsAdding(false);
         }

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/middleware'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -9,22 +10,53 @@ const MAX_REQUESTS = 3; // Máximo 3 intentos de creación por minuto por IP
 // Almacén en memoria
 const ipCache = new Map<string, { count: number; expires: number }>();
 
+/**
+ * 🔐 Verifica si un usuario está en la whitelist de admins usando Service Role.
+ * Esto NO puede ser bypaseado desde el cliente.
+ */
+async function isUserInAdminWhitelist(userId: string): Promise<boolean> {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+        console.error('❌ Missing SUPABASE_URL or SERVICE_ROLE_KEY for admin whitelist check');
+        return false; // Fail closed: si no hay config, denegar acceso
+    }
+
+    const adminClient = createSupabaseClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    const { data, error } = await adminClient
+        .from('admin_whitelist')
+        .select('id')
+        .eq('id', userId)
+        .single();
+
+    if (error || !data) {
+        return false;
+    }
+
+    return true;
+}
+
 export async function middleware(req: NextRequest) {
     let res = NextResponse.next()
 
     // 1️⃣ PROTECCIÓN DE RUTA /admin
     if (req.nextUrl.pathname.startsWith('/admin')) {
-        // Excluimos la página de login
+        // Excluimos SOLO la página de login
         if (req.nextUrl.pathname === '/admin/login') {
             return res;
         }
+
+        // ⚠️ /admin/update-password YA NO está excluido — se protege igual que cualquier ruta admin
 
         const { supabase, response } = await createClient(req)
         // Actualizamos 'res' con la respuesta que trae las cookies actualizadas de Supabase
         res = response;
 
-        // 🔐 Usamos getUser() en lugar de getSession() por seguridad
-        // getUser() verifica el token con el servidor de Supabase
+        // 🔐 Paso 1: Verificar autenticación con getUser() (valida contra el servidor de Supabase)
         const { data: { user }, error } = await supabase.auth.getUser()
 
         // Si no hay usuario autenticado, redirigir al login
@@ -32,8 +64,20 @@ export async function middleware(req: NextRequest) {
             return NextResponse.redirect(new URL('/admin/login', req.url))
         }
 
-        // (Opcional) Aquí podrías validar user.email === 'tu@email.com'
-        // para seguridad paranoica extra.
+        // 🔐 Paso 2: Verificar que el usuario está en admin_whitelist (server-side, no bypasseable)
+        const isAdmin = await isUserInAdminWhitelist(user.id);
+
+        if (!isAdmin) {
+            console.warn(`🚫 Usuario ${user.id} (${user.email}) intentó acceder a admin sin estar en whitelist`);
+
+            // Cerrar sesión del usuario para evitar loops
+            await supabase.auth.signOut();
+
+            // Redirigir al login con mensaje de error
+            const loginUrl = new URL('/admin/login', req.url);
+            loginUrl.searchParams.set('error', 'access_denied');
+            return NextResponse.redirect(loginUrl);
+        }
     }
 
 

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import DashboardMetrics from '@/components/admin/DashboardMetrics'
 import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
 
-export const dynamic = 'force-dynamic'; // Asegurar que siempre traiga datos frescos
+export const revalidate = 300; // Revalidar cada 5 minutos
 
 export default async function AdminDashboard() {
     const supabase = await createClient()
@@ -20,24 +20,11 @@ export default async function AdminDashboard() {
         return <div className="text-red-500 p-4">Error cargando pedidos: {error.message}</div>
     }
 
-    // Cálculos
-    // Note: total count should be a separate query if we had pagination, but with limit small this is just "recent". 
-    // Ideally we want TOTAL stats. 
-    // Let's do a quick separate count query for the metrics to be accurate.
-    const { count: totalCount, error: countError } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true });
+    // Métricas precisas via RPC (una sola query agregada)
+    const { data: stats } = await supabase.rpc('get_order_stats').single();
 
-    // For sales sum, we need all orders or a sum function RPC. 
-    // Since we don't have an RPC, we rely on the fetching. 
-    // Fetching ALL purely for sum is expensive. 
-    // I'll stick to the "Recent" text logic if I can't sum all.
-    // However, user asked for "Improvement". Let's try to fetch a bit more for the sum, or accept it's "Recent Sales".
-    // Let's fetch last 100 for the stats to be semi-realistic without killing perf.
-    const { data: ordersForStats } = await supabase.from('orders').select('total_amount').limit(100);
-
-    const trueTotalOrders = totalCount || 0;
-    const estimatedTotalSales = ordersForStats?.reduce((acc, order) => acc + (order.total_amount || 0), 0) || 0;
+    const trueTotalOrders = (stats as { total_orders: number } | null)?.total_orders || 0;
+    const estimatedTotalSales = (stats as { total_sales: number } | null)?.total_sales || 0;
 
     return (
         <div className="space-y-8">
@@ -60,34 +47,34 @@ export default async function AdminDashboard() {
                     <table className="w-full text-left">
                         <thead className="bg-white/5 text-gray-400 text-xs uppercase font-bold">
                             <tr>
-                                <th className="px-6 py-4"># Referencia</th>
-                                <th className="px-6 py-4">Cliente</th>
-                                <th className="px-6 py-4">Estado</th>
-                                <th className="px-6 py-4">Total</th>
-                                <th className="px-6 py-4">Fecha</th>
-                                <th className="px-6 py-4 text-right">Acción</th>
+                                <th className="px-3 md:px-6 py-4"># Ref.</th>
+                                <th className="px-3 md:px-6 py-4">Cliente</th>
+                                <th className="px-3 md:px-6 py-4">Estado</th>
+                                <th className="px-3 md:px-6 py-4">Total</th>
+                                <th className="px-3 md:px-6 py-4 hidden md:table-cell">Fecha</th>
+                                <th className="px-3 md:px-6 py-4 text-right">Acción</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5 text-sm">
+                        <tbody className="divide-y divide-white/5 text-xs md:text-sm">
                             {orders?.map((order) => (
                                 <tr key={order.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="px-6 py-4 font-mono text-gray-500 font-bold">
+                                    <td className="px-3 md:px-6 py-3 md:py-4 font-mono text-gray-500 font-bold">
                                         <span className="text-white">#{order.id.slice(0, 8).toUpperCase()}</span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-3 md:px-6 py-3 md:py-4">
                                         <div className="font-bold text-white">{order.customer_name}</div>
-                                        <div className="text-xs text-gray-500">{order.customer_email}</div>
+                                        <div className="text-xs text-gray-500 hidden md:block">{order.customer_email}</div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-3 md:px-6 py-3 md:py-4">
                                         <OrderStatusBadge status={order.status} />
                                     </td>
-                                    <td className="px-6 py-4 font-bold text-white">
-                                        L {order.total_amount?.toLocaleString()}
+                                    <td className="px-3 md:px-6 py-3 md:py-4 font-bold text-white">
+                                        L {order.total_amount?.toLocaleString("es-HN")}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-400">
+                                    <td className="px-3 md:px-6 py-3 md:py-4 text-gray-400 hidden md:table-cell">
                                         {new Date(order.created_at).toLocaleDateString()}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
+                                    <td className="px-3 md:px-6 py-3 md:py-4 text-right">
                                         <Link href={`/admin/orders/${order.id}`} className="text-primary font-bold hover:underline">Ver</Link>
                                     </td>
                                 </tr>

@@ -8,8 +8,11 @@ export default function Loader({ show = true, text = "Cargando..." }) {
   const [visible, setVisible] = useState(show);
 
   useEffect(() => {
-    if (show) setVisible(true);
-    else {
+    if (show) {
+      // Deferir setState para no llamarlo síncronamente en el body del effect
+      const id = setTimeout(() => setVisible(true), 0);
+      return () => clearTimeout(id);
+    } else {
       const timer = setTimeout(() => setVisible(false), 400); // espera animación de salida
       return () => clearTimeout(timer);
     }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FileSpreadsheet, Download, Calendar, Loader2, FileText, Filter } from 'lucide-react'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import useToastMessage from '@/hooks/useToastMessage'
 import { createClient } from '@/lib/supabase/client'
 
@@ -19,7 +19,7 @@ export default function ReportesPage() {
         { value: 'pending_payment_50', label: 'Pendiente Anticipo', color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
         { value: 'deposit_paid', label: 'Anticipo Pagado', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
         { value: 'in_production', label: 'En Producción', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
-        { value: 'ready_to_ship', label: 'Listo para Enviar', color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' },
+        { value: 'ready_for_delivery', label: 'Listo para Entrega', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
         { value: 'shipped', label: 'Enviado', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
         { value: 'delivered', label: 'Entregado', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
         { value: 'cancelled', label: 'Cancelado', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
@@ -98,7 +98,7 @@ export default function ReportesPage() {
 
             // 2. Procesar datos para formato tabla
             const rows = orders.flatMap((order: any) => {
-                return (order.order_items || []).map((item: any) => {
+                return (((order.order_items as any[]) || [])).map((item: any) => {
                     // Helpers para extracción segura
                     const getVal = (obj: any, key: string) => {
                         if (!obj) return ''
@@ -142,59 +142,51 @@ export default function ReportesPage() {
                 })
             })
 
-            // 3. Generar Excel/CSV con SheetJS (xlsx)
+            // 3. Generar Excel/CSV
             console.log('📊 Generando hoja de cálculo...')
-            const worksheet = XLSX.utils.json_to_sheet(rows)
-
-            // Ajustar anchos de columna automáticamente
-            const colWidths = Object.keys(rows[0] || {}).map(key => ({
-                wch: Math.max(key.length, ...rows.map(r => String(r[key as keyof typeof r]).length)) + 2
-            }))
-            worksheet['!cols'] = colWidths
-
-            const workbook = XLSX.utils.book_new()
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Pedidos")
-
+            const columns = Object.keys(rows[0] || {})
             const filename = `pedidos_${startDate}_${endDate}`
 
+            const triggerDownload = (blob: Blob, name: string) => {
+                const url = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = name
+                document.body.appendChild(link)
+                link.click()
+                setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url) }, 100)
+            }
+
             if (format === 'excel') {
-                // Generar buffer binario
-                const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-                // Crear Blob
+                const workbook = new ExcelJS.Workbook()
+                const worksheet = workbook.addWorksheet('Pedidos')
+                worksheet.columns = columns.map(key => ({
+                    header: key,
+                    key,
+                    width: Math.max(key.length, ...rows.map(r => String(r[key as keyof typeof r] ?? '').length)) + 2
+                }))
+                worksheet.addRows(rows)
+                const excelBuffer = await workbook.xlsx.writeBuffer()
                 const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-
-                // Descargar manual
-                const url = window.URL.createObjectURL(blob)
-                const link = document.createElement('a')
-                link.href = url
-                link.download = `${filename}.xlsx`
-                document.body.appendChild(link)
-                link.click()
-                setTimeout(() => {
-                    document.body.removeChild(link)
-                    window.URL.revokeObjectURL(url)
-                }, 100)
+                triggerDownload(blob, `${filename}.xlsx`)
             } else {
-                // CSV
-                const csvOutput = XLSX.utils.sheet_to_csv(worksheet)
-                const blob = new Blob(['\uFEFF' + csvOutput], { type: 'text/csv;charset=utf-8' })
-
-                const url = window.URL.createObjectURL(blob)
-                const link = document.createElement('a')
-                link.href = url
-                link.download = `${filename}.csv`
-                document.body.appendChild(link)
-                link.click()
-                setTimeout(() => {
-                    document.body.removeChild(link)
-                    window.URL.revokeObjectURL(url)
-                }, 100)
+                // CSV puro sin dependencias
+                const escape = (v: unknown) => {
+                    const s = String(v ?? '')
+                    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+                }
+                const csvLines = [
+                    columns.map(escape).join(','),
+                    ...rows.map(r => columns.map(c => escape(r[c as keyof typeof r])).join(','))
+                ]
+                const blob = new Blob(['\uFEFF' + csvLines.join('\n')], { type: 'text/csv;charset=utf-8' })
+                triggerDownload(blob, `${filename}.csv`)
             }
 
             console.log('✅ Descarga iniciada')
             toast.success('Reporte descargado correctamente')
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Download error:', err)
             toast.error('Error al generar el reporte')
         } finally {
@@ -328,7 +320,7 @@ function formatStatus(status: string): string {
         'pending_payment_50': 'Pendiente Anticipo',
         'deposit_paid': 'Anticipo Pagado',
         'in_production': 'En Producción',
-        'ready_to_ship': 'Listo para Enviar',
+        'ready_for_delivery': 'Listo para Entrega',
         'shipped': 'Enviado',
         'delivered': 'Entregado',
         'cancelled': 'Cancelado'

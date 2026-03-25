@@ -15,7 +15,7 @@ const CarruselDeCategoria = dynamic(() => import("../../components/catalogo/Carr
 
 const CatalogHeroContainer = dynamic(() => import("../../components/catalogo/CatalogHeroContainer"), {
   ssr: true,
-  loading: () => <div className="h-[35vh] md:h-[55vh] w-full bg-neutral-900 animate-pulse mb-4" />
+  loading: () => <div className="h-[35dvh] md:h-[55dvh] w-full bg-neutral-900 animate-pulse mb-4" />
 });
 
 import useToastMessage from "../../hooks/useToastMessage";
@@ -223,8 +223,9 @@ export default function CatalogoContent({
 
     setPage(1);
     fetchProducts(1, false);
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj]);
-  // Omitimos fetchProducts de deps para evitar loop, usamos refs si es necesario o deps estables
+  // fetchProducts omitted: its extra deps (config, toast, etc.) would cause unwanted re-runs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, initialProducts.length]);
 
   // 2. Función para cargar más (botón)
   const handleLoadMore = () => {
@@ -265,13 +266,13 @@ export default function CatalogoContent({
     };
   }, [selectedCategoryObj, ligas]);
 
-  const handleSearchSubmit = (e: any) => {
+  const handleSearchSubmit = (e: React.FormEvent) => {
     e?.preventDefault();
     // El efecto del debounce ya se encarga de fetchear
   };
 
   return (
-    <main className="min-h-screen bg-black text-white pb-24 relative overflow-hidden">
+    <main className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden">
       {/* HERO */}
       <CatalogHeroContainer
         categorySlug={categoriaSeleccionada}
@@ -352,7 +353,7 @@ export default function CatalogoContent({
         {/* Loading Skeleton Inicial */}
         {loading && productos.length === 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-8">
-            {[...Array(8)].map((_, i) => (
+            {[...Array(24)].map((_, i) => (
               <div key={i} className="aspect-[3/4] bg-white/5 rounded-2xl animate-pulse" />
             ))}
           </div>
@@ -373,7 +374,6 @@ export default function CatalogoContent({
                 <div
                   key={`${item.id}-${i}`}
                   className="h-full"
-                  style={{ animationDelay: `${(i % PRODUCTS_PER_PAGE) * 50}ms` }}
                 >
                   <ProductCard
                     item={item}

@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Edit, Trash2, Search, X, Save, Loader2, Shield } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, X, Save, Loader2, Shield, ChevronLeft, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import useToastMessage from '@/hooks/useToastMessage'
+import { useAdminRole } from '@/hooks/useAdminRole'
 import ImageUpload from '@/components/admin/ImageUpload'
 import { motion, AnimatePresence } from '@/lib/motion'
+import ConfirmDialog from '@/components/admin/ConfirmDialog'
+
+const PAGE_SIZE = 20
 
 interface Team {
     id: string
@@ -29,16 +33,20 @@ interface League {
 export default function TeamsPage() {
     const supabase = createClient()
     const toast = useToastMessage()
+    const { isSuperAdmin } = useAdminRole()
 
     const [teams, setTeams] = useState<Team[]>([])
     const [leagues, setLeagues] = useState<League[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [page, setPage] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingTeam, setEditingTeam] = useState<Team | null>(null)
     const [saving, setSaving] = useState(false)
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
     const [formData, setFormData] = useState({
         name: '',
@@ -50,10 +58,38 @@ export default function TeamsPage() {
         active: true
     })
 
+    const fetchTeams = useCallback(async (p = page) => {
+        setLoading(true)
+        const from = (p - 1) * PAGE_SIZE
+        const to = from + PAGE_SIZE - 1
+        try {
+            const { data, error, count } = await supabase
+                .from('teams')
+                .select(`*, leagues (name)`, { count: 'exact' })
+                .order('name', { ascending: true })
+                .range(from, to)
+
+            if (error) throw error
+            setTeams(data || [])
+            setTotalCount(count ?? 0)
+        } catch (error: unknown) {
+            console.error('Error fetching teams:', error)
+            toast.error('Error al cargar equipos')
+        } finally {
+            setLoading(false)
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [supabase, page])
+
+    const fetchLeagues = useCallback(async () => {
+        const { data } = await supabase.from('leagues').select('id, name').order('name')
+        if (data) setLeagues(data)
+    }, [supabase])
+
     useEffect(() => {
         fetchTeams()
         fetchLeagues()
-    }, [])
+    }, [fetchTeams, fetchLeagues])
 
     useEffect(() => {
         if (editingTeam) {
@@ -78,32 +114,6 @@ export default function TeamsPage() {
             })
         }
     }, [editingTeam, isModalOpen])
-
-    const fetchTeams = async () => {
-        setLoading(true)
-        try {
-            const { data, error } = await supabase
-                .from('teams')
-                .select(`
-                    *,
-                    leagues (name)
-                `)
-                .order('name', { ascending: true })
-
-            if (error) throw error
-            setTeams(data || [])
-        } catch (error: any) {
-            console.error('Error fetching teams:', error)
-            toast.error('Error al cargar equipos')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const fetchLeagues = async () => {
-        const { data } = await supabase.from('leagues').select('id, name').order('name')
-        if (data) setLeagues(data)
-    }
 
     const handleSave = async () => {
         if (!formData.name) {
@@ -144,9 +154,9 @@ export default function TeamsPage() {
             setEditingTeam(null)
             fetchTeams()
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error saving team:', error)
-            toast.error(`Error: ${error.message}`)
+            toast.error(`Error: ${(error as Error).message}`)
         } finally {
             setSaving(false)
         }
@@ -154,9 +164,9 @@ export default function TeamsPage() {
 
 
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Seguro que deseas eliminar este equipo?')) return
+    const handleDelete = (id: string) => setDeleteTarget(id)
 
+    const executeDelete = async (id: string) => {
         try {
             const { error } = await supabase
                 .from('teams')
@@ -166,7 +176,7 @@ export default function TeamsPage() {
             if (error) throw error
             toast.success('Equipo eliminado')
             setTeams(prev => prev.filter(c => c.id !== id))
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error deleting team:', error)
             toast.error('Error al eliminar')
         }
@@ -283,13 +293,15 @@ export default function TeamsPage() {
                                                         setEditingTeam(team)
                                                         setIsModalOpen(true)
                                                     }}
-                                                    className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+                                                    className="w-11 h-11 flex items-center justify-center hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(team.id)}
-                                                    className="p-2 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
+                                                    disabled={!isSuperAdmin}
+                                                    title={!isSuperAdmin ? 'Solo los super admins pueden eliminar' : undefined}
+                                                    className="w-11 h-11 flex items-center justify-center hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -307,6 +319,32 @@ export default function TeamsPage() {
                         )}
                     </div>
                 )}
+
+                {/* Pagination */}
+                {totalCount > PAGE_SIZE && (
+                    <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/10">
+                        <p className="text-sm text-gray-400">
+                            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} de {totalCount}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => { setPage(p => p - 1); fetchTeams(page - 1) }}
+                                disabled={page === 1}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="text-sm text-gray-300 font-bold">{page} / {Math.ceil(totalCount / PAGE_SIZE)}</span>
+                            <button
+                                onClick={() => { setPage(p => p + 1); fetchTeams(page + 1) }}
+                                disabled={page >= Math.ceil(totalCount / PAGE_SIZE)}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modal */}
@@ -318,7 +356,7 @@ export default function TeamsPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
+                            className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90dvh]"
                         >
                             {/* Modal Header */}
                             <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
@@ -331,7 +369,7 @@ export default function TeamsPage() {
                             </div>
 
                             {/* Modal Body */}
-                            <div className="p-8 space-y-8 overflow-y-auto">
+                            <div className="p-4 sm:p-8 space-y-4 sm:space-y-8 overflow-y-auto">
 
                                 {/* Image Upload */}
                                 <div className="flex flex-col items-center">
@@ -442,6 +480,15 @@ export default function TeamsPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                title="Eliminar equipo"
+                message="¿Seguro que deseas eliminar este equipo? Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                onConfirm={() => { if (deleteTarget) executeDelete(deleteTarget); setDeleteTarget(null); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     )
 }

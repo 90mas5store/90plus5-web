@@ -1,7 +1,7 @@
 'use client'
 // Force Refresh
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { clearProductCache } from '@/lib/api'
@@ -15,6 +15,7 @@ import Link from 'next/link'
 import useToastMessage from '@/hooks/useToastMessage'
 import { motion, AnimatePresence } from 'framer-motion'
 import ImageUpload from '@/components/admin/ImageUpload'
+import ConfirmDialog from '@/components/admin/ConfirmDialog'
 
 interface Size {
     id: string
@@ -81,6 +82,7 @@ export default function EditProductPage() {
     const [productPatches, setProductPatches] = useState<Set<string>>(new Set<string>())
     const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set<string>())
     const [variantToDelete, setVariantToDelete] = useState<string | null>(null)
+    const [playerToDelete, setPlayerToDelete] = useState<string | null>(null)
 
     // Players Management
     const [teamPlayers, setTeamPlayers] = useState<Player[]>([])
@@ -159,7 +161,7 @@ export default function EditProductPage() {
                 // 2.2 LEAGUES (Load Multi-Leagues)
                 const loadedLeagueIds = new Set<string>();
                 if (product.product_leagues && product.product_leagues.length > 0) {
-                    product.product_leagues.forEach((pl: any) => loadedLeagueIds.add(pl.league_id));
+                    product.product_leagues.forEach((pl: { league_id: string }) => loadedLeagueIds.add(pl.league_id));
                 } else if (product.league_id) {
                     loadedLeagueIds.add(product.league_id);
                 }
@@ -196,7 +198,7 @@ export default function EditProductPage() {
 
                 setVariants(loadedVariants)
 
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.error('Error cargando producto:', error)
                 toast.error('Error al cargar datos del producto')
             } finally {
@@ -205,7 +207,7 @@ export default function EditProductPage() {
         }
 
         loadData()
-    }, [id])
+    }, [id, supabase, toast])
 
 
     // Handlers Generales
@@ -243,7 +245,7 @@ export default function EditProductPage() {
         }
     }
 
-    const updateVariant = (tempId: string, field: keyof Variant, value: any) => {
+    const updateVariant = (tempId: string, field: keyof Variant, value: string | number | boolean) => {
         setVariants(variants.map(v => v.tempId === tempId ? { ...v, [field]: value } : v))
     }
 
@@ -288,7 +290,7 @@ export default function EditProductPage() {
         }
 
         fetchPlayers()
-    }, [formData.team_id])
+    }, [formData.team_id, supabase])
 
     const handleAddPlayer = async () => {
         if (!newPlayer.name || !newPlayer.number || !formData.team_id) return
@@ -311,7 +313,7 @@ export default function EditProductPage() {
             setTeamPlayers(prev => [...prev, data].sort((a, b) => a.number - b.number))
             setNewPlayer({ name: '', number: '' })
             toast.success('Jugador agregado al equipo')
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error adding player:', error)
             toast.error('Error al agregar jugador')
         } finally {
@@ -319,9 +321,9 @@ export default function EditProductPage() {
         }
     }
 
-    const handleDeletePlayer = async (playerId: string) => {
-        if (!confirm('¿Eliminar jugador de la lista del equipo?')) return
+    const handleDeletePlayer = (playerId: string) => setPlayerToDelete(playerId)
 
+    const executeDeletePlayer = async (playerId: string) => {
         try {
             const { error } = await supabase
                 .from('players')
@@ -332,7 +334,7 @@ export default function EditProductPage() {
 
             setTeamPlayers(prev => prev.filter(p => p.id !== playerId))
             toast.success('Jugador eliminado')
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error deleting player:', error)
             toast.error('Error al eliminar jugador')
         }
@@ -469,16 +471,16 @@ export default function EditProductPage() {
             toast.success('Producto guardado exitosamente')
             router.refresh()
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('❌ Error al guardar:', error)
-            toast.error(`Error: ${error.message}`)
+            toast.error(`Error: ${(error as Error).message}`)
         } finally {
             setSaving(false)
         }
     }
 
     if (loading) return (
-        <div className="flex items-center justify-center h-screen bg-neutral-950">
+        <div className="flex items-center justify-center h-dvh bg-neutral-950">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
         </div>
     )
@@ -1028,6 +1030,15 @@ export default function EditProductPage() {
                     </div>
                 </div>
             </div >
+
+            <ConfirmDialog
+                open={playerToDelete !== null}
+                title="Eliminar jugador"
+                message="¿Eliminar este jugador de la lista del equipo?"
+                confirmLabel="Eliminar"
+                onConfirm={() => { if (playerToDelete) executeDeletePlayer(playerToDelete); setPlayerToDelete(null); }}
+                onCancel={() => setPlayerToDelete(null)}
+            />
         </div >
     )
 }

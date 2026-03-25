@@ -75,7 +75,7 @@ export default function CheckoutDonePage() {
   const bancosDisponibles = BANK_ACCOUNTS;
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
+    <main className="min-h-dvh bg-[#0a0a0a] text-white pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
       {/* Background Glows */}
       <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
       <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-green-500/5 blur-[120px] -z-10" />
@@ -109,7 +109,7 @@ export default function CheckoutDonePage() {
             className="space-y-6"
           >
             {/* Resumen del Pedido */}
-            <section className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem]">
+            <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 rounded-[2rem]">
               <h2 className="text-xl font-black uppercase tracking-tight mb-6">Resumen del Pedido</h2>
 
               <div className="space-y-4">
@@ -144,7 +144,7 @@ export default function CheckoutDonePage() {
 
             {/* Productos */}
             {productos.length > 0 && (
-              <section className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem]">
+              <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 rounded-[2rem]">
                 <h2 className="text-xl font-black uppercase tracking-tight mb-6">Artículos</h2>
                 <div className="space-y-4">
                   {productos.map((item, idx) => (
@@ -188,7 +188,7 @@ export default function CheckoutDonePage() {
             {metodo === "transferencia" && (
               <>
                 {/* Instrucciones */}
-                <section className="bg-primary/10 backdrop-blur-xl border border-primary/20 p-6 rounded-[2rem]">
+                <section className="bg-primary/10 backdrop-blur-md sm:backdrop-blur-xl border border-primary/20 p-6 rounded-[2rem]">
                   <h2 className="text-xl font-black uppercase tracking-tight mb-4 text-primary">
                     📋 Instrucciones de Pago
                   </h2>
@@ -225,7 +225,7 @@ export default function CheckoutDonePage() {
                       <motion.div
                         key={idx}
                         initial={false}
-                        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] overflow-hidden"
+                        className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 rounded-[1.5rem] overflow-hidden"
                       >
                         {/* Header - Siempre visible */}
                         <button
@@ -336,7 +336,7 @@ export default function CheckoutDonePage() {
             )}
 
             {metodo === "whatsapp" && (
-              <section className="bg-green-500/10 backdrop-blur-xl border border-green-500/20 p-6 rounded-[2rem] text-center">
+              <section className="bg-green-500/10 backdrop-blur-md sm:backdrop-blur-xl border border-green-500/20 p-6 rounded-[2rem] text-center">
                 <h2 className="text-xl font-black uppercase tracking-tight mb-4 text-green-500">
                   ✅ Confirmación por WhatsApp
                 </h2>

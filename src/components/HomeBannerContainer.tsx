@@ -15,7 +15,7 @@ interface Banner {
 }
 
 interface HomeBannerContainerProps {
-    initialBanners?: any[];
+    initialBanners?: Record<string, unknown>[];
 }
 
 export default function HomeBannerContainer({ initialBanners }: HomeBannerContainerProps) {
@@ -36,7 +36,7 @@ export default function HomeBannerContainer({ initialBanners }: HomeBannerContai
         return (
             <HeroBanner
                 categorySlug="home"
-                className="min-h-[35vh] md:min-h-[55vh]"
+                className="min-h-[35dvh] md:min-h-[55dvh]"
                 alt="90+5 Store Hero"
                 overlayOpacity={0.6}
                 enableParallax={!prefersReducedMotion}
@@ -48,7 +48,7 @@ export default function HomeBannerContainer({ initialBanners }: HomeBannerContai
         <HeroBanner
             slides={slides}
             slideInterval={6000}
-            className="min-h-[35vh] md:min-h-[55vh]"
+            className="min-h-[35dvh] md:min-h-[55dvh]"
             alt="90+5 Store Hero"
             overlayOpacity={0.6}
             enableParallax={!prefersReducedMotion}

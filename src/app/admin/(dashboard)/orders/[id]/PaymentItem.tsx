@@ -26,9 +26,9 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
             console.log("Verifying payment...");
             await updatePaymentStatus(payment.id, 'completed')
             toast.success('Pago verificado y estado actualizado')
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Payment verify error:", e);
-            toast.error('Error al verificar: ' + (e?.message || 'Unknown'))
+            toast.error('Error al verificar: ' + ((e as Error).message || 'Unknown'))
         } finally {
             setLoading(false)
         }
@@ -43,9 +43,9 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
             console.log("Rejecting payment...");
             await updatePaymentStatus(payment.id, 'failed')
             toast.error('Pago marcado como fallido')
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Payment reject error:", e);
-            toast.error('Error: ' + (e?.message || 'Unknown'))
+            toast.error('Error: ' + ((e as Error).message || 'Unknown'))
         } finally {
             setLoading(false)
         }
@@ -81,7 +81,7 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
 
                 <div className="text-right">
                     <div className={`text-xl font-black ${isFailed ? 'text-red-500 line-through' : 'text-white'}`}>
-                        L {payment.amount.toLocaleString()}
+                        L {payment.amount.toLocaleString("es-HN")}
                     </div>
                     <div className={`
                         text-[10px] font-bold uppercase tracking-widest mt-1

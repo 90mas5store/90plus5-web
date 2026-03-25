@@ -9,7 +9,7 @@ export default function ConectarPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        <main className="min-h-dvh bg-black text-white flex items-center justify-center">
           Cargando página de contacto...
         </main>
       }

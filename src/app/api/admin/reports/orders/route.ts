@@ -1,6 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// 🛡️ A6 FIX: Sanitizar valores para prevenir inyección CSV/Excel
+// Valores que empiezan con =, +, -, @ pueden ejecutar fórmulas en Excel/Sheets
+function sanitizeCsvValue(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (/^[=+\-@\t\r]/.test(str)) {
+        return `'${str}`; // Prefixar con apóstrofe para evitar interpretación como fórmula
+    }
+    return str;
+}
+
+// Sanitizar un objeto completo recursivamente
+function sanitizeOrderForExport(order: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(order)) {
+        if (typeof value === 'string') {
+            sanitized[key] = sanitizeCsvValue(value);
+        } else if (Array.isArray(value)) {
+            sanitized[key] = value.map(item =>
+                typeof item === 'object' && item !== null
+                    ? sanitizeOrderForExport(item as Record<string, unknown>)
+                    : sanitizeCsvValue(item)
+            );
+        } else if (typeof value === 'object' && value !== null) {
+            sanitized[key] = sanitizeOrderForExport(value as Record<string, unknown>);
+        } else {
+            sanitized[key] = value;
+        }
+    }
+    return sanitized;
+}
+
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient()
@@ -64,10 +96,16 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
-        // Devolver datos JSON puros
-        return NextResponse.json(orders)
+        // 🛡️ A6 FIX: Sanitizar datos antes de enviarlos (protege contra CSV injection)
+        const sanitizedOrders = (orders || []).map(order =>
+            sanitizeOrderForExport(order as Record<string, unknown>)
+        );
 
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        // Devolver datos JSON puros (sanitizados)
+        return NextResponse.json(sanitizedOrders)
+
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Error interno';
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

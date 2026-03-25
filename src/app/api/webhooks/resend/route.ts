@@ -7,8 +7,10 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(req: Request) {
     const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 
+    // 🛡️ A5 FIX: Fail closed — si no hay secret, denegar acceso inmediatamente
     if (!WEBHOOK_SECRET) {
-        throw new Error('Please add RESEND_WEBHOOK_SECRET from Resend Dashboard to .env');
+        console.error('❌ RESEND_WEBHOOK_SECRET no está configurado. Rechazando webhook.');
+        return new Response('Webhook secret not configured', { status: 401 });
     }
 
     // Get the headers
@@ -30,7 +32,7 @@ export async function POST(req: Request) {
     // Create a new Svix instance with your secret.
     const wh = new Webhook(WEBHOOK_SECRET);
 
-    let evt: any;
+    let evt: Record<string, unknown>;
 
     try {
         // Verify the payload with the headers
@@ -38,10 +40,10 @@ export async function POST(req: Request) {
             "svix-id": svix_id,
             "svix-timestamp": svix_timestamp,
             "svix-signature": svix_signature,
-        });
+        }) as Record<string, unknown>;
     } catch (err) {
         console.error('Error verifying webhook:', err);
-        return new Response(`Error occured: ${err.message}`, {
+        return new Response(`Error occured: ${err instanceof Error ? err.message : String(err)}`, {
             status: 400
         });
     }
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
         // The payload structure depends on the event type.
         // For Inbound Webhooks, 'evt' is directly the email object.
         // For Event Webhooks, the data is inside 'evt.data'.
-        const emailData = evt.data || evt;
+        const emailData = (evt.data || evt) as Record<string, unknown>;
 
         // Validate payload
         if (!emailData.from || !emailData.subject) {

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendOrderConfirmationEmail, sendAdminNewOrderEmail } from '@/lib/email';
 import { BUSINESS_LOGIC } from '@/lib/constants';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import type { SupabaseRawOrderItem } from '@/lib/types';
 
 // 📝 Payload esperado del frontend
 interface CreateOrderPayload {
@@ -25,11 +27,70 @@ interface CreateOrderPayload {
         custom_name?: string | null;
     }>;
     _honey?: string; // Honeypot
+    idempotency_key?: string;
 }
 
 export async function POST(request: NextRequest) {
     try {
-        console.log("🚀 Starting Order Creation...");
+        // Order creation started
+
+        // 🛡️ RATE LIMITING — máximo 10 pedidos por IP cada hora
+        const ip = getClientIp(request);
+        const { allowed, retryAfterMs } = checkRateLimit(`orders:${ip}`, 10, 60 * 60_000);
+        if (!allowed) {
+            return NextResponse.json(
+                { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' },
+                { status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
+            );
+        }
+
+        // 🛡️ BODY SIZE — máximo 50 KB
+        const contentLength = parseInt(request.headers.get('content-length') ?? '0', 10);
+        if (contentLength > 50_000) {
+            return NextResponse.json(
+                { success: false, error: 'Payload demasiado grande' },
+                { status: 413 }
+            );
+        }
+
+        // 🛡️ CSRF — verificar que el request viene de nuestro dominio
+        // M3 FIX: Validar tanto Origin como Referer (defensa en profundidad)
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        const origin = request.headers.get('origin') ?? '';
+        const referer = request.headers.get('referer') ?? '';
+        const allowedOrigins = [siteUrl, 'http://localhost:3000', 'http://localhost:3001'];
+
+        const isHostnameAllowed = (headerValue: string): boolean => {
+            try {
+                const hostname = new URL(headerValue).hostname;
+                return allowedOrigins.some(o => {
+                    try { return new URL(o).hostname === hostname; } catch { return false; }
+                });
+            } catch {
+                return false;
+            }
+        };
+
+        if (origin) {
+            // Validar Origin si está presente
+            if (!isHostnameAllowed(origin)) {
+                console.warn(`⚠️ CSRF: Origin rechazado: ${origin}`);
+                return NextResponse.json(
+                    { success: false, error: 'Solicitud no autorizada' },
+                    { status: 403 }
+                );
+            }
+        } else if (referer) {
+            // 🛡️ M3 FIX: Si no hay Origin, validar Referer como capa adicional
+            if (!isHostnameAllowed(referer)) {
+                console.warn(`⚠️ CSRF: Referer rechazado: ${referer}`);
+                return NextResponse.json(
+                    { success: false, error: 'Solicitud no autorizada' },
+                    { status: 403 }
+                );
+            }
+        }
+        // Si no hay ni Origin ni Referer, dejamos pasar (puede ser API call legítimo desde servidor)
 
         // 0️⃣ DEBUG CHECK
         if (!BUSINESS_LOGIC || !BUSINESS_LOGIC.ORDER) {
@@ -42,12 +103,23 @@ export async function POST(request: NextRequest) {
         if (!supabase) throw new Error("Failed to initialize Supabase Admin Client");
 
         const payload: CreateOrderPayload = await request.json();
-        console.log("📦 Payload received:", { ...payload, items: payload.items?.length });
 
         // 🐝 HONEYPOT CHECK
         if (payload._honey) {
             console.warn('🤖 Bot detected via honeypot');
             return NextResponse.json({ success: true, fake: true }, { status: 200 });
+        }
+
+        // 🔑 IDEMPOTENCY CHECK — previene órdenes duplicadas por doble-click o retry
+        if (payload.idempotency_key) {
+            const { data: existing } = await supabase
+                .from('orders')
+                .select('id')
+                .eq('idempotency_key', payload.idempotency_key)
+                .maybeSingle()
+            if (existing) {
+                return NextResponse.json({ success: true, order_id: existing.id, duplicate: true }, { status: 200 })
+            }
         }
 
         // 1️⃣ VALIDACIÓN BÁSICA
@@ -56,6 +128,45 @@ export async function POST(request: NextRequest) {
                 { success: false, error: 'Datos incompletos', details: 'Faltan campos requeridos' },
                 { status: 400 }
             );
+        }
+
+        // 🛡️ VALIDACIÓN DE LONGITUD Y FORMATO
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (payload.customer_name.length > 100) {
+            return NextResponse.json({ success: false, error: 'Nombre demasiado largo (máx. 100 caracteres)' }, { status: 400 });
+        }
+        if (payload.customer_email.length > 254 || !emailRegex.test(payload.customer_email)) {
+            return NextResponse.json({ success: false, error: 'Email inválido' }, { status: 400 });
+        }
+        if (payload.customer_phone && payload.customer_phone.length > 20) {
+            return NextResponse.json({ success: false, error: 'Teléfono demasiado largo (máx. 20 caracteres)' }, { status: 400 });
+        }
+        // 🛡️ M1 FIX: Normalizar teléfono antes de validar (strip espacios, guiones, paréntesis)
+        if (payload.customer_phone) {
+            payload.customer_phone = payload.customer_phone.replace(/[\s\-\(\)]/g, '');
+        }
+        const phoneRegex = /^\+504[0-9]{8}$/;
+        if (payload.customer_phone && !phoneRegex.test(payload.customer_phone)) {
+            return NextResponse.json({ success: false, error: 'Formato de teléfono inválido. Usa el formato +504XXXXXXXX' }, { status: 400 });
+        }
+        if (payload.shipping_address && payload.shipping_address.length > 300) {
+            return NextResponse.json({ success: false, error: 'Dirección demasiado larga (máx. 300 caracteres)' }, { status: 400 });
+        }
+        if (!Array.isArray(payload.items) || payload.items.length > 50) {
+            return NextResponse.json({ success: false, error: 'Número de artículos inválido' }, { status: 400 });
+        }
+
+        // 🛡️ VALIDAR CANTIDAD POR ITEM
+        for (const item of payload.items) {
+            if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
+                return NextResponse.json({ success: false, error: 'Cantidad de artículo inválida (1–99)' }, { status: 400 });
+            }
+        }
+
+        // 🛡️ VALIDAR MÉTODO DE PAGO — solo métodos permitidos
+        const ALLOWED_PAYMENT_METHODS = ['transferencia'];
+        if (!payload.payment_method || !ALLOWED_PAYMENT_METHODS.includes(payload.payment_method)) {
+            return NextResponse.json({ success: false, error: 'Método de pago no permitido' }, { status: 400 });
         }
 
         // 🛡️ SECURITY: FETCH REAL PRICES
@@ -77,7 +188,7 @@ export async function POST(request: NextRequest) {
         // We MUST fetch variants for ALL items, because price is in variants table.
         // If an item has no variant_id payload, we have a problem unless we default to a main variant.
         // Current logic assumes frontend sends variant_id.
-        let dbVariants: any[] = [];
+        let dbVariants: { id: string; price: number }[] = [];
         const allVariantIdsToCheck = [...variantIds];
 
         // If there are items without variant_id, we can't price them with current schema.
@@ -111,7 +222,7 @@ export async function POST(request: NextRequest) {
             if (item.variant_id) {
                 const variant = variantMap.get(item.variant_id);
                 if (!variant) throw new Error(`Variante no encontrada o no válida: ${item.variant_id}`);
-                realPrice = variant.price;
+                realPrice = variant.price as number;
             } else {
                 // Fallback impossible if we strictly require variants as above
                 throw new Error(`Producto sin variante definida: ${item.product_id}`);
@@ -129,12 +240,17 @@ export async function POST(request: NextRequest) {
         const total_amount = calculatedSubtotal;
 
         // 3️⃣ CREAR ORDEN
-        const orderData: any = {
+        // 🛡️ M5 NOTE: La creación de orden+items+pago NO es atómica. Si falla un paso
+        // intermedio, se realiza cleanup manual (delete). Para máxima integridad, migrar a
+        // una función RPC de PostgreSQL (CREATE OR REPLACE FUNCTION create_order_atomic).
+        // Ver: https://supabase.com/docs/guides/database/functions
+        const orderData: Record<string, unknown> = {
             customer_id: null,
             status: 'pending_payment_50',
             subtotal: calculatedSubtotal,
             deposit_amount,
             total_amount,
+            ...(payload.idempotency_key ? { idempotency_key: payload.idempotency_key } : {}),
         };
 
         const customerFields = [
@@ -170,6 +286,19 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // 📊 AUDIT LOG — Registro inmutable de la transacción financiera
+        // 🛡️ M4 FIX: No exponer PII (email, IP) en logs — solo datos operativos
+        // console.warn se preserva en producción (removeConsole excluye 'warn')
+        console.warn(JSON.stringify({
+            event: 'ORDER_CREATED',
+            timestamp: new Date().toISOString(),
+            order_id: order.id,
+            payment_method: payload.payment_method,
+            total_amount,
+            deposit_amount,
+            items_count: payload.items.length,
+        }));
+
         // 4️⃣ CREAR ORDER_ITEMS
         const orderItems = secureItems.map(item => {
             // Helper to clean UUIDs (empty string -> null)
@@ -192,7 +321,6 @@ export async function POST(request: NextRequest) {
             };
         });
 
-        console.log("📝 Inserting Order Items:", JSON.stringify(orderItems, null, 2));
 
         const { error: itemsError } = await supabase
             .from('order_items')
@@ -251,8 +379,8 @@ export async function POST(request: NextRequest) {
                 `)
                 .eq('order_id', order.id);
 
-            const emailItems = enrichedItems?.map((item: any) => {
-                let customization = [];
+            const emailItems = (enrichedItems as SupabaseRawOrderItem[] | null)?.map((item) => {
+                const customization: string[] = [];
                 if (item.product_variants?.version) customization.push(item.product_variants.version);
                 if (item.sizes?.label) customization.push(`Talla ${item.sizes.label}`);
                 if (item.patches?.name) customization.push(`Parche: ${item.patches.name}`);
@@ -300,14 +428,12 @@ export async function POST(request: NextRequest) {
             payment_id: payment?.id,
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('💥 Unexpected error in create order:', error);
         return NextResponse.json(
             {
                 success: false,
                 error: 'Error inesperado del servidor',
-                details: error.message,
-                stack: error.stack, // 🔥 DEBUG STACK
             },
             { status: 500 }
         );

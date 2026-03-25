@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
 import { getProductOptionsFromSupabase, getPlayersByTeam, getRelatedProducts } from "@/lib/api";
@@ -54,9 +54,10 @@ interface Product {
 
 interface ProductoPersonalizarProps {
     product: Product;
+    breadcrumb?: React.ReactNode;
 }
 
-export default function ProductoPersonalizar({ product }: ProductoPersonalizarProps) {
+export default function ProductoPersonalizar({ product, breadcrumb }: ProductoPersonalizarProps) {
     const router = useRouter();
     const { addItem, openCart } = useCart();
     const toast = useToastMessage();
@@ -142,7 +143,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
             let dorsales: { id: string; jugador: string; numero: string }[] = [];
             if (product.team_id) {
                 const players = await getPlayersByTeam(product.team_id);
-                dorsales = players.map((p: any) => ({
+                dorsales = players.map((p: Record<string, unknown>) => ({
                     id: p.id,
                     jugador: p.name,
                     numero: p.number?.toString() || '',
@@ -169,6 +170,8 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
             setLoading(false);
         }
         cargarOpciones();
+    // Only re-run when product id changes; full product/version objects intentionally omitted
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [product.id]);
 
     // Cleanup talla si cambia versión y no está disponible
@@ -176,9 +179,12 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
         if (versionSeleccionada && tallaSeleccionada && opciones.variantSizesMap) {
             const availableSizes = opciones.variantSizesMap[versionSeleccionada.id] || [];
             if (!availableSizes.includes(tallaSeleccionada.id)) {
-                setTallaSeleccionada(null);
+                // Deferir setState para no llamarlo síncronamente en el body del effect
+                const id = setTimeout(() => setTallaSeleccionada(null), 0);
+                return () => clearTimeout(id);
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [versionSeleccionada]);
 
     // === MANEJO DEL ZOOM (Mouse + Touch) ===
@@ -316,19 +322,26 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
         <motion.main
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className={`min-h-screen text-white pt-24 pb-20 px-4 md:px-8 relative overflow-hidden bg-gradient-to-b ${getAuraColors(producto.liga)}`}
+            className={`min-h-dvh text-white pt-24 pb-20 px-4 md:px-8 relative overflow-hidden bg-gradient-to-b ${getAuraColors(producto.liga)}`}
         >
             <HeatmapBackground liga={producto.liga} opacity={0.1} />
 
             <div className="max-w-7xl mx-auto relative z-10">
-                {/* 🔙 Botón Volver */}
-                <button
-                    onClick={() => router.back()}
-                    className="mb-8 flex items-center gap-2 text-gray-400 hover:text-white transition-all group"
-                >
-                    <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-sm font-bold uppercase tracking-widest">Regresar</span>
-                </button>
+                {/* 🧭 Breadcrumb (opcional) o botón Volver */}
+                <div className="mb-6 flex items-center gap-4">
+                    <button
+                        onClick={() => router.back()}
+                        aria-label="Regresar"
+                        className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-all group shrink-0"
+                    >
+                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                    </button>
+                    {breadcrumb ?? (
+                        <span className="text-sm font-bold uppercase tracking-widest text-gray-400">
+                            Regresar
+                        </span>
+                    )}
+                </div>
 
                 <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
 
@@ -401,10 +414,10 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                             <div className="flex items-baseline gap-3 mt-2">
                                 {precioActual > 0 ? (
                                     <>
-                                        <span className="text-4xl font-bold text-white tracking-tight">L {precioActual.toLocaleString()}</span>
+                                        <span className="text-4xl font-bold text-white tracking-tight">L {precioActual.toLocaleString("es-HN")}</span>
                                         {precioOriginalActual?.active && precioOriginalActual.price > 0 && (
                                             <span className="text-gray-500 line-through text-lg opacity-50">
-                                                L {precioOriginalActual.price.toLocaleString()}
+                                                L {precioOriginalActual.price.toLocaleString("es-HN")}
                                             </span>
                                         )}
                                     </>
@@ -442,7 +455,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                                                 }`}
                                         >
                                             <span className={`block font-bold ${versionSeleccionada?.id === v.id ? "text-white" : "text-gray-400"}`}>{v.label}</span>
-                                            <span className="text-[10px] text-gray-500 mt-1 block">L {opciones.preciosPorVersion?.[v.label]?.toLocaleString()}</span>
+                                            <span className="text-[10px] text-gray-500 mt-1 block">L {opciones.preciosPorVersion?.[v.label]?.toLocaleString("es-HN")}</span>
                                             {versionSeleccionada?.id === v.id && <div className="absolute top-0 right-0 w-8 h-8 bg-primary flex items-center justify-center rounded-bl-xl"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
                                         </button>
                                     ))}
@@ -718,7 +731,7 @@ export default function ProductoPersonalizar({ product }: ProductoPersonalizarPr
                                             </p>
                                             <div className="mt-2 inline-block px-3 py-0.5 bg-white/10 backdrop-blur-md border border-white/10 rounded-full">
                                                 <p className="text-primary font-black text-xs sm:text-sm">
-                                                    L {item.precio.toLocaleString()}
+                                                    L {item.precio.toLocaleString("es-HN")}
                                                 </p>
                                             </div>
                                         </div>

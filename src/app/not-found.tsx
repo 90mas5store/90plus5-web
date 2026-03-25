@@ -3,7 +3,7 @@ import { AlertCircle, Home } from "lucide-react";
 
 export default function NotFound() {
     return (
-        <main className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        <main className="min-h-dvh bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
             {/* 🔴 Background Effects */}
             <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/10 blur-[120px] -z-10 animate-pulse" />
             <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] -z-10" />

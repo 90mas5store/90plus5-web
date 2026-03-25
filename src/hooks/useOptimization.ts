@@ -26,7 +26,7 @@ export function useDebounce<T>(value: T, delay: number = 300): T {
  * Hook para debounce de callbacks
  * Útil para llamadas a API o funciones costosas
  */
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
+export function useDebouncedCallback<T extends (...args: unknown[]) => any>(
     callback: T,
     delay: number = 300
 ): T {
@@ -39,7 +39,7 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
     }, [callback]);
 
     const debouncedCallback = useCallback(
-        ((...args) => {
+        (...args: unknown[]) => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
@@ -47,10 +47,9 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
             timeoutRef.current = setTimeout(() => {
                 callbackRef.current(...args);
             }, delay);
-        }) as T,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        },
         [delay]
-    );
+    ) as unknown as T;
 
     // Cleanup al desmontar
     useEffect(() => {
@@ -68,20 +67,20 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
  * Hook para detectar si el usuario prefiere reducir animaciones
  */
 export function usePrefersReducedMotion(): boolean {
-    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+    // Lazy initializer: lee la preferencia directamente en el primer render del cliente
+    const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
+        typeof window !== 'undefined'
+            ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            : false
+    );
 
     useEffect(() => {
-        // Verificar preferencia del sistema
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-        setPrefersReducedMotion(mediaQuery.matches);
-
-        // Listener para cambios
+        // Solo suscribirse a cambios futuros (el valor inicial ya está en el estado)
         const handleChange = (event: MediaQueryListEvent) => {
             setPrefersReducedMotion(event.matches);
         };
-
         mediaQuery.addEventListener('change', handleChange);
-
         return () => {
             mediaQuery.removeEventListener('change', handleChange);
         };
@@ -94,7 +93,7 @@ export function usePrefersReducedMotion(): boolean {
  * Hook para throttle de callbacks
  * Útil para scroll events
  */
-export function useThrottledCallback<T extends (...args: any[]) => any>(
+export function useThrottledCallback<T extends (...args: unknown[]) => any>(
     callback: T,
     delay: number = 100
 ): T {
@@ -106,16 +105,15 @@ export function useThrottledCallback<T extends (...args: any[]) => any>(
     }, [callback]);
 
     const throttledCallback = useCallback(
-        ((...args) => {
+        (...args: unknown[]) => {
             const now = Date.now();
             if (now - lastCallRef.current >= delay) {
                 lastCallRef.current = now;
                 callbackRef.current(...args);
             }
-        }) as T,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        },
         [delay]
-    );
+    ) as unknown as T;
 
     return throttledCallback;
 }

@@ -86,7 +86,7 @@ if (action === "registerOrUpdateClient") {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white px-8 py-20">
+    <main className="min-h-dvh bg-black text-white px-8 py-20">
       <h1 className="text-3xl font-bold text-[#E50914] mb-6">
         🧩 Test API - 90+5 Store
       </h1>

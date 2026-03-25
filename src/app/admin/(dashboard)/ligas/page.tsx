@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Edit, Trash2, Search, X, Save, Loader2, Trophy, Tag } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, X, Save, Loader2, Trophy, Tag, ChevronLeft, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import useToastMessage from '@/hooks/useToastMessage'
+import { useAdminRole } from '@/hooks/useAdminRole'
 import ImageUpload from '@/components/admin/ImageUpload'
 import { motion, AnimatePresence } from '@/lib/motion'
+import ConfirmDialog from '@/components/admin/ConfirmDialog'
+
+const PAGE_SIZE = 20
 
 interface League {
     id: string
@@ -29,16 +33,20 @@ interface Category {
 export default function LeaguesPage() {
     const supabase = createClient()
     const toast = useToastMessage()
+    const { isSuperAdmin } = useAdminRole()
 
     const [leagues, setLeagues] = useState<League[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [page, setPage] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingLeague, setEditingLeague] = useState<League | null>(null)
     const [saving, setSaving] = useState(false)
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
     const [formData, setFormData] = useState({
         name: '',
@@ -50,10 +58,38 @@ export default function LeaguesPage() {
         season: ''
     })
 
+    const fetchLeagues = useCallback(async (p = page) => {
+        setLoading(true)
+        const from = (p - 1) * PAGE_SIZE
+        const to = from + PAGE_SIZE - 1
+        try {
+            const { data, error, count } = await supabase
+                .from('leagues')
+                .select(`*, categories (name)`, { count: 'exact' })
+                .order('sort_order', { ascending: true })
+                .range(from, to)
+
+            if (error) throw error
+            setLeagues(data || [])
+            setTotalCount(count ?? 0)
+        } catch (error: unknown) {
+            console.error('Error fetching leagues:', error)
+            toast.error('Error al cargar ligas')
+        } finally {
+            setLoading(false)
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [supabase, page])
+
+    const fetchCategories = useCallback(async () => {
+        const { data } = await supabase.from('categories').select('id, name').order('name')
+        if (data) setCategories(data)
+    }, [supabase])
+
     useEffect(() => {
         fetchLeagues()
         fetchCategories()
-    }, [])
+    }, [fetchLeagues, fetchCategories])
 
     useEffect(() => {
         if (editingLeague) {
@@ -77,33 +113,7 @@ export default function LeaguesPage() {
                 season: ''
             })
         }
-    }, [editingLeague, isModalOpen])
-
-    const fetchLeagues = async () => {
-        setLoading(true)
-        try {
-            const { data, error } = await supabase
-                .from('leagues')
-                .select(`
-                    *,
-                    categories (name)
-                `)
-                .order('sort_order', { ascending: true })
-
-            if (error) throw error
-            setLeagues(data || [])
-        } catch (error: any) {
-            console.error('Error fetching leagues:', error)
-            toast.error('Error al cargar ligas')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const fetchCategories = async () => {
-        const { data } = await supabase.from('categories').select('id, name').order('name')
-        if (data) setCategories(data)
-    }
+    }, [editingLeague, isModalOpen, leagues.length])
 
     const handleSave = async () => {
         if (!formData.name || !formData.slug) {
@@ -144,17 +154,17 @@ export default function LeaguesPage() {
             setEditingLeague(null)
             fetchLeagues()
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error saving league:', error)
-            toast.error(`Error: ${error.message}`)
+            toast.error(`Error: ${(error as Error).message}`)
         } finally {
             setSaving(false)
         }
     }
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Seguro que deseas eliminar esta liga?')) return
+    const handleDelete = (id: string) => setDeleteTarget(id)
 
+    const executeDelete = async (id: string) => {
         try {
             const { error } = await supabase
                 .from('leagues')
@@ -164,7 +174,7 @@ export default function LeaguesPage() {
             if (error) throw error
             toast.success('Liga eliminada')
             setLeagues(prev => prev.filter(c => c.id !== id))
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error deleting league:', error)
             toast.error('Error al eliminar')
         }
@@ -301,13 +311,15 @@ export default function LeaguesPage() {
                                                         setEditingLeague(league)
                                                         setIsModalOpen(true)
                                                     }}
-                                                    className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+                                                    className="w-11 h-11 flex items-center justify-center hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(league.id)}
-                                                    className="p-2 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
+                                                    disabled={!isSuperAdmin}
+                                                    title={!isSuperAdmin ? 'Solo los super admins pueden eliminar' : undefined}
+                                                    className="w-11 h-11 flex items-center justify-center hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -325,6 +337,32 @@ export default function LeaguesPage() {
                         )}
                     </div>
                 )}
+
+                {/* Pagination */}
+                {totalCount > PAGE_SIZE && (
+                    <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/10">
+                        <p className="text-sm text-gray-400">
+                            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} de {totalCount}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => { setPage(p => p - 1); fetchLeagues(page - 1) }}
+                                disabled={page === 1}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="text-sm text-gray-300 font-bold">{page} / {Math.ceil(totalCount / PAGE_SIZE)}</span>
+                            <button
+                                onClick={() => { setPage(p => p + 1); fetchLeagues(page + 1) }}
+                                disabled={page >= Math.ceil(totalCount / PAGE_SIZE)}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modal */}
@@ -336,7 +374,7 @@ export default function LeaguesPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
+                            className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90dvh]"
                         >
                             {/* Modal Header */}
                             <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
@@ -349,7 +387,7 @@ export default function LeaguesPage() {
                             </div>
 
                             {/* Modal Body */}
-                            <div className="p-8 space-y-8 overflow-y-auto">
+                            <div className="p-4 sm:p-8 space-y-4 sm:space-y-8 overflow-y-auto">
 
                                 {/* Image Upload */}
                                 <div className="flex flex-col items-center">
@@ -457,6 +495,15 @@ export default function LeaguesPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                title="Eliminar liga"
+                message="¿Seguro que deseas eliminar esta liga? Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                onConfirm={() => { if (deleteTarget) executeDelete(deleteTarget); setDeleteTarget(null); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     )
 }

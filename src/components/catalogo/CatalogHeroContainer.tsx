@@ -98,7 +98,9 @@ export default function CatalogHeroContainer({
         findBanners();
 
         return () => { mounted = false; };
-    }, [bannerContextKey]); // ✅ MAGIA AQUÍ: Solo recarga si cambia la "clave" principal
+    // categorySlug, leagueSlug, supabase omitted: bannerContextKey already encapsulates them
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bannerContextKey]);
 
     // A) Si encontramos banners (1 o varios), mostramos Carrusel/Hero Dinámico
     if (dynamicSlides.length > 0) {
@@ -106,7 +108,7 @@ export default function CatalogHeroContainer({
             <HeroBanner
                 slides={dynamicSlides}
                 slideInterval={5000} // Rotación automática
-                className="min-h-[35vh] md:min-h-[55vh] mb-4"
+                className="min-h-[35dvh] md:min-h-[55dvh] mb-4"
                 alt={categoryName || "Catálogo"}
                 overlayOpacity={0.6}
                 adjacentCategories={adjacentCategories}
@@ -118,8 +120,8 @@ export default function CatalogHeroContainer({
     // Fallback: Lógica original (buscar imagen en local file system por slug)
     return (
         <HeroBanner
-            categorySlug={categorySlug || leagueSlug || "catalogo"}
-            className="min-h-[35vh] md:min-h-[55vh] mb-4"
+            categorySlug={categorySlug || leagueSlug || "default"}
+            className="min-h-[35dvh] md:min-h-[55dvh] mb-4"
             alt={categoryName || "Catálogo 90+5 Store"}
             overlayOpacity={0.6}
             adjacentCategories={adjacentCategories}

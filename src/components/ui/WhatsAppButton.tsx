@@ -19,7 +19,7 @@ export default function WhatsAppButton() {
             animate={{ scale: 1, opacity: 1 }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 p-3 md:p-4 bg-[#25D366] text-white rounded-full shadow-[0_4px_20px_rgba(37,211,102,0.4)] hover:shadow-[0_4px_30px_rgba(37,211,102,0.6)] transition-shadow flex items-center justify-center group"
+            className="fixed bottom-[calc(4rem_+_env(safe-area-inset-bottom)_+_1rem)] right-4 md:bottom-6 md:right-6 z-50 p-3 md:p-4 bg-[#25D366] text-white rounded-full shadow-[0_4px_20px_rgba(37,211,102,0.4)] hover:shadow-[0_4px_30px_rgba(37,211,102,0.6)] transition-shadow flex items-center justify-center group"
             aria-label="Contactar por WhatsApp"
         >
             <WhatsAppIcon className="w-6 h-6 md:w-8 md:h-8" />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
     Search, Plus, Filter, Shirt, LayoutGrid, List as ListIcon,
@@ -9,6 +9,8 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import useToastMessage from '@/hooks/useToastMessage'
+import ConfirmDialog from '@/components/admin/ConfirmDialog'
+import { useAdminRole } from '@/hooks/useAdminRole'
 
 // Tipos adaptados para la vista
 type ProductView = {
@@ -25,6 +27,7 @@ type ProductView = {
 export default function ProductsPage() {
     const supabase = createClient()
     const toast = useToastMessage()
+    const { isSuperAdmin } = useAdminRole()
 
     // Estados
     const [products, setProducts] = useState<ProductView[]>([])
@@ -32,13 +35,9 @@ export default function ProductsPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [search, setSearch] = useState('')
     const [filterCategory, setFilterCategory] = useState('all')
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
-    // Cargar productos
-    useEffect(() => {
-        fetchProducts()
-    }, [])
-
-    const fetchProducts = async () => {
+    const fetchProducts = useCallback(async () => {
         setLoading(true)
 
         try {
@@ -49,8 +48,8 @@ export default function ProductsPage() {
             ])
 
             // Crear mapas para acceso rápido (ID -> Nombre)
-            const leaguesMap = new Map(leaguesRes.data?.map((l: any) => [l.id, l.name]) || [])
-            const categoriesMap = new Map(categoriesRes.data?.map((c: any) => [c.id, c.name]) || [])
+            const leaguesMap = new Map(leaguesRes.data?.map((l: { id: string; name: string }) => [l.id, l.name]) || [])
+            const categoriesMap = new Map(categoriesRes.data?.map((c: { id: string; name: string }) => [c.id, c.name]) || [])
 
             // 2. Cargar Productos con relaciones seguras
             const { data, error } = await supabase
@@ -94,16 +93,27 @@ export default function ProductsPage() {
             })
             setProducts(mapped)
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error cargando catálogo:', error)
-            toast.error(`Error: ${error.message}`)
+            toast.error(`Error: ${(error as Error).message}`)
         } finally {
             setLoading(false)
         }
-    }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [supabase])
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Mover a la papelera? Podrás recuperarlo después.')) return
+    // Cargar productos
+    useEffect(() => {
+        fetchProducts()
+    }, [fetchProducts])
+
+    const handleDelete = (id: string) => setDeleteTarget(id)
+
+    const executeDelete = async (id: string) => {
+        // 🚀 Optimistic: quitar de la lista inmediatamente
+        const snapshot = products
+        setProducts(prev => prev.filter(p => p.id !== id))
+        toast.success('Producto movido a la papelera')
 
         try {
             const { error } = await supabase
@@ -112,11 +122,35 @@ export default function ProductsPage() {
                 .eq('id', id)
 
             if (error) throw error
+        } catch (error: unknown) {
+            // Revertir si el servidor falla
+            setProducts(snapshot)
+            toast.error('Error al eliminar, el producto fue restaurado')
+            console.error(error)
+        }
+    }
 
-            toast.success('Producto movido a la papelera')
-            setProducts(products.filter(p => p.id !== id))
-        } catch (error: any) {
-            toast.error('Error al eliminar')
+    const handleToggleActive = async (id: string, currentActive: boolean) => {
+        // 🚀 Optimistic: cambiar estado en UI antes de llamar al servidor
+        setProducts(prev =>
+            prev.map(p => p.id === id ? { ...p, active: !currentActive } : p)
+        )
+
+        try {
+            const { error } = await supabase
+                .from('products')
+                .update({ active: !currentActive })
+                .eq('id', id)
+
+            if (error) throw error
+
+            toast.success(!currentActive ? 'Producto activado' : 'Producto desactivado')
+        } catch (error: unknown) {
+            // Revertir al estado original
+            setProducts(prev =>
+                prev.map(p => p.id === id ? { ...p, active: currentActive } : p)
+            )
+            toast.error('Error al cambiar el estado')
             console.error(error)
         }
     }
@@ -153,7 +187,7 @@ export default function ProductsPage() {
             </div>
 
             {/* BARRA DE HERRAMIENTAS */}
-            <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 justify-between items-center sticky top-4 z-10 shadow-2xl">
+            <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 justify-between items-center sticky top-0 md:top-4 z-10 shadow-2xl">
 
                 {/* Buscador */}
                 <div className="relative w-full md:w-96 group">
@@ -316,16 +350,27 @@ export default function ProductsPage() {
                                                     L {product.price}
                                                 </td>
                                                 <td className="p-4 text-center">
-                                                    <div className={`inline-block w-2 h-2 rounded-full ${product.active ? 'bg-green-500' : 'bg-red-500'}`} />
+                                                    <button
+                                                        onClick={() => handleToggleActive(product.id, product.active)}
+                                                        title={product.active ? 'Desactivar' : 'Activar'}
+                                                        className="group inline-flex items-center gap-1.5 px-2 py-1 rounded-full transition-colors hover:bg-white/5"
+                                                    >
+                                                        <div className={`w-2 h-2 rounded-full transition-colors ${product.active ? 'bg-green-500' : 'bg-red-500'}`} />
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 group-hover:text-white transition-colors">
+                                                            {product.active ? 'Activo' : 'Inactivo'}
+                                                        </span>
+                                                    </button>
                                                 </td>
                                                 <td className="p-4 text-center">
                                                     <div className="flex items-center justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                                                        <Link href={`/admin/productos/editar/${product.id}`} className="p-2 bg-white/5 hover:bg-white text-white hover:text-black rounded-lg transition-colors">
+                                                        <Link href={`/admin/productos/editar/${product.id}`} className="w-11 h-11 flex items-center justify-center bg-white/5 hover:bg-white text-white hover:text-black rounded-lg transition-colors">
                                                             <Edit className="w-4 h-4" />
                                                         </Link>
                                                         <button
-                                                            className="p-2 bg-white/5 hover:bg-red-500/20 text-white hover:text-red-500 rounded-lg transition-colors"
+                                                            className="w-11 h-11 flex items-center justify-center bg-white/5 hover:bg-red-500/20 text-white hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-white"
                                                             onClick={() => handleDelete(product.id)}
+                                                            disabled={!isSuperAdmin}
+                                                            title={!isSuperAdmin ? 'Solo los super admins pueden eliminar' : undefined}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -340,6 +385,15 @@ export default function ProductsPage() {
                     )}
                 </>
             )}
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                title="Mover a la papelera"
+                message="¿Mover este producto a la papelera? Podrás recuperarlo después desde Ajustes → Papelera."
+                confirmLabel="Mover"
+                onConfirm={() => { if (deleteTarget) executeDelete(deleteTarget); setDeleteTarget(null); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     )
 }

@@ -63,7 +63,7 @@ export default function ImageUpload({ value, onChange, disabled }: ImageUploadPr
             onChange(data.publicUrl);
             toast.success('Imagen subida correctamente');
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Upload error:', error);
             toast.error('Error al subir la imagen');
         } finally {

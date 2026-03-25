@@ -16,7 +16,7 @@ export default function Error({
     }, [error]);
 
     return (
-        <main className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        <main className="min-h-dvh bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
             {/* 🔴 Background Effects */}
             <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-red-600/10 blur-[100px] -z-10" />
 

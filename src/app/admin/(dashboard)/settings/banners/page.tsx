@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
     Plus, Trash2, Edit, Save, X, Image as ImageIcon,
@@ -11,6 +11,7 @@ import { toast } from "react-hot-toast";
 import ImageUpload from "@/components/admin/ImageUpload";
 import MediaUpload from "@/components/admin/MediaUpload";
 import Image from "next/image";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { clearProductCache } from "@/lib/api";
 import { logAdminAction } from "@/lib/logger";
 
@@ -31,6 +32,7 @@ export default function BannersPage() {
     const [banners, setBanners] = useState<Banner[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedBannerId, setSelectedBannerId] = useState<string | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
 
     // Form State
@@ -46,21 +48,16 @@ export default function BannersPage() {
     const supabase = createClient();
 
     // === DATA FETCHING ===
-    useEffect(() => {
-        fetchBanners();
-        fetchMetadata();
-    }, []);
-
-    const fetchMetadata = async () => {
+    const fetchMetadata = useCallback(async () => {
         const [catRes, leagueRes] = await Promise.all([
             supabase.from("categories").select("id, name, slug"),
             supabase.from("leagues").select("id, name, slug")
         ]);
         setCategories(catRes.data || []);
         setLeagues(leagueRes.data || []);
-    };
+    }, [supabase]);
 
-    const fetchBanners = async () => {
+    const fetchBanners = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from("banners")
@@ -73,7 +70,12 @@ export default function BannersPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [supabase]);
+
+    useEffect(() => {
+        fetchBanners();
+        fetchMetadata();
+    }, [fetchBanners, fetchMetadata]);
 
     // === LOGIC ===
     const handleSelectBanner = (banner: Banner) => {
@@ -165,10 +167,12 @@ export default function BannersPage() {
         }
     };
 
-    const handleDelete = async (id: string, e?: React.MouseEvent) => {
+    const handleDelete = (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation();
-        if (!confirm("¿Borrar permanentemente?")) return;
+        setDeleteTarget(id);
+    };
 
+    const executeDelete = async (id: string) => {
         const bannerToDelete = banners.find(b => b.id === id);
 
         try {
@@ -210,7 +214,7 @@ export default function BannersPage() {
     };
 
     return (
-        <div className="flex flex-col md:flex-row gap-6 animate-in fade-in duration-500 h-[calc(100vh-140px)]">
+        <div className="flex flex-col md:flex-row gap-6 animate-in fade-in duration-500 h-[calc(100dvh-140px)]">
 
             {/* === LISTA LATERAL (Master) === */}
             <div className="w-full md:w-80 flex flex-col bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex-shrink-0">
@@ -281,9 +285,9 @@ export default function BannersPage() {
                                 <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 rounded-lg p-1 flex gap-1 backdrop-blur-sm border border-white/10 shadow-xl">
                                     <button
                                         onClick={(e) => handleDelete(banner.id, e)}
-                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded transition"
+                                        className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded transition"
                                     >
-                                        <Trash2 size={12} />
+                                        <Trash2 size={14} />
                                     </button>
                                 </div>
                             </div>
@@ -528,6 +532,15 @@ export default function BannersPage() {
                     </form>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                title="Eliminar banner"
+                message="¿Borrar permanentemente este banner? Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                onConfirm={() => { if (deleteTarget) executeDelete(deleteTarget); setDeleteTarget(null); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     );
 }

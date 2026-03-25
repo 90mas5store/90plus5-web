@@ -1,4 +1,4 @@
-import { Product, Config, ShippingZone } from "./types";
+import { Product, Config, ShippingZone, SupabaseRawProduct } from "./types";
 import { supabase } from "./supabase/client";
 
 export interface CatalogParams {
@@ -53,19 +53,21 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
   return (data || []).map(adaptSupabaseProductToProduct);
 }
 
-export function adaptSupabaseProductToProduct(raw: any): Product {
+export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product {
   const variants = raw.product_variants || [];
 
   const basePrice =
     variants.length > 0
-      ? Math.min(...variants.filter((v: any) => v.active).map((v: any) => v.price))
+      ? Math.min(...variants.filter(v => v.active).map(v => v.price))
       : 0;
+
+  const teams = Array.isArray(raw.teams) ? raw.teams[0] : raw.teams;
 
   return {
     id: raw.id,
-    slug: raw.slug, // ✅ Added slug
-    equipo: raw.teams?.name ?? "",
-    logoEquipo: raw.teams?.logo_url ?? null,
+    slug: raw.slug,
+    equipo: teams?.name ?? "",
+    logoEquipo: teams?.logo_url ?? undefined,
     modelo: raw.name,
     precio: basePrice,
     imagen: raw.image_url,
@@ -73,9 +75,9 @@ export function adaptSupabaseProductToProduct(raw: any): Product {
     team_id: raw.team_id,
     category_id: raw.category_id,
     league_id: raw.league_id,
-    league_ids: raw.product_leagues?.map((pl: any) => pl.league_id) || (raw.league_id ? [raw.league_id] : []),
+    league_ids: raw.product_leagues?.map(pl => pl.league_id) || (raw.league_id ? [raw.league_id] : []),
     sort_order: raw.sort_order || 0,
-    product_variants: variants.map((v: any) => ({
+    product_variants: variants.map(v => ({
       id: v.id,
       version: v.version,
       price: v.price,
@@ -160,7 +162,7 @@ async function fetchConfigFromSupabase(): Promise<Config> {
   }
 
   // 2️⃣ Adaptamos categorías al shape que espera el frontend
-  const adaptedCategorias = (categories ?? []).map((cat: any) => ({
+  const adaptedCategorias = (categories ?? []).map((cat: Record<string, unknown>) => ({
     id: cat.id,
     nombre: cat.name,
     slug: cat.slug,
@@ -170,7 +172,7 @@ async function fetchConfigFromSupabase(): Promise<Config> {
 
   // 3️⃣ Adaptamos ligas al shape que espera el frontend
   // Config.ligas = League[]
-  const adaptedLigas = (leagues ?? []).map((league: any) => ({
+  const adaptedLigas = (leagues ?? []).map((league: Record<string, unknown>) => ({
     id: league.id,
     nombre: league.name,
     slug: league.slug,
@@ -379,7 +381,7 @@ interface CacheStore {
   config: Config | null;
   featured: Product[] | null;
   lastUpdated: Record<string, number> | null;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 const memoryCache: CacheStore = {
@@ -422,7 +424,7 @@ async function getCached<T>(key: string, fetcher: () => Promise<T>, forceRefresh
 
   // 2️⃣ Intenta sessionStorage
   if (store) {
-    const cachedRaw = store.getItem(`cache_${key} `);
+    const cachedRaw = store.getItem(`cache_${key}`);
     if (cachedRaw) {
       try {
         const parsed = JSON.parse(cachedRaw);
@@ -488,7 +490,7 @@ function setCache<T>(key: string, data: T) {
   memoryCache.lastUpdated[key] = now;
 
   if (store) {
-    store.setItem(`cache_${key} `, JSON.stringify({ data, timestamp: now }));
+    store.setItem(`cache_${key}`, JSON.stringify({ data, timestamp: now }));
   }
 }
 
@@ -514,12 +516,12 @@ export async function getCatalog(): Promise<Product[]> {
 }
 
 // Cache LRU simple para paginación
-const paginatedCache = new Map<string, { data: any, timestamp: number }>();
+const paginatedCache = new Map<string, { data: { data: Product[]; count: number }, timestamp: number }>();
 
 /** 🚀 Obtener catálogo paginado (Nuevo - Escalable) 
  *  Ahora con caché en memoria de 60s para navegación instantánea
  */
-export async function getCatalogPaginated(params: CatalogParams) {
+export async function getCatalogPaginated(params: CatalogParams): Promise<{ data: Product[]; count: number }> {
   const {
     page = 1,
     limit = 24,
@@ -557,7 +559,7 @@ export async function getCatalogPaginated(params: CatalogParams) {
       // Fallback a búsqueda normal si falla el RPC (ej: no creado aun)
     } else if (fuzzyIds && fuzzyIds.length > 0) {
       // 2. Traer el detalle completo de esos IDs
-      const ids = fuzzyIds.map((item: any) => item.id);
+      const ids = fuzzyIds.map((item: Record<string, unknown>) => item.id);
 
       const { data: productsData, error: productsError } = await supabase
         .from("products")
@@ -574,7 +576,7 @@ export async function getCatalogPaginated(params: CatalogParams) {
       if (productsError) throw productsError;
 
       // 3. Reordenar en JS para respetar la relevancia del Fuzzy (SQL 'IN' no garantiza orden)
-      const productsMap = new Map(productsData?.map((p: any) => [p.id, p]));
+      const productsMap = new Map(productsData?.map(p => [p.id, p]));
       const sortedProducts = ids.map((id: string) => productsMap.get(id)).filter(Boolean);
 
       const result = {
@@ -620,10 +622,12 @@ export async function getCatalogPaginated(params: CatalogParams) {
   }
 
   // 4. Ordenamiento Estricto en Memoria
-  const sortedMetadata = (allMetadata || []).sort((a: any, b: any) => {
+  const sortedMetadata = (allMetadata || []).sort((a, b) => {
     // Normalización de seguridad (usamos "zzz" para items sin equipo)
-    const teamA = (a.teams?.name || "zzz").toLowerCase().trim();
-    const teamB = (b.teams?.name || "zzz").toLowerCase().trim();
+    const teamsA = Array.isArray(a.teams) ? a.teams[0] : a.teams;
+    const teamsB = Array.isArray(b.teams) ? b.teams[0] : b.teams;
+    const teamA = (teamsA?.name || "zzz").toLowerCase().trim();
+    const teamB = (teamsB?.name || "zzz").toLowerCase().trim();
 
     // Nivel 1: Equipo
     const teamCompare = teamA.localeCompare(teamB);
@@ -639,7 +643,7 @@ export async function getCatalogPaginated(params: CatalogParams) {
   const totalCount = sortedMetadata.length;
   const pageIds = sortedMetadata
     .slice((page - 1) * limit, page * limit)
-    .map((item: any) => item.id);
+    .map(item => item.id as string);
 
   // 6. Si la página está vacía
   if (pageIds.length === 0) {
@@ -663,12 +667,12 @@ export async function getCatalogPaginated(params: CatalogParams) {
 
   // 8. Reconstrucción Estricta del Orden (Mapping)
   // Usamos un Map para acceso eficiente y respetamos el orden de 'pageIds'
-  const productsMap = new Map(productsData?.map((p: any) => [p.id, p]));
+  const productsMap = new Map(productsData?.map(p => [p.id, p]));
 
   const finalSortedData = pageIds
     .map((id: string) => {
       const p = productsMap.get(id);
-      return p ? adaptSupabaseProductToProduct(p) : null;
+      return p ? adaptSupabaseProductToProduct(p as SupabaseRawProduct) : null;
     })
     .filter((p): p is Product => p !== null);
 

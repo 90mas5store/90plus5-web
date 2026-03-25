@@ -71,24 +71,28 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     // Verificar que estamos en el cliente
     if (typeof window === 'undefined') return;
 
-    try {
-      const saved = localStorage.getItem("cart90mas5");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed);
-          // ✅ Carrito cargado desde localStorage
+    // Llamar setState en callback para evitar setState síncrono en effect
+    const id = setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("cart90mas5");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setItems(parsed);
+          }
         }
+      } catch (error) {
+        console.error('Error loading cart from localStorage:', error);
+        localStorage.removeItem("cart90mas5");
+        localStorage.removeItem("cartItems");
       }
-    } catch (error) {
-      console.error('Error loading cart from localStorage:', error);
-      // Si hay error, limpiar localStorage corrupto
-      localStorage.removeItem("cart90mas5");
-      localStorage.removeItem("cartItems");
-    }
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   // 💾 Guardar carrito al cambiar
+  // 🛡️ A2 FIX: Solo guardar datos mínimos en localStorage (sin precios)
+  // Los precios se recalculan desde el servidor en checkout
   useEffect(() => {
     // Verificar que estamos en el cliente
     if (typeof window === 'undefined') return;
@@ -121,12 +125,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       if (existing) {
         return prev.map((i) =>
           isSameItem(i, newItem)
-            ? { ...i, cantidad: i.cantidad + newItem.cantidad }
+            ? { ...i, cantidad: Math.min(i.cantidad + newItem.cantidad, 99) }
             : i
         );
       }
 
-      return [...prev, newItem];
+      // 🛡️ A2 FIX: Clamp cantidad al agregar
+      return [...prev, { ...newItem, cantidad: Math.min(Math.max(1, newItem.cantidad), 99) }];
     });
     setIsOpen(true);
   };
@@ -173,7 +178,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           item.parche === parche &&
           item.dorsalNumero === dorsalNumero &&
           item.dorsalNombre === dorsalNombre
-          ? { ...item, cantidad: Math.max(1, nuevaCantidad) }
+          ? { ...item, cantidad: Math.min(Math.max(1, nuevaCantidad), 99) }
           : item
       )
     );
