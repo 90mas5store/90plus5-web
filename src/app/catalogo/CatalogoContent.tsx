@@ -77,8 +77,6 @@ export default function CatalogoContent({
   const prefersReducedMotion = usePrefersReducedMotion();
   const toast = useToastMessage();
 
-  // Flag para evitar doble fetch en mount
-  const isFirstMount = useRef(true);
   // Ref para scroll automático
   const contentRef = useRef<HTMLDivElement>(null);
   // Flag para saber si debemos hacer scroll (solo al seleccionar liga)
@@ -201,31 +199,17 @@ export default function CatalogoContent({
     } finally {
       setLoading(false);
       setLoadingMore(false);
-      isFirstMount.current = false;
     }
   }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, toast, config, categoriaParam, ligaParam]);
 
-  // Efecto Principal: Disparar Fetch cuando cambian filtros o page
-  // NOTA: Separamos la lógica de "Cambio de Filtro" vs "Cambio de Página"
-
-  // 1. Cuando cambian filtros: Resetear a Pág 1
+  // Efecto Principal: Disparar Fetch cuando cambian filtros
+  // Siempre fetchea en mount para garantizar datos frescos (evita stale data del Router Cache)
   useEffect(() => {
-    // 🛡️ Skip fetch inicial si ya tenemos datos del servidor que coinciden con los params
-    // Esto es complejo de validar perfectamente, pero asumimos que si hay initialProducts y es el primer render, no hacemos fetch.
-    if (isFirstMount.current && initialProducts.length > 0) {
-      // Ya tenemos datos, solo marcamos que ya no es el primer mount
-      // PERO: Si los params de URL cambiaron respecto a lo que trajo el server (edge case), deberíamos fetchear.
-      // Por simplicidad, asumimos que el server respondió a la URL actual.
-      // isFirstMount se setea false en el bloque 'finally' de fetchProducts, o aquí.
-      isFirstMount.current = false;
-      return;
-    }
-
     setPage(1);
     fetchProducts(1, false);
   // fetchProducts omitted: its extra deps (config, toast, etc.) would cause unwanted re-runs
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, initialProducts.length]);
+  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj]);
 
   // 2. Función para cargar más (botón)
   const handleLoadMore = () => {
