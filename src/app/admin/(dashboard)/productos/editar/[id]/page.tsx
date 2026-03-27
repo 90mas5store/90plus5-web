@@ -1,7 +1,7 @@
 'use client'
 // Force Refresh
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { clearProductCache } from '@/lib/api'
@@ -49,7 +49,8 @@ export default function EditProductPage() {
     const params = useParams()
     const id = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : ''
     const router = useRouter()
-    const supabase = createClient()
+    const supabaseRef = useRef(createClient())
+    const supabase = supabaseRef.current
     const toast = useToastMessage()
 
     const [loading, setLoading] = useState(true)
@@ -207,7 +208,7 @@ export default function EditProductPage() {
         }
 
         loadData()
-    }, [id, supabase, toast])
+    }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
     // Handlers Generales
@@ -290,7 +291,7 @@ export default function EditProductPage() {
         }
 
         fetchPlayers()
-    }, [formData.team_id, supabase])
+    }, [formData.team_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleAddPlayer = async () => {
         if (!newPlayer.name || !newPlayer.number || !formData.team_id) return

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import { Trash2, UserPlus, ShieldAlert } from "lucide-react";
@@ -19,7 +19,8 @@ export default function AdminUsersPage() {
     const [isAdding, setIsAdding] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    const supabase = createClient();
+    const supabaseRef = useRef(createClient());
+    const supabase = supabaseRef.current;
 
     const fetchAdmins = useCallback(async () => {
         try {
@@ -36,7 +37,7 @@ export default function AdminUsersPage() {
         } finally {
             setLoading(false);
         }
-    }, [supabase]);
+    }, []);
 
     useEffect(() => {
         fetchAdmins();

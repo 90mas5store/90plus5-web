@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { clearProductCache } from '@/lib/api'
@@ -46,7 +46,8 @@ interface Player {
 
 export default function CreateProductPage() {
     const router = useRouter()
-    const supabase = createClient()
+    const supabaseRef = useRef(createClient())
+    const supabase = supabaseRef.current
     const toast = useToastMessage()
 
     const [loading, setLoading] = useState(true)
@@ -136,7 +137,7 @@ export default function CreateProductPage() {
         }
 
         loadData()
-    }, [supabase, toast])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
 
     // Handlers Generales
@@ -217,7 +218,7 @@ export default function CreateProductPage() {
         }
 
         fetchPlayers()
-    }, [formData.team_id, supabase])
+    }, [formData.team_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleAddPlayer = async () => {
         if (!newPlayer.name || !newPlayer.number || !formData.team_id) return

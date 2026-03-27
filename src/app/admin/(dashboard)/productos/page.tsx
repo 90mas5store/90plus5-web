@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
     Search, Plus, Filter, Shirt, LayoutGrid, List as ListIcon,
@@ -25,7 +25,8 @@ type ProductView = {
 }
 
 export default function ProductsPage() {
-    const supabase = createClient()
+    const supabaseRef = useRef(createClient())
+    const supabase = supabaseRef.current
     const toast = useToastMessage()
     const { isSuperAdmin } = useAdminRole()
 
@@ -99,8 +100,7 @@ export default function ProductsPage() {
         } finally {
             setLoading(false)
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [supabase])
+    }, [])
 
     // Cargar productos
     useEffect(() => {

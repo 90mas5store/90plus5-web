@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, UploadCloud, X, Image as ImageIcon, Film } from "lucide-react";
@@ -18,7 +18,8 @@ interface MediaUploadProps {
 
 export default function MediaUpload({ value, onChange, onRemove, type = 'both', className = "", disabled = false }: MediaUploadProps) {
     const [loading, setLoading] = useState(false);
-    const supabase = createClient();
+    const supabaseRef = useRef(createClient());
+    const supabase = supabaseRef.current;
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         try {
@@ -47,7 +48,7 @@ export default function MediaUpload({ value, onChange, onRemove, type = 'both', 
         } finally {
             setLoading(false);
         }
-    }, [onChange, supabase]);
+    }, [onChange]);
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,

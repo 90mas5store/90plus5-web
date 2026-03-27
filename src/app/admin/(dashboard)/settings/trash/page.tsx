@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import { RotateCcw, Trash2, Search, AlertTriangle } from "lucide-react";
@@ -19,7 +19,8 @@ export default function TrashPage() {
     const [products, setProducts] = useState<DeletedProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-    const supabase = createClient();
+    const supabaseRef = useRef(createClient());
+    const supabase = supabaseRef.current;
 
     const fetchDeleted = useCallback(async () => {
         try {
@@ -43,7 +44,7 @@ export default function TrashPage() {
         } finally {
             setLoading(false);
         }
-    }, [supabase]);
+    }, []);
 
     useEffect(() => {
         fetchDeleted();

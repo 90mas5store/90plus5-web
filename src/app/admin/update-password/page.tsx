@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
@@ -12,33 +12,32 @@ export default function UpdatePasswordPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [authorized, setAuthorized] = useState<boolean | null>(null);
     const router = useRouter();
-    const supabase = createClient();
+    const supabaseRef = useRef(createClient());
+    const supabase = supabaseRef.current;
 
     // 🔐 Verificar que el usuario actual está en la whitelist (doble validación client-side)
     useEffect(() => {
+        let isMounted = true;
+
         const checkAuthorization = async () => {
             try {
                 const { data: { user }, error: authError } = await supabase.auth.getUser();
-                if (authError || !user) {
-                    setAuthorized(false);
-                    return;
-                }
+                if (!isMounted) return;
+                if (authError || !user) { setAuthorized(false); return; }
 
                 // Verificar whitelist via RPC (respeta RLS)
                 const { data: role } = await supabase.rpc('get_my_admin_role');
-                if (!role) {
-                    setAuthorized(false);
-                    return;
-                }
+                if (!isMounted) return;
 
-                setAuthorized(true);
+                setAuthorized(!!role);
             } catch {
-                setAuthorized(false);
+                if (isMounted) setAuthorized(false);
             }
         };
 
         checkAuthorization();
-    }, [supabase]);
+        return () => { isMounted = false; };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();

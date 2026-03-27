@@ -16,7 +16,8 @@ export default function ImageUpload({ value, onChange, disabled }: ImageUploadPr
     const [isUploading, setIsUploading] = useState(false);
     const [preview, setPreview] = useState(value);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const supabase = createClient();
+    const supabaseRef = useRef(createClient());
+    const supabase = supabaseRef.current;
     const toast = useToastMessage();
 
     useEffect(() => {

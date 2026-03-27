@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Edit, Trash2, Search, X, Save, Loader2, Trophy, Tag, ChevronLeft, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
@@ -31,7 +31,8 @@ interface Category {
 }
 
 export default function LeaguesPage() {
-    const supabase = createClient()
+    const supabaseRef = useRef(createClient())
+    const supabase = supabaseRef.current
     const toast = useToastMessage()
     const { isSuperAdmin } = useAdminRole()
 
@@ -78,13 +79,12 @@ export default function LeaguesPage() {
         } finally {
             setLoading(false)
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [supabase, page])
+    }, [page])
 
     const fetchCategories = useCallback(async () => {
         const { data } = await supabase.from('categories').select('id, name').order('name')
         if (data) setCategories(data)
-    }, [supabase])
+    }, [])
 
     useEffect(() => {
         fetchLeagues()
@@ -346,7 +346,7 @@ export default function LeaguesPage() {
                         </p>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => { setPage(p => p - 1); fetchLeagues(page - 1) }}
+                                onClick={() => setPage(p => p - 1)}
                                 disabled={page === 1}
                                 className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                             >
@@ -354,7 +354,7 @@ export default function LeaguesPage() {
                             </button>
                             <span className="text-sm text-gray-300 font-bold">{page} / {Math.ceil(totalCount / PAGE_SIZE)}</span>
                             <button
-                                onClick={() => { setPage(p => p + 1); fetchLeagues(page + 1) }}
+                                onClick={() => setPage(p => p + 1)}
                                 disabled={page >= Math.ceil(totalCount / PAGE_SIZE)}
                                 className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                             >

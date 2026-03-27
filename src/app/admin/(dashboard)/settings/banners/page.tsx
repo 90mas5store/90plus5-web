@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
     Plus, Trash2, Edit, Save, X, Image as ImageIcon,
@@ -45,7 +45,8 @@ export default function BannersPage() {
     const [selectedCatalogFilter, setSelectedCatalogFilter] = useState<'all' | 'category' | 'league'>('all');
     const [selectedSlug, setSelectedSlug] = useState('');
 
-    const supabase = createClient();
+    const supabaseRef = useRef(createClient());
+    const supabase = supabaseRef.current;
 
     // === DATA FETCHING ===
     const fetchMetadata = useCallback(async () => {
@@ -55,7 +56,7 @@ export default function BannersPage() {
         ]);
         setCategories(catRes.data || []);
         setLeagues(leagueRes.data || []);
-    }, [supabase]);
+    }, []);
 
     const fetchBanners = useCallback(async () => {
         try {
@@ -70,7 +71,7 @@ export default function BannersPage() {
         } finally {
             setLoading(false);
         }
-    }, [supabase]);
+    }, []);
 
     useEffect(() => {
         fetchBanners();
