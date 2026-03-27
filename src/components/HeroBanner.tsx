@@ -447,6 +447,7 @@ export default function HeroBanner({
             <div className="absolute inset-0">
                 {/* 1. Base Image Layer - SIEMPRE VISIBLE - SIN ANIMACIONES */}
                 <Image
+                    key={finalImageSrc}
                     src={finalImageSrc}
                     alt={alt}
                     fill

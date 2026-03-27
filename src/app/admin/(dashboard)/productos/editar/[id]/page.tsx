@@ -13,6 +13,7 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import useToastMessage from '@/hooks/useToastMessage'
+import { useAdminRole } from '@/hooks/useAdminRole'
 import { motion, AnimatePresence } from 'framer-motion'
 import ImageUpload from '@/components/admin/ImageUpload'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
@@ -52,9 +53,11 @@ export default function EditProductPage() {
     const supabaseRef = useRef(createClient())
     const supabase = supabaseRef.current
     const toast = useToastMessage()
+    const { isSuperAdmin } = useAdminRole()
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [confirmDeleteProduct, setConfirmDeleteProduct] = useState(false)
 
     // Catálogos
     const [teams, setTeams] = useState<any[]>([])
@@ -341,6 +344,22 @@ export default function EditProductPage() {
         }
     }
 
+    // --- DELETE PRODUCT ---
+    const handleDeleteProduct = async () => {
+        try {
+            const { error } = await supabase
+                .from('products')
+                .update({ deleted_at: new Date().toISOString() })
+                .eq('id', id)
+            if (error) throw error
+            clearProductCache()
+            toast.success('Producto movido a la papelera')
+            router.push('/admin/productos')
+        } catch (error: unknown) {
+            toast.error(`Error al eliminar: ${(error as Error).message}`)
+        }
+    }
+
     // --- SAVE LOGIC ---
     const handleSave = async () => {
         if (!formData.name || !formData.slug) {
@@ -552,15 +571,26 @@ export default function EditProductPage() {
                             <p className="text-gray-400 text-xs font-mono opacity-60">ID: {id}</p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="bg-primary hover:bg-primary/90 text-black px-8 py-3 rounded-xl font-black text-sm uppercase tracking-wider flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] transform hover:-translate-y-1 active:translate-y-0"
-                    >
-                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        {saving ? 'Guardando...' : 'Guardar Cambios'}
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setConfirmDeleteProduct(true)}
+                            disabled={!isSuperAdmin || saving}
+                            title={!isSuperAdmin ? 'Solo los super admins pueden eliminar' : 'Mover a papelera'}
+                            className="p-3 rounded-xl border border-white/10 text-gray-400 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="bg-primary hover:bg-primary/90 text-black px-8 py-3 rounded-xl font-black text-sm uppercase tracking-wider flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] transform hover:-translate-y-1 active:translate-y-0"
+                        >
+                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            {saving ? 'Guardando...' : 'Guardar Cambios'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1039,6 +1069,15 @@ export default function EditProductPage() {
                 confirmLabel="Eliminar"
                 onConfirm={() => { if (playerToDelete) executeDeletePlayer(playerToDelete); setPlayerToDelete(null); }}
                 onCancel={() => setPlayerToDelete(null)}
+            />
+
+            <ConfirmDialog
+                open={confirmDeleteProduct}
+                title="Mover a la papelera"
+                message="¿Mover este producto a la papelera? Podrás recuperarlo después desde Ajustes → Papelera."
+                confirmLabel="Mover"
+                onConfirm={() => { setConfirmDeleteProduct(false); handleDeleteProduct(); }}
+                onCancel={() => setConfirmDeleteProduct(false)}
             />
         </div >
     )

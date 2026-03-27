@@ -372,7 +372,7 @@ export default function CatalogoContent({
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-8">
               {productos.map((item, i) => (
                 <div
-                  key={`${item.id}-${i}`}
+                  key={item.id}
                   className="h-full"
                 >
                   <ProductCard

@@ -463,6 +463,7 @@ export function clearProductCache(filter: 'all' | 'catalog' | 'config' = 'all') 
   if (filter === 'all' || filter === 'catalog') {
     memoryCache.catalog = null;
     memoryCache.featured = null;
+    paginatedCache.clear(); // 🧹 Limpiar también el cache de getCatalogPaginated
     if (store) {
       store.removeItem('cache_catalog');
       store.removeItem('cache_featured');
