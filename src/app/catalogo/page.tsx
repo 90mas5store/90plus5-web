@@ -5,6 +5,10 @@ import { CatalogPageSkeleton } from "../../components/skeletons/ProductSkeletons
 import { Metadata } from "next";
 import { getConfig, getCatalogPaginated } from "../../lib/api";
 
+// Siempre renderizar dinámico: desactiva el Data Cache de Next.js para
+// los fetches de Supabase, garantizando que cada recarga trae datos frescos.
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await Promise.resolve(searchParams);
   const categoria = params?.categoria;
