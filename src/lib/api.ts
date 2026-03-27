@@ -531,13 +531,16 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     leagueId
   } = params;
 
-  // 1️⃣ Revisar Caché
+  // 1️⃣ Revisar Caché (solo en el navegador — el servidor no puede limpiar este cache desde el cliente)
+  const isClient = typeof window !== 'undefined';
   const cacheKey = JSON.stringify(params) + "_v10_sorted"; // 🔥 v10: Force cache refresh
   const now = Date.now();
-  const cached = paginatedCache.get(cacheKey);
 
-  if (cached && (now - cached.timestamp < 60 * 1000)) { // 1 minuto de vida
-    return cached.data;
+  if (isClient) {
+    const cached = paginatedCache.get(cacheKey);
+    if (cached && (now - cached.timestamp < 60 * 1000)) { // 1 minuto de vida
+      return cached.data;
+    }
   }
 
   // Lógica bifurcada: Búsqueda con typos (RPC) vs Navegación normal (Standard)
@@ -585,8 +588,8 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         count: 100 // Estimado
       };
 
-      // Cache y retorno
-      paginatedCache.set(cacheKey, { data: result, timestamp: now });
+      // Cache y retorno (solo cliente)
+      if (isClient) paginatedCache.set(cacheKey, { data: result, timestamp: now });
       return result;
     } else {
       // Búsqueda no arrojó resultados
@@ -682,8 +685,10 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     count: totalCount
   };
 
-  // Cache
-  paginatedCache.set(cacheKey, { data: result, timestamp: now });
+  // Cache (solo cliente)
+  if (isClient) {
+    paginatedCache.set(cacheKey, { data: result, timestamp: now });
+  }
 
   // Limpieza simple
   if (paginatedCache.size > 100) {
