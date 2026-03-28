@@ -9,6 +9,7 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 });
 
 // PWA
+const defaultCache = require("next-pwa/cache");
 const withPWA = require("next-pwa")({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
@@ -16,6 +17,19 @@ const withPWA = require("next-pwa")({
   skipWaiting: true,
   cleanupOutdatedCaches: true,
   buildExcludes: [/app-build-manifest\.json$/, /middleware-manifest\.json$/],
+  runtimeCaching: [
+    // Admin, API y Supabase: nunca cachear, siempre red directa
+    {
+      urlPattern: /^\/(admin|api)(\/.*)?$/,
+      handler: "NetworkOnly",
+    },
+    {
+      urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/.*/i,
+      handler: "NetworkOnly",
+    },
+    // Resto: estrategia por defecto de next-pwa
+    ...defaultCache,
+  ],
 });
 
 /** @type {import('next').NextConfig} */
