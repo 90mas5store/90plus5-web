@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
-import { getProductOptionsFromSupabase, getPlayersByTeam, getRelatedProducts } from "@/lib/api";
+import { getProductOptionsFromSupabase, getPlayersByTeam } from "@/lib/api";
 import HeatmapBackground from "@/components/HeatmapBackground";
 import TeamLogo from "@/components/TeamLogo";
 import ProductImage from "@/components/ProductImage";
@@ -55,9 +55,10 @@ interface Product {
 interface ProductoPersonalizarProps {
     product: Product;
     breadcrumb?: React.ReactNode;
+    initialRelated?: LibProduct[];
 }
 
-export default function ProductoPersonalizar({ product, breadcrumb }: ProductoPersonalizarProps) {
+export default function ProductoPersonalizar({ product, breadcrumb, initialRelated = [] }: ProductoPersonalizarProps) {
     const router = useRouter();
     const { addItem, openCart } = useCart();
     const toast = useToastMessage();
@@ -85,7 +86,7 @@ export default function ProductoPersonalizar({ product, breadcrumb }: ProductoPe
         parches?: { id: string; label: string }[];
         variantSizesMap?: Record<string, string[]>;
     }>({ dorsales: [], preciosPorVersion: {}, originalesPorVersion: {}, variantSizesMap: {} });
-    const [relatedProducts, setRelatedProducts] = useState<LibProduct[]>([]);
+    const [relatedProducts] = useState<LibProduct[]>(initialRelated);
     const [loading, setLoading] = useState(true);
 
     // Personalización - ahora guardamos {id, label} donde aplica
@@ -165,8 +166,6 @@ export default function ProductoPersonalizar({ product, breadcrumb }: ProductoPe
                 setPrecioOriginalActual(originalesPorVersion[firstVersion.label] ?? null);
             }
 
-            const related = await getRelatedProducts(product.id, product.league_id, product.category_id);
-            setRelatedProducts(related);
             setLoading(false);
         }
         cargarOpciones();

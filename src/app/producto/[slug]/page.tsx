@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProductoPersonalizar from "@/components/product/ProductoPersonalizar";
-import RelatedProducts from "@/components/product/RelatedProducts";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import { adaptSupabaseProductToProduct } from "@/lib/api";
 import { Metadata, ResolvingMetadata } from "next";
@@ -99,33 +98,28 @@ export default async function ProductoPage({ params }: Props) {
     // Now 'result' is guaranteed to be the product object
     const productData = result as Exclude<typeof result, { redirect: string }>;
 
-    // 🔄 Fetch Productos Relacionados
-    // Prioridad: Misma Liga -> Misma Categoría -> Cualquiera
-    let relatedQuery = supabase
+    // 🔄 Fetch Productos Relacionados — Liga primero, categoría como fallback
+    const relatedBase = supabase
         .from("products")
         .select(`
-            id, name, slug, description, image_url, featured,
+            id, name, slug, image_url, featured,
             team_id, category_id, league_id,
             teams (name, logo_url),
-            product_variants (id, version, price, active, original_price, active_original_price),
-            product_leagues (league_id)
+            product_variants (version, price, active, original_price, active_original_price)
         `)
         .eq("active", true)
         .neq("id", productData.id)
+        .order("featured", { ascending: false })
         .limit(4);
 
-    // Estrategia Mejorada: Buscar por Categoría (amplio) pero priorizar Destacados
-    // Esto asegura que casi siempre haya resultados si hay productos en la categoría
-    if (productData.category_id) {
-        relatedQuery = relatedQuery.eq("category_id", productData.category_id);
-    }
+    const filterField = productData.league_id ? "league_id" : "category_id";
+    const filterValue = productData.league_id ?? productData.category_id;
 
-    // Opcional: Si queremos priorizar la liga podemos ordenar, pero Supabase no permite ordenar complejo sin RPC
-    // Así que confiamos en "Destacados" dentro de la categoría
-    relatedQuery = relatedQuery.order("featured", { ascending: false });
+    const { data: relatedRaw } = filterValue
+        ? await relatedBase.eq(filterField, filterValue)
+        : await relatedBase;
 
-    const { data: relatedRaw } = await relatedQuery;
-    const relatedProducts = (relatedRaw || []).map(adaptSupabaseProductToProduct);
+    const relatedProducts = ((relatedRaw || []) as any[]).map(adaptSupabaseProductToProduct);
 
     // 🧭 Breadcrumb data
     const teamName = productData.teams?.name || "Catálogo";
@@ -202,10 +196,8 @@ export default async function ProductoPage({ params }: Props) {
             <ProductoPersonalizar
                 product={productData}
                 breadcrumb={<Breadcrumb items={breadcrumbItems} />}
+                initialRelated={relatedProducts}
             />
-
-            {/* 🔗 Relacionados */}
-            <RelatedProducts products={relatedProducts} />
         </>
     );
 }
