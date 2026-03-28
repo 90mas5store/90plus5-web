@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { FileSpreadsheet, Download, Calendar, Loader2, FileText, Filter } from 'lucide-react'
-import ExcelJS from 'exceljs'
 import useToastMessage from '@/hooks/useToastMessage'
 import { createClient } from '@/lib/supabase/client'
 
@@ -158,6 +157,7 @@ export default function ReportesPage() {
             }
 
             if (format === 'excel') {
+                const ExcelJS = (await import('exceljs')).default
                 const workbook = new ExcelJS.Workbook()
                 const worksheet = workbook.addWorksheet('Pedidos')
                 worksheet.columns = columns.map(key => ({

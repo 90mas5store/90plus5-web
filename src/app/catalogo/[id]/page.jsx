@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 import { getCatalog } from "../../../lib/api";
 import { ArrowLeft } from "lucide-react";
 import HeatmapBackground from "../../../components/HeatmapBackground";

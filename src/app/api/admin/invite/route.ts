@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         // 1. Crear cliente con permisos de SUPER ADMIN (Service Role)
         const supabaseAdmin = createAdminClient();
 
-        console.log(`🔍 Buscando usuario: ${email} `);
+        // No logear email — PII
 
         // 2. Buscar si el usuario ya existe en Supabase Auth
         const { data: { users }, error: searchError } = await supabaseAdmin.auth.admin.listUsers();
@@ -63,10 +63,9 @@ export async function POST(request: Request) {
         let userId = existingUser?.id;
 
         if (userId) {
-            console.log(`✅ Usuario existente: ${userId} `);
+            // usuario ya existente
         } else {
             if (password) {
-                console.log(`🔑 Creando usuario con contraseña...`);
                 const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
                     email,
                     password,
@@ -76,7 +75,6 @@ export async function POST(request: Request) {
                 if (createError) throw createError;
                 userId = newUser.user.id;
             } else {
-                console.log(`✨ Invitando usuario...`);
 
                 // Definir URL base dinámica
                 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';

@@ -102,13 +102,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang="es" className={`dark ${satoshi.className}`}>
             <head>
-                {/* Preload crítico para LCP - Imagen del Hero Banner */}
-                <link
-                    rel="preload"
-                    as="image"
-                    href="/_next/image?url=%2Fheroes%2Fdefault.jpg&w=3840&q=75"
-                    fetchPriority="high"
-                />
 
                 {/* Preconnect optimizado */}
                 <link rel="preconnect" href="https://i.imgur.com" crossOrigin="anonymous" />
@@ -140,7 +133,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <body className="bg-background text-textLight antialiased relative overflow-x-hidden">
                 {/* 💫 Overlay global */}
                 <div className="fixed inset-0 -z-10 bg-gradient-to-b from-primary/10 via-background/90 to-black/95 pointer-events-none" />
-                <div className="fixed inset-0 -z-[9] backdrop-blur-[1px] bg-black/40 pointer-events-none" />
+                <div className="fixed inset-0 -z-[9] bg-black/40 pointer-events-none" />
 
                 <AnalyticsWrapper />
 

@@ -1,8 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import confetti from "canvas-confetti";
+import { motion } from "@/lib/motion";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
@@ -39,24 +38,16 @@ export default function CheckoutDonePage() {
       setProductos(JSON.parse(savedCart));
     }
 
-    // 🎊 Confetti
-    const duration = 2 * 1000;
-    const end = Date.now() + duration;
-    (function frame() {
-      confetti({
-        particleCount: 5,
-        angle: 60,
-        spread: 60,
-        origin: { x: 0 },
-      });
-      confetti({
-        particleCount: 5,
-        angle: 120,
-        spread: 60,
-        origin: { x: 1 },
-      });
-      if (Date.now() < end) requestAnimationFrame(frame);
-    })();
+    // 🎊 Confetti — carga dinámica para no incluirlo en el bundle inicial
+    import("canvas-confetti").then(({ default: confetti }) => {
+      const duration = 2 * 1000;
+      const end = Date.now() + duration;
+      (function frame() {
+        confetti({ particleCount: 5, angle: 60, spread: 60, origin: { x: 0 } });
+        confetti({ particleCount: 5, angle: 120, spread: 60, origin: { x: 1 } });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+    });
   }, []);
 
   const copyToClipboard = (text, field) => {

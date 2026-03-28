@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 import Button from "../../../components/ui/MainButton";
 import { useEffect } from "react";
 

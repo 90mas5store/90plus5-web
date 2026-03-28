@@ -85,8 +85,14 @@ export default function CatalogoContent({
   // 🔄 Actualizar URL (Live Search)
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
-    if (debouncedSearchTerm.trim()) {
-      params.set("query", debouncedSearchTerm.trim());
+    const currentQuery = searchParams.get("query") || "";
+    const newQuery = debouncedSearchTerm.trim();
+
+    // Skip router.replace if query hasn't actually changed
+    if (currentQuery === newQuery) return;
+
+    if (newQuery) {
+      params.set("query", newQuery);
     } else {
       params.delete("query");
     }

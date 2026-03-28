@@ -221,11 +221,9 @@ export default function HeroBanner({
         return 'hero_default';
     }, [slides, categorySlug]);
 
-    const wasPreviouslyLoaded = typeof window !== 'undefined'
-        ? sessionStorage.getItem(getCacheKey()) === 'loaded'
-        : false;
-
-    const [isLoading, setIsLoading] = useState(!wasPreviouslyLoaded); // Skip loading if cached
+    // Always start false — sessionStorage only available client-side.
+    // Checking it at render time causes SSR↔CSR hydration mismatch.
+    const [isLoading, setIsLoading] = useState(false);
     const [videoError, setVideoError] = useState(false);
     const [isVideoReady, setIsVideoReady] = useState(false);
     const [useFallbackImage, setUseFallbackImage] = useState(false);
@@ -320,19 +318,22 @@ export default function HeroBanner({
     useEffect(() => {
         if (!enableParallax) return;
 
+        let rafPending = false;
+
         const handleScroll = () => {
-            if (!containerRef.current) return;
+            if (!containerRef.current || rafPending) return;
 
-            const rect = containerRef.current.getBoundingClientRect();
-            const scrollProgress = -rect.top / (rect.height + window.innerHeight);
-            const offset = scrollProgress * 100 * parallaxIntensity;
-
-            // Solo aplicar parallax cuando el hero está visible
-            if (rect.top < window.innerHeight && rect.bottom > 0) {
-                requestAnimationFrame(() => {
+            rafPending = true;
+            requestAnimationFrame(() => {
+                rafPending = false;
+                if (!containerRef.current) return;
+                const rect = containerRef.current.getBoundingClientRect();
+                if (rect.top < window.innerHeight && rect.bottom > 0) {
+                    const scrollProgress = -rect.top / (rect.height + window.innerHeight);
+                    const offset = scrollProgress * 100 * parallaxIntensity;
                     setParallaxOffset(Math.max(-30, Math.min(30, offset)));
-                });
-            }
+                }
+            });
         };
 
         window.addEventListener("scroll", handleScroll, { passive: true });
@@ -348,33 +349,31 @@ export default function HeroBanner({
     useEffect(() => {
         if (adjacentCategories.length === 0) return;
 
-        adjacentCategories.forEach((category) => {
-            const img = new window.Image();
-            img.src = `/heroes/${category}.jpg`;
-        });
+        // Delay preload so it doesn't compete with the LCP hero image
+        const timer = setTimeout(() => {
+            adjacentCategories.forEach((category) => {
+                const img = new window.Image();
+                img.src = `/heroes/${category}.jpg`;
+            });
+        }, 2000);
+        return () => clearTimeout(timer);
     }, [adjacentCategories]);
 
     // ============================================
     // 🖼️ PRELOAD SLIDES DEL CARRUSEL
     // ============================================
 
-    // 🕰️ TIMEOUT DE SEGURIDAD PARA CARGA INFINITA (reducido para mejor UX)
+    // 🕰️ TIMEOUT DE SEGURIDAD: desbloquea si onLoad nunca dispara (imagen rota, etc.)
     useEffect(() => {
-        // Shorter timeout for better perceived performance
-        const timeout = wasPreviouslyLoaded ? 500 : 2000;
+        if (!isLoading) return;
         const timer = setTimeout(() => {
-            if (isLoading) {
-                // Si la imagen tarda demasiado, asumimos que cargó o falló para desbloquear
-                setIsLoading(false);
-                // Mark as loaded anyway to prevent future delays
-                if (typeof window !== 'undefined') {
-                    sessionStorage.setItem(getCacheKey(), 'loaded');
-                }
+            setIsLoading(false);
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem(getCacheKey(), 'loaded');
             }
-        }, timeout);
-
+        }, 400);
         return () => clearTimeout(timer);
-    }, [isLoading, wasPreviouslyLoaded, getCacheKey]);
+    }, [isLoading, getCacheKey]);
 
     // ============================================
     // 📥 HANDLERS

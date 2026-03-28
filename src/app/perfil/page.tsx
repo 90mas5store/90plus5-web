@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 import { LogOut, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import HistorialPedidos from "../../components/perfil/HistorialPedidos";

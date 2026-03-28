@@ -14,7 +14,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import useToastMessage from '@/hooks/useToastMessage'
 import { useAdminRole } from '@/hooks/useAdminRole'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/motion'
 import ImageUpload from '@/components/admin/ImageUpload'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
 

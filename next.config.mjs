@@ -171,7 +171,6 @@ const nextConfig = {
    * ⚡ Optimizaciones de rendimiento (Lighthouse recommendations)
    */
   compress: true, // Habilitar compresión gzip
-  swcMinify: true, // Usar SWC para minificación (más rápido que Terser)
 
   /**
    * 🔬 Características experimentales para mejor rendimiento
@@ -192,8 +191,8 @@ const nextConfig = {
         minSize: 10000,
         maxSize: 150000,
         minChunks: 1,
-        maxAsyncRequests: 50,
-        maxInitialRequests: 50,
+        maxAsyncRequests: 30,
+        maxInitialRequests: 25,
         cacheGroups: {
           // Separar react-icons
           reactIcons: {

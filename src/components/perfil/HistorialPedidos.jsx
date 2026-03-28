@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 import { Package, Clock, CheckCircle } from "lucide-react";
 
 export default function HistorialPedidos({ usuario }) {

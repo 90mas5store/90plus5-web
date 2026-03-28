@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 import { useMemo, useState, useEffect } from "react";
 
 export default function HeatmapBackground({ liga = "default", opacity = 0.25 }) {
