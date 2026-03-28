@@ -219,46 +219,6 @@ export async function getPlayersByTeam(teamId: string) {
   return data ?? [];
 }
 
-export async function getRelatedProducts(currentProductId: string, leagueId?: string, categoryId?: string): Promise<Product[]> {
-  let query = supabase
-    .from("products")
-    .select(`
-  id,
-    name,
-    slug,
-    image_url,
-    featured,
-    team_id,
-    category_id,
-    league_id,
-    teams(
-      name,
-      logo_url
-    ),
-    product_variants(
-      price,
-      active
-    )
-      `)
-    .eq("active", true)
-    .neq("id", currentProductId)
-    .limit(4);
-
-  if (leagueId) {
-    query = query.eq("league_id", leagueId);
-  } else if (categoryId) {
-    query = query.eq("category_id", categoryId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("Error fetching related products:", error);
-    return [];
-  }
-
-  return data.map(adaptSupabaseProductToProduct);
-}
 
 export async function getProductOptionsFromSupabase(productId: string) {
   /* =========================
@@ -786,14 +746,6 @@ export async function getProductById(idOrSlug: string): Promise<Product> {
   return adaptSupabaseProductToProduct(data);
 }
 
-/** ⚙️ Obtener opciones del producto (Legacy - Deprecated)
- * Se mantiene temporalmente por si algún componente antiguo lo usa,
- * pero devuelve objeto vacío. Usar getProductOptionsFromSupabase.
- */
-export async function getProductOptions(liga: string, equipo: string): Promise<any> {
-  console.warn("Using deprecated getProductOptions. Please migrate to getProductOptionsFromSupabase.");
-  return {};
-}
 /** 🚚 Obtener zonas de envío (departamentos y municipios) */
 export async function getShippingZones(): Promise<ShippingZone[]> {
   return getCached<ShippingZone[]>("shipping_zones", () =>
