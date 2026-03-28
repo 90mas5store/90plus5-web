@@ -14,6 +14,8 @@ const withPWA = require("next-pwa")({
   disable: process.env.NODE_ENV === "development",
   register: true,
   skipWaiting: true,
+  cleanupOutdatedCaches: true,
+  buildExcludes: [/app-build-manifest\.json$/, /middleware-manifest\.json$/],
 });
 
 /** @type {import('next').NextConfig} */
