@@ -2,7 +2,18 @@
 import { motion } from "@/lib/motion";
 import { Mail, MapPin, Phone } from "lucide-react";
 
-export default function DatosUsuario({ usuario }) {
+interface Usuario {
+  correo: string;
+  id?: string;
+  nombre?: string;
+  avatar?: string | null;
+}
+
+interface DatosUsuarioProps {
+  usuario: Usuario;
+}
+
+export default function DatosUsuario({ usuario }: DatosUsuarioProps) {
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}

@@ -4,7 +4,6 @@
 import { Shirt, ArrowRight } from "lucide-react";
 import ProductImage from "../../components/ProductImage";
 import TeamLogo from "../../components/TeamLogo";
-import MainButton from "./MainButton";
 import { Product } from "../../lib/types";
 
 // Tipos para las props del componente
@@ -29,7 +28,7 @@ const glowHover = {
     transition: { duration: 0.3, ease: "easeOut" as const }
 };
 
-// Use standard div instead of motion.div for better performance in lists
+// Use standard button instead of div for semantics and keyboard accessibility
 export default function ProductCard({ item, priority = false, onPress, enableGlow = true }: ProductCardProps) {
 
     // Extraer datos asegurando que no fallen
@@ -42,11 +41,13 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
     } = item;
 
     return (
-        <div
+        <button
+            type="button"
             onClick={() => onPress(item)}
-            className={`group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5 
-            ${enableGlow ? 'hover:shadow-[0_0_22px_rgba(229,9,20,0.25)] hover:border-primary/45' : 'hover:border-primary/40'} 
-            transition-all duration-500 ease-out cursor-pointer aspect-[4/5] shadow-2xl animate-in fade-in zoom-in-95 fill-mode-both`}
+            aria-label={`Ver ${equipo} ${modelo}`}
+            className={`group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5
+            ${enableGlow ? 'hover:shadow-[0_0_22px_rgba(229,9,20,0.25)] hover:border-primary/45' : 'hover:border-primary/40'}
+            transition-all duration-500 ease-out cursor-pointer aspect-[4/5] shadow-2xl animate-in fade-in zoom-in-95 fill-mode-both w-full text-left`}
             style={{ animationDuration: '600ms' }}
         >
             {/* 🖼️ Main Image */}
@@ -94,16 +95,14 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                 </div>
             </div>
 
-            {/* ⚡ Action Button (Slides up) */}
+            {/* ⚡ Action Label (Slides up) — div instead of button to avoid nested buttons */}
             <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6 z-20 transform translate-y-24 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)">
-                <MainButton
-                    className="w-full py-3 md:py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl md:rounded-2xl shadow-[0_15px_30px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2 md:gap-3 group/btn"
-                >
+                <div className="w-full py-3 md:py-4 bg-primary text-white font-bold rounded-xl md:rounded-2xl shadow-[0_15px_30px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2 md:gap-3 group/btn">
                     <Shirt className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:rotate-12 transition-transform hidden md:block" />
                     <span className="tracking-wide text-xs md:text-[15px]">Personalizar</span>
                     <ArrowRight className="w-3 h-3 md:w-4 md:h-4 opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all" />
-                </MainButton>
+                </div>
             </div>
-        </div>
+        </button>
     );
 }

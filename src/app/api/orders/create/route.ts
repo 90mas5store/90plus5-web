@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
         // 🛡️ RATE LIMITING — máximo 10 pedidos por IP cada hora
         const ip = getClientIp(request);
-        const { allowed, retryAfterMs } = checkRateLimit(`orders:${ip}`, 10, 60 * 60_000);
+        const { allowed, retryAfterMs } = await checkRateLimit(`orders:${ip}`, 10, 60 * 60_000);
         if (!allowed) {
             return NextResponse.json(
                 { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' },

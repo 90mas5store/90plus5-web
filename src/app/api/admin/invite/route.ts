@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     try {
         // 🛡️ RATE LIMITING — máximo 5 invitaciones por IP cada 10 minutos
         const ip = getClientIp(request);
-        const { allowed, retryAfterMs } = checkRateLimit(`admin-invite:${ip}`, 5, 10 * 60_000);
+        const { allowed, retryAfterMs } = await checkRateLimit(`admin-invite:${ip}`, 5, 10 * 60_000);
         if (!allowed) {
             return NextResponse.json(
                 { error: 'Demasiadas solicitudes. Intenta más tarde.' },

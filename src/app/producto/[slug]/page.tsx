@@ -1,9 +1,15 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import ProductoPersonalizar from "@/components/product/ProductoPersonalizar";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import { adaptSupabaseProductToProduct } from "@/lib/api";
+import { SupabaseRawProduct } from "@/lib/types";
 import { Metadata, ResolvingMetadata } from "next";
+
+// ISR: revalidate every hour, unknown slugs served on-demand and cached
+export const revalidate = 3600;
+export const dynamicParams = true;
 
 // Regex to detect if the slug is actually a UUID (Legacy URL support)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -12,8 +18,50 @@ type Props = {
     params: { slug: string };
 };
 
+// Explicit type for the Supabase product shape returned by getProduct
+type SupabaseProduct = {
+    id: string;
+    name: string;
+    description: string | null;
+    image_url: string | null;
+    team_id: string | null;
+    league_id: string | null;
+    category_id: string | null;
+    teams: { name: string; logo_url: string } | null;
+    product_variants: Array<{
+        version: string;
+        price: number;
+        original_price: number | null;
+        active_original_price: boolean | null;
+        active: boolean;
+    }> | null;
+    variants: Array<{
+        version: string;
+        price: number;
+        original_price: number | null;
+        active_original_price: boolean | null;
+        active: boolean;
+    }> | null;
+};
+
+// Pre-generate the 30 most popular (featured) product pages at build time
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+        .from("products")
+        .select("slug")
+        .eq("active", true)
+        .eq("featured", true)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+    return (data || [])
+        .filter((p): p is { slug: string } => typeof p.slug === "string")
+        .map((p) => ({ slug: p.slug }));
+}
+
 // 🛠️ Helper to fetch product data (Reusable for metadata & page)
-async function getProduct(slug: string) {
+async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: string } | null> {
     const supabase = await createClient();
 
     // 1. Legacy UUID Redirect Logic
@@ -37,11 +85,19 @@ async function getProduct(slug: string) {
 
     if (!product) return null;
 
-    // Transform for component
+    const teams = Array.isArray(product.teams) ? product.teams[0] : product.teams;
+
     return {
-        ...product,
-        teams: Array.isArray(product.teams) ? product.teams[0] : product.teams,
-        variants: product.product_variants // Keep raw variants for structured data logic
+        id: product.id,
+        name: product.name,
+        description: product.description ?? null,
+        image_url: product.image_url ?? null,
+        team_id: product.team_id ?? null,
+        league_id: product.league_id ?? null,
+        category_id: product.category_id ?? null,
+        teams: teams ? { name: teams.name, logo_url: teams.logo_url ?? "" } : null,
+        product_variants: product.product_variants ?? null,
+        variants: product.product_variants ?? null,
     };
 }
 
@@ -95,8 +151,7 @@ export default async function ProductoPage({ params }: Props) {
         redirect(result.redirect);
     }
 
-    // Now 'result' is guaranteed to be the product object
-    const productData = result as Exclude<typeof result, { redirect: string }>;
+    const productData = result as SupabaseProduct;
 
     // 🔄 Fetch Productos Relacionados — Liga primero, categoría como fallback
     const relatedBase = supabase
@@ -119,7 +174,7 @@ export default async function ProductoPage({ params }: Props) {
         ? await relatedBase.eq(filterField, filterValue)
         : await relatedBase;
 
-    const relatedProducts = ((relatedRaw || []) as any[]).map(adaptSupabaseProductToProduct);
+    const relatedProducts = (relatedRaw as SupabaseRawProduct[] | null || []).map(adaptSupabaseProductToProduct);
 
     // 🧭 Breadcrumb data
     const teamName = productData.teams?.name || "Catálogo";
@@ -182,7 +237,6 @@ export default async function ProductoPage({ params }: Props) {
         ]
     };
 
-    // @ts-ignore - Supabase type transformation handled above safely
     return (
         <>
             <script

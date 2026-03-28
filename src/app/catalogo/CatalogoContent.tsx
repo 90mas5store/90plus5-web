@@ -152,7 +152,7 @@ export default function CatalogoContent({
     const lObj = ligas.find(l => normalize(l.nombre) === normalize(ligaSeleccionada));
     // Fallback para ligas en URL que aun no cargan su objeto
     if (!lObj && ligaParam && normalize(ligaParam) === normalize(ligaSeleccionada)) {
-      return { id: null, nombre: ligaParam, imagen: null, slug: ligaParam } as any;
+      return { id: null, nombre: ligaParam, imagen: null, slug: ligaParam } as ExtendedLeague;
     }
     return lObj;
   }, [ligas, ligaSeleccionada, ligaParam]);

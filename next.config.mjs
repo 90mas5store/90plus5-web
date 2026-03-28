@@ -1,4 +1,20 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+
+// Bundle analyzer (activate with: ANALYZE=true npm run build)
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+});
+
+// PWA
+const withPWA = require("next-pwa")({
+  dest: "public",
+  disable: process.env.NODE_ENV === "development",
+  register: true,
+  skipWaiting: true,
+});
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -228,7 +244,7 @@ const nextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+export default withSentryConfig(withBundleAnalyzer(withPWA(nextConfig)), {
     // Subir source maps solo en CI/CD para no exponer código en dev
     silent: true,
     org: process.env.SENTRY_ORG,

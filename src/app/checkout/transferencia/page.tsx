@@ -21,9 +21,9 @@ export default function TransferenciaPage() {
   const handleConfirm = () => {
     // Redirige al done con los mismos datos
     const query = new URLSearchParams({
-      orderId,
-      nombre,
-      total,
+      orderId: orderId ?? "",
+      nombre: nombre ?? "",
+      total: total ?? "",
       metodo,
     }).toString();
     router.push(`/checkout/done?${query}`);

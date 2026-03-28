@@ -2,9 +2,27 @@
 import { motion } from "@/lib/motion";
 import { Package, Clock, CheckCircle } from "lucide-react";
 
-export default function HistorialPedidos({ usuario }) {
+interface Usuario {
+  correo?: string;
+  id?: string;
+  nombre?: string;
+  avatar?: string | null;
+}
+
+interface Pedido {
+  id: string;
+  fecha: string;
+  total: string;
+  estado: string;
+}
+
+interface HistorialPedidosProps {
+  usuario: Usuario;
+}
+
+export default function HistorialPedidos({ usuario: _usuario }: HistorialPedidosProps) {
   // 🧠 Simular pedidos por ahora
-  const pedidos = [
+  const pedidos: Pedido[] = [
     {
       id: "PED-2301",
       fecha: "2025-11-03",

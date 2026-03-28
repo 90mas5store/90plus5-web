@@ -14,7 +14,7 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
     }
 
     // 🛡️ A3 FIX: Rate limit — máximo 5 cambios de estado por orden por minuto
-    const { allowed } = checkRateLimit(`order-status:${orderId}`, 5, 60_000);
+    const { allowed } = await checkRateLimit(`order-status:${orderId}`, 5, 60_000);
     if (!allowed) {
         throw new Error('Demasiados cambios de estado para esta orden. Espera un momento.');
     }

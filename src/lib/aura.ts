@@ -1,8 +1,8 @@
-// src/lib/aura.js
-export function getAura(liga) {
+// src/lib/aura.ts
+export function getAura(liga: string | null | undefined): string {
   if (!liga) return "from-[#E50914]/20 via-black/70 to-black";
 
-  const map = {
+  const map: Record<string, string> = {
     "Barcelona": "from-[#004D98]/50 via-black/70 to-[#A50044]/40",
     "Real Madrid": "from-[#FFFFFF]/15 via-[#A899CA]/20 to-black",
     "PSG": "from-[#004170]/40 via-black/70 to-[#DA291C]/40",

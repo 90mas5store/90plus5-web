@@ -35,11 +35,11 @@ interface Team {
 interface Product {
     id: string;
     name: string;
-    description: string;
-    image_url: string;
-    team_id: string;
-    teams?: Team;
-    product_variants?: ProductVariant[];
+    description: string | null;
+    image_url: string | null;
+    team_id: string | null;
+    teams?: Team | null;
+    product_variants?: ProductVariant[] | null;
     modelo?: string;
     equipo?: string;
     liga?: string;
@@ -48,8 +48,8 @@ interface Product {
     precio?: number;
     descripcion?: string;
     slug?: string;
-    league_id?: string;
-    category_id?: string;
+    league_id?: string | null;
+    category_id?: string | null;
 }
 
 interface ProductoPersonalizarProps {
@@ -514,8 +514,8 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                         )}
 
                         {/* Sección Dorsal */}
-                        <div className="space-y-2 p-5 rounded-3xl bg-white/5 border border-white/5">
-                            <h3 className="text-sm font-semibold text-gray-300">Personalización de Dorsal</h3>
+                        <fieldset className="space-y-2 p-5 rounded-3xl bg-white/5 border border-white/5">
+                            <legend className="text-sm font-semibold text-gray-300">Personalización de Dorsal</legend>
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => { setQuiereDorsal(true); setModoDorsal("jugador"); }}
@@ -582,7 +582,9 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
 
                                         {modoDorsal === "personalizado" && (
                                             <div className="flex flex-col sm:flex-row gap-3">
+                                                <label htmlFor="numero-dorsal" className="sr-only">Número de dorsal</label>
                                                 <input
+                                                    id="numero-dorsal"
                                                     type="text"
                                                     placeholder="Nº"
                                                     value={numeroPersonalizado}
@@ -590,7 +592,9 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                                     maxLength={2}
                                                     className="w-full sm:w-16 bg-black/40 border border-white/10 rounded-xl px-2 py-3 text-center font-black text-primary focus:border-primary outline-none"
                                                 />
+                                                <label htmlFor="nombre-dorsal" className="sr-only">Nombre de dorsal</label>
                                                 <input
+                                                    id="nombre-dorsal"
                                                     type="text"
                                                     placeholder="Ej. L. PALMA"
                                                     value={nombrePersonalizado}
@@ -602,7 +606,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-                        </div>
+                        </fieldset>
 
                         {/* Botón Final */}
                         <div className="pt-4">

@@ -95,10 +95,12 @@ export default function SearchBar({
 
     return (
         <div ref={containerRef} className={`relative w-full max-w-xl ${className}`}>
-            <form onSubmit={handleSubmit} className="relative z-50">
+            <form onSubmit={handleSubmit} className="relative z-50" role="search">
+                <label htmlFor="search-input" className="sr-only">Buscar productos</label>
                 <div className={`absolute inset-0 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 transition-all duration-300 ${isFocused ? 'ring-2 ring-primary/50 border-primary/30 shadow-[0_0_30px_rgba(229,9,20,0.15)]' : 'shadow-[0_0_25px_rgba(255,255,255,0.05)]'}`} />
                 <input
                     ref={inputRef}
+                    id="search-input"
                     type="text"
                     placeholder={placeholder}
                     value={value}
@@ -106,15 +108,19 @@ export default function SearchBar({
                     onChange={(e) => onChange(e.target.value)}
                     className="relative w-full py-3 md:py-4 pl-10 md:pl-12 pr-10 md:pr-12 bg-transparent text-base md:text-sm text-white placeholder-gray-400 outline-none rounded-2xl"
                 />
-                <Search
-                    onClick={handleSubmit}
-                    className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors duration-300 ${isFocused ? 'text-primary' : 'text-gray-400'} cursor-pointer hover:text-white`}
-                />
+                <button
+                    type="submit"
+                    aria-label="Buscar"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white transition-colors duration-300"
+                >
+                    <Search className={`w-5 h-5 ${isFocused ? 'text-primary' : ''}`} />
+                </button>
 
                 {value && (
                     <button
                         type="button"
                         onClick={handleClear}
+                        aria-label="Limpiar búsqueda"
                         className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-all duration-200"
                     >
                         <X className="w-4 h-4" />
@@ -129,12 +135,17 @@ export default function SearchBar({
                         initial={{ opacity: 0, y: -10, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                        role="listbox"
+                        aria-live="polite"
+                        aria-label="Resultados de búsqueda"
                         className="absolute top-full left-0 right-0 mt-2 bg-neutral-900/95 backdrop-blur-2xl border border-white/10 rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[100]"
                     >
                         <div className="p-2">
                             {results.map((product) => (
                                 <button
                                     key={product.id}
+                                    role="option"
+                                    aria-selected={false}
                                     onClick={() => handleResultClick(product)}
                                     className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 group transition-colors text-left"
                                 >

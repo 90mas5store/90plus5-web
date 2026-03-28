@@ -4,7 +4,12 @@ import { motion, AnimatePresence } from "@/lib/motion";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 
-export default function Loader({ show = true, text = "Cargando..." }) {
+interface LoaderProps {
+  show?: boolean;
+  text?: string;
+}
+
+export default function Loader({ show = true, text = "Cargando..." }: LoaderProps) {
   const [visible, setVisible] = useState(show);
 
   useEffect(() => {

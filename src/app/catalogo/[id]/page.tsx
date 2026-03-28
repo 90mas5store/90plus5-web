@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 // Legacy route — redirects to the proper product page /producto/[slug]
-export default function LegacyProductRedirect() {
-  const { id } = useParams();
+export default function LegacyProductRedirect(): null {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
   useEffect(() => {

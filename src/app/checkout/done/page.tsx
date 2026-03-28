@@ -16,6 +16,17 @@ import Button from "../../../components/ui/MainButton";
 import { BANK_ACCOUNTS } from "../../../lib/config/banks";
 import { getWhatsappLink } from "@/lib/whatsapp";
 
+interface CartItem {
+  imagen: string;
+  equipo: string;
+  modelo: string;
+  talla?: string;
+  dorsalNombre?: string;
+  dorsalNumero?: string;
+  precio: number;
+  cantidad: number;
+}
+
 export default function CheckoutDonePage() {
   const params = useSearchParams();
   const router = useRouter();
@@ -28,9 +39,9 @@ export default function CheckoutDonePage() {
   const municipio = params.get("municipio");
   const departamento = params.get("departamento");
 
-  const [productos, setProductos] = useState([]);
+  const [productos, setProductos] = useState<CartItem[]>([]);
   const [copied, setCopied] = useState("");
-  const [expandedBank, setExpandedBank] = useState(null); // null = todas colapsadas
+  const [expandedBank, setExpandedBank] = useState<number | null>(null); // null = todas colapsadas
 
   useEffect(() => {
     const savedCart = localStorage.getItem("cartItems");
@@ -50,7 +61,7 @@ export default function CheckoutDonePage() {
     });
   }, []);
 
-  const copyToClipboard = (text, field) => {
+  const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopied(field);
     setTimeout(() => setCopied(""), 2000);
@@ -296,7 +307,7 @@ export default function CheckoutDonePage() {
                               <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
                                 <span className="font-black text-green-500 text-2xl">L{anticipo}</span>
                                 <button
-                                  onClick={() => copyToClipboard(anticipo, `monto-${idx}`)}
+                                  onClick={() => copyToClipboard(anticipo ?? "", `monto-${idx}`)}
                                   className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                                 >
                                   {copied === `monto-${idx}` ? (

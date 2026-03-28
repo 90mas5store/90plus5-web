@@ -1,12 +1,11 @@
 /**
- * Rate limiter en memoria.
- * 
- * ⚠️ A8 ADVERTENCIA IMPORTANTE:
- * En entornos serverless (Vercel) el estado NO persiste entre instancias.
- * Un atacante puede hacer N reqs/min × M instancias = bypass efectivo.
- * 
- * Para producción a escala, migrar a Upstash Redis (`@upstash/ratelimit`).
- * Este rate limiter es una capa de defensa básica, NO una solución completa.
+ * Rate limiter con graceful fallback:
+ * - Si UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN están presentes → Upstash Redis (distribuido)
+ * - Si no → in-memory (desarrollo local, advertencia: no persiste entre instancias serverless)
+ *
+ * Para activar Upstash, añadir a .env.local:
+ *   UPSTASH_REDIS_REST_URL=https://...upstash.io
+ *   UPSTASH_REDIS_REST_TOKEN=...
  */
 
 interface RateLimitEntry {
@@ -16,7 +15,7 @@ interface RateLimitEntry {
 
 const store = new Map<string, RateLimitEntry>();
 
-// Limpieza periódica de entradas expiradas (cada 5 min)
+// Limpieza periódica de entradas expiradas (cada 5 min, solo en-memory)
 if (typeof setInterval !== 'undefined') {
     setInterval(() => {
         const now = Date.now();
@@ -26,18 +25,13 @@ if (typeof setInterval !== 'undefined') {
     }, 5 * 60_000);
 }
 
-interface RateLimitResult {
+export interface RateLimitResult {
     allowed: boolean;
     remaining: number;
     retryAfterMs: number;
 }
 
-/**
- * @param identifier  Clave única (p.ej. `"orders:${ip}"`)
- * @param maxRequests Máximo de solicitudes permitidas en la ventana
- * @param windowMs    Tamaño de la ventana en milisegundos
- */
-export function checkRateLimit(
+function checkInMemory(
     identifier: string,
     maxRequests: number,
     windowMs: number
@@ -56,6 +50,46 @@ export function checkRateLimit(
 
     entry.count++;
     return { allowed: true, remaining: maxRequests - entry.count, retryAfterMs: 0 };
+}
+
+/**
+ * @param identifier  Clave única (p.ej. `"orders:${ip}"`)
+ * @param maxRequests Máximo de solicitudes permitidas en la ventana
+ * @param windowMs    Tamaño de la ventana en milisegundos
+ */
+export async function checkRateLimit(
+    identifier: string,
+    maxRequests: number,
+    windowMs: number
+): Promise<RateLimitResult> {
+    const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+    const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (upstashUrl && upstashToken) {
+        try {
+            const { Ratelimit } = await import('@upstash/ratelimit');
+            const { Redis } = await import('@upstash/redis');
+
+            const redis = new Redis({ url: upstashUrl, token: upstashToken });
+            const ratelimit = new Ratelimit({
+                redis,
+                limiter: Ratelimit.slidingWindow(maxRequests, `${windowMs}ms`),
+            });
+
+            const { success, remaining, reset } = await ratelimit.limit(identifier);
+            return {
+                allowed: success,
+                remaining,
+                retryAfterMs: success ? 0 : Math.max(0, reset - Date.now()),
+            };
+        } catch (err) {
+            // Fallback to in-memory if Upstash fails
+            console.warn('[rateLimit] Upstash error, falling back to in-memory:', err);
+            return checkInMemory(identifier, maxRequests, windowMs);
+        }
+    }
+
+    return checkInMemory(identifier, maxRequests, windowMs);
 }
 
 /** Extrae la IP real del request (compatible con Vercel / proxies). */

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { motion, AnimatePresence } from "@/lib/motion";
 import { useRef, useState, useEffect, useCallback } from "react";
+import { usePrefersReducedMotion } from "@/hooks/useOptimization";
 
 // ============================================
 // 🎨 TIPOS E INTERFACES
@@ -213,6 +214,7 @@ export default function HeroBanner({
 }: HeroBannerProps) {
     const containerRef = useRef<HTMLElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const prefersReducedMotion = usePrefersReducedMotion();
 
     // Check if this resource was previously loaded (cache hint)
     const getCacheKey = useCallback(() => {
@@ -471,11 +473,12 @@ export default function HeroBanner({
                     >
                         <video
                             ref={videoRef}
-                            autoPlay
+                            autoPlay={!prefersReducedMotion}
                             loop
                             muted
                             playsInline
                             preload="auto"
+                            aria-label="Video del hero"
                             className="w-full h-full object-cover"
                             onCanPlay={handleVideoLoad}
                             onError={handleVideoError}

@@ -88,10 +88,6 @@ export default function ContactoPage() {
         </motion.a>
       </section>
 
-
-
-
-
       {/* INFORMACIÓN LEGAL */}
       <section
         className="relative z-10 px-6 sm:px-16 py-16 border-t border-white/10 bg-black/40 backdrop-blur-sm"
