@@ -19,8 +19,10 @@ const withPWA = require("next-pwa")({
   buildExcludes: [/app-build-manifest\.json$/, /middleware-manifest\.json$/],
   runtimeCaching: [
     // Admin, API y Supabase: nunca cachear, siempre red directa
+    // Nota: urlPattern se testa contra la URL completa (https://...), no solo el pathname
     {
-      urlPattern: /^\/(admin|api)(\/.*)?$/,
+      urlPattern: ({ url }) =>
+        url.pathname.startsWith("/admin") || url.pathname.startsWith("/api"),
       handler: "NetworkOnly",
     },
     {
