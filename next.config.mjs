@@ -130,8 +130,23 @@ const nextConfig = {
           },
         ],
       },
+      // Páginas públicas: no-cache permite bfcache (back/forward navigation)
       {
         source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, max-age=0, must-revalidate',
+          },
+        ],
+        missing: [
+          { type: 'header', key: 'next-router-prefetch' },
+          { type: 'header', key: 'purpose', value: 'prefetch' },
+        ],
+      },
+      // Páginas sensibles: no-store (checkout, perfil, admin, api)
+      {
+        source: '/(checkout|perfil|admin|api)/:path*',
         headers: [
           {
             key: 'Cache-Control',

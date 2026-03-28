@@ -66,11 +66,10 @@ export default function SpecialEventBanner() {
                             {/* Logo */}
                             <div className="relative h-12 w-9 md:h-24 md:w-20 flex-shrink-0 drop-shadow-2xl">
                                 <Image
-                                    src="/img/mundial2026/Mundial2026.svg"
+                                    src="/img/mundial2026/Mundial2026.webp"
                                     alt="Mundial 2026"
                                     fill
                                     className="object-contain"
-                                    unoptimized
                                 />
                             </div>
 
