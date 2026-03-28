@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+
+// Persiste en memoria durante la sesión SPA (no se resetea entre navegaciones)
+const _homeAlreadyMounted = { value: false };
 import { m, AnimatePresence } from "@/lib/motion";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -57,6 +60,12 @@ export default function HomeClient({
     const debouncedSearchTerm = useDebounce(searchTerm, 400); // Kept for consistency if needed, though search is direct
     const prefersReducedMotion = usePrefersReducedMotion();
     const toast = useToastMessage();
+
+    // true = primera vez que se monta en esta sesión de navegación
+    const isFirstMount = useRef(!_homeAlreadyMounted.value);
+    useEffect(() => {
+        _homeAlreadyMounted.value = true;
+    }, []);
 
     // 🚀 Precargar rutas de productos cuando estén disponibles
     useProductPrefetch(destacados.slice(0, 4));
@@ -136,10 +145,8 @@ export default function HomeClient({
 
                         // 🎯 Scroll automático suave al seleccionar liga
                         if (nuevaLiga) {
-                            console.log('🎯 Ejecutando scroll a ligas...', nuevaLiga);
                             setTimeout(() => {
                                 const element = document.getElementById('ligas');
-                                console.log('📍 Elemento ligas encontrado:', element);
                                 if (element) {
                                     const yOffset = -80; // Offset para dejar visible el título y carrusel
                                     const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
@@ -163,17 +170,16 @@ export default function HomeClient({
                 <AnimatePresence mode="wait">
                     <m.div
                         key={ligaSeleccionada || "all"}
-                        initial={{ opacity: 0 }}
+                        initial={isFirstMount.current ? { opacity: 0 } : false}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.4 }}
+                        transition={{ duration: 0.25 }}
                         className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6"
                     >
                         {destacadosFiltrados.map((item, i) => (
                             <div
                                 key={item.id}
-                                className="h-full animate-in fade-in zoom-in-95 fill-mode-both duration-500"
-                                style={{ animationDelay: `${i * 50}ms` }}
+                                className="h-full"
                             >
                                 <ProductCard
                                     item={item}

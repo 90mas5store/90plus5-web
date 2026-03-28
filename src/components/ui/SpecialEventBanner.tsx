@@ -11,7 +11,7 @@ export default function SpecialEventBanner() {
 
     return (
         <section
-            className="px-4 max-w-7xl mx-auto mb-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both"
+            className="px-4 max-w-7xl mx-auto mb-8 relative z-10"
         >
             <Link href="/catalogo?categoria=Mundial2026" className="block group relative overflow-hidden rounded-xl w-full h-auto min-h-[220px] md:min-h-[260px] border border-white/10 shadow-2xl bg-black/90 hover:border-white/20 transition-colors duration-500">
                 {/* === BACKGROUND LAYERS === */}
@@ -24,6 +24,7 @@ export default function SpecialEventBanner() {
                             loop
                             muted
                             playsInline
+                            preload="none"
                             poster="/heroes/mundial2026.jpg"
                             className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90"
                             onError={() => setVideoFailed(true)}
@@ -44,7 +45,7 @@ export default function SpecialEventBanner() {
 
                     {/* === CONTENT LEFT (EDITORIAL / GATEWAY) === */}
                     <div
-                        className="flex flex-col justify-center gap-3 z-10 w-full max-w-4xl animate-in fade-in slide-in-from-left-4 duration-700 delay-100 fill-mode-both"
+                        className="flex flex-col justify-center gap-3 z-10 w-full max-w-4xl"
                     >
 
                         {/* Context & Badges */}
@@ -97,7 +98,7 @@ export default function SpecialEventBanner() {
 
                     {/* === VISUAL ELEMENTS (ATMOSPHERE) === */}
                     <div
-                        className="absolute right-[-10px] bottom-[-10px] md:right-10 md:bottom-[-40px] w-28 h-28 md:w-[400px] md:h-[400px] pointer-events-none z-10 md:z-20 opacity-40 md:opacity-100 animate-in fade-in zoom-in-90 duration-1000 delay-200 fill-mode-both"
+                        className="absolute right-[-10px] bottom-[-10px] md:right-10 md:bottom-[-40px] w-28 h-28 md:w-[400px] md:h-[400px] pointer-events-none z-10 md:z-20 opacity-40 md:opacity-100"
                     >
                         <div className="w-full h-full relative transition-transform duration-700 ease-out group-hover:scale-110 group-hover:-rotate-3 group-hover:-translate-y-2">
                             <Image

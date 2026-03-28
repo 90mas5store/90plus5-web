@@ -67,16 +67,13 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => any>(
  * Hook para detectar si el usuario prefiere reducir animaciones
  */
 export function usePrefersReducedMotion(): boolean {
-    // Lazy initializer: lee la preferencia directamente en el primer render del cliente
-    const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
-        typeof window !== 'undefined'
-            ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-            : false
-    );
+    // Siempre false en SSR para evitar hidratación inconsistente
+    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-        // Solo suscribirse a cambios futuros (el valor inicial ya está en el estado)
+        // Leer el valor real en el cliente tras montar
+        setPrefersReducedMotion(mediaQuery.matches);
         const handleChange = (event: MediaQueryListEvent) => {
             setPrefersReducedMotion(event.matches);
         };
