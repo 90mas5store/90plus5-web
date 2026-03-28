@@ -25,13 +25,13 @@ export default function SpecialEventBanner() {
                             muted
                             playsInline
                             preload="none"
-                            poster="/heroes/mundial2026.jpg"
+                            poster="/heroes/Mundial2026.jpg"
                             className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90"
                             onError={() => setVideoFailed(true)}
                         />
                     ) : (
                         <Image
-                            src="/heroes/mundial2026.jpg"
+                            src="/heroes/Mundial2026.jpg"
                             alt="Mundial 2026"
                             fill
                             className="object-cover opacity-60 brightness-75"
