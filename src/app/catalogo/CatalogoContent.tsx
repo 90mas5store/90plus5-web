@@ -357,7 +357,7 @@ export default function CatalogoContent({
       )}
 
       {/* FILTRO DE EQUIPOS — aparece cuando hay una liga seleccionada con equipos */}
-      {ligaSeleccionada && teams.length > 0 && (
+      {ligaSeleccionada && teams.length >= 2 && (
         <EquipoFilter
           teams={teams}
           selected={equipoSeleccionado}
