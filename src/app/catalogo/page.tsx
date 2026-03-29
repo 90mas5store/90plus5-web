@@ -11,10 +11,29 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await Promise.resolve(searchParams);
-  const categoria = params?.categoria;
-  const liga = params?.liga;
+  const categoriaParam = typeof params?.categoria === 'string' ? params.categoria : undefined;
+  const ligaParam = typeof params?.liga === 'string' ? params.liga : undefined;
 
-  const titleStr = typeof liga === 'string' ? `Camisetas de ${liga}` : typeof categoria === 'string' ? `Camisetas de ${categoria}` : "Catálogo de Camisetas de Fútbol";
+  // Resolver slug → nombre real
+  const config = await getConfig();
+  const normalize = (s: string) =>
+    (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+  let displayName: string | undefined;
+
+  if (ligaParam && config?.ligas) {
+    const lObj = config.ligas.find(
+      (l) => (l.slug && l.slug === ligaParam) || normalize(l.nombre) === normalize(ligaParam)
+    );
+    displayName = lObj?.nombre;
+  } else if (categoriaParam && config?.categorias) {
+    const cObj = config.categorias.find((c) => c.slug === categoriaParam);
+    displayName = cObj?.nombre;
+  }
+
+  const titleStr = displayName
+    ? `Camisetas ${displayName}`
+    : 'Catálogo de Camisetas de Fútbol';
 
   return {
     title: `${titleStr} | 90+5 Store Honduras`,
