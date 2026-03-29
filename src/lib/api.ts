@@ -666,19 +666,36 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   return result;
 }
 
-/** 🏟️ Obtener equipos de una liga */
+/** 🏟️ Obtener equipos que tienen productos activos en una liga
+ *  Usa product_leagues para soportar equipos en múltiples ligas
+ *  (ej: FC Barcelona aparece en LaLiga Y en UCL)
+ */
 export async function getTeamsByLeague(leagueId: string): Promise<{ id: string; name: string; logo_url: string | null }[]> {
   const { data, error } = await supabase
-    .from('teams')
-    .select('id, name, logo_url')
-    .eq('league_id', leagueId)
-    .order('name');
+    .from('products')
+    .select('team_id, teams!inner(id, name, logo_url), product_leagues!inner(league_id)')
+    .eq('product_leagues.league_id', leagueId)
+    .eq('active', true)
+    .not('team_id', 'is', null);
 
   if (error) {
     console.error('Error fetching teams by league:', error);
     return [];
   }
-  return data || [];
+
+  // Deduplicar por team_id
+  const seen = new Set<string>();
+  const teams: { id: string; name: string; logo_url: string | null }[] = [];
+
+  for (const row of data || []) {
+    const team = Array.isArray(row.teams) ? row.teams[0] : row.teams;
+    if (team && !seen.has(team.id)) {
+      seen.add(team.id);
+      teams.push({ id: team.id, name: team.name, logo_url: team.logo_url });
+    }
+  }
+
+  return teams.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** ⚙️ Obtener configuración global (ligas, banners, etc.) */
