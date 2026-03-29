@@ -355,7 +355,7 @@ export default function HeroBanner({
         const timer = setTimeout(() => {
             adjacentCategories.forEach((category) => {
                 const img = new window.Image();
-                img.src = `/heroes/${category}.jpg`;
+                img.src = `/heroes/${category.toLowerCase()}.jpg`;
             });
         }, 2000);
         return () => clearTimeout(timer);
