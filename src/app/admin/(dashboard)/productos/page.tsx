@@ -257,7 +257,7 @@ export default function ProductsPage() {
                                         </div>
 
                                         <Image
-                                            src={product.image || '/placeholder.png'}
+                                            src={product.image || '/heroes/default.jpg'}
                                             alt={product.name}
                                             fill
                                             className="object-cover transition-transform duration-500 group-hover:scale-110"
@@ -319,7 +319,7 @@ export default function ProductsPage() {
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-12 h-12 relative rounded-lg overflow-hidden bg-white/5 border border-white/10">
                                                             <Image
-                                                                src={product.image || '/placeholder.png'}
+                                                                src={product.image || '/heroes/default.jpg'}
                                                                 alt={product.name}
                                                                 fill
                                                                 className="object-cover group-hover:scale-110 transition-transform"
