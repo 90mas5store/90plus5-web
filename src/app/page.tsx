@@ -1,10 +1,14 @@
 import { Suspense } from "react";
 import HomeClient from "../components/HomeClient";
 import { getBannersServer, getConfigServer, getFeaturedServer } from "../lib/api-server";
+import { Metadata } from "next";
 
 // 🚀 Optimización: Revalidación cada hora (ISR)
-// ⚠️ TEMPORAL: 0 para desarrollo - cambiar a 3600 en producción
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+    alternates: { canonical: "https://90mas5.store" },
+};
 
 export default async function Home() {
     // 🚀 Cargar datos en PARALELO desde el servidor

@@ -35,16 +35,30 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     ? `Camisetas ${displayName}`
     : 'Catálogo de Camisetas de Fútbol';
 
+  // Canonical dinámico: páginas filtradas tienen su propio canonical para SEO por keyword
+  const canonicalUrl = ligaParam
+    ? `https://90mas5.store/catalogo?liga=${encodeURIComponent(ligaParam)}`
+    : categoriaParam
+    ? `https://90mas5.store/catalogo?categoria=${encodeURIComponent(categoriaParam)}`
+    : 'https://90mas5.store/catalogo';
+
   return {
     title: `${titleStr} | 90+5 Store Honduras`,
     description: `Encuentra las equipaciones y ${titleStr} versión jugador y aficionado: Real Madrid, Barcelona, Olimpia, Motagua, Premier League y más. Envíos a todo Honduras.`,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     openGraph: {
       title: `${titleStr} | 90+5 Store`,
       description: `Más de 100 equipaciones oficiales temporada 25/26. Versión jugador y aficionado. Envíos rápidos a todo Honduras.`,
-      url: "https://90mas5.store/catalogo",
+      url: canonicalUrl,
     },
-    alternates: {
-      canonical: "https://90mas5.store/catalogo",
+    twitter: {
+      card: 'summary_large_image',
+      title: `${titleStr} | 90+5 Store`,
+      description: `Más de 100 equipaciones 25/26. Versión jugador y aficionado. Envíos a todo Honduras.`,
+      images: ['/og-image.jpg'],
+      creator: '@90mas5store',
     },
   };
 }

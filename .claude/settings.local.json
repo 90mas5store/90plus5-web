@@ -23,7 +23,14 @@
       "mcp__claude_ai_Supabase__execute_sql",
       "Bash(grep:*)",
       "mcp__claude_ai_Supabase__list_projects",
-      "mcp__claude_ai_Supabase__apply_migration"
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(sort:*)"
     ]
   }
 }

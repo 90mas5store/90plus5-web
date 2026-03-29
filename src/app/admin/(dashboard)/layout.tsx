@@ -2,6 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminBottomNav from '@/components/admin/AdminBottomNav'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+    title: 'Admin Panel',
+    robots: { index: false, follow: false },
+}
 
 export default async function AdminLayout({
     children,

@@ -124,6 +124,9 @@ export async function generateMetadata(
     return {
         title, // Se aplicará el template: "%s | 90+5 Store"
         description,
+        alternates: {
+            canonical: `https://90mas5.store/producto/${params.slug}`,
+        },
         openGraph: {
             title: fullTitle,
             description,

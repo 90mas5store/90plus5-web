@@ -106,6 +106,52 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/* Preconnect optimizado */}
                 <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
+
+                {/* 🧠 JSON-LD: Organization */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "Organization",
+                            "name": "90+5 Store",
+                            "url": "https://90mas5.store",
+                            "logo": "https://90mas5.store/logo.svg",
+                            "description": "Tienda de camisetas de fútbol premium en Honduras. Envíos a todo el país.",
+                            "sameAs": [
+                                "https://www.instagram.com/90mas5store",
+                                "https://www.facebook.com/90mas5store"
+                            ],
+                            "contactPoint": {
+                                "@type": "ContactPoint",
+                                "contactType": "customer service",
+                                "availableLanguage": "Spanish",
+                                "areaServed": "HN"
+                            }
+                        })
+                    }}
+                />
+                {/* 🧠 JSON-LD: WebSite + SearchAction */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "WebSite",
+                            "url": "https://90mas5.store",
+                            "name": "90+5 Store",
+                            "description": "Camisetas de fútbol premium en Honduras",
+                            "potentialAction": {
+                                "@type": "SearchAction",
+                                "target": {
+                                    "@type": "EntryPoint",
+                                    "urlTemplate": "https://90mas5.store/catalogo?query={search_term_string}"
+                                },
+                                "query-input": "required name=search_term_string"
+                            }
+                        })
+                    }}
+                />
                 <Partytown
                     debug={process.env.NODE_ENV === 'development'}
                     forward={['gtag', 'fbq', 'dataLayer.push']}
