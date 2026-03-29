@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
-import { getCatalogPaginated, getConfig } from "../../lib/api";
+import { getCatalogPaginated, getConfig, getTeamsByLeague } from "../../lib/api";
 import dynamic from "next/dynamic";
 import { Product, Config, Category, League } from "../../lib/types";
 
@@ -11,6 +11,10 @@ import { Product, Config, Category, League } from "../../lib/types";
 const CarruselDeCategoria = dynamic(() => import("../../components/catalogo/CarruselDeCategoria"), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse bg-white/5 rounded-3xl" />
+});
+
+const EquipoFilter = dynamic(() => import("../../components/catalogo/EquipoFilter"), {
+  ssr: false,
 });
 
 const CatalogHeroContainer = dynamic(() => import("../../components/catalogo/CatalogHeroContainer"), {
@@ -73,6 +77,10 @@ export default function CatalogoContent({
 
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(categoriaParam || null);
   const [searchTerm, setSearchTerm] = useState(queryParam || "");
+
+  // === Equipos por liga ===
+  const [teams, setTeams] = useState<{ id: string; name: string; logo_url: string | null }[]>([]);
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string | null>(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 400); // 400ms delay
   const prefersReducedMotion = usePrefersReducedMotion();
   const toast = useToastMessage();
@@ -182,6 +190,7 @@ export default function CatalogoContent({
         query: debouncedSearchTerm,
         categoryId: selectedCategoryObj?.id,
         leagueId: selectedLeagueObj?.id,
+        teamId: equipoSeleccionado ?? undefined,
       });
 
       if (isAppend) {
@@ -206,7 +215,7 @@ export default function CatalogoContent({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, toast, config, categoriaParam, ligaParam]);
+  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, toast, config, categoriaParam, ligaParam]);
 
   // Efecto Principal: Disparar Fetch cuando cambian filtros
   // Siempre fetchea en mount para garantizar datos frescos (evita stale data del Router Cache)
@@ -215,7 +224,7 @@ export default function CatalogoContent({
     fetchProducts(1, false);
   // fetchProducts omitted: its extra deps (config, toast, etc.) would cause unwanted re-runs
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj]);
+  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado]);
 
   // 2. Función para cargar más (botón)
   const handleLoadMore = () => {
@@ -223,6 +232,16 @@ export default function CatalogoContent({
     setPage(nextPage);
     fetchProducts(nextPage, true);
   };
+
+  // === Cargar equipos cuando cambia la liga ===
+  useEffect(() => {
+    if (!selectedLeagueObj?.id) {
+      setTeams([]);
+      setEquipoSeleccionado(null);
+      return;
+    }
+    getTeamsByLeague(selectedLeagueObj.id).then(setTeams);
+  }, [selectedLeagueObj?.id]);
 
   // === Categorías Preload ===
   const adjacentCategories = useMemo(() => {
@@ -335,6 +354,19 @@ export default function CatalogoContent({
             )}
           </AnimatePresence>
         </>
+      )}
+
+      {/* FILTRO DE EQUIPOS — aparece cuando hay una liga seleccionada con equipos */}
+      {ligaSeleccionada && teams.length > 0 && (
+        <EquipoFilter
+          teams={teams}
+          selected={equipoSeleccionado}
+          onSelect={(id) => {
+            setEquipoSeleccionado(id);
+            shouldScrollOnFilter.current = false;
+          }}
+          leagueName={ligaSeleccionada}
+        />
       )}
 
       {/* GRID DE PRODUCTOS */}

@@ -7,6 +7,7 @@ export interface CatalogParams {
   query?: string;
   categoryId?: string;
   leagueId?: string;
+  teamId?: string;
 }
 
 // ✅ Cliente Supabase inicializado correctamente
@@ -488,7 +489,8 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     limit = 24,
     query: searchQuery,
     categoryId,
-    leagueId
+    leagueId,
+    teamId,
   } = params;
 
   // 1️⃣ Revisar Caché (solo en el navegador — el servidor no puede limpiar este cache desde el cliente)
@@ -525,7 +527,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
       // 2. Traer el detalle completo de esos IDs
       const ids = fuzzyIds.map((item: Record<string, unknown>) => item.id);
 
-      const { data: productsData, error: productsError } = await supabase
+      let fuzzyQuery = supabase
         .from("products")
         .select(`
             id, name, slug, description, image_url, featured,
@@ -536,6 +538,10 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         `)
         .in('id', ids)
         .eq("active", true);
+
+      if (teamId) fuzzyQuery = fuzzyQuery.eq('team_id', teamId);
+
+      const { data: productsData, error: productsError } = await fuzzyQuery;
 
       if (productsError) throw productsError;
 
@@ -576,6 +582,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   // 2. Aplicar Filtros
   if (categoryId) metadataQuery = metadataQuery.eq('category_id', categoryId);
   if (leagueId) metadataQuery = metadataQuery.eq('product_leagues.league_id', leagueId);
+  if (teamId) metadataQuery = metadataQuery.eq('team_id', teamId);
 
   // 3. Ejecutar Query Ligera
   const { data: allMetadata, error: metaError } = await metadataQuery;
@@ -657,6 +664,21 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   }
 
   return result;
+}
+
+/** 🏟️ Obtener equipos de una liga */
+export async function getTeamsByLeague(leagueId: string): Promise<{ id: string; name: string; logo_url: string | null }[]> {
+  const { data, error } = await supabase
+    .from('teams')
+    .select('id, name, logo_url')
+    .eq('league_id', leagueId)
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching teams by league:', error);
+    return [];
+  }
+  return data || [];
 }
 
 /** ⚙️ Obtener configuración global (ligas, banners, etc.) */
