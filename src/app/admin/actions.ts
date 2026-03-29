@@ -125,3 +125,9 @@ export async function updatePaymentStatus(paymentId: string, newStatus: 'pending
     revalidatePath(`/admin/orders/${payment.order_id}`)
     return { success: true }
 }
+
+export async function revalidateConfig() {
+    revalidatePath('/', 'layout')
+    revalidatePath('/catalogo')
+    return { success: true }
+}

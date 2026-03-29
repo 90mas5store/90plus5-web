@@ -6,6 +6,8 @@ import { Plus, Edit, Trash2, Search, X, Save, Loader2, Tag, ArrowUpDown, Chevron
 import Image from 'next/image'
 import useToastMessage from '@/hooks/useToastMessage'
 import { useAdminRole } from '@/hooks/useAdminRole'
+import { clearProductCache } from '@/lib/api'
+import { revalidateConfig } from '@/app/admin/actions'
 import ImageUpload from '@/components/admin/ImageUpload'
 import { motion, AnimatePresence } from '@/lib/motion'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
@@ -129,6 +131,8 @@ export default function CategoriesPage() {
             setIsModalOpen(false)
             setEditingCategory(null)
             fetchCategories()
+            clearProductCache('config')
+            await revalidateConfig()
 
         } catch (error: unknown) {
             console.error('Error saving category:', error)
@@ -150,6 +154,8 @@ export default function CategoriesPage() {
             if (error) throw error
             toast.success('Categoría eliminada')
             setCategories(prev => prev.filter(c => c.id !== id))
+            clearProductCache('config')
+            await revalidateConfig()
         } catch (error: unknown) {
             console.error('Error deleting category:', error)
             toast.error('Error al eliminar')

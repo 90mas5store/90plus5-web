@@ -6,6 +6,8 @@ import { Plus, Edit, Trash2, Search, X, Save, Loader2, Trophy, Tag, ChevronLeft,
 import Image from 'next/image'
 import useToastMessage from '@/hooks/useToastMessage'
 import { useAdminRole } from '@/hooks/useAdminRole'
+import { clearProductCache } from '@/lib/api'
+import { revalidateConfig } from '@/app/admin/actions'
 import ImageUpload from '@/components/admin/ImageUpload'
 import { motion, AnimatePresence } from '@/lib/motion'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
@@ -153,6 +155,8 @@ export default function LeaguesPage() {
             setIsModalOpen(false)
             setEditingLeague(null)
             fetchLeagues()
+            clearProductCache('config')
+            await revalidateConfig()
 
         } catch (error: unknown) {
             console.error('Error saving league:', error)
@@ -174,6 +178,8 @@ export default function LeaguesPage() {
             if (error) throw error
             toast.success('Liga eliminada')
             setLeagues(prev => prev.filter(c => c.id !== id))
+            clearProductCache('config')
+            await revalidateConfig()
         } catch (error: unknown) {
             console.error('Error deleting league:', error)
             toast.error('Error al eliminar')
