@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { Eye, EyeOff } from 'lucide-react'
 
 // 🛡️ M6 FIX: Rate limit simple en cliente para login de admin
 // Máximo 5 intentos en 15 minutos. Después, bloqueo temporal.
@@ -56,6 +57,7 @@ function getRemainingLockoutMinutes(): number {
 export default function AdminLogin() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const router = useRouter()
@@ -77,27 +79,36 @@ export default function AdminLogin() {
 
         setLoading(true)
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            })
 
-        if (error) {
-            // Registrar intento fallido
-            const allowed = recordLoginAttempt();
-            if (!allowed) {
-                const remaining = getRemainingLockoutMinutes();
-                setError(`Demasiados intentos fallidos. Espera ${remaining} minuto${remaining !== 1 ? 's' : ''} antes de intentar de nuevo.`);
+            if (error) {
+                // Registrar intento fallido
+                const allowed = recordLoginAttempt();
+                const isNetworkError = error.message === 'Failed to fetch' || error.message.includes('NetworkError') || error.message.includes('fetch');
+                if (!allowed) {
+                    const remaining = getRemainingLockoutMinutes();
+                    setError(`Demasiados intentos fallidos. Espera ${remaining} minuto${remaining !== 1 ? 's' : ''} antes de intentar de nuevo.`);
+                } else if (isNetworkError) {
+                    setError('No se pudo conectar con el servidor. Verifica tu conexión a internet e intenta de nuevo.');
+                } else {
+                    const remaining = LOGIN_MAX_ATTEMPTS - getLoginAttempts().count;
+                    const msg = error.message.includes('Invalid login') ? 'Email o contraseña incorrectos.' : error.message;
+                    setError(`${msg}${remaining <= 2 ? ` (${remaining} intento${remaining !== 1 ? 's' : ''} restante${remaining !== 1 ? 's' : ''})` : ''}`);
+                }
+                setLoading(false)
             } else {
-                const remaining = LOGIN_MAX_ATTEMPTS - getLoginAttempts().count;
-                setError(`${error.message}${remaining <= 2 ? ` (${remaining} intento${remaining !== 1 ? 's' : ''} restante${remaining !== 1 ? 's' : ''})` : ''}`);
+                // Login exitoso, limpiar contador
+                clearLoginAttempts();
+                router.push('/admin')
+                router.refresh()
             }
+        } catch {
+            setError('No se pudo conectar con el servidor. Verifica tu conexión a internet e intenta de nuevo.');
             setLoading(false)
-        } else {
-            // Login exitoso, limpiar contador
-            clearLoginAttempts();
-            router.push('/admin')
-            router.refresh()
         }
     }
 
@@ -123,13 +134,23 @@ export default function AdminLogin() {
 
                     <div>
                         <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Contraseña</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white focus:border-primary outline-none transition-colors"
-                            required
-                        />
+                        <div className="relative">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-black/50 border border-white/10 rounded-xl p-4 pr-12 text-white focus:border-primary outline-none transition-colors"
+                                required
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(v => !v)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                            >
+                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                        </div>
                     </div>
 
                     {error && (
