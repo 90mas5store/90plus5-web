@@ -15,7 +15,6 @@ function TrackingContent() {
     const [orderData, setOrderData] = useState<any>(null);
     const [error, setError] = useState("");
 
-    // Auto-search if URL has order param
     useEffect(() => {
         const urlOrderId = searchParams.get("order");
         if (urlOrderId) {
@@ -40,7 +39,7 @@ function TrackingContent() {
             } else {
                 setError(data.error || "No encontramos ese pedido.");
             }
-        } catch (err) {
+        } catch {
             setError("Ocurrió un error al buscar. Intenta de nuevo.");
         } finally {
             setLoading(false);
@@ -53,37 +52,39 @@ function TrackingContent() {
     };
 
     return (
-        <div className="max-w-xl mx-auto relative z-10">
-            {/* Same JSX content as before... */}
-            <div className="text-center mb-6 md:mb-8">
-                <h1 className="text-3xl md:text-4xl font-black tracking-tighter mb-3 md:mb-4">
-                    RASTREA TU PEDIDO
-                </h1>
-                <p className="text-gray-400 text-sm md:text-base">
-                    Ingresa tu ID de pedido (completo o los primeros 8 caracteres) para ver el estado en tiempo real.
-                </p>
-            </div>
-
-            <form onSubmit={handleTrack} className="mb-12">
-                <div className="relative group">
-                    <input
-                        type="text"
-                        placeholder="Ej. a0eebc99 o UUID completo"
-                        value={orderId}
-                        onChange={(e) => setOrderId(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 md:py-4 pl-10 md:pl-12 pr-4 text-sm md:text-base text-white placeholder:text-gray-600 focus:border-primary focus:bg-white/10 outline-none transition-all font-mono"
-                    />
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-primary transition-colors" />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <Button
-                            disabled={loading || !orderId}
-                            className="!py-2 !px-4 text-xs !rounded-xl"
-                        >
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                        </Button>
-                    </div>
+        <div className="max-w-6xl mx-auto relative z-10">
+            {/* Header + Search — full width, centered */}
+            <div className="max-w-xl mx-auto">
+                <div className="text-center mb-6 md:mb-8">
+                    <h1 className="text-3xl md:text-4xl font-black tracking-tighter mb-3 md:mb-4">
+                        RASTREA TU PEDIDO
+                    </h1>
+                    <p className="text-gray-400 text-sm md:text-base">
+                        Ingresa el ID de pedido que te enviamos por correo — o haz clic en el botón del correo para llegar aquí directo.
+                    </p>
                 </div>
-            </form>
+
+                <form onSubmit={handleTrack} className="mb-10">
+                    <div className="relative group">
+                        <input
+                            type="text"
+                            placeholder="Ej: A0EEBC99 (como aparece en tu correo)"
+                            value={orderId}
+                            onChange={(e) => setOrderId(e.target.value.replace(/^#/, ''))}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 md:py-4 pl-10 md:pl-12 pr-4 text-sm md:text-base text-white placeholder:text-gray-600 focus:border-primary focus:bg-white/10 outline-none transition-all font-mono"
+                        />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-primary transition-colors" />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                            <Button
+                                disabled={loading || !orderId}
+                                className="!py-2 !px-4 text-xs !rounded-xl"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                </form>
+            </div>
 
             <AnimatePresence mode="wait">
                 {error && (
@@ -91,7 +92,7 @@ function TrackingContent() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 md:p-6 text-center text-red-400 flex flex-col items-center gap-2"
+                        className="max-w-xl mx-auto bg-red-500/10 border border-red-500/20 rounded-2xl p-4 md:p-6 text-center text-red-400 flex flex-col items-center gap-2"
                     >
                         <AlertCircle className="w-8 h-8" />
                         <p className="font-bold">{error}</p>
@@ -102,141 +103,150 @@ function TrackingContent() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="space-y-6"
+                        className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-start"
                     >
-                        {/* Card de Estado Principal */}
-                        <div className="bg-[#111] border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-white/10">
-                                <div
-                                    className="h-full bg-primary transition-all duration-1000 ease-out"
-                                    style={{ width: `${orderData.status.progress}%` }}
-                                />
-                            </div>
-
-                            <div className="flex flex-col items-center text-center gap-3 md:gap-4 py-3 md:py-4">
-                                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
-                                    <Package className="w-8 h-8 md:w-10 md:h-10" />
+                        {/* ── Columna izquierda: Estado + Cronología ── */}
+                        <div className="space-y-6">
+                            {/* Card de Estado Principal */}
+                            <div className="bg-[#111] border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-full h-1 bg-white/10">
+                                    <div
+                                        className="h-full bg-primary transition-all duration-1000 ease-out"
+                                        style={{ width: `${orderData.status.progress}%` }}
+                                    />
                                 </div>
-                                <div>
-                                    <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-white mb-2">
-                                        {orderData.status.label}
-                                    </h2>
-                                    <p className="text-gray-400 max-w-xs mx-auto text-xs md:text-sm">
-                                        {orderData.status.desc}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Detalles */}
-                        <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-3 md:space-y-4">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-3 md:mb-4">Detalles del Envío</h3>
-
-                            <div className="flex items-start gap-3 md:gap-4">
-                                <MapPin className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mt-1" />
-                                <div>
-                                    <p className="font-bold text-white text-sm md:text-base">Destino</p>
-                                    <p className="text-gray-400 text-xs md:text-sm">{orderData.location}</p>
+                                <div className="flex flex-col items-center text-center gap-3 md:gap-4 py-3 md:py-4">
+                                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
+                                        <Package className="w-8 h-8 md:w-10 md:h-10" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-white mb-2">
+                                            {orderData.status.label}
+                                        </h2>
+                                        <p className="text-gray-400 max-w-xs mx-auto text-xs md:text-sm">
+                                            {orderData.status.desc}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-start gap-3 md:gap-4">
-                                <Calendar className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mt-1" />
-                                <div>
-                                    <p className="font-bold text-white text-sm md:text-base">Fecha de Orden</p>
-                                    <p className="text-gray-400 text-xs md:text-sm">
-                                        {formatDate(orderData.date)}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Cronología (Historial) */}
-                        {orderData.history && orderData.history.length > 0 && (
-                            <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-4 md:space-y-6">
-                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                                    <Clock className="w-4 h-4" />
-                                    Cronología del Fichaje
-                                </h3>
+                            {/* Cronología */}
+                            {orderData.history && orderData.history.length > 0 && (
+                                <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6">
+                                    <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2 mb-5">
+                                        <Clock className="w-4 h-4" />
+                                        Cronología del Fichaje
+                                    </h3>
 
-                                <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
-                                    {orderData.history.map((h: any, i: number) => (
-                                        <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                                            {/* Etiqueta / Icono Central */}
-                                            <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-black bg-white/10 text-white shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[0_0_0_2px_rgba(255,255,255,0.05)] text-xs z-10 transition-colors">
-                                                <div className="w-2 h-2 rounded-full bg-white/50" />
-                                            </div>
+                                    <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
+                                        {orderData.history.map((h: any, i: number) => (
+                                            <div key={i} className="relative flex items-start gap-4 pl-12">
+                                                {/* Dot */}
+                                                <div className="absolute left-0 flex items-center justify-center w-10 h-10 rounded-full border-4 border-black bg-white/10 shrink-0 z-10">
+                                                    <div className="w-2 h-2 rounded-full bg-white/50" />
+                                                </div>
 
-                                            {/* Contenido */}
-                                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] bg-white/5 p-4 rounded-xl border border-white/5 shadow-md">
-                                                <div className="flex flex-col gap-1">
+                                                <div className="bg-white/5 p-3 md:p-4 rounded-xl border border-white/5 flex-1">
                                                     <h4 className="font-bold text-white text-sm md:text-base capitalize">
                                                         {h.label}
                                                     </h4>
-                                                    <span className="text-[10px] md:text-xs font-mono text-gray-500 block">
-                                                        {new Date(h.date).toLocaleDateString('es-HN', { weekday: 'short', day: 'numeric', month: 'short' })}, {new Date(h.date).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })}
+                                                    <span className="text-[10px] md:text-xs font-mono text-gray-500 mt-1 block">
+                                                        {new Date(h.date).toLocaleDateString('es-HN', { weekday: 'short', day: 'numeric', month: 'short' })},{' '}
+                                                        {new Date(h.date).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── Columna derecha: Productos + Detalles + Cuenta ── */}
+                        <div className="space-y-6">
+                            {/* Productos */}
+                            <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6">
+                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-4">
+                                    Productos del Pedido
+                                </h3>
+                                <div className="space-y-3">
+                                    {orderData.items.map((item: any, i: number) => (
+                                        <div key={i} className="flex gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
+                                            <div className="w-14 h-14 rounded-xl overflow-hidden bg-black/50 relative flex-shrink-0">
+                                                <ProductImage
+                                                    src={item.image}
+                                                    alt={item.product}
+                                                    width={56}
+                                                    height={56}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-white text-sm">{item.team} - {item.product}</p>
+                                                <p className="text-xs text-gray-500 uppercase tracking-wider mt-1">
+                                                    {item.version}{item.personalization && ` • ${item.personalization}`}
+                                                </p>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                        )}
 
-                        {/* ESTADO DE CUENTA */}
-                        {orderData.billing && (
-                            <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-4 md:space-y-6">
-                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                                    <CreditCard className="w-4 h-4" />
-                                    Estado de Cuenta
-                                </h3>
+                            {/* Detalles del Envío */}
+                            <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-3 md:space-y-4">
+                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-3 md:mb-4">Detalles del Envío</h3>
 
-                                <div className="space-y-3 text-sm">
-                                    <div className="flex justify-between text-gray-400">
-                                        <span>Subtotal</span>
-                                        <span>L {orderData.billing.subtotal.toLocaleString("es-HN")}</span>
-                                    </div>
-                                    <div className="flex justify-between text-gray-400">
-                                        <span>Envío</span>
-                                        <span>L {(orderData.billing.total - orderData.billing.subtotal).toLocaleString("es-HN")}</span>
-                                    </div>
-                                    <div className="flex justify-between text-white font-bold pt-3 border-t border-white/10 text-base">
-                                        <span>Total del Fichaje</span>
-                                        <span>L {orderData.billing.total.toLocaleString("es-HN")}</span>
-                                    </div>
-                                    <div className="flex justify-between text-green-500 bg-green-500/10 p-3 rounded-lg border border-green-500/20 font-bold mt-2">
-                                        <span>Abonado</span>
-                                        <span>- L {orderData.billing.deposit_paid.toLocaleString("es-HN")}</span>
-                                    </div>
-                                    <div className="flex justify-between text-orange-500 font-black text-xl bg-orange-500/10 p-4 rounded-xl border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.15)] mt-4">
-                                        <span>Saldo Pendiente</span>
-                                        <span>L {orderData.billing.remaining.toLocaleString("es-HN")}</span>
+                                <div className="flex items-start gap-3 md:gap-4">
+                                    <MapPin className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mt-1 shrink-0" />
+                                    <div>
+                                        <p className="font-bold text-white text-sm md:text-base">Destino</p>
+                                        <p className="text-gray-400 text-xs md:text-sm">{orderData.location}</p>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Productos */}
-                        <div className="space-y-3">
-                            {orderData.items.map((item: any, i: number) => (
-                                <div key={i} className="flex gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
-                                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/50 relative flex-shrink-0">
-                                        <ProductImage
-                                            src={item.image}
-                                            alt={item.product}
-                                            width={64}
-                                            height={64}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
+                                <div className="flex items-start gap-3 md:gap-4">
+                                    <Calendar className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mt-1 shrink-0" />
                                     <div>
-                                        <p className="font-bold text-white text-sm">{item.team} - {item.product}</p>
-                                        <p className="text-xs text-gray-500 uppercase tracking-wider mt-1">
-                                            {item.version} {item.personalization && `• ${item.personalization}`}
+                                        <p className="font-bold text-white text-sm md:text-base">Fecha de Orden</p>
+                                        <p className="text-gray-400 text-xs md:text-sm">
+                                            {formatDate(orderData.date)}
                                         </p>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+
+                            {/* Estado de Cuenta */}
+                            {orderData.billing && (
+                                <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6">
+                                    <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2 mb-5">
+                                        <CreditCard className="w-4 h-4" />
+                                        Estado de Cuenta
+                                    </h3>
+
+                                    <div className="space-y-3 text-sm">
+                                        <div className="flex justify-between text-gray-400">
+                                            <span>Subtotal</span>
+                                            <span>L {orderData.billing.subtotal.toLocaleString("es-HN")}</span>
+                                        </div>
+                                        <div className="flex justify-between text-gray-400">
+                                            <span>Envío</span>
+                                            <span>L {(orderData.billing.total - orderData.billing.subtotal).toLocaleString("es-HN")}</span>
+                                        </div>
+                                        <div className="flex justify-between text-white font-bold pt-3 border-t border-white/10 text-base">
+                                            <span>Total del Fichaje</span>
+                                            <span>L {orderData.billing.total.toLocaleString("es-HN")}</span>
+                                        </div>
+                                        <div className="flex justify-between text-green-500 bg-green-500/10 p-3 rounded-lg border border-green-500/20 font-bold mt-2">
+                                            <span>Abonado</span>
+                                            <span>- L {orderData.billing.deposit_paid.toLocaleString("es-HN")}</span>
+                                        </div>
+                                        <div className="flex justify-between text-orange-500 font-black text-xl bg-orange-500/10 p-4 rounded-xl border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.15)] mt-4">
+                                            <span>Saldo Pendiente</span>
+                                            <span>L {orderData.billing.remaining.toLocaleString("es-HN")}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 )}
@@ -247,7 +257,7 @@ function TrackingContent() {
 
 export default function TrackingPage() {
     return (
-        <main className="min-h-dvh pt-20 md:pt-24 pb-12 px-4 bg-black text-white relative overflow-hidden">
+        <main className="min-h-dvh pt-20 md:pt-24 pb-12 px-4 md:px-6 bg-black text-white relative overflow-hidden">
             {/* Background Aura */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[500px] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
 

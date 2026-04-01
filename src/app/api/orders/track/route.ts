@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Código de pedido requerido' }, { status: 400 });
     }
 
-    const trimmedId = orderId.trim();
+    // Normalizar: quitar espacios, # inicial y guiones (el usuario puede copiar "#A0EEBC99" del correo)
+    const trimmedId = orderId.trim().replace(/^#/, '');
 
     // Determinar si es UUID completo o prefijo corto
     const isFullUUID = FULL_UUID_REGEX.test(trimmedId);
