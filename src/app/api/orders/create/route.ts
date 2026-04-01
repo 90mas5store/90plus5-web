@@ -53,44 +53,40 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 🛡️ CSRF — verificar que el request viene de nuestro dominio
-        // M3 FIX: Validar tanto Origin como Referer (defensa en profundidad)
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        // 🛡️ CSRF — verificar que el request viene del mismo dominio
+        // Comparamos el hostname del Origin contra el Host del propio request
+        // (robusto: funciona en cualquier dominio/preview sin vars de entorno)
         const origin = request.headers.get('origin') ?? '';
         const referer = request.headers.get('referer') ?? '';
-        const allowedOrigins = [siteUrl, 'http://localhost:3000', 'http://localhost:3001'];
+        // Host puede venir como "90mas5.store" o "localhost:3000" — quitamos el puerto
+        const currentHost = (request.headers.get('host') ?? '').split(':')[0];
 
-        const isHostnameAllowed = (headerValue: string): boolean => {
+        const isSameHost = (headerValue: string): boolean => {
             try {
-                const hostname = new URL(headerValue).hostname;
-                return allowedOrigins.some(o => {
-                    try { return new URL(o).hostname === hostname; } catch { return false; }
-                });
+                return new URL(headerValue).hostname === currentHost;
             } catch {
                 return false;
             }
         };
 
         if (origin) {
-            // Validar Origin si está presente
-            if (!isHostnameAllowed(origin)) {
-                console.warn(`⚠️ CSRF: Origin rechazado: ${origin}`);
+            if (!isSameHost(origin)) {
+                console.warn(`⚠️ CSRF: Origin rechazado: ${origin} (host: ${currentHost})`);
                 return NextResponse.json(
                     { success: false, error: 'Solicitud no autorizada' },
                     { status: 403 }
                 );
             }
         } else if (referer) {
-            // 🛡️ M3 FIX: Si no hay Origin, validar Referer como capa adicional
-            if (!isHostnameAllowed(referer)) {
-                console.warn(`⚠️ CSRF: Referer rechazado: ${referer}`);
+            if (!isSameHost(referer)) {
+                console.warn(`⚠️ CSRF: Referer rechazado: ${referer} (host: ${currentHost})`);
                 return NextResponse.json(
                     { success: false, error: 'Solicitud no autorizada' },
                     { status: 403 }
                 );
             }
         }
-        // Si no hay ni Origin ni Referer, dejamos pasar (puede ser API call legítimo desde servidor)
+        // Sin Origin ni Referer → dejamos pasar (API call server-side legítimo)
 
         // 0️⃣ DEBUG CHECK
         if (!BUSINESS_LOGIC || !BUSINESS_LOGIC.ORDER) {
