@@ -15,13 +15,15 @@ export default function ReportesPage() {
 
     // Opciones de estado
     const statusOptions = [
-        { value: 'pending_payment_50', label: 'Pendiente Anticipo', color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
-        { value: 'deposit_paid', label: 'Anticipo Pagado', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-        { value: 'in_production', label: 'En Producción', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
-        { value: 'ready_for_delivery', label: 'Listo para Entrega', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-        { value: 'shipped', label: 'Enviado', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
-        { value: 'delivered', label: 'Entregado', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
-        { value: 'cancelled', label: 'Cancelado', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
+        { value: 'pending_payment_50', label: '1. Pedido recibido', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
+        { value: 'deposit_paid', label: '2. Anticipo confirmado', color: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20' },
+        { value: 'processing', label: '3. Pedido realizado al proveedor', color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
+        { value: 'in_transit', label: '4. Producto en transito', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+        { value: 'ready_for_delivery', label: '5. Producto listo para despachar', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
+        { value: 'pending_second_payment', label: '6. Pendiente segundo pago', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
+        { value: 'shipped_to_costumer', label: '7. Producto enviado al cliente', color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' },
+        { value: 'completed', label: '8. Producto recibido por el cliente', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
+        { value: 'Cancelled', label: 'Cancelado', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
     ]
 
     // Manejar toggle de status
@@ -317,13 +319,17 @@ export default function ReportesPage() {
 
 function formatStatus(status: string): string {
     const statusMap: Record<string, string> = {
-        'pending_payment_50': 'Pendiente Anticipo',
-        'deposit_paid': 'Anticipo Pagado',
-        'in_production': 'En Producción',
-        'ready_for_delivery': 'Listo para Entrega',
-        'shipped': 'Enviado',
-        'delivered': 'Entregado',
-        'cancelled': 'Cancelado'
+        'pending_payment_50': '1. Pedido recibido',
+        'deposit_paid': '2. Anticipo confirmado',
+        'processing': '3. Pedido realizado al proveedor',
+        'in_transit': '4. Producto en transito',
+        'ready_for_delivery': '5. Producto listo para despachar',
+        'pending_second_payment': '6. Pendiente segundo pago',
+        'shipped_to_costumer': '7. Producto enviado al cliente',
+        'completed': '8. Producto recibido por el cliente',
+        'paid_full': '8. Producto recibido por el cliente',
+        'shipped_to_hn': '4. Producto en transito',
+        'Cancelled': 'Cancelado'
     }
     return statusMap[status] || status
 }

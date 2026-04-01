@@ -15,6 +15,7 @@ export interface Product {
   precio: number;
   imagen: string;
   destacado?: boolean;
+  allows_customization?: boolean;
   product_variants?: ProductVariant[];
   logoEquipo?: string;
   category_id?: string;
@@ -85,6 +86,7 @@ export interface SupabaseRawProduct {
   description?: string;
   image_url: string;
   featured?: boolean;
+  allows_customization?: boolean;
   sort_order?: number;
   team_id: string;
   category_id?: string;
@@ -93,6 +95,7 @@ export interface SupabaseRawProduct {
   teams?: { id?: string; name: string; logo_url?: string } | { id?: string; name: string; logo_url?: string }[] | null;
   product_variants?: SupabaseRawVariant[];
   product_leagues?: { league_id: string }[];
+  product_images?: { id: string; image_url: string; sort_order: number }[];
 }
 
 export interface SupabaseRawVariant {
@@ -125,7 +128,7 @@ export interface SupabaseRawPayment {
   id: string;
   amount: number;
   type: 'deposit' | 'remaining';
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'succeeded' | 'failed' | 'verified' | 'rejected';
   provider: string;
   method: string;
   notes?: string;

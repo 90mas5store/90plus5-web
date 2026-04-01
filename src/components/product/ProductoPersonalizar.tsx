@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
 import { getProductOptionsFromSupabase, getPlayersByTeam } from "@/lib/api";
@@ -10,7 +10,7 @@ import ProductImage from "@/components/ProductImage";
 import Button from "@/components/ui/MainButton";
 import { useCart } from "@/context/CartContext";
 import useToastMessage from "@/hooks/useToastMessage";
-import { ArrowLeft, Shirt, CheckCircle2, Info } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Shirt, CheckCircle2, Info } from "lucide-react";
 import { ProductCustomizationSkeleton } from "@/components/skeletons/ProductSkeletons";
 import { usePrefetch } from "@/hooks/usePrefetch";
 import { usePrefersReducedMotion } from "@/hooks/useOptimization";
@@ -40,6 +40,7 @@ interface Product {
     team_id: string | null;
     teams?: Team | null;
     product_variants?: ProductVariant[] | null;
+    product_images?: { id: string; image_url: string; sort_order: number }[] | null;
     modelo?: string;
     equipo?: string;
     liga?: string;
@@ -50,6 +51,7 @@ interface Product {
     slug?: string;
     league_id?: string | null;
     category_id?: string | null;
+    allows_customization?: boolean;
 }
 
 interface ProductoPersonalizarProps {
@@ -106,6 +108,44 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     // Estado de carga para el botón de añadir
     const [isAdding, setIsAdding] = useState(false);
 
+    // Galería de imágenes
+    const [activeImageIdx, setActiveImageIdx] = useState(0);
+    const [isHoveringImage, setIsHoveringImage] = useState(false);
+    const autoRotateRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Todas las imágenes: imagen principal + imágenes adicionales ordenadas
+    const galleryImages = useMemo(() => {
+        const imgs: string[] = [];
+        if (product.image_url) imgs.push(product.image_url);
+        if (product.product_images?.length) {
+            const sorted = [...product.product_images].sort((a, b) => a.sort_order - b.sort_order);
+            sorted.forEach(img => { if (img.image_url) imgs.push(img.image_url); });
+        }
+        return imgs.length ? imgs : [product.image_url ?? ""];
+    }, [product.image_url, product.product_images]);
+
+    const activeImage = galleryImages[activeImageIdx] ?? galleryImages[0] ?? "";
+
+    // Navegación manual
+    const goToPrev = useCallback(() => {
+        setActiveImageIdx(prev => prev <= 0 ? galleryImages.length - 1 : prev - 1);
+    }, [galleryImages.length]);
+
+    const goToNext = useCallback(() => {
+        setActiveImageIdx(prev => prev >= galleryImages.length - 1 ? 0 : prev + 1);
+    }, [galleryImages.length]);
+
+    // Auto-rotación: avanza cada 5s, pausa al hacer hover/zoom
+    useEffect(() => {
+        if (galleryImages.length <= 1 || isHoveringImage) {
+            if (autoRotateRef.current) { clearInterval(autoRotateRef.current); autoRotateRef.current = null; }
+            return;
+        }
+        autoRotateRef.current = setInterval(() => {
+            setActiveImageIdx(prev => (prev >= galleryImages.length - 1 ? 0 : prev + 1));
+        }, 5000);
+        return () => { if (autoRotateRef.current) clearInterval(autoRotateRef.current); };
+    }, [galleryImages.length, isHoveringImage]);
 
     // Referencias para zoom
     const containerRef = useRef<HTMLDivElement>(null);
@@ -233,11 +273,13 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const handleEnter = () => {
         if (lensRef.current) lensRef.current.style.opacity = "1";
         if (blurRef.current) blurRef.current.style.opacity = "1";
+        setIsHoveringImage(true);
     };
 
     const handleLeave = () => {
         if (lensRef.current) lensRef.current.style.opacity = "0";
         if (blurRef.current) blurRef.current.style.opacity = "0";
+        setIsHoveringImage(false);
     };
 
     const handleNumeroChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,7 +387,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                 <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
 
                     {/* 🖼️ SECCIÓN IMAGEN */}
-                    <div className="lg:col-span-7">
+                    <div className="lg:col-span-7 flex flex-col gap-3">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -359,16 +401,27 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             onMouseLeave={handleLeave}
                             onTouchEnd={handleLeave}
                         >
-                            <ProductImage
-                                src={producto.imagen}
-                                alt={producto.modelo || "Producto"}
-                                width={800}
-                                height={800}
-                                priority
-                                quality={95}
-                                sizes="(max-width: 1024px) 100vw, 60vw"
-                                className="w-full h-full object-contain transition-transform duration-1000 group-hover:scale-105"
-                            />
+                            <AnimatePresence initial={false}>
+                                <motion.div
+                                    key={activeImageIdx}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                                    className="absolute inset-0 z-[1]"
+                                >
+                                    <ProductImage
+                                        src={activeImage}
+                                        alt={producto.modelo || "Producto"}
+                                        width={800}
+                                        height={800}
+                                        priority
+                                        quality={95}
+                                        sizes="(max-width: 1024px) 100vw, 60vw"
+                                        className="w-full h-full object-contain transition-transform duration-1000 group-hover:scale-105"
+                                    />
+                                </motion.div>
+                            </AnimatePresence>
 
                             {/* Blur Overlay */}
                             <div
@@ -381,7 +434,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                 ref={lensRef}
                                 className="absolute w-48 h-48 md:w-64 md:h-64 rounded-full pointer-events-none border-2 border-primary/50 shadow-[0_0_30px_rgba(229,9,20,0.4)] opacity-0 transition-opacity duration-300 z-20 will-change-transform"
                                 style={{
-                                    backgroundImage: `url(${producto.imagen})`,
+                                    backgroundImage: `url(${activeImage})`,
                                 }}
                             />
 
@@ -390,7 +443,71 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                 <Info className="w-4 h-4 text-primary" />
                                 <span className="text-[10px] font-bold uppercase tracking-tighter">Pasa el mouse o toca para zoom</span>
                             </div>
+
+                            {/* Image counter badge — only when multiple images */}
+                            {galleryImages.length > 1 && (
+                                <div className="absolute top-4 right-4 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-[10px] font-bold text-gray-300">
+                                    {activeImageIdx + 1} / {galleryImages.length}
+                                </div>
+                            )}
+
+                            {/* Flechas de navegación — solo cuando hay varias imágenes */}
+                            {galleryImages.length > 1 && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); goToPrev(); }}
+                                        aria-label="Imagen anterior"
+                                        className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 md:w-10 md:h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/70 hover:border-primary/40 transition-all duration-200 opacity-70 md:opacity-0 md:group-hover:opacity-100 active:scale-90"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); goToNext(); }}
+                                        aria-label="Imagen siguiente"
+                                        className="absolute right-2 md:right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 md:w-10 md:h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/70 hover:border-primary/40 transition-all duration-200 opacity-70 md:opacity-0 md:group-hover:opacity-100 active:scale-90"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                </>
+                            )}
+
+                            {/* Barra de progreso auto-rotate */}
+                            {galleryImages.length > 1 && !isHoveringImage && (
+                                <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/5 z-30">
+                                    <div
+                                        className="h-full bg-primary/60 rounded-full"
+                                        style={{
+                                            animation: 'gallery-progress 5s linear infinite',
+                                        }}
+                                    />
+                                </div>
+                            )}
                         </motion.div>
+
+                        {/* Thumbnails — only when there are multiple images */}
+                        {galleryImages.length > 1 && (
+                            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                                {galleryImages.map((imgSrc, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setActiveImageIdx(idx)}
+                                        className={`shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden border-2 transition-all duration-200 ${activeImageIdx === idx ? 'border-primary shadow-[0_0_10px_rgba(229,9,20,0.4)]' : 'border-white/10 hover:border-white/30'}`}
+                                        aria-label={`Ver imagen ${idx + 1}`}
+                                    >
+                                        <ProductImage
+                                            src={imgSrc}
+                                            alt={`Vista ${idx + 1}`}
+                                            width={80}
+                                            height={80}
+                                            quality={70}
+                                            className="w-full h-full object-contain bg-black/40"
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* ⚙️ SECCIÓN PERSONALIZACIÓN */}
@@ -514,99 +631,114 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                         )}
 
                         {/* Sección Dorsal */}
-                        <fieldset className="space-y-2 p-5 rounded-3xl bg-white/5 border border-white/5">
-                            <legend className="text-sm font-semibold text-gray-300">Personalización de Dorsal</legend>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => { setQuiereDorsal(true); setModoDorsal("jugador"); }}
-                                    className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all ${quiereDorsal ? "border-primary bg-primary/20" : "border-white/10 hover:border-white/20 text-gray-500"}`}
-                                >
-                                    SÍ, AGREGAR
-                                </button>
-                                <button
-                                    onClick={() => { setQuiereDorsal(false); setModoDorsal(""); setJugadorSeleccionado(null); setNombrePersonalizado(""); setNumeroPersonalizado(""); }}
-                                    className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all ${!quiereDorsal ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/20 text-gray-500"}`}
-                                >
-                                    NO, GRACIAS
-                                </button>
-                            </div>
-
-                            <AnimatePresence>
-                                {quiereDorsal && (
-                                    <motion.div
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: "auto" }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="space-y-4 pt-4 overflow-hidden"
+                        {producto.allows_customization !== false && (
+                            <div className="space-y-4 p-5 rounded-3xl bg-white/5 border border-white/5">
+                                <h3 className="text-sm font-semibold text-gray-300">Personalización de Dorsal</h3>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => {
+                                            setQuiereDorsal(true);
+                                            const hasPlayers = (opciones?.dorsales?.filter(d => d.jugador !== "Personalizado")?.length || 0) > 0;
+                                            setModoDorsal(hasPlayers ? "jugador" : "personalizado");
+                                        }}
+                                        className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all ${quiereDorsal ? "border-primary bg-primary/20" : "border-white/10 hover:border-white/20 text-gray-500"}`}
                                     >
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => setModoDorsal("jugador")}
-                                                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${modoDorsal === "jugador" ? "border-primary text-primary" : "border-white/10 text-gray-500"}`}
-                                            >
-                                                Jugador Real
-                                            </button>
-                                            <button
-                                                onClick={() => setModoDorsal("personalizado")}
-                                                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${modoDorsal === "personalizado" ? "border-primary text-primary" : "border-white/10 text-gray-500"}`}
-                                            >
-                                                Mi Nombre
-                                            </button>
-                                        </div>
+                                        SÍ, AGREGAR
+                                    </button>
+                                    <button
+                                        onClick={() => { setQuiereDorsal(false); setModoDorsal(""); setJugadorSeleccionado(null); setNombrePersonalizado(""); setNumeroPersonalizado(""); }}
+                                        className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all ${!quiereDorsal ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/20 text-gray-500"}`}
+                                    >
+                                        NO, GRACIAS
+                                    </button>
+                                </div>
 
-                                        {modoDorsal === "jugador" && (
-                                            <select
-                                                value={jugadorSeleccionado ? jugadorSeleccionado.id : ''}
-                                                onChange={(e) => {
-                                                    const selectedPlayer = opciones?.dorsales?.find(d => d.id === e.target.value);
-                                                    if (selectedPlayer) {
-                                                        setJugadorSeleccionado({
-                                                            id: selectedPlayer.id,
-                                                            numero: selectedPlayer.numero,
-                                                            nombre: selectedPlayer.jugador
-                                                        });
-                                                    } else {
-                                                        setJugadorSeleccionado(null);
-                                                    }
-                                                }}
-                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-primary outline-none"
-                                            >
-                                                <option value="">Selecciona una estrella...</option>
-                                                {opciones?.dorsales?.filter(d => d.jugador !== "Personalizado").map((d) => (
-                                                    <option key={d.id} value={d.id}>
-                                                        {d.numero ? `${d.numero}. ${d.jugador}` : d.jugador}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
+                                <AnimatePresence>
+                                    {quiereDorsal && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="space-y-4 pt-4 overflow-hidden"
+                                        >
+                                            {(() => {
+                                                const hasPlayers = (opciones?.dorsales?.filter(d => d.jugador !== "Personalizado")?.length || 0) > 0;
+                                                return (
+                                                    <>
+                                                        {hasPlayers && (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => setModoDorsal("jugador")}
+                                                                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${modoDorsal === "jugador" ? "border-primary text-primary" : "border-white/10 text-gray-500"}`}
+                                                                >
+                                                                    Jugador Real
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setModoDorsal("personalizado")}
+                                                                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${modoDorsal === "personalizado" ? "border-primary text-primary" : "border-white/10 text-gray-500"}`}
+                                                                >
+                                                                    Mi Nombre
+                                                                </button>
+                                                            </div>
+                                                        )}
 
-                                        {modoDorsal === "personalizado" && (
-                                            <div className="flex flex-col sm:flex-row gap-3">
-                                                <label htmlFor="numero-dorsal" className="sr-only">Número de dorsal</label>
-                                                <input
-                                                    id="numero-dorsal"
-                                                    type="text"
-                                                    placeholder="Nº"
-                                                    value={numeroPersonalizado}
-                                                    onChange={handleNumeroChange}
-                                                    maxLength={2}
-                                                    className="w-full sm:w-16 bg-black/40 border border-white/10 rounded-xl px-2 py-3 text-center font-black text-primary focus:border-primary outline-none"
-                                                />
-                                                <label htmlFor="nombre-dorsal" className="sr-only">Nombre de dorsal</label>
-                                                <input
-                                                    id="nombre-dorsal"
-                                                    type="text"
-                                                    placeholder="Ej. L. PALMA"
-                                                    value={nombrePersonalizado}
-                                                    onChange={handleNombreChange}
-                                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 font-bold text-white focus:border-primary outline-none uppercase"
-                                                />
-                                            </div>
-                                        )}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </fieldset>
+                                                        {modoDorsal === "jugador" && hasPlayers && (
+                                                            <select
+                                                                value={jugadorSeleccionado ? jugadorSeleccionado.id : ''}
+                                                                onChange={(e) => {
+                                                                    const selectedPlayer = opciones?.dorsales?.find(d => d.id === e.target.value);
+                                                                    if (selectedPlayer) {
+                                                                        setJugadorSeleccionado({
+                                                                            id: selectedPlayer.id,
+                                                                            numero: selectedPlayer.numero,
+                                                                            nombre: selectedPlayer.jugador
+                                                                        });
+                                                                    } else {
+                                                                        setJugadorSeleccionado(null);
+                                                                    }
+                                                                }}
+                                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-primary outline-none"
+                                                            >
+                                                                <option value="">Selecciona una estrella...</option>
+                                                                {opciones?.dorsales?.filter(d => d.jugador !== "Personalizado").map((d) => (
+                                                                    <option key={d.id} value={d.id}>
+                                                                        {d.numero ? `${d.numero}. ${d.jugador}` : d.jugador}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        )}
+
+                                                        {modoDorsal === "personalizado" && (
+                                                            <div className="flex flex-row gap-2 sm:gap-3">
+                                                                <label htmlFor="numero-dorsal" className="sr-only">Número de dorsal</label>
+                                                                <input
+                                                                    id="numero-dorsal"
+                                                                    type="text"
+                                                                    placeholder="Nº"
+                                                                    value={numeroPersonalizado}
+                                                                    onChange={handleNumeroChange}
+                                                                    maxLength={2}
+                                                                    className="w-16 shrink-0 bg-black/40 border border-white/10 rounded-xl px-2 py-3 text-center font-black text-primary focus:border-primary outline-none"
+                                                                />
+                                                                <label htmlFor="nombre-dorsal" className="sr-only">Nombre de dorsal</label>
+                                                                <input
+                                                                    id="nombre-dorsal"
+                                                                    type="text"
+                                                                    placeholder="Ej. L. PALMA"
+                                                                    value={nombrePersonalizado}
+                                                                    onChange={handleNombreChange}
+                                                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 font-bold text-white focus:border-primary outline-none uppercase"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        )}
 
                         {/* Botón Final */}
                         <div className="pt-4">

@@ -28,6 +28,7 @@ type SupabaseProduct = {
     league_id: string | null;
     category_id: string | null;
     teams: { name: string; logo_url: string } | null;
+    product_images: { id: string; image_url: string; sort_order: number }[] | null;
     product_variants: Array<{
         version: string;
         price: number;
@@ -42,6 +43,7 @@ type SupabaseProduct = {
         active_original_price: boolean | null;
         active: boolean;
     }> | null;
+    allows_customization?: boolean;
 };
 
 // Pre-generate the 30 most popular (featured) product pages at build time
@@ -75,9 +77,10 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
     const { data: product } = await supabase
         .from("products")
         .select(`
-            id, name, description, image_url, team_id, league_id, category_id,
+            id, name, description, image_url, team_id, league_id, category_id, allows_customization,
             teams (name, logo_url),
-            product_variants (version, price, original_price, active_original_price, active)
+            product_variants (version, price, original_price, active_original_price, active),
+            product_images (id, image_url, sort_order)
         `)
         .ilike("slug", slug)
         .eq("active", true)
@@ -98,6 +101,8 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
         teams: teams ? { name: teams.name, logo_url: teams.logo_url ?? "" } : null,
         product_variants: product.product_variants ?? null,
         variants: product.product_variants ?? null,
+        product_images: (product.product_images ?? null) as { id: string; image_url: string; sort_order: number }[] | null,
+        allows_customization: product.allows_customization ?? true,
     };
 }
 

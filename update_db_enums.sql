@@ -1,0 +1,9 @@
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'processing';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'in_transit';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'pending_second_payment';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'shipped_to_costumer';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'completed';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'Cancelled';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'payment_verified';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'shipped_to_hn';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'in_customs';

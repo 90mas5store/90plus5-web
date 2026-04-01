@@ -38,6 +38,12 @@ export default async function OrderDetailPage({ params }: { params: { id: string
     const cleanPhone = order.customer_phone?.replace(/\D/g, '') || '';
     const whatsappUrl = `https://wa.me/${cleanPhone.startsWith('504') ? cleanPhone : `504${cleanPhone}`}`;
 
+    const verifiedPaidSum = Array.isArray(order.payments)
+        ? order.payments
+            .filter((p: any) => p.status === 'verified' || p.status === 'succeeded' || p.status === 'completed')
+            .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0)
+        : 0;
+
     return (
         <div className="max-w-5xl mx-auto pb-20">
             {/* 🔙 BACK BUTTON */}
@@ -166,19 +172,19 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                 </div>
                                 <div className="flex justify-between text-gray-400 text-sm">
                                     <span>Envío</span>
-                                    <span>L 0</span>
+                                    <span>L {((order.total_amount || 0) - (order.subtotal || 0)).toLocaleString("es-HN")}</span>
                                 </div>
                                 <div className="flex justify-between text-white text-2xl font-black pt-4 border-t border-white/10">
                                     <span>Total</span>
                                     <span>L {order.total_amount?.toLocaleString("es-HN") ?? 0}</span>
                                 </div>
                                 <div className="flex justify-between text-green-500 text-sm font-bold bg-green-500/10 p-3 rounded-lg border border-green-500/20">
-                                    <span>Anticipo Pagado</span>
-                                    <span>- L {order.deposit_amount?.toLocaleString("es-HN") ?? 0}</span>
+                                    <span>Anticipo / Pagado</span>
+                                    <span>- L {verifiedPaidSum.toLocaleString("es-HN")}</span>
                                 </div>
                                 <div className="flex justify-between text-orange-500 text-xl font-black bg-orange-500/10 p-4 rounded-xl border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
                                     <span>Pendiente</span>
-                                    <span>L {(order.total_amount - order.deposit_amount).toLocaleString("es-HN")}</span>
+                                    <span>L {Math.max(0, (order.total_amount || 0) - verifiedPaidSum).toLocaleString("es-HN")}</span>
                                 </div>
                             </div>
                         </div>

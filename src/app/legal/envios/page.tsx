@@ -11,9 +11,8 @@ export default function EnviosPage() {
 
             <h3>2. Costos y Tiempos</h3>
             <ul>
-                <li><strong>Tegucigalpa:</strong> Envíos locales (L. 60 - L. 80 aprox.) o entregas en puntos convenidos. Tiempo: 24h hábiles una vez listo el pedido.</li>
-                <li><strong>Nacional / Departamental:</strong> El costo depende del destino y peso, generalmente entre L. 130 y L. 180. Tiempo: 1-3 días hábiles una vez despachado.</li>
-                <li>El costo del envío suele ser pagado por el cliente, salvo promociones específicas.</li>
+                <li><strong>Tegucigalpa y Distrito Central:</strong> El envío es completamente <strong>Gratis</strong> vía entregas en puntos convenidos o a domicilio local. Tiempo: 24h hábiles una vez listo el pedido.</li>
+                <li><strong>Resto del país (Nacional):</strong> Tiene un costo fijo de <strong>L. 140</strong> independientemente del lugar o departamento de destino. Tiempo: 1-3 días hábiles una vez despachado por nuestra paquetería de confianza.</li>
             </ul>
 
             <h3>3. Rastreo de Pedido</h3>

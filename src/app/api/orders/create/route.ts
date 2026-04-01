@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendOrderConfirmationEmail, sendAdminNewOrderEmail } from '@/lib/email';
-import { BUSINESS_LOGIC } from '@/lib/constants';
+import { BUSINESS_LOGIC, calcShippingCost } from '@/lib/constants';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import type { SupabaseRawOrderItem } from '@/lib/types';
 
@@ -236,8 +236,12 @@ export async function POST(request: NextRequest) {
             };
         });
 
-        const deposit_amount = calculatedSubtotal * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
-        const total_amount = calculatedSubtotal;
+        const shippingCost = calcShippingCost(
+            payload.shipping_department ?? '',
+            payload.shipping_municipality ?? ''
+        );
+        const total_amount = calculatedSubtotal + shippingCost;
+        const deposit_amount = total_amount * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
 
         // 3️⃣ CREAR ORDEN
         // 🛡️ M5 NOTE: La creación de orden+items+pago NO es atómica. Si falla un paso
@@ -425,6 +429,7 @@ export async function POST(request: NextRequest) {
             order_number: order.id.slice(0, 8).toUpperCase(),
             total: total_amount,
             deposit: deposit_amount,
+            shipping: shippingCost,
             payment_id: payment?.id,
         });
 

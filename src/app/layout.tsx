@@ -4,11 +4,6 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { CartProvider } from "../context/CartContext";
 import HeaderWrapper from "../components/HeaderWrapper";
-import dynamic from "next/dynamic";
-const Footer = dynamic(() => import("../components/Footer"), {
-    loading: () => <div className="h-64 bg-black" />,
-    ssr: true // Keep SSR for SEO, but defer hydration
-});
 import CartDrawer from "../components/cart/CartDrawer";
 import ClientLayout from "./ClientLayout";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
@@ -193,7 +188,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 <HeaderWrapper />
                                 <CartDrawer />
                                 <main className="pt-0 min-h-dvh pb-[calc(4rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</main>
-                                <Footer />
                             </ClientLayout>
                         </MotionProvider>
                     </CartProvider>

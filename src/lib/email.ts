@@ -271,28 +271,58 @@ export const sendOrderStatusUpdateEmail = async ({
       statusConfig = {
         subject: '¡Anticipo anotado! ⚽ A calentar',
         title: '¡Gol del Anticipo!',
-        message: 'Ya recibimos tu pago inicial. El equipo entra en producción. ¡Se viene lo bueno!',
+        message: '¡Golazo del primero! Hemos validado tu anticipo. El equipo entra en calor y tu pedido ya está en marcha.',
+      };
+      break;
+    case 'processing':
+      statusConfig = {
+        subject: 'Tu pedido está en producción 🏭',
+        title: 'Pedido al Proveedor',
+        message: 'Mandamos tu fichaje a la fábrica. Están confeccionando tu camiseta con todos los detalles que pediste.',
+      };
+      break;
+    case 'in_transit':
+    case 'shipped_to_hn':
+      statusConfig = {
+        subject: '¡Tu producto viaja hacia 90+5! ✈️',
+        title: 'En Tránsito',
+        message: 'Tu producto ya salió al campo y viene volando en avión para llegar pronto a la cancha.',
       };
       break;
     case 'ready_for_delivery':
       statusConfig = {
-        subject: '¡Tu pedido salta a la cancha! 🚚',
-        title: '¡Contragolpe Letal!',
-        message: 'Tu pedido ya va en camino hacia vos. Atento a la jugada que llega pronto.',
+        subject: '¡Tu pedido está listo! 📦',
+        title: 'Listo para Despachar',
+        message: 'A punto de terminar el partido. Ya tenemos tu camisa en nuestras manos y lista para la jugada final.',
       };
       break;
+    case 'pending_second_payment':
+      statusConfig = {
+        subject: 'Falta poco: Segundo Pago Pendiente ⏳',
+        title: 'Pendiente a Saldo',
+        message: '¡Tiempo extra! Ayudanos a cancelar el 50% de saldo pendiente para que tu pedido corra hacia vos y metamos el último gol.',
+      };
+      break;
+    case 'shipped_to_costumer':
+      statusConfig = {
+        subject: '¡Tu pedido salta a la cancha! 🚚',
+        title: '¡Contragolpe letal!',
+        message: 'Contragolpe letal, tu pedido va en ruta directo a entregarte. Atento a la jugada que llega pronto.',
+      };
+      break;
+    case 'completed':
     case 'paid_full':
       statusConfig = {
         subject: '¡Victoria! Pedido entregado 🏆',
         title: '¡Partido Ganado!',
-        message: 'Pedido entregado y pagado al 100%. Gracias por jugar con nosotros. ¡Hasta la próxima temporada!',
+        message: 'El pitazo final. Pedido entregado exitosamente. ¡Gracias por fichar con nosotros para esta temporada!',
       };
       break;
     case 'Cancelled':
       statusConfig = {
         subject: 'Tarjeta Roja: Pedido Cancelado 🔴',
         title: 'Partido Suspendido',
-        message: 'Tu pedido ha sido cancelado. Si crees que fue un error del árbitro (nosotros), escribinos para revisar el VAR.',
+        message: 'Tarjeta roja directa. Tuvimos que suspender tu pedido. Si crees que fue un error del árbitro (nosotros), escribinos para revisar el VAR.',
       };
       break;
   }

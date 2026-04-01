@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { clearProductCache } from '@/lib/api'
+import { revalidateProduct } from '@/app/admin/actions'
 import {
     Save, ArrowLeft, Loader2, Image as ImageIcon,
     Trash2, Plus, AlertCircle, CheckCircle, Tag, Ruler,
@@ -15,6 +16,7 @@ import useToastMessage from '@/hooks/useToastMessage'
 import { motion, AnimatePresence } from '@/lib/motion'
 import ImageUpload from '@/components/admin/ImageUpload'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
+import ProductGalleryManager, { GalleryImage } from '@/components/admin/ProductGalleryManager'
 
 interface Size {
     id: string
@@ -31,6 +33,7 @@ interface Variant {
     tempId: string // Internal UI ID
     version: string
     price: number
+    cost: number
     active: boolean
     original_price: number
     active_original_price: boolean
@@ -70,8 +73,10 @@ export default function CreateProductPage() {
         team_id: '',
         league_id: '',
         category_id: '',
+        gender: '',
         active: true,
         featured: false,
+        allows_customization: true,
         sort_order: 0
     })
 
@@ -81,6 +86,9 @@ export default function CreateProductPage() {
     const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set<string>())
     const [variantToDelete, setVariantToDelete] = useState<string | null>(null)
     const [playerToDelete, setPlayerToDelete] = useState<string | null>(null)
+
+    // Gallery Images
+    const [productImages, setProductImages] = useState<GalleryImage[]>([])
 
     // Players Management
     const [teamPlayers, setTeamPlayers] = useState<Player[]>([])
@@ -97,7 +105,7 @@ export default function CreateProductPage() {
                     supabase.from('leagues').select('id, name').order('name'),
                     supabase.from('categories').select('id, name').order('name'),
                     supabase.from('sizes').select('id, label, sort_order').eq('active', true).order('sort_order'),
-                    supabase.from('patches').select('id, name').eq('active', true).order('name')
+                    supabase.from('patches').select('id, name').eq('active', true).order('name'),
                 ])
 
                 setTeams(teamsRes.data || [])
@@ -121,6 +129,7 @@ export default function CreateProductPage() {
                     tempId: `default_${Date.now()}`,
                     version: 'Versión Fan',
                     price: 1200,
+                    cost: 0,
                     active: true,
                     original_price: 0,
                     active_original_price: false,
@@ -155,6 +164,7 @@ export default function CreateProductPage() {
             tempId: `new_${Date.now()}`,
             version: 'Versión Jugador', // Default fallback
             price: 1400,
+            cost: 0,
             active: true,
             original_price: 0,
             active_original_price: false,
@@ -288,8 +298,10 @@ export default function CreateProductPage() {
                     team_id: formData.team_id || null,
                     league_id: selectedLeagues.size > 0 ? Array.from(selectedLeagues)[0] : (formData.league_id || null),
                     category_id: formData.category_id || null,
+                    gender: formData.gender || null,
                     active: formData.active,
                     featured: formData.featured,
+                    allows_customization: formData.allows_customization,
                     sort_order: formData.sort_order
                 })
                 .select('id')
@@ -318,6 +330,17 @@ export default function CreateProductPage() {
                 if (leagueError) throw leagueError
             }
 
+            // 2.2 Insert Product Images (Gallery)
+            if (productImages.length > 0) {
+                const imagesPayload = productImages.map((img, i) => ({
+                    product_id: createdId,
+                    image_url: img.image_url,
+                    sort_order: i,
+                }))
+                const { error: imgError } = await supabase.from('product_images').insert(imagesPayload)
+                if (imgError) throw imgError
+            }
+
             // 3. Insert Variants & Sizes
             for (const v of variants) {
                 // Insert Variant
@@ -327,6 +350,7 @@ export default function CreateProductPage() {
                         product_id: createdId,
                         version: v.version,
                         price: v.price,
+                        cost: v.cost,
                         active: v.active,
                         original_price: v.original_price,
                         active_original_price: v.active_original_price
@@ -350,6 +374,7 @@ export default function CreateProductPage() {
             }
 
             clearProductCache()
+            await revalidateProduct(formData.slug)
             toast.success('Producto creado exitosamente')
             router.push('/admin/productos')
 
@@ -650,7 +675,7 @@ export default function CreateProductPage() {
                                             </div>
 
                                             {/* ROW 2: Pricing Logic */}
-                                            <div className="bg-black/20 rounded-xl p-4 border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="bg-black/20 rounded-xl p-4 border border-white/5 grid grid-cols-1 md:grid-cols-3 gap-6">
                                                 {/* Base Price */}
                                                 <div>
                                                     <label className="text-xs font-bold uppercase text-gray-500 mb-2 block">
@@ -663,6 +688,25 @@ export default function CreateProductPage() {
                                                             value={variant.price}
                                                             onChange={(e) => updateVariant(variant.tempId, 'price', Number(e.target.value))}
                                                             className="w-full bg-neutral-900 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-sm text-white focus:border-primary outline-none font-mono"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Cost (internal) */}
+                                                <div>
+                                                    <label className="text-xs font-bold uppercase text-gray-500 mb-2 block">
+                                                        Costo (L)
+                                                    </label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-green-600 font-bold text-sm">L</span>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            step={0.01}
+                                                            value={variant.cost}
+                                                            onChange={(e) => updateVariant(variant.tempId, 'cost', Number(e.target.value))}
+                                                            className="w-full bg-neutral-900 border border-green-500/20 rounded-xl pl-8 pr-4 py-3 text-sm text-green-400 focus:border-green-500/50 outline-none font-mono"
                                                             placeholder="0.00"
                                                         />
                                                     </div>
@@ -788,6 +832,20 @@ export default function CreateProductPage() {
                             />
                         </label>
 
+                        <label className="flex items-center justify-between p-4 bg-black/40 border border-white/5 rounded-2xl cursor-pointer hover:bg-black/60 transition-colors">
+                            <span className="font-medium text-white flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${formData.allows_customization ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]' : 'bg-gray-700'}`}></span>
+                                Permite Personalización
+                            </span>
+                            <input
+                                type="checkbox"
+                                name="allows_customization"
+                                checked={formData.allows_customization}
+                                onChange={(e) => setFormData(prev => ({ ...prev, allows_customization: e.target.checked }))}
+                                className="w-5 h-5 accent-purple-500 rounded cursor-pointer"
+                            />
+                        </label>
+
                         {/* Orden para Destacados */}
                         {formData.featured && (
                             <div className="pt-2 animate-in fade-in slide-in-from-top-2">
@@ -870,6 +928,27 @@ export default function CreateProductPage() {
                         </div>
                     </div>
 
+                    {/* Audiencia */}
+                    <div className="bg-neutral-900/50 border border-white/5 rounded-3xl p-6">
+                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Audiencia</h2>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[
+                                { value: 'man', label: 'Hombre' },
+                                { value: 'woman', label: 'Mujer' },
+                                { value: 'kid', label: 'Niño' },
+                            ].map(opt => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, gender: prev.gender === opt.value ? '' : opt.value }))}
+                                    className={`py-2.5 rounded-xl border text-xs font-bold transition-all ${formData.gender === opt.value ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-black/30 text-gray-500 hover:border-white/30 hover:text-gray-300'}`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Imagen Principal */}
                     <div className="bg-neutral-900/50 border border-white/5 rounded-3xl p-6">
                         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Imagen Principal</h2>
@@ -877,6 +956,18 @@ export default function CreateProductPage() {
                         <ImageUpload
                             value={formData.image_url}
                             onChange={(url) => setFormData(prev => ({ ...prev, image_url: url }))}
+                        />
+                    </div>
+
+                    {/* Galería de Imágenes Adicionales */}
+                    <div className="bg-neutral-900/50 border border-white/5 rounded-3xl p-6">
+                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Galería de Imágenes</h2>
+                        <p className="text-[10px] text-gray-600 mb-4">Fotos adicionales visibles en el producto (ángulos, detalles, etc.)</p>
+
+                        <ProductGalleryManager
+                            images={productImages}
+                            onChange={setProductImages}
+                            disabled={saving}
                         />
                     </div>
 

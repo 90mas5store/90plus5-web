@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "@/lib/motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
 import {
   CheckCircle2,
@@ -27,7 +27,7 @@ interface CartItem {
   cantidad: number;
 }
 
-export default function CheckoutDonePage() {
+function CheckoutDoneContent() {
   const params = useSearchParams();
   const router = useRouter();
 
@@ -35,6 +35,7 @@ export default function CheckoutDonePage() {
   const nombre = params.get("nombre");
   const total = params.get("total");
   const anticipo = params.get("anticipo");
+  const envio = params.get("envio");
   const metodo = params.get("metodo") || "transferencia";
   const municipio = params.get("municipio");
   const departamento = params.get("departamento");
@@ -124,6 +125,17 @@ export default function CheckoutDonePage() {
                   <span className="text-gray-400 text-sm">Total</span>
                   <span className="text-2xl font-black text-white">L{total}</span>
                 </div>
+
+                {envio !== null && (
+                  <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                    <span className="text-gray-400 text-sm">Envío (CAEX)</span>
+                    {parseFloat(envio) === 0 ? (
+                      <span className="font-bold text-green-500">Gratis</span>
+                    ) : (
+                      <span className="font-bold text-white">L{parseFloat(envio).toLocaleString("es-HN")}</span>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex justify-between items-center pb-3 border-b border-white/5">
                   <span className="text-gray-400 text-sm">Anticipo (50%)</span>
@@ -373,5 +385,13 @@ export default function CheckoutDonePage() {
         </motion.div>
       </div>
     </main>
+  );
+}
+
+export default function CheckoutDonePage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh flex items-center justify-center bg-[#0a0a0a] text-white">Cargando detalles de tu pedido...</div>}>
+      <CheckoutDoneContent />
+    </Suspense>
   );
 }

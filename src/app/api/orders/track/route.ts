@@ -1,43 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// 🛡️ Regex para validar UUID v4 completo
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// UUID completo: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+const FULL_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Prefijo hex válido (mínimo 4, máximo 8 chars)
+const HEX_PREFIX_REGEX = /^[0-9a-f]{4,8}$/i;
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const orderId = searchParams.get('id');
 
     if (!orderId) {
-        return NextResponse.json({ success: false, error: 'ID de pedido requerido' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'Código de pedido requerido' }, { status: 400 });
     }
 
-    // 🛡️ C3 FIX: Requerir UUID completo — NO permitir búsqueda parcial/fuzzy
-    // Sanitizar: remover espacios y convertir a minúsculas
-    const cleanId = orderId.trim().toLowerCase();
+    const trimmedId = orderId.trim();
 
-    if (!UUID_REGEX.test(cleanId)) {
+    // Determinar si es UUID completo o prefijo corto
+    const isFullUUID = FULL_UUID_REGEX.test(trimmedId);
+    const cleanId = trimmedId.toLowerCase().replace(/-/g, '').slice(0, 8);
+
+    if (!isFullUUID && !HEX_PREFIX_REGEX.test(cleanId)) {
         return NextResponse.json(
-            { success: false, error: 'Formato de ID inválido. Usa el ID completo de tu pedido (ej: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).' },
+            { success: false, error: 'Código inválido. Usa tu ID de pedido o sus primeros 8 caracteres.' },
             { status: 400 }
         );
     }
 
     try {
-        // ⚠️ Usar Service Role Key para saltar RLS (Policies) ya que el rastreo es público
-        // y el usuario anónimo no tiene permiso de leer 'orders' normalmente.
+        // ⚠️ Usar Service Role Key para saltar RLS ya que el rastreo es público
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
-        // 🛡️ FIX: Buscar por UUID EXACTO — ya no se usa rango/fuzzy
-        const { data: order, error } = await supabase
+        // Construir query base
+        let query = supabase
             .from('orders')
             .select(`
                 id,
                 created_at,
                 status,
+                subtotal,
+                total_amount,
+                deposit_amount,
                 shipping_municipality,
                 shipping_department,
                 order_items (
@@ -56,77 +62,126 @@ export async function GET(request: NextRequest) {
                     product_variants (
                         version
                     )
+                ),
+                payments:payments!payments_order_id_fkey (
+                    amount,
+                    status
                 )
-            `)
-            .eq('id', cleanId)
-            .single();
+            `);
+
+        if (isFullUUID) {
+            // UUID completo → match exacto
+            query = query.eq('id', trimmedId.toLowerCase());
+        } else {
+            // Prefijo corto → búsqueda por rango de UUID (PostgreSQL soporta comparación nativa)
+            // Rellenar prefix a 8 chars si es menor, luego construir rango min/max
+            const padded = cleanId.padEnd(8, '0');
+            const paddedMax = cleanId.padEnd(8, 'f');
+            const minUUID = `${padded}-0000-0000-0000-000000000000`;
+            const maxUUID = `${paddedMax}-ffff-ffff-ffff-ffffffffffff`;
+            query = query.gte('id', minUUID).lte('id', maxUUID);
+        }
+
+        const { data: orders, error } = await query.limit(1);
+
+        const order = orders?.[0];
 
         if (error || !order) {
             return NextResponse.json({ success: false, error: 'Pedido no encontrado' }, { status: 404 });
         }
 
-        // Mapear estado a texto amigable (Modo Futbolero Leve)
+        // Mapear estado a texto
         const statusMap: Record<string, { label: string; progress: number; desc: string }> = {
             'pending_payment_50': {
-                label: 'Calentamiento (Espera)',
-                progress: 10,
-                desc: 'Todo listo. Esperamos tu anticipo para el pitazo inicial.'
+                label: '1. Pedido recibido',
+                progress: 12,
+                desc: 'Todo listo para el pitazo inicial. Esperamos la confirmación de tu anticipo.'
             },
             'deposit_paid': {
-                label: '¡Gol del Anticipo!',
+                label: '2. Anticipo confirmado',
                 progress: 25,
-                desc: 'Anticipo recibido. El equipo entra en producción.'
-            },
-            'payment_verified': {
-                label: 'Anticipo Confirmado',
-                progress: 25,
-                desc: 'Pago de entrada validado. ¡A jugar!'
+                desc: '¡Golazo del primero! Hemos validado tu anticipo. El equipo entra en calor.'
             },
             'processing': {
-                label: 'En Cancha (Producción)',
-                progress: 40,
-                desc: 'Estamos jugando el partido. Tu pedido se está fabricando.'
+                label: '3. Pedido realizado al proveedor',
+                progress: 37,
+                desc: 'Mandamos tu fichaje a la fábrica. Están confeccionando tu camiseta.'
             },
             'shipped_to_hn': {
-                label: 'Balón en el aire (Tránsito)',
-                progress: 60,
-                desc: 'El pedido vuela hacia Honduras. ¡Contragolpe en proceso!'
+                label: '4. Producto en transito',
+                progress: 50,
+                desc: 'Tu producto ya salió al campo y viene volando en avión cruzando el océano.'
             },
-            'in_customs': {
-                label: 'Revisión (Aduana)',
-                progress: 75,
-                desc: 'El árbitro está revisando la jugada (Trámites de aduana).'
+            'in_transit': {
+                label: '4. Producto en transito',
+                progress: 50,
+                desc: 'Tu producto ya salió al campo y viene volando hacia nosotros.'
             },
             'ready_for_delivery': {
-                label: 'Tiempo Extra (Listo)',
-                progress: 90,
-                desc: 'A punto de terminar el partido. Listo para entrega final.'
+                label: '5. Producto listo para despachar',
+                progress: 62,
+                desc: 'A punto de terminar el partido. Ya tenemos la camisa en nuestras manos.'
+            },
+            'pending_second_payment': {
+                label: '6. Pendiente segundo pago',
+                progress: 75,
+                desc: '¡Tiempo extra! Ayudanos a cancelar tu saldo pendiente para que tu pedido corra hacia vos.'
+            },
+            'shipped_to_costumer': {
+                label: '7. Producto enviado al cliente',
+                progress: 87,
+                desc: 'Contragolpe letal. Tu paquete va en ruta directo a entregarte.'
             },
             'paid_full': {
-                label: '90 Minutos (Pagado)',
-                progress: 95,
-                desc: 'Pedido pagado al 100%. Solo falta entregarte la copa.'
+                label: '7. Producto enviado al cliente',
+                progress: 87,
+                desc: 'Contragolpe letal. Tu paquete va en ruta directo a entregarte.'
             },
             'completed': {
-                label: '¡Final del Partido! (Entregado)',
+                label: '8. Producto recibido por el cliente',
                 progress: 100,
-                desc: '¡Victoria! Gracias por fichar con nosotros. ¡Hasta la próxima temporada!'
+                desc: 'El pitazo final. ¡Gracias por fichar con nosotros para esta temporada!'
             },
             'cancelled': {
-                label: 'Partido Suspendido',
+                label: 'Cancelado',
                 progress: 0,
-                desc: 'Tarjeta Roja. Este pedido ha sido cancelado.'
+                desc: 'Tarjeta roja directa. Este fichaje se suspendió.'
             },
             'Cancelled': {
-                label: 'Partido Suspendido',
+                label: 'Cancelado',
                 progress: 0,
                 desc: 'Tarjeta Roja. Este pedido ha sido cancelado.'
             },
         };
 
+        // 🛡️ Fetch History (Si la tabla existe, traeremos el historial ordenado)
+        let orderHistory = [];
+        try {
+            const { data: historyData } = await supabase
+                .from('order_status_history')
+                .select('new_status, created_at')
+                .eq('order_id', order.id)
+                .order('created_at', { ascending: false });
+            
+            if (historyData) {
+                orderHistory = historyData.map((h) => ({
+                    status_id: h.new_status,
+                    label: statusMap[h.new_status]?.label || h.new_status,
+                    date: h.created_at
+                }));
+            }
+        } catch (e) {
+            console.warn("No history table yet", e);
+        }
+
         const currentStatus = statusMap[order.status] || { label: 'En Proceso', progress: 20, desc: 'Tu pedido está siendo atendido.' };
 
-        // 🛡️ M7 FIX adicional: No exponer customer_name en la respuesta pública
+        const verifiedPaidSum = Array.isArray(order.payments) 
+            ? order.payments
+                .filter((p: any) => p.status === 'verified' || p.status === 'succeeded' || p.status === 'completed')
+                .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0)
+            : 0;
+
         return NextResponse.json({
             success: true,
             order: {
@@ -146,7 +201,14 @@ export async function GET(request: NextRequest) {
                 status: {
                     code: order.status,
                     ...currentStatus
-                }
+                },
+                billing: {
+                    subtotal: order.subtotal || 0,
+                    total: order.total_amount || 0,
+                    deposit_paid: verifiedPaidSum,
+                    remaining: Math.max(0, (order.total_amount || 0) - verifiedPaidSum)
+                },
+                history: orderHistory
             }
         });
 

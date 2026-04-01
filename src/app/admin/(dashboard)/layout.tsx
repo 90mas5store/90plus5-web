@@ -32,11 +32,14 @@ export default async function AdminLayout({
 
     return (
         <div className="h-dvh overflow-hidden bg-black text-white flex">
+            {/* Spacer que ocupa el ancho del sidebar en el flujo flex (el sidebar en sí es fixed) */}
+            <div className="hidden md:block md:w-72 flex-shrink-0" />
+
             {/* 🟢 SIDEBAR — solo desktop (md+) */}
             <AdminSidebar userEmail={user.email} />
 
             {/* 🟢 MAIN CONTENT */}
-            <main className="flex-1 w-full relative flex flex-col overflow-hidden bg-[#050505] md:ml-72">
+            <main className="flex-1 min-w-0 relative flex flex-col overflow-hidden bg-[#050505]">
                 {/* Mini header solo en móvil */}
                 <div className="md:hidden flex-shrink-0 flex items-center justify-between px-4 h-12 bg-black/80 backdrop-blur-md border-b border-white/5">
                     <span className="text-sm font-black tracking-tight text-white">

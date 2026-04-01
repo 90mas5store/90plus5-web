@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ShoppingCart, Home, Grid3x3, Sparkles, X } from "lucide-react";
+import { ShoppingCart, Home, Grid3x3, Sparkles, X, Package } from "lucide-react";
 import { motion, AnimatePresence } from "@/lib/motion";
 import { useCart } from "../context/CartContext";
 import { useCategories } from "../hooks/useCategories";
@@ -40,7 +40,7 @@ function LinkItem({ href, children, onClick, icon: Icon, isActive, prefersReduce
                 <div className="absolute inset-0 shadow-[0_8px_32px_rgba(229,9,20,0.15)] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative flex items-center gap-2.5">
                     {Icon && (
-                        <motion.div whileHover={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 0.5 }}>
+                        <motion.div whileHover={{ rotate: -10, scale: 1.1 }} transition={{ type: "spring", stiffness: 300, damping: 15 }}>
                             <Icon className={`w-4 h-4 transition-all duration-300 ${isActive
                                 ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.6)]'
                                 : 'group-hover:text-white group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'
@@ -320,6 +320,9 @@ export default function Header() {
                             <LinkItem href="/catalogo" icon={Sparkles} isActive={isActive("/catalogo")} prefersReducedMotion={prefersReducedMotion}>
                                 Todos
                             </LinkItem>
+                            <LinkItem href="/rastreo" icon={Package} isActive={isActive("/rastreo")} prefersReducedMotion={prefersReducedMotion}>
+                                Rastreo
+                            </LinkItem>
                         </nav>
 
                         {/* NAV TABLET (768px–1023px) */}
@@ -330,6 +333,9 @@ export default function Header() {
                             <CategoriesDropdown {...dropdownProps} isTablet />
                             <LinkItem href="/catalogo" icon={Sparkles} isActive={isActive("/catalogo")} prefersReducedMotion={prefersReducedMotion}>
                                 Todos
+                            </LinkItem>
+                            <LinkItem href="/rastreo" icon={Package} isActive={isActive("/rastreo")} prefersReducedMotion={prefersReducedMotion}>
+                                Rastreo
                             </LinkItem>
                         </nav>
 
@@ -418,6 +424,19 @@ export default function Header() {
                         </div>
                         <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${isActive("/catalogo") ? 'font-black text-white' : 'font-semibold text-gray-600'}`}>
                             Todos
+                        </span>
+                    </Link>
+
+                    {/* Rastreo */}
+                    <Link href="/rastreo" className="flex flex-col items-center justify-center flex-1 h-full gap-1">
+                        <div className="relative flex items-center justify-center">
+                            {isActive("/rastreo") && <span className="absolute inset-0 bg-primary/35 blur-md rounded-xl scale-[1.8]" />}
+                            <div className={`relative px-5 py-1.5 rounded-xl flex items-center justify-center transition-all duration-200 ${isActive("/rastreo") ? 'bg-primary/20 border border-primary/50' : ''}`}>
+                                <Package className={`w-5 h-5 transition-all duration-200 ${isActive("/rastreo") ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-600'}`} />
+                            </div>
+                        </div>
+                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${isActive("/rastreo") ? 'font-black text-white' : 'font-semibold text-gray-600'}`}>
+                            Rastreo
                         </span>
                     </Link>
 

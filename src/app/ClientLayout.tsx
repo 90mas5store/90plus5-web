@@ -2,9 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import Loader from "../components/Loader";
 
 import WhatsAppButton from "@/components/ui/WhatsAppButton";
+
+const Footer = dynamic(() => import("../components/Footer"), {
+    loading: () => <div className="h-64 bg-black" />,
+    ssr: true
+});
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const [showSplash, setShowSplash] = useState(false);
@@ -41,7 +47,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAdmin]);
 
-    // En admin: renderizar directamente sin splash ni WhatsApp
+    // En admin: renderizar directamente sin splash, WhatsApp ni Footer
     if (isAdmin) {
         return <>{children}</>;
     }
@@ -51,7 +57,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <Loader show={showSplash} text="Entrando al campo..." />
             <WhatsAppButton />
             {children}
+            <Footer />
         </>
     );
 }
-

@@ -3,9 +3,9 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "@/lib/motion";
 import Button from "../../../components/ui/MainButton";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 
-export default function TransferenciaPage() {
+function TransferenciaContent() {
   const params = useSearchParams();
   const router = useRouter();
 
@@ -72,4 +72,12 @@ export default function TransferenciaPage() {
       </motion.div>
     </main>
   );
+}
+
+export default function TransferenciaPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh flex items-center justify-center bg-black text-white">Cargando instrucciones...</div>}>
+      <TransferenciaContent />
+    </Suspense>
+  )
 }

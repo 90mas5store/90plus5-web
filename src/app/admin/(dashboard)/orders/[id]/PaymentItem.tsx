@@ -1,9 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { updatePaymentStatus } from '@/app/admin/actions'
-import { Check, X, Loader2, AlertCircle, ShieldCheck } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { ShieldCheck } from 'lucide-react'
 
 interface Payment {
     id: string
@@ -12,49 +9,14 @@ interface Payment {
     status: string
     method: string
     created_at: string
+    notes?: string
 }
 
 export default function PaymentItem({ payment }: { payment: Payment }) {
-    const [loading, setLoading] = useState(false)
-
-    const handleVerify = async () => {
-        // Removed confirm for smoother UX and debugging - Admin action is deliberate
-        // if (!confirm('...')) return; 
-
-        setLoading(true)
-        try {
-            console.log("Verifying payment...");
-            await updatePaymentStatus(payment.id, 'completed')
-            toast.success('Pago verificado y estado actualizado')
-        } catch (e: unknown) {
-            console.error("Payment verify error:", e);
-            toast.error('Error al verificar: ' + ((e as Error).message || 'Unknown'))
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleReject = async () => {
-        // Removed confirm for smoother UX
-        // if (!confirm('¿Marcar pago como fallido o rechazado?')) return;
-
-        setLoading(true)
-        try {
-            console.log("Rejecting payment...");
-            await updatePaymentStatus(payment.id, 'failed')
-            toast.error('Pago marcado como fallido')
-        } catch (e: unknown) {
-            console.error("Payment reject error:", e);
-            toast.error('Error: ' + ((e as Error).message || 'Unknown'))
-        } finally {
-            setLoading(false)
-        }
-    }
-
     // Styles based on status
     const isPending = payment.status === 'pending';
-    const isCompleted = payment.status === 'completed';
-    const isFailed = payment.status === 'failed';
+    const isCompleted = payment.status === 'verified';
+    const isFailed = payment.status === 'rejected';
 
     return (
         <div className={`
@@ -67,16 +29,23 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
             {isPending && <div className="absolute top-0 right-0 w-2 h-2 m-3 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_8px_#EAB308]" />}
 
             <div className="flex justify-between items-start mb-4">
-                <div className="space-y-1">
+                <div className="space-y-2 max-w-[65%]">
                     <div className="flex items-center gap-2">
                         <span className="font-black text-white text-lg tracking-tight capitalize">
                             {payment.type === 'deposit' ? 'Anticipo 50%' : payment.type}
                         </span>
-                        {isCompleted && <ShieldCheck className="w-4 h-4 text-green-500" />}
+                        {isCompleted && <ShieldCheck className="w-4 h-4 text-green-500 shrink-0" />}
                     </div>
                     <div className="text-sm text-gray-400 font-mono">
                         {payment.method} · {new Date(payment.created_at).toLocaleDateString()}
                     </div>
+                    {payment.notes && (
+                        <div className="text-xs bg-black/40 border border-white/5 rounded-lg p-2 text-gray-400 mt-2 break-words">
+                            {payment.notes.split('|').map((note, idx) => (
+                                <span key={idx} className="block truncate">{note.trim()}</span>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="text-right">
@@ -92,26 +61,12 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
                 </div>
             </div>
 
-            {/* ACTION BUTTONS */}
+            {/* STATUS MESSAGE WITHOUT BUTTONS */}
             {isPending && (
-                <div className="flex gap-2 pt-4 border-t border-white/5">
-                    <button
-                        onClick={handleVerify}
-                        disabled={loading}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-500 text-white rounded-xl font-bold text-xs uppercase hover:bg-green-400 transition-colors shadow-lg shadow-green-900/20 disabled:opacity-50"
-                    >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                        Confirmar Ingreso
-                    </button>
-
-                    <button
-                        onClick={handleReject}
-                        disabled={loading}
-                        className="w-12 flex items-center justify-center bg-white/5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors disabled:opacity-50"
-                        title="Rechazar"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
+                <div className="pt-4 border-t border-white/5">
+                    <div className="text-xs text-yellow-500/70 italic text-center">
+                        Esperando verificación vía el Gestor de Estados
+                    </div>
                 </div>
             )}
         </div>

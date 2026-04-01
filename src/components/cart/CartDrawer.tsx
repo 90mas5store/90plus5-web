@@ -249,10 +249,6 @@ export default function CartDrawer() {
                       <span>Subtotal</span>
                       <span className="text-white">{formatCurrency(total)}</span>
                     </div>
-                    <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
-                      <span>Envío</span>
-                      <span className="text-green-500">Gratis</span>
-                    </div>
                     <div className="h-px bg-white/5 my-2" />
                     <div className="flex justify-between items-baseline">
                       <span className="text-sm font-black text-white uppercase tracking-tighter">Total</span>

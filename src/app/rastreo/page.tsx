@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
-import { Search, Package, MapPin, Calendar, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { Search, Package, MapPin, Calendar, ArrowRight, Loader2, AlertCircle, Clock, CreditCard } from "lucide-react";
 import Button from "@/components/ui/MainButton";
 import ProductImage from "@/components/ProductImage";
 import { formatDate } from "@/lib/utils";
@@ -60,7 +60,7 @@ function TrackingContent() {
                     RASTREA TU PEDIDO
                 </h1>
                 <p className="text-gray-400 text-sm md:text-base">
-                    Ingresa el ID que recibiste en tu correo para ver el estado en tiempo real.
+                    Ingresa tu ID de pedido (completo o los primeros 8 caracteres) para ver el estado en tiempo real.
                 </p>
             </div>
 
@@ -68,7 +68,7 @@ function TrackingContent() {
                 <div className="relative group">
                     <input
                         type="text"
-                        placeholder="Ej. a0eebc99-9c..."
+                        placeholder="Ej. a0eebc99 o UUID completo"
                         value={orderId}
                         onChange={(e) => setOrderId(e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 md:py-4 pl-10 md:pl-12 pr-4 text-sm md:text-base text-white placeholder:text-gray-600 focus:border-primary focus:bg-white/10 outline-none transition-all font-mono"
@@ -150,6 +150,73 @@ function TrackingContent() {
                             </div>
                         </div>
 
+                        {/* Cronología (Historial) */}
+                        {orderData.history && orderData.history.length > 0 && (
+                            <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-4 md:space-y-6">
+                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                                    <Clock className="w-4 h-4" />
+                                    Cronología del Fichaje
+                                </h3>
+
+                                <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
+                                    {orderData.history.map((h: any, i: number) => (
+                                        <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                            {/* Etiqueta / Icono Central */}
+                                            <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-black bg-white/10 text-white shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[0_0_0_2px_rgba(255,255,255,0.05)] text-xs z-10 transition-colors">
+                                                <div className="w-2 h-2 rounded-full bg-white/50" />
+                                            </div>
+
+                                            {/* Contenido */}
+                                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] bg-white/5 p-4 rounded-xl border border-white/5 shadow-md">
+                                                <div className="flex flex-col gap-1">
+                                                    <h4 className="font-bold text-white text-sm md:text-base capitalize">
+                                                        {h.label}
+                                                    </h4>
+                                                    <span className="text-[10px] md:text-xs font-mono text-gray-500 block">
+                                                        {new Date(h.date).toLocaleDateString('es-HN', { weekday: 'short', day: 'numeric', month: 'short' })}, {new Date(h.date).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ESTADO DE CUENTA */}
+                        {orderData.billing && (
+                            <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-4 md:space-y-6">
+                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                                    <CreditCard className="w-4 h-4" />
+                                    Estado de Cuenta
+                                </h3>
+
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex justify-between text-gray-400">
+                                        <span>Subtotal</span>
+                                        <span>L {orderData.billing.subtotal.toLocaleString("es-HN")}</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-400">
+                                        <span>Envío</span>
+                                        <span>L {(orderData.billing.total - orderData.billing.subtotal).toLocaleString("es-HN")}</span>
+                                    </div>
+                                    <div className="flex justify-between text-white font-bold pt-3 border-t border-white/10 text-base">
+                                        <span>Total del Fichaje</span>
+                                        <span>L {orderData.billing.total.toLocaleString("es-HN")}</span>
+                                    </div>
+                                    <div className="flex justify-between text-green-500 bg-green-500/10 p-3 rounded-lg border border-green-500/20 font-bold mt-2">
+                                        <span>Abonado</span>
+                                        <span>- L {orderData.billing.deposit_paid.toLocaleString("es-HN")}</span>
+                                    </div>
+                                    <div className="flex justify-between text-orange-500 font-black text-xl bg-orange-500/10 p-4 rounded-xl border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.15)] mt-4">
+                                        <span>Saldo Pendiente</span>
+                                        <span>L {orderData.billing.remaining.toLocaleString("es-HN")}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Productos */}
                         <div className="space-y-3">
                             {orderData.items.map((item: any, i: number) => (
                                 <div key={i} className="flex gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">

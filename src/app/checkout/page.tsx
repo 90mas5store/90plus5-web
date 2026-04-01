@@ -23,7 +23,7 @@ import { useCart } from "../../context/CartContext";
 import useToastMessage from "../../hooks/useToastMessage";
 import { getShippingZones } from "../../lib/api";
 import { ShippingZone } from "../../lib/types";
-import { BUSINESS_LOGIC } from "../../lib/constants";
+import { BUSINESS_LOGIC, calcShippingCost } from "../../lib/constants";
 
 // 📝 Interfaces
 interface FormData {
@@ -79,6 +79,7 @@ interface OrderResponse {
     order_number?: string;
     total: number;
     deposit: number;
+    shipping: number;
     payment_id?: string;
     error?: string;
 }
@@ -135,7 +136,9 @@ export default function CheckoutPage() {
         idempotencyKey.current = `${Math.abs(hash).toString(36)}-${sessionId}`;
     }, [items]);
 
-    const anticipo = total * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
+    const shippingCost = calcShippingCost(formData.departamento, formData.municipio);
+    const orderTotal = total + shippingCost;
+    const anticipo = orderTotal * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
 
 
     // Estado para zonas dinámicas
@@ -361,6 +364,7 @@ export default function CheckoutPage() {
                 nombre: formData.nombre,
                 total: result.total.toFixed(2),
                 anticipo: result.deposit.toFixed(2),
+                envio: result.shipping.toFixed(2),
                 municipio: formData.municipio,
                 departamento: formData.departamento,
             }).toString();
@@ -699,18 +703,31 @@ export default function CheckoutPage() {
                                         <span className="text-white">L{total.toLocaleString("es-HN")}</span>
                                     </div>
                                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
-                                        <span>Envío</span>
-                                        <span className="text-green-500">Gratis</span>
+                                        <span>Envío (CAEX)</span>
+                                        {shippingCost === 0 ? (
+                                            <span className="text-green-500">Gratis</span>
+                                        ) : (
+                                            <span className="text-white">L{shippingCost.toLocaleString("es-HN")}</span>
+                                        )}
                                     </div>
+                                    {!formData.municipio && (
+                                        <p className="text-[10px] text-gray-600 italic">
+                                            Selecciona tu municipio para calcular el envío
+                                        </p>
+                                    )}
                                     <div className="flex justify-between items-center py-2">
                                         <div className="flex flex-col">
                                             <span className="text-sm font-black text-white uppercase tracking-tighter">Total a Pagar</span>
                                             <span className="text-[10px] text-primary font-bold uppercase tracking-widest">Anticipo del {BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE * 100}% requerido</span>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-3xl font-black text-white tracking-tighter">L{total.toLocaleString("es-HN")}</p>
+                                            <p className="text-3xl font-black text-white tracking-tighter">L{orderTotal.toLocaleString("es-HN")}</p>
                                             <p className="text-sm font-black text-primary drop-shadow-[0_0_10px_rgba(229,9,20,0.3)]">Anticipo: L{anticipo.toLocaleString("es-HN")}</p>
                                         </div>
+                                    </div>
+
+                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/8 text-[11px] text-gray-400 leading-relaxed">
+                                        Para confirmar el pedido debe cancelar el <span className="text-white font-bold">50% del valor total</span>. El restante 50% se cancela cuando el proveedor confirme que el producto está listo para entregarse.
                                     </div>
                                 </div>
 

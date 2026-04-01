@@ -100,3 +100,9 @@ img {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
+
+/* 📸 Gallery auto-rotate progress bar */
+@keyframes gallery-progress {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
