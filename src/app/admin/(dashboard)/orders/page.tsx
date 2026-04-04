@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
-import { Eye, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { formatDate, HONDURAS_TIMEZONE } from '@/lib/utils'
 
 import OrderSearch from '@/components/admin/OrderSearch'
 import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
+import OrderFilters from '@/components/admin/OrderFilters'
 
 export const dynamic = 'force-dynamic';
 
@@ -13,11 +14,13 @@ const PAGE_SIZE = 25;
 export default async function OrdersPage({
     searchParams
 }: {
-    searchParams?: { q?: string; page?: string }
+    searchParams?: { q?: string; page?: string; status?: string; startDate?: string; endDate?: string }
 }) {
     const supabase = await createClient()
-    // 🛡️ A4 FIX: Limitar longitud del queryTerm para evitar degradación de DB
     const queryTerm = (searchParams?.q || '').slice(0, 100);
+    const statusFilter = searchParams?.status || '';
+    const startDate = searchParams?.startDate || '';
+    const endDate = searchParams?.endDate || '';
     const currentPage = Math.max(1, parseInt(searchParams?.page || '1', 10));
     const from = (currentPage - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
@@ -31,8 +34,24 @@ export default async function OrdersPage({
     if (queryTerm) {
         query = query.or(`customer_name.ilike.%${queryTerm}%,customer_email.ilike.%${queryTerm}%,id.ilike.%${queryTerm}%`)
     }
+    if (statusFilter) {
+        query = query.eq('status', statusFilter)
+    }
+    if (startDate) {
+        query = query.gte('created_at', `${startDate}T00:00:00`)
+    }
+    if (endDate) {
+        query = query.lte('created_at', `${endDate}T23:59:59`)
+    }
 
     const { data: orders, error, count } = await query;
+
+    // Build base params for pagination links (preserving all active filters)
+    const baseParams: Record<string, string> = {}
+    if (queryTerm) baseParams.q = queryTerm
+    if (statusFilter) baseParams.status = statusFilter
+    if (startDate) baseParams.startDate = startDate
+    if (endDate) baseParams.endDate = endDate
 
     const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
 
@@ -53,9 +72,7 @@ export default async function OrdersPage({
                     {/* Buscador Real */}
                     <OrderSearch />
 
-                    <button className="p-2 border border-white/10 rounded-xl hover:bg-white/5 text-gray-400">
-                        <Filter className="w-5 h-5" />
-                    </button>
+                    <OrderFilters />
                 </div>
             </div>
 
@@ -130,7 +147,7 @@ export default async function OrdersPage({
                         <div className="flex items-center gap-2">
                             {currentPage > 1 ? (
                                 <Link
-                                    href={`?${new URLSearchParams({ ...(queryTerm ? { q: queryTerm } : {}), page: String(currentPage - 1) })}`}
+                                    href={`?${new URLSearchParams({ ...baseParams, page: String(currentPage - 1) })}`}
                                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold"
                                 >
                                     <ChevronLeft className="w-3.5 h-3.5" /> Anterior
@@ -145,7 +162,7 @@ export default async function OrdersPage({
                             </span>
                             {currentPage < totalPages ? (
                                 <Link
-                                    href={`?${new URLSearchParams({ ...(queryTerm ? { q: queryTerm } : {}), page: String(currentPage + 1) })}`}
+                                    href={`?${new URLSearchParams({ ...baseParams, page: String(currentPage + 1) })}`}
                                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold"
                                 >
                                     Siguiente <ChevronRight className="w-3.5 h-3.5" />

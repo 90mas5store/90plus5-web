@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MapPin, Phone, Mail, User, CreditCard, ShoppingBag, Truck } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, Mail, User, CreditCard, ShoppingBag, Truck, History } from 'lucide-react'
 import OrderStatusSelector from './OrderStatusSelector'
 import PaymentItem from './PaymentItem'
 import CopyButton from '@/components/admin/CopyButton'
+import OrderNotes from '@/components/admin/OrderNotes'
 import { formatDate, HONDURAS_TIMEZONE } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,17 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         console.error('Order error:', error)
         return notFound();
     }
+
+    // Fetch notes and status history in parallel
+    const [notesRes, historyRes, userRes] = await Promise.all([
+        supabase.from('order_notes').select('*').eq('order_id', params.id).order('created_at', { ascending: false }),
+        supabase.from('order_status_history').select('*').eq('order_id', params.id).order('created_at', { ascending: false }).limit(20),
+        supabase.auth.getUser(),
+    ])
+
+    const orderNotes = notesRes.data || []
+    const statusHistory = historyRes.data || []
+    const adminEmail = userRes.data.user?.email || 'Admin'
 
     const cleanPhone = order.customer_phone?.replace(/\D/g, '') || '';
     const whatsappUrl = `https://wa.me/${cleanPhone.startsWith('504') ? cleanPhone : `504${cleanPhone}`}`;
@@ -275,6 +287,34 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                             <p className="text-sm text-gray-500 italic">No hay registros de pago.</p>
                         )}
                     </div>
+
+                    {/* NOTAS INTERNAS */}
+                    <OrderNotes orderId={order.id} initialNotes={orderNotes} adminEmail={adminEmail} />
+
+                    {/* HISTORIAL DE ESTADOS */}
+                    {statusHistory.length > 0 && (
+                        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6">
+                            <h2 className="flex items-center gap-3 text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">
+                                <History className="w-4 h-4" />
+                                Historial de Estados
+                            </h2>
+                            <div className="space-y-2">
+                                {statusHistory.map((h: any) => (
+                                    <div key={h.id} className="flex items-center gap-3 text-xs py-2 border-b border-white/5 last:border-0">
+                                        <div className="flex-1">
+                                            {h.old_status && (
+                                                <span className="text-gray-600">{h.old_status.replace(/_/g, ' ')} → </span>
+                                            )}
+                                            <span className="text-white font-medium">{h.new_status.replace(/_/g, ' ')}</span>
+                                        </div>
+                                        <span className="text-gray-600 text-[10px]">
+                                            {new Date(h.created_at).toLocaleString('es-HN', { dateStyle: 'short', timeStyle: 'short' })}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                 </div>
             </div>

@@ -69,6 +69,7 @@ export default function LeaguesPage() {
             const { data, error, count } = await supabase
                 .from('leagues')
                 .select(`*, categories (name)`, { count: 'exact' })
+                .is('deleted_at', null)
                 .order('sort_order', { ascending: true })
                 .range(from, to)
 
@@ -172,11 +173,11 @@ export default function LeaguesPage() {
         try {
             const { error } = await supabase
                 .from('leagues')
-                .delete()
+                .update({ deleted_at: new Date().toISOString() })
                 .eq('id', id)
 
             if (error) throw error
-            toast.success('Liga eliminada')
+            toast.success('Liga movida a la papelera')
             setLeagues(prev => prev.filter(c => c.id !== id))
             clearProductCache('config')
             await revalidateConfig()

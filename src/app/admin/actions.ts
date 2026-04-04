@@ -74,14 +74,16 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
         throw new Error(error.message)
     }
 
-    // Registrar historial para rastreo futuro
+    // Registrar historial de estado
     try {
         await supabase.from('order_status_history').insert({
             order_id: orderId,
-            new_status: newStatus
+            old_status: currentOrder?.status ?? null,
+            new_status: newStatus,
+            changed_by: user.id,
         });
     } catch (historyError) {
-        console.warn("Table order_status_history doesn't exist yet", historyError);
+        console.warn('Error registrando historial de estado:', historyError);
     }
 
     // 📧 Enviar correo de notificación (Nuevo)

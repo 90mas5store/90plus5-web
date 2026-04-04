@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileSpreadsheet, Download, Calendar, Loader2, FileText, Filter } from 'lucide-react'
+import { FileSpreadsheet, Download, Loader2, FileText, Filter, TrendingUp, BarChart2 } from 'lucide-react'
 import useToastMessage from '@/hooks/useToastMessage'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,6 +12,8 @@ export default function ReportesPage() {
     // Estado múltiple: array de strings
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['all'])
     const [loading, setLoading] = useState(false)
+    const [bestSellers, setBestSellers] = useState<{ name: string; units: number; revenue: number }[]>([])
+    const [loadingBest, setLoadingBest] = useState(false)
 
     // Opciones de estado
     const statusOptions = [
@@ -63,6 +65,40 @@ export default function ReportesPage() {
         setEndDate(today.toISOString().split('T')[0])
         setStartDate(lastMonth.toISOString().split('T')[0])
     }, [])
+
+    const loadBestSellers = async () => {
+        if (!startDate || !endDate) { toast.error('Por favor selecciona ambas fechas'); return }
+        setLoadingBest(true)
+        try {
+            const statusParam = selectedStatuses.includes('all') ? 'all' : selectedStatuses.join(',')
+            const params = new URLSearchParams({ startDate, endDate, status: statusParam })
+            const res = await fetch(`/api/admin/reports/orders?${params}`)
+            if (!res.ok) throw new Error('Error al obtener datos')
+            const orders = await res.json()
+
+            const map = new Map<string, { units: number; revenue: number }>()
+            for (const order of (orders || [])) {
+                for (const item of (order.order_items || [])) {
+                    const name = Array.isArray(item.products) ? item.products[0]?.name : item.products?.name
+                    if (!name) continue
+                    const existing = map.get(name) || { units: 0, revenue: 0 }
+                    existing.units += item.quantity || 0
+                    existing.revenue += (item.unit_price || 0) * (item.quantity || 0)
+                    map.set(name, existing)
+                }
+            }
+            const sorted = Array.from(map.entries())
+                .map(([name, v]) => ({ name, ...v }))
+                .sort((a, b) => b.revenue - a.revenue)
+                .slice(0, 15)
+            setBestSellers(sorted)
+            if (sorted.length === 0) toast.warning('No hay datos en este rango')
+        } catch {
+            toast.error('Error al calcular')
+        } finally {
+            setLoadingBest(false)
+        }
+    }
 
     const generateAndDownload = async (format: 'csv' | 'excel') => {
         if (!startDate || !endDate) {
@@ -312,6 +348,57 @@ export default function ReportesPage() {
                         </div>
                     </button>
                 </div>
+            </div>
+
+            {/* PRODUCTOS MÁS VENDIDOS */}
+            <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-gray-400" />
+                        Productos más vendidos
+                    </h2>
+                    <button
+                        onClick={loadBestSellers}
+                        disabled={loadingBest}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-50"
+                    >
+                        {loadingBest ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart2 className="w-4 h-4" />}
+                        Calcular
+                    </button>
+                </div>
+
+                {bestSellers.length === 0 ? (
+                    <p className="text-sm text-gray-600 italic text-center py-6">
+                        Haz clic en "Calcular" para ver los productos más vendidos en el rango de fechas seleccionado.
+                    </p>
+                ) : (
+                    <div className="space-y-2">
+                        {bestSellers.map((item, idx) => {
+                            const maxRevenue = bestSellers[0]?.revenue || 1
+                            const barWidth = Math.round((item.revenue / maxRevenue) * 100)
+                            return (
+                                <div key={item.name} className="flex items-center gap-3">
+                                    <span className="text-xs font-bold text-gray-600 w-5 text-right shrink-0">{idx + 1}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <span className="text-sm text-white font-medium truncate">{item.name}</span>
+                                            <div className="flex items-center gap-3 shrink-0 ml-2">
+                                                <span className="text-xs text-gray-500">{item.units} uds.</span>
+                                                <span className="text-xs font-bold text-white">L {item.revenue.toLocaleString('es-HN')}</span>
+                                            </div>
+                                        </div>
+                                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-primary rounded-full transition-all"
+                                                style={{ width: `${barWidth}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     )

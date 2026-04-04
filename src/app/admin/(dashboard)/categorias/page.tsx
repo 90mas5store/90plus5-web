@@ -57,6 +57,7 @@ export default function CategoriesPage() {
             const { data, error, count } = await supabase
                 .from('categories')
                 .select('*', { count: 'exact' })
+                .is('deleted_at', null)
                 .order('order_index', { ascending: true })
                 .range(from, to)
 
@@ -148,11 +149,11 @@ export default function CategoriesPage() {
         try {
             const { error } = await supabase
                 .from('categories')
-                .delete()
+                .update({ deleted_at: new Date().toISOString() })
                 .eq('id', id)
 
             if (error) throw error
-            toast.success('Categoría eliminada')
+            toast.success('Categoría movida a la papelera')
             setCategories(prev => prev.filter(c => c.id !== id))
             clearProductCache('config')
             await revalidateConfig()

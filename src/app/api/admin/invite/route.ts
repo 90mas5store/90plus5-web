@@ -43,7 +43,8 @@ export async function POST(request: Request) {
             );
         }
 
-        const { email, password } = await request.json();
+        const { email, password, role } = await request.json();
+        const assignedRole = role === 'super_admin' ? 'super_admin' : 'admin';
 
         if (!email) {
             return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
@@ -98,12 +99,18 @@ export async function POST(request: Request) {
         if (!existingAdmin) {
             const { error: insertError } = await supabaseAdmin
                 .from('admin_whitelist')
-                .insert([{ id: userId, email: email }]); // Guardamos email también por referencia visual
+                .insert([{ id: userId, email: email, role: assignedRole }]);
 
             if (insertError) {
                 console.error("Error insertando en whitelist:", insertError);
                 throw insertError;
             }
+        } else {
+            // Actualizar rol si ya existe
+            await supabaseAdmin
+                .from('admin_whitelist')
+                .update({ role: assignedRole })
+                .eq('id', userId);
         }
 
         return NextResponse.json({ success: true, message: 'Administrador gestionado correctamente' });

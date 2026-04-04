@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-    Search, Plus, Filter, Shirt, LayoutGrid, List as ListIcon,
-    MoreHorizontal, Edit, Trash2, Tag, Trophy, ArrowUpDown, Loader2
+    Search, Plus, Shirt, LayoutGrid, List as ListIcon,
+    Edit, Trash2, Tag, Trophy, Loader2, Copy, ChevronDown
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -16,13 +16,16 @@ import { useAdminRole } from '@/hooks/useAdminRole'
 type ProductView = {
     id: string
     name: string
+    slug: string
     price: number
     image: string
     team?: { name: string }
-    league?: { name: string }
-    category?: { name: string }
+    league?: { name: string; id: string }
+    category?: { name: string; id: string }
     active: boolean
 }
+
+type CatalogItem = { id: string; name: string }
 
 export default function ProductsPage() {
     const supabaseRef = useRef(createClient())
@@ -36,7 +39,12 @@ export default function ProductsPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [search, setSearch] = useState('')
     const [filterCategory, setFilterCategory] = useState('all')
+    const [filterLeague, setFilterLeague] = useState('all')
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+    const [duplicating, setDuplicating] = useState<string | null>(null)
+    const [allCategories, setAllCategories] = useState<CatalogItem[]>([])
+    const [allLeagues, setAllLeagues] = useState<CatalogItem[]>([])
 
     const fetchProducts = useCallback(async () => {
         setLoading(true)
@@ -44,9 +52,12 @@ export default function ProductsPage() {
         try {
             // 1. Cargar catálogos auxiliares (para evitar fallos de relación FK)
             const [leaguesRes, categoriesRes] = await Promise.all([
-                supabase.from('leagues').select('id, name'),
-                supabase.from('categories').select('id, name')
+                supabase.from('leagues').select('id, name').is('deleted_at', null).order('name'),
+                supabase.from('categories').select('id, name').is('deleted_at', null).order('name')
             ])
+
+            setAllLeagues(leaguesRes.data || [])
+            setAllCategories(categoriesRes.data || [])
 
             // Crear mapas para acceso rápido (ID -> Nombre)
             const leaguesMap = new Map(leaguesRes.data?.map((l: { id: string; name: string }) => [l.id, l.name]) || [])
@@ -84,11 +95,12 @@ export default function ProductsPage() {
                 return {
                     id: p.id,
                     name: p.name || 'Sin nombre',
+                    slug: p.slug || '',
                     price: price,
                     image: p.image_url || null,
-                    team: p.teams, // Supabase ya devuelve el objeto { name: '...' } o null
-                    league: { name: leaguesMap.get(p.league_id) || 'General' },
-                    category: { name: categoriesMap.get(p.category_id) || 'Sin categoría' },
+                    team: p.teams,
+                    league: { id: p.league_id || '', name: leaguesMap.get(p.league_id) || 'General' },
+                    category: { id: p.category_id || '', name: categoriesMap.get(p.category_id) || 'Sin categoría' },
                     active: p.active !== false
                 }
             })
@@ -155,12 +167,50 @@ export default function ProductsPage() {
         }
     }
 
+    const handleDuplicate = async (product: ProductView) => {
+        setDuplicating(product.id)
+        try {
+            const newSlug = `${product.slug}-copia-${Date.now().toString(36)}`
+            const { data: original } = await supabase
+                .from('products')
+                .select('*')
+                .eq('id', product.id)
+                .single()
+            if (!original) throw new Error('Producto no encontrado')
+
+            const { error } = await supabase
+                .from('products')
+                .insert({
+                    ...original,
+                    id: undefined,
+                    name: `${original.name} (Copia)`,
+                    slug: newSlug,
+                    active: false,
+                    featured: false,
+                    created_at: undefined,
+                    deleted_at: null,
+                })
+            if (error) throw error
+            toast.success('Producto duplicado como borrador (inactivo)')
+            fetchProducts()
+        } catch (err: unknown) {
+            toast.error(`Error: ${(err as Error).message}`)
+        } finally {
+            setDuplicating(null)
+        }
+    }
+
     // Filtrado
     const filteredProducts = products.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-            p.team?.name.toLowerCase().includes(search.toLowerCase())
-        // Aquí podrías agregar más filtros de categoría si tuvieras los IDs
-        return matchesSearch
+            (p.team?.name || '').toLowerCase().includes(search.toLowerCase())
+        const matchesCategory = filterCategory === 'all' || p.category?.id === filterCategory
+        const matchesLeague = filterLeague === 'all' || p.league?.id === filterLeague
+        const matchesStatus =
+            filterStatus === 'all' ||
+            (filterStatus === 'active' && p.active) ||
+            (filterStatus === 'inactive' && !p.active)
+        return matchesSearch && matchesCategory && matchesLeague && matchesStatus
     })
 
     return (
@@ -187,34 +237,65 @@ export default function ProductsPage() {
             </div>
 
             {/* BARRA DE HERRAMIENTAS */}
-            <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 justify-between items-center sticky top-0 md:top-4 z-10 shadow-2xl">
+            <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex flex-col gap-3 sticky top-0 md:top-4 z-10 shadow-2xl">
+                <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+                    {/* Buscador */}
+                    <div className="relative w-full md:w-80 group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-primary transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre, equipo..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-white focus:border-primary/50 outline-none transition-all text-sm"
+                        />
+                    </div>
 
-                {/* Buscador */}
-                <div className="relative w-full md:w-96 group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-primary transition-colors" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por nombre, equipo..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none transition-all"
-                    />
+                    {/* Controles de Vista */}
+                    <div className="flex items-center gap-2 bg-black/30 p-1 rounded-xl border border-white/5">
+                        <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
+                            <ListIcon className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Controles de Vista */}
-                <div className="flex items-center gap-2 bg-black/30 p-1 rounded-xl border border-white/5">
-                    <button
-                        onClick={() => setViewMode('grid')}
-                        className={`p-2.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-                    >
-                        <LayoutGrid className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={() => setViewMode('list')}
-                        className={`p-2.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-                    >
-                        <ListIcon className="w-5 h-5" />
-                    </button>
+                {/* Filtros */}
+                <div className="flex flex-wrap gap-2 items-center">
+                    <div className="relative">
+                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                            className="bg-black/40 border border-white/10 rounded-lg pl-3 pr-8 py-2 text-xs text-white appearance-none outline-none focus:border-primary/50 cursor-pointer">
+                            <option value="all">Todos los estados</option>
+                            <option value="active">Activos</option>
+                            <option value="inactive">Inactivos</option>
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
+                    </div>
+                    <div className="relative">
+                        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+                            className="bg-black/40 border border-white/10 rounded-lg pl-3 pr-8 py-2 text-xs text-white appearance-none outline-none focus:border-primary/50 cursor-pointer">
+                            <option value="all">Todas las categorías</option>
+                            {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
+                    </div>
+                    <div className="relative">
+                        <select value={filterLeague} onChange={e => setFilterLeague(e.target.value)}
+                            className="bg-black/40 border border-white/10 rounded-lg pl-3 pr-8 py-2 text-xs text-white appearance-none outline-none focus:border-primary/50 cursor-pointer">
+                            <option value="all">Todas las ligas</option>
+                            {allLeagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
+                    </div>
+                    {(filterStatus !== 'all' || filterCategory !== 'all' || filterLeague !== 'all' || search) && (
+                        <button onClick={() => { setFilterStatus('all'); setFilterCategory('all'); setFilterLeague('all'); setSearch('') }}
+                            className="text-xs text-gray-500 hover:text-white border border-white/10 rounded-lg px-3 py-2 transition-colors">
+                            Limpiar filtros
+                        </button>
+                    )}
+                    <span className="text-xs text-gray-600 ml-auto">{filteredProducts.length} productos</span>
                 </div>
             </div>
 
@@ -251,9 +332,12 @@ export default function ProductsPage() {
 
                                         {/* Menú Flotante (Solo aparece en hover) */}
                                         <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 flex flex-col gap-2">
-                                            <Link href={`/admin/productos/editar/${product.id}`} className="p-2.5 bg-white text-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform">
+                                            <Link href={`/admin/productos/editar/${product.id}`} className="p-2.5 bg-white text-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform" title="Editar">
                                                 <Edit className="w-4 h-4" />
                                             </Link>
+                                            <button onClick={() => handleDuplicate(product)} disabled={duplicating === product.id} className="p-2.5 bg-black/80 border border-white/20 text-white rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform disabled:opacity-50" title="Duplicar">
+                                                {duplicating === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                                            </button>
                                         </div>
 
                                         <Image
@@ -363,14 +447,17 @@ export default function ProductsPage() {
                                                 </td>
                                                 <td className="p-4 text-center">
                                                     <div className="flex items-center justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                                                        <Link href={`/admin/productos/editar/${product.id}`} className="w-11 h-11 flex items-center justify-center bg-white/5 hover:bg-white text-white hover:text-black rounded-lg transition-colors">
+                                                        <Link href={`/admin/productos/editar/${product.id}`} title="Editar" className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-white text-white hover:text-black rounded-lg transition-colors">
                                                             <Edit className="w-4 h-4" />
                                                         </Link>
+                                                        <button onClick={() => handleDuplicate(product)} disabled={duplicating === product.id} title="Duplicar" className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-blue-500/20 text-white hover:text-blue-400 rounded-lg transition-colors disabled:opacity-30">
+                                                            {duplicating === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                                                        </button>
                                                         <button
-                                                            className="w-11 h-11 flex items-center justify-center bg-white/5 hover:bg-red-500/20 text-white hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-white"
+                                                            className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-red-500/20 text-white hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-white"
                                                             onClick={() => handleDelete(product.id)}
                                                             disabled={!isSuperAdmin}
-                                                            title={!isSuperAdmin ? 'Solo los super admins pueden eliminar' : undefined}
+                                                            title={!isSuperAdmin ? 'Solo los super admins pueden eliminar' : 'Mover a papelera'}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>

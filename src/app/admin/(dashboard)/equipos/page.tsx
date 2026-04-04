@@ -67,6 +67,7 @@ export default function TeamsPage() {
             const { data, error, count } = await supabase
                 .from('teams')
                 .select(`*, leagues (name)`, { count: 'exact' })
+                .is('deleted_at', null)
                 .order('name', { ascending: true })
                 .range(from, to)
 
@@ -170,11 +171,11 @@ export default function TeamsPage() {
         try {
             const { error } = await supabase
                 .from('teams')
-                .delete()
+                .update({ deleted_at: new Date().toISOString() })
                 .eq('id', id)
 
             if (error) throw error
-            toast.success('Equipo eliminado')
+            toast.success('Equipo movido a la papelera')
             setTeams(prev => prev.filter(c => c.id !== id))
         } catch (error: unknown) {
             console.error('Error deleting team:', error)

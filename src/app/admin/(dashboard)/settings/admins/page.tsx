@@ -9,6 +9,7 @@ interface AdminUser {
     id: string;
     email: string;
     created_at: string;
+    role?: string | null;
 }
 
 export default function AdminUsersPage() {
@@ -16,6 +17,7 @@ export default function AdminUsersPage() {
     const [loading, setLoading] = useState(true);
     const [newEmail, setNewEmail] = useState("");
     const [newPassword, setNewPassword] = useState("");
+    const [newRole, setNewRole] = useState<"admin" | "super_admin">("admin");
     const [isAdding, setIsAdding] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -66,7 +68,7 @@ export default function AdminUsersPage() {
             const response = await fetch('/api/admin/invite', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: newEmail, password: newPassword })
+                body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole })
             });
 
             const result = await response.json();
@@ -76,6 +78,7 @@ export default function AdminUsersPage() {
             toast.success(newPassword ? "Usuario creado y añadido" : "Invitación enviada correctamente");
             setNewEmail("");
             setNewPassword("");
+            setNewRole("admin");
             fetchAdmins();
         } catch (error: unknown) {
             toast.error((error as Error).message || "Error al añadir admin");
@@ -167,6 +170,27 @@ export default function AdminUsersPage() {
                                 />
                             </div>
 
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase ml-1">Rol</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {(['admin', 'super_admin'] as const).map(r => (
+                                        <button
+                                            key={r}
+                                            type="button"
+                                            onClick={() => setNewRole(r)}
+                                            className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all ${
+                                                newRole === r
+                                                    ? 'bg-primary/20 text-primary border-primary/40'
+                                                    : 'bg-black/30 text-gray-500 border-white/10 hover:border-white/20'
+                                            }`}
+                                        >
+                                            {r === 'admin' ? 'Admin' : 'Super Admin'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-gray-600 ml-1">Super Admin puede eliminar registros y gestionar admins.</p>
+                            </div>
+
                             <button
                                 disabled={isAdding || !newEmail}
                                 className="w-full bg-white hover:bg-gray-200 text-black font-bold py-3 rounded-xl transition-all shadow-lg hover:shadow-white/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -226,8 +250,12 @@ export default function AdminUsersPage() {
                                     </div>
 
                                     <div className="flex items-center gap-4">
-                                        <span className="hidden sm:inline-block px-3 py-1 bg-primary/5 text-primary text-[10px] font-bold rounded-lg border border-primary/10">
-                                            ADMIN
+                                        <span className={`hidden sm:inline-block px-3 py-1 text-[10px] font-bold rounded-lg border ${
+                                            admin.role === 'super_admin'
+                                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                : 'bg-primary/5 text-primary border-primary/10'
+                                        }`}>
+                                            {admin.role === 'super_admin' ? 'SUPER ADMIN' : 'ADMIN'}
                                         </span>
                                         <button
                                             onClick={() => handleRemoveAdmin(admin.id)}

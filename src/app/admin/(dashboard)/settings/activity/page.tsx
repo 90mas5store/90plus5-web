@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Activity, Search, ShieldAlert, User, Clock, FileText } from "lucide-react";
+import { Activity, Search, ShieldAlert, User, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Log {
     id: string;
@@ -13,34 +13,45 @@ interface Log {
     severity?: 'info' | 'warning' | 'danger';
 }
 
+const PAGE_SIZE = 20;
+
 export default function ActivityLogsPage() {
     const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const supabase = createClient();
+    const [page, setPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const supabaseRef = useRef(createClient());
+    const supabase = supabaseRef.current;
 
-    const fetchLogs = useCallback(async () => {
+    const fetchLogs = useCallback(async (p = 1) => {
+        setLoading(true);
+        const from = (p - 1) * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
         try {
-            const { data, error } = await supabase
+            const { data, error, count } = await supabase
                 .from("admin_logs")
-                .select("*")
+                .select("*", { count: 'exact' })
                 .order("created_at", { ascending: false })
-                .limit(100);
+                .range(from, to);
 
             if (error) throw error;
             setLogs(data || []);
+            setTotalCount(count ?? 0);
         } catch (error) {
             console.error("Error fetching logs", error);
         } finally {
             setLoading(false);
         }
-    }, [supabase]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
-        fetchLogs();
-    }, [fetchLogs]);
+        fetchLogs(page);
+    }, [fetchLogs, page]);
 
-    // Filtrado simple en cliente
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+    // Filtrado en cliente (dentro de la página actual)
     const filteredLogs = logs.filter(log =>
         log.admin_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.action.toLowerCase().includes(searchTerm.toLowerCase())
@@ -144,6 +155,31 @@ export default function ActivityLogsPage() {
                     </div>
                 )}
             </div>
+
+            {/* PAGINACIÓN */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                    <p className="text-xs text-gray-500">
+                        {totalCount} registros · página {page} de {totalPages}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+                        </button>
+                        <button
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={page === totalPages}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            Siguiente <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
