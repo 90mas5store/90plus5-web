@@ -418,7 +418,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                         priority
                                         quality={95}
                                         sizes="(max-width: 1024px) 100vw, 60vw"
-                                        className="w-full h-full object-contain transition-transform duration-1000 group-hover:scale-105"
+                                        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                                     />
                                 </motion.div>
                             </AnimatePresence>
@@ -426,7 +426,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             {/* Blur Overlay */}
                             <div
                                 ref={blurRef}
-                                className="absolute inset-0 backdrop-blur-[6px] opacity-0 transition-opacity duration-300 pointer-events-none"
+                                className="absolute inset-0 z-[2] backdrop-blur-[6px] opacity-0 transition-opacity duration-300 pointer-events-none"
                             />
 
                             {/* Lens Zoom */}
@@ -439,7 +439,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             />
 
                             {/* Badge de Zoom */}
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 md:bg-black/40 md:backdrop-blur-md rounded-full border border-white/10 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 px-4 py-2 bg-black/60 md:bg-black/40 md:backdrop-blur-md rounded-full border border-white/10 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Info className="w-4 h-4 text-primary" />
                                 <span className="text-[10px] font-bold uppercase tracking-tighter">Pasa el mouse o toca para zoom</span>
                             </div>
@@ -530,10 +530,10 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             <div className="flex items-baseline gap-3 mt-2">
                                 {precioActual > 0 ? (
                                     <>
-                                        <span className="text-4xl font-bold text-white tracking-tight">L {precioActual.toLocaleString("es-HN")}</span>
+                                        <span className="text-4xl font-bold text-white tracking-tight">L {precioActual.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         {precioOriginalActual?.active && precioOriginalActual.price > 0 && (
                                             <span className="text-gray-500 line-through text-lg opacity-50">
-                                                L {precioOriginalActual.price.toLocaleString("es-HN")}
+                                                L {precioOriginalActual.price.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         )}
                                     </>
@@ -571,7 +571,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                                 }`}
                                         >
                                             <span className={`block font-bold ${versionSeleccionada?.id === v.id ? "text-white" : "text-gray-400"}`}>{v.label}</span>
-                                            <span className="text-[10px] text-gray-500 mt-1 block">L {opciones.preciosPorVersion?.[v.label]?.toLocaleString("es-HN")}</span>
+                                            <span className="text-[10px] text-gray-500 mt-1 block">L {opciones.preciosPorVersion?.[v.label]?.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             {versionSeleccionada?.id === v.id && <div className="absolute top-0 right-0 w-8 h-8 bg-primary flex items-center justify-center rounded-bl-xl"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
                                         </button>
                                     ))}
@@ -866,7 +866,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                             </p>
                                             <div className="mt-2 inline-block px-3 py-0.5 bg-white/10 backdrop-blur-md border border-white/10 rounded-full">
                                                 <p className="text-primary font-black text-xs sm:text-sm">
-                                                    L {item.precio.toLocaleString("es-HN")}
+                                                    L {item.precio.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </p>
                                             </div>
                                         </div>

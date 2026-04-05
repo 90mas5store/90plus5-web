@@ -26,6 +26,7 @@ interface CreateOrderPayload {
         custom_number?: number | null;
         custom_name?: string | null;
     }>;
+    discount_code?: string;
     _honey?: string; // Honeypot
     idempotency_key?: string;
 }
@@ -170,10 +171,10 @@ export async function POST(request: NextRequest) {
         const productIds = [...new Set(payload.items.map(i => i.product_id))];
         const variantIds = [...new Set(payload.items.map(i => i.variant_id).filter(Boolean))] as string[];
 
-        // Fetch basic product info (just to verify existence and get team logic if needed in future)
+        // Fetch basic product info (category/team for discount scope evaluation)
         const { data: dbProducts, error: prodError } = await supabase
             .from('products')
-            .select('id') // Only ID, no price
+            .select('id, category_id, team_id')
             .in('id', productIds);
 
         if (prodError || !dbProducts) {
@@ -232,11 +233,84 @@ export async function POST(request: NextRequest) {
             };
         });
 
+        // 💰 DISCOUNT CODE VALIDATION (re-validate server-side)
+        let discountAmount = 0;
+        let discountCodeId: string | null = null;
+
+        if (payload.discount_code) {
+            try {
+                const discountCode = payload.discount_code.toUpperCase().trim();
+                const customerEmail = payload.customer_email.toLowerCase().trim();
+
+                const { data: dc } = await supabase
+                    .from('discount_codes')
+                    .select('*')
+                    .eq('code', discountCode)
+                    .eq('active', true)
+                    .maybeSingle();
+
+                const isValidCode = dc &&
+                    (!dc.expires_at || new Date(dc.expires_at) >= new Date()) &&
+                    (dc.max_uses === null || dc.used_count < dc.max_uses);
+
+                if (isValidCode) {
+                    // Check email hasn't used it
+                    const { data: existingUsage } = await supabase
+                        .from('discount_code_usage')
+                        .select('id')
+                        .eq('code_id', dc.id)
+                        .eq('customer_email', customerEmail)
+                        .maybeSingle();
+
+                    if (!existingUsage) {
+                        // Fetch product leagues for scope check
+                        const { data: productLeaguesData } = await supabase
+                            .from('product_leagues')
+                            .select('product_id, league_id')
+                            .in('product_id', productIds);
+
+                        const productLeaguesMap = new Map<string, Set<string>>();
+                        for (const pl of (productLeaguesData ?? [])) {
+                            if (!productLeaguesMap.has(pl.product_id)) {
+                                productLeaguesMap.set(pl.product_id, new Set());
+                            }
+                            productLeaguesMap.get(pl.product_id)!.add(pl.league_id);
+                        }
+
+                        const productInfoMap = new Map((dbProducts ?? []).map(p => [p.id, p]));
+                        const categoryScope: string[] = dc.category_ids ?? [];
+                        const leagueScope: string[] = dc.league_ids ?? [];
+                        const teamScope: string[] = dc.team_ids ?? [];
+
+                        let eligibleSubtotal = 0;
+                        for (const item of secureItems) {
+                            const product = productInfoMap.get(item.product_id);
+                            if (!product) continue;
+                            const productLeagues = productLeaguesMap.get(item.product_id) ?? new Set();
+                            const matchesCategory = categoryScope.length === 0 || categoryScope.includes(product.category_id);
+                            const matchesLeague = leagueScope.length === 0 || leagueScope.some((lid: string) => productLeagues.has(lid));
+                            const matchesTeam = teamScope.length === 0 || teamScope.includes(product.team_id);
+                            if (matchesCategory && matchesLeague && matchesTeam) {
+                                eligibleSubtotal += item.unit_price * item.quantity;
+                            }
+                        }
+
+                        discountAmount = Math.round((eligibleSubtotal * dc.discount_pct / 100) * 100) / 100;
+                        discountCodeId = dc.id;
+                    }
+                }
+            } catch (discountErr) {
+                // Silent fail — don't break order if discount validation fails
+                console.warn('⚠️ Discount code validation failed silently:', discountErr);
+            }
+        }
+
         const shippingCost = calcShippingCost(
             payload.shipping_department ?? '',
             payload.shipping_municipality ?? ''
         );
-        const total_amount = calculatedSubtotal + shippingCost;
+        const effectiveSubtotal = calculatedSubtotal - discountAmount;
+        const total_amount = effectiveSubtotal + shippingCost;
         const deposit_amount = total_amount * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
 
         // 3️⃣ CREAR ORDEN
@@ -250,6 +324,8 @@ export async function POST(request: NextRequest) {
             subtotal: calculatedSubtotal,
             deposit_amount,
             total_amount,
+            discount_amount: discountAmount,
+            ...(discountCodeId ? { discount_code_id: discountCodeId } : {}),
             ...(payload.idempotency_key ? { idempotency_key: payload.idempotency_key } : {}),
         };
 
@@ -333,6 +409,31 @@ export async function POST(request: NextRequest) {
                 { success: false, error: 'Error al crear items', details: itemsError.message },
                 { status: 500 }
             );
+        }
+
+        // 4.5️⃣ REGISTRAR USO DE CÓDIGO DE DESCUENTO
+        if (discountCodeId && discountAmount > 0) {
+            // Fetch current used_count, increment, insert usage record
+            const { data: dcCurrent } = await supabase
+                .from('discount_codes')
+                .select('used_count')
+                .eq('id', discountCodeId)
+                .single();
+
+            await Promise.allSettled([
+                supabase
+                    .from('discount_codes')
+                    .update({ used_count: (dcCurrent?.used_count ?? 0) + 1, updated_at: new Date().toISOString() })
+                    .eq('id', discountCodeId),
+                supabase
+                    .from('discount_code_usage')
+                    .insert({
+                        code_id: discountCodeId,
+                        order_id: order.id,
+                        customer_email: payload.customer_email.toLowerCase().trim(),
+                        discount_amount: discountAmount,
+                    }),
+            ]);
         }
 
         // 5️⃣ CREAR REGISTRO DE PAGO

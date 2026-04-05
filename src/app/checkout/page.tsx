@@ -16,7 +16,10 @@ import {
     User,
     Mail,
     Phone,
-    Truck
+    Truck,
+    Tag,
+    Loader2,
+    X,
 } from "lucide-react";
 import MainButton from "../../components/ui/MainButton";
 import { useCart } from "../../context/CartContext";
@@ -69,8 +72,15 @@ interface CreateOrderPayload {
         custom_number: number | null;
         custom_name: string | null;
     }>;
+    discount_code?: string;
     _honey?: string; // Honeypot
     idempotency_key?: string;
+}
+
+interface DiscountState {
+    pct: number;
+    amount: number;
+    scopeDesc: string;
 }
 
 interface OrderResponse {
@@ -116,6 +126,12 @@ export default function CheckoutPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errores, setErrores] = useState<FormErrors>({});
 
+    // 🏷️ Código de descuento
+    const [discountCode, setDiscountCode] = useState('');
+    const [discountState, setDiscountState] = useState<DiscountState | null>(null);
+    const [discountLoading, setDiscountLoading] = useState(false);
+    const [discountError, setDiscountError] = useState<string | null>(null);
+
     // 🛡️ M9 FIX: Idempotency key determinista basada en contenido del carrito
     // Mismos items = misma key → previene duplicados desde múltiples tabs
     const idempotencyKey = useRef('');
@@ -137,8 +153,50 @@ export default function CheckoutPage() {
     }, [items]);
 
     const shippingCost = calcShippingCost(formData.departamento, formData.municipio);
-    const orderTotal = total + shippingCost;
+    const discountAmount = discountState?.amount ?? 0;
+    const discountedSubtotal = total - discountAmount;
+    const orderTotal = discountedSubtotal + shippingCost;
     const anticipo = orderTotal * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
+
+    // 🏷️ Aplicar código de descuento
+    const applyDiscount = async () => {
+        if (!discountCode.trim()) return;
+        if (!formData.correo.includes('@')) {
+            setDiscountError('Ingresa tu correo primero para validar el código');
+            return;
+        }
+        setDiscountLoading(true);
+        setDiscountError(null);
+        try {
+            const itemsPayload = items.map(item => ({
+                product_id: item.id,
+                variant_id: item.variant_id || '',
+                quantity: item.cantidad,
+            }));
+            const res = await fetch('/api/discount/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: discountCode, email: formData.correo, items: itemsPayload }),
+            });
+            const data = await res.json();
+            if (data.valid) {
+                setDiscountState({ pct: data.discount_pct, amount: data.discount_amount, scopeDesc: data.scope_description });
+            } else {
+                setDiscountError(data.message || 'Código inválido');
+                setDiscountState(null);
+            }
+        } catch {
+            setDiscountError('Error al validar el código');
+        } finally {
+            setDiscountLoading(false);
+        }
+    };
+
+    const removeDiscount = () => {
+        setDiscountState(null);
+        setDiscountCode('');
+        setDiscountError(null);
+    };
 
 
     // Estado para zonas dinámicas
@@ -336,6 +394,7 @@ export default function CheckoutPage() {
                 shipping_address: formData.direccion,
                 payment_method: metodoPago,
                 items: itemsPayload,
+                ...(discountState ? { discount_code: discountCode.trim().toUpperCase() } : {}),
                 _honey: formData.description, // Enviar honeypot
                 idempotency_key: idempotencyKey.current,
             };
@@ -690,7 +749,7 @@ export default function CheckoutPage() {
                                                 )}
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm font-black text-white">L{item.precio.toLocaleString("es-HN")}</p>
+                                                <p className="text-sm font-black text-white">L{item.precio.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                 <p className="text-[10px] text-gray-500 font-bold mt-1">x{item.cantidad}</p>
                                             </div>
                                         </div>
@@ -698,16 +757,70 @@ export default function CheckoutPage() {
                                 </div>
 
                                 <div className="space-y-4 pt-6 border-t border-white/5">
+                                    {/* 🏷️ Campo de código de descuento */}
+                                    {!discountState ? (
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                                                <Tag className="w-3 h-3" /> Código de descuento
+                                            </label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    value={discountCode}
+                                                    onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountError(null); }}
+                                                    onKeyDown={e => e.key === 'Enter' && applyDiscount()}
+                                                    placeholder="Ej. VERANO25"
+                                                    className="flex-1 px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-white/30 outline-none text-white font-black tracking-widest text-xs"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={applyDiscount}
+                                                    disabled={discountLoading || !discountCode.trim()}
+                                                    className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black hover:bg-white/20 transition-all disabled:opacity-50"
+                                                >
+                                                    {discountLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aplicar'}
+                                                </button>
+                                            </div>
+                                            {discountError && (
+                                                <p className="text-xs text-red-400 font-medium flex items-center gap-1">
+                                                    <AlertCircle className="w-3 h-3 shrink-0" />{discountError}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+                                                <div>
+                                                    <p className="text-xs font-black text-green-400 tracking-widest">{discountCode}</p>
+                                                    <p className="text-[10px] text-gray-400">{discountState.pct}% · {discountState.scopeDesc}</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={removeDiscount}
+                                                className="p-1 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-all"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+
                                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
                                         <span>Subtotal</span>
-                                        <span className="text-white">L{total.toLocaleString("es-HN")}</span>
+                                        <span className="text-white">L{total.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
+                                    {discountState && (
+                                        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-green-400">
+                                            <span>Descuento (-{discountState.pct}%)</span>
+                                            <span>-L{discountAmount.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
                                         <span>Envío (CAEX)</span>
                                         {shippingCost === 0 ? (
                                             <span className="text-green-500">Gratis</span>
                                         ) : (
-                                            <span className="text-white">L{shippingCost.toLocaleString("es-HN")}</span>
+                                            <span className="text-white">L{shippingCost.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         )}
                                     </div>
                                     {!formData.municipio && (
@@ -721,8 +834,8 @@ export default function CheckoutPage() {
                                             <span className="text-[10px] text-primary font-bold uppercase tracking-widest">Anticipo del {BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE * 100}% requerido</span>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-3xl font-black text-white tracking-tighter">L{orderTotal.toLocaleString("es-HN")}</p>
-                                            <p className="text-sm font-black text-primary drop-shadow-[0_0_10px_rgba(229,9,20,0.3)]">Anticipo: L{anticipo.toLocaleString("es-HN")}</p>
+                                            <p className="text-3xl font-black text-white tracking-tighter">L{orderTotal.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                            <p className="text-sm font-black text-primary drop-shadow-[0_0_10px_rgba(229,9,20,0.3)]">Anticipo: L{anticipo.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                         </div>
                                     </div>
 

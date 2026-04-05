@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut, LayoutDashboard, Package, FileSpreadsheet, Shirt, Users, Tag, Trophy, Shield, LayoutTemplate, Lock, Activity, Trash2, Scissors } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, FileSpreadsheet, Shirt, Users, Tag, Trophy, Shield, LayoutTemplate, Lock, Activity, Trash2, Scissors, DollarSign } from 'lucide-react';
 
 interface AdminSidebarProps {
     userEmail?: string;
@@ -21,6 +21,8 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
         { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
         { label: 'Pedidos', href: '/admin/orders', icon: Package },
         { label: 'Reportes', href: '/admin/reportes', icon: FileSpreadsheet },
+        { label: 'Descuentos', href: '/admin/descuentos', icon: Tag },
+        { label: 'Contabilidad', href: '/admin/contabilidad', icon: DollarSign },
         { label: 'Productos', href: '/admin/productos', icon: Shirt },
         {
             label: 'Clientes',

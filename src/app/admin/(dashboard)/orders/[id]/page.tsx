@@ -20,7 +20,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         *,
         order_items (
             *,
-            products (name, image_url),
+            products (name, image_url, teams(name)),
             product_variants(version),
             sizes(label),
             patches(name),
@@ -124,7 +124,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                     <div className="flex-1 min-w-0 space-y-3 md:space-y-4">
                                         <div>
                                             <h3 className="font-black text-white text-base md:text-lg leading-tight mb-1">
-                                                {item.products?.name || 'Producto Desconocido'}
+                                                {item.products?.teams?.name
+                                                    ? `${item.products.teams.name} — ${item.products.name}`
+                                                    : item.products?.name || 'Producto Desconocido'}
                                             </h3>
                                             <p className="text-primary font-bold text-sm md:text-base">L {(item.unit_price * item.quantity).toLocaleString("es-HN")}</p>
                                         </div>

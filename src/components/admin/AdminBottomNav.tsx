@@ -18,6 +18,7 @@ import {
     Activity,
     Trash2,
     Scissors,
+    DollarSign,
 } from 'lucide-react';
 
 interface AdminBottomNavProps {
@@ -44,6 +45,13 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
 
     // Items secundarios (dentro del "Más")
     const moreItems = [
+        {
+            section: 'Análisis',
+            items: [
+                { label: 'Contabilidad', href: '/admin/contabilidad', icon: DollarSign },
+                { label: 'Descuentos', href: '/admin/descuentos', icon: Tag },
+            ],
+        },
         {
             section: 'Catálogos',
             items: [
