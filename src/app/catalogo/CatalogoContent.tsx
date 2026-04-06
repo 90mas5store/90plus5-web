@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
-import { getCatalogPaginated, getConfig, getTeamsByLeague } from "../../lib/api";
+import { getCatalogPaginated, getConfig, getTeamsByLeague, getTeamsByCategory } from "../../lib/api";
 import dynamic from "next/dynamic";
 import { Product, Config, Category, League } from "../../lib/types";
 
@@ -25,6 +25,7 @@ const CatalogHeroContainer = dynamic(() => import("../../components/catalogo/Cat
 import useToastMessage from "../../hooks/useToastMessage";
 import SearchBar from "../../components/ui/SearchBar";
 import ProductCard from "../../components/ui/ProductCard";
+import { useLiveMatches } from "../../hooks/useLiveMatches";
 import MainButton from "../../components/ui/MainButton"; // Reutilizamos botón consistente
 import { usePrefetch, useProductPrefetch } from "../../hooks/usePrefetch";
 import { useDebounce, usePrefersReducedMotion } from "../../hooks/useOptimization";
@@ -50,16 +51,19 @@ interface CatalogoContentProps {
   initialConfig?: Config | null;
   initialProducts?: Product[];
   initialTotal?: number;
+  topSellerIds?: string[];
 }
 
 export default function CatalogoContent({
   initialConfig = null,
   initialProducts = [],
-  initialTotal = 0
+  initialTotal = 0,
+  topSellerIds = [],
 }: CatalogoContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoriaParam = searchParams.get("categoria");
+  const liveMatches = useLiveMatches();
   const queryParam = searchParams.get("query");
   const ligaParam = searchParams.get("liga");
 
@@ -233,15 +237,20 @@ export default function CatalogoContent({
     fetchProducts(nextPage, true);
   };
 
-  // === Cargar equipos cuando cambia la liga ===
+  // === Cargar equipos: por liga si hay liga, por categoría si no ===
   useEffect(() => {
-    if (!selectedLeagueObj?.id) {
+    if (selectedLeagueObj?.id) {
+      setEquipoSeleccionado(null);
+      getTeamsByLeague(selectedLeagueObj.id).then(setTeams);
+    } else if (selectedCategoryObj?.id) {
+      setEquipoSeleccionado(null);
+      getTeamsByCategory(selectedCategoryObj.id).then(setTeams);
+    } else {
       setTeams([]);
       setEquipoSeleccionado(null);
-      return;
     }
-    getTeamsByLeague(selectedLeagueObj.id).then(setTeams);
-  }, [selectedLeagueObj?.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLeagueObj?.id, selectedCategoryObj?.id]);
 
   // === Categorías Preload ===
   const adjacentCategories = useMemo(() => {
@@ -356,8 +365,8 @@ export default function CatalogoContent({
         </>
       )}
 
-      {/* FILTRO DE EQUIPOS — aparece cuando hay una liga seleccionada con equipos */}
-      {ligaSeleccionada && teams.length >= 2 && (
+      {/* FILTRO DE EQUIPOS — siempre visible si hay equipos (por categoría o por liga) */}
+      {teams.length >= 2 && (
         <EquipoFilter
           teams={teams}
           selected={equipoSeleccionado}
@@ -365,7 +374,7 @@ export default function CatalogoContent({
             setEquipoSeleccionado(id);
             shouldScrollOnFilter.current = false;
           }}
-          leagueName={ligaSeleccionada}
+          leagueName={ligaSeleccionada ?? undefined}
         />
       )}
 
@@ -401,6 +410,8 @@ export default function CatalogoContent({
                     item={item}
                     priority={i < 4}
                     onPress={handlePersonalizar}
+                    topSeller={topSellerIds.includes(item.id)}
+                    liveMatch={liveMatches[item.team_id] ?? null}
                   />
                 </div>
               ))}

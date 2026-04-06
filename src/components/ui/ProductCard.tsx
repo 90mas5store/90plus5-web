@@ -5,6 +5,7 @@ import { Shirt, ArrowRight } from "lucide-react";
 import ProductImage from "../../components/ProductImage";
 import TeamLogo from "../../components/TeamLogo";
 import { Product } from "../../lib/types";
+import type { LiveMatchData } from "../../hooks/useLiveMatches";
 
 // Tipos para las props del componente
 interface ProductCardProps {
@@ -12,6 +13,8 @@ interface ProductCardProps {
     priority?: boolean;
     onPress: (item: Product) => void;
     enableGlow?: boolean;
+    topSeller?: boolean;
+    liveMatch?: LiveMatchData | null;
 }
 
 // Variantes de animación
@@ -29,7 +32,7 @@ const glowHover = {
 };
 
 // Use standard button instead of div for semantics and keyboard accessibility
-export default function ProductCard({ item, priority = false, onPress, enableGlow = true }: ProductCardProps) {
+export default function ProductCard({ item, priority = false, onPress, enableGlow = true, topSeller = false, liveMatch = null }: ProductCardProps) {
 
     // Extraer datos asegurando que no fallen
     const {
@@ -37,8 +40,19 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
         modelo,
         precio,
         imagen,
-        logoEquipo
+        logoEquipo,
+        trending_until,
     } = item;
+
+    // isLive: partido en curso via API, O activación manual admin
+    const isLive = !!liveMatch || (trending_until ? new Date(trending_until) > new Date() : false);
+
+    // Datos del marcador cuando viene de la API
+    const opponent = liveMatch ? (liveMatch.isHome ? liveMatch.awayTeam : liveMatch.homeTeam) : null;
+    const ourScore = liveMatch ? (liveMatch.isHome ? liveMatch.homeScore : liveMatch.awayScore) : null;
+    const theirScore = liveMatch ? (liveMatch.isHome ? liveMatch.awayScore : liveMatch.homeScore) : null;
+    // Nombre corto del rival (primeras 2 palabras)
+    const shortOpponent = opponent ? opponent.split(' ').slice(0, 2).join(' ') : null;
 
     return (
         <button
@@ -75,6 +89,29 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                         size={32} // Más pequeño en móvil
                         className="w-8 h-8 md:w-12 md:h-12" // Responsive
                     />
+                </div>
+            )}
+
+            {/* 🔥 Badges: EN VIVO (con marcador) / TOP */}
+            {(isLive || topSeller) && (
+                <div className="absolute top-3 right-3 md:top-4 md:right-4 z-20 flex flex-col gap-1 items-end">
+                    {isLive && (
+                        <>
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-primary text-white shadow-[0_0_10px_rgba(229,9,20,0.6)] animate-pulse">
+                                ⚡ EN VIVO
+                            </span>
+                            {shortOpponent && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold bg-black/70 text-white border border-white/20 whitespace-nowrap">
+                                    vs {shortOpponent} · {ourScore}-{theirScore}
+                                </span>
+                            )}
+                        </>
+                    )}
+                    {!isLive && topSeller && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-amber-500/90 text-black shadow-[0_0_10px_rgba(245,158,11,0.5)]">
+                            🔥 TOP
+                        </span>
+                    )}
                 </div>
             )}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck, ImageIcon } from 'lucide-react'
 
 interface Payment {
     id: string
@@ -10,6 +10,7 @@ interface Payment {
     method: string
     created_at: string
     notes?: string
+    proof_url?: string | null
 }
 
 export default function PaymentItem({ payment }: { payment: Payment }) {
@@ -61,11 +62,46 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
                 </div>
             </div>
 
+            {/* COMPROBANTE DE PAGO */}
+            {payment.proof_url && (
+                <div className="pt-4 border-t border-white/5 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                        Comprobante de pago
+                    </p>
+                    <a
+                        href={payment.proof_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative block w-full overflow-hidden rounded-xl border border-white/10 hover:border-primary/40 transition-colors"
+                    >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={payment.proof_url}
+                            alt="Comprobante de pago"
+                            className="w-full max-h-48 object-contain bg-black/40 p-2"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="flex items-center gap-2 text-white text-xs font-bold">
+                                <ImageIcon className="w-4 h-4" />
+                                Ver imagen completa
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            )}
+
             {/* STATUS MESSAGE WITHOUT BUTTONS */}
-            {isPending && (
+            {isPending && !payment.proof_url && (
                 <div className="pt-4 border-t border-white/5">
                     <div className="text-xs text-yellow-500/70 italic text-center">
-                        Esperando verificación vía el Gestor de Estados
+                        Esperando comprobante o verificación vía el Gestor de Estados
+                    </div>
+                </div>
+            )}
+            {isPending && payment.proof_url && (
+                <div className="pt-3">
+                    <div className="text-xs text-yellow-500/70 italic text-center">
+                        Comprobante recibido · Pendiente de verificación
                     </div>
                 </div>
             )}

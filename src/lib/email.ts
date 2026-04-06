@@ -31,6 +31,7 @@ interface OrderEmailProps {
   orderId: string;
   totalAmount: number;
   depositAmount: number;
+  proofUploadUrl?: string;
   items: {
     name: string;
     team?: string;
@@ -46,6 +47,7 @@ export const sendOrderConfirmationEmail = async ({
   orderId,
   totalAmount,
   depositAmount,
+  proofUploadUrl,
   items,
 }: OrderEmailProps) => {
   // Inicializar cliente aquí para evitar crash si falta la ENV al cargar el módulo
@@ -174,9 +176,21 @@ export const sendOrderConfirmationEmail = async ({
                  style="display:block;background:#fff;color:#000;text-decoration:none;
                         padding:18px 0;border-radius:14px;
                         text-align:center;font-weight:900;
-                        text-transform:uppercase;margin-bottom:40px;">
+                        text-transform:uppercase;margin-bottom:12px;">
                 Seguir la jugada
               </a>
+
+              ${proofUploadUrl ? `
+              <!-- CTA Subir Comprobante -->
+              <a href="${sanitizeUrl(proofUploadUrl)}"
+                 style="display:block;background:#E50914;color:#fff;text-decoration:none;
+                        padding:18px 0;border-radius:14px;
+                        text-align:center;font-weight:900;
+                        text-transform:uppercase;margin-bottom:40px;
+                        letter-spacing:0.05em;">
+                📎 Subir comprobante de pago
+              </a>
+              ` : `<div style="margin-bottom:40px;"></div>`}
 
               <!-- Bancos -->
               <h3 style="margin:0 0 16px;font-size:13px;text-transform:uppercase;letter-spacing:1px;">

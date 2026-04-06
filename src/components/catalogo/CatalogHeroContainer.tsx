@@ -30,31 +30,15 @@ export default function CatalogHeroContainer({
     const bannerContextKey = categorySlug || leagueSlug;
 
     useEffect(() => {
-        const cacheKey = `banner_cache_${bannerContextKey}`;
         let mounted = true;
 
         async function findBanners() {
-            // 0. Intentar Cache Local (Instantáneo)
-            try {
-                const cached = sessionStorage.getItem(cacheKey);
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-                        setDynamicSlides(parsed);
-                        setLoading(false); // Ya mostramos algo, adiós skeleton
-                    }
-                }
-            } catch (e) { /* ignore */ }
-
-            // 1. Construir link (usamos la misma lógica de prioridad)
+            // Construir link según contexto
             let targetLink = "/catalogo";
 
-            // Usamos la misma lógica que antes, pero dentro del efecto controlado por contextKey
             if (categorySlug) {
-                // Si hay categoría, buscamos banner de esa categoría e IGNORAMOS la liga
                 targetLink += `?categoria=${categorySlug}`;
             } else if (leagueSlug) {
-                // Solo si NO hay categoría, intentamos buscar por liga (fallback)
                 targetLink += `?liga=${leagueSlug}`;
             } else {
                 if (mounted) setLoading(false);
@@ -62,29 +46,25 @@ export default function CatalogHeroContainer({
             }
 
             try {
-                // 2. Buscar banners activos
                 const { data } = await supabase
                     .from("banners")
                     .select("title, description, image_url, video_url, button_text, link_url, sort_order")
                     .eq("active", true)
-                    .ilike("link_url", `%${targetLink}%`) // Búsqueda simple y directa
+                    .ilike("link_url", `%${targetLink}%`)
                     .order("sort_order", { ascending: true })
                     .limit(5);
 
                 if (!mounted) return;
 
                 if (data && data.length > 0) {
-                    const mappedSlides = data.map(b => ({
+                    setDynamicSlides(data.map(b => ({
                         imageSrc: b.image_url,
-                        videoSrc: b.video_url, // ✅ Video Support
+                        videoSrc: b.video_url,
                         title: b.title,
                         subtitle: b.description,
                         link: b.link_url,
                         buttonText: b.button_text || "Ver Más"
-                    }));
-                    setDynamicSlides(mappedSlides);
-                    // 3. Guardar en Cache
-                    try { sessionStorage.setItem(cacheKey, JSON.stringify(mappedSlides)); } catch (e) { }
+                    })));
                 } else {
                     setDynamicSlides([]);
                 }

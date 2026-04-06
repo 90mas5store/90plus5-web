@@ -13,6 +13,7 @@ import { Product, Config, Category } from "@/lib/types";
 import useToastMessage from "@/hooks/useToastMessage";
 import SearchBar from "./ui/SearchBar";
 import ProductCard from "./ui/ProductCard";
+import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { usePrefetch, useProductPrefetch } from "@/hooks/usePrefetch";
 import { useDebounce, usePrefersReducedMotion } from "@/hooks/useOptimization";
 import SpecialEventBanner from "./ui/SpecialEventBanner";
@@ -47,6 +48,7 @@ export default function HomeClient({
 }: HomeClientProps) {
     const router = useRouter();
     const { navigate } = usePrefetch();
+    const liveMatches = useLiveMatches();
 
     // State initialization with props
     const [destacados] = useState<Product[]>(initialDestacados || []);
@@ -189,6 +191,7 @@ export default function HomeClient({
                                         toast.loading("Cargando personalización...");
                                         navigate(`/producto/${product.slug || product.id}`);
                                     }}
+                                    liveMatch={liveMatches[item.team_id] ?? null}
                                 />
                             </div>
                         ))}

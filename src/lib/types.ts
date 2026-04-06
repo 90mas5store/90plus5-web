@@ -23,6 +23,7 @@ export interface Product {
   league_ids?: string[]; // ✅ Support for multiple leagues
   slug?: string;
   sort_order?: number;
+  trending_until?: string | null;
 }
 
 
@@ -96,6 +97,7 @@ export interface SupabaseRawProduct {
   product_variants?: SupabaseRawVariant[];
   product_leagues?: { league_id: string }[];
   product_images?: { id: string; image_url: string; sort_order: number }[];
+  trending_until?: string | null;
 }
 
 export interface SupabaseRawVariant {

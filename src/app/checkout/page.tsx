@@ -125,6 +125,7 @@ export default function CheckoutPage() {
     const [aceptoTerminos, setAceptoTerminos] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errores, setErrores] = useState<FormErrors>({});
+    const [orderSuccess, setOrderSuccess] = useState(false);
 
     // 🏷️ Código de descuento
     const [discountCode, setDiscountCode] = useState('');
@@ -413,12 +414,14 @@ export default function CheckoutPage() {
             }
 
             // ✅ ORDEN CREADA EXITOSAMENTE
+            setOrderSuccess(true); // Evita mostrar pantalla de carrito vacío durante navegación
             clearCart();
             toastMsg.celebrate("¡Pedido registrado correctamente!");
 
             // Redirigir a página de confirmación
             const query = new URLSearchParams({
                 orderId: result.order_number || '',
+                fullOrderId: result.order_id || '',
                 metodo: metodoPago,
                 nombre: formData.nombre,
                 total: result.total.toFixed(2),
@@ -439,7 +442,7 @@ export default function CheckoutPage() {
     };
 
     // === UI ===
-    if (items.length === 0) {
+    if (items.length === 0 && !orderSuccess) {
         return (
             <main className="min-h-dvh flex flex-col items-center justify-center bg-[#0a0a0a] text-white px-6">
                 <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center border border-white/10 mb-6">

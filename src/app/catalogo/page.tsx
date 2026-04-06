@@ -4,6 +4,7 @@ import CatalogoContent from "./CatalogoContent";
 import { CatalogPageSkeleton } from "../../components/skeletons/ProductSkeletons";
 import { Metadata } from "next";
 import { getConfig, getCatalogPaginated } from "../../lib/api";
+import { createAdminClient } from "../../lib/supabase/admin";
 
 // Siempre renderizar dinámico: desactiva el Data Cache de Next.js para
 // los fetches de Supabase, garantizando que cada recarga trae datos frescos.
@@ -109,25 +110,43 @@ export default async function CatalogoPage({ searchParams }: Props) {
     if (lObj) leagueId = lObj.id;
   }
 
-  // 4. Fetch inicial de productos (SSR)
-  // Obtenemos la primera página (24 items)
+  // 4. Fetch inicial de productos (SSR) + top sellers en paralelo
   let initialProducts: import('@/lib/types').Product[] = [];
   let initialTotal = 0;
+  let topSellerIds: string[] = [];
 
-  try {
-    const { data, count } = await getCatalogPaginated({
+  const [catalogResult] = await Promise.all([
+    getCatalogPaginated({
       page: 1,
       limit: 24,
       query: searchTerm,
       categoryId,
       leagueId,
-    });
-    initialProducts = data || [];
-    initialTotal = count || 0;
-  } catch (err) {
-    console.error("Error fetching initial catalog data:", err);
-    // Fallback silencioso, el cliente intentará de nuevo o mostrará vacío
-  }
+    }).catch((err) => { console.error("Error fetching catalog:", err); return { data: [], count: 0 }; }),
+    // Query top 5 products by sales in last 30 days
+    (async () => {
+      try {
+        const adminClient = createAdminClient();
+        const { data: salesData } = await adminClient
+          .from('order_items')
+          .select('product_id')
+          .not('product_id', 'is', null);
+        if (salesData) {
+          const counts = new Map<string, number>();
+          for (const row of salesData) {
+            if (row.product_id) counts.set(row.product_id, (counts.get(row.product_id) || 0) + 1);
+          }
+          topSellerIds = [...counts.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([id]) => id);
+        }
+      } catch { /* silent fail */ }
+    })(),
+  ]);
+
+  initialProducts = catalogResult.data || [];
+  initialTotal = catalogResult.count || 0;
 
   return (
     <Suspense fallback={<CatalogPageSkeleton />}>
@@ -135,6 +154,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
         initialConfig={config}
         initialProducts={initialProducts}
         initialTotal={initialTotal}
+        topSellerIds={topSellerIds}
       />
     </Suspense>
   );

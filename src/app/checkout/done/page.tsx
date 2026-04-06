@@ -10,7 +10,8 @@ import {
   Building2,
   Share2,
   ArrowLeft,
-  ChevronDown
+  ChevronDown,
+  Upload
 } from "lucide-react";
 import Button from "../../../components/ui/MainButton";
 import { BANK_ACCOUNTS } from "../../../lib/config/banks";
@@ -32,6 +33,7 @@ function CheckoutDoneContent() {
   const router = useRouter();
 
   const orderId = params.get("orderId");
+  const fullOrderId = params.get("fullOrderId") || orderId; // UUID completo para comprobante
   const nombre = params.get("nombre");
   const total = params.get("total");
   const anticipo = params.get("anticipo");
@@ -338,13 +340,22 @@ function CheckoutDoneContent() {
                 </div>
 
 
+                {/* Botón Subir Comprobante */}
+                <a
+                  href={`/comprobante/${fullOrderId}`}
+                  className="w-full py-5 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl flex items-center justify-center gap-3 text-sm uppercase tracking-widest transition-colors"
+                >
+                  <Upload className="w-5 h-5" />
+                  <span>Subir comprobante de pago</span>
+                </a>
+
                 {/* Botón WhatsApp */}
                 <Button
                   onClick={handleShare}
-                  className="w-full py-5 bg-green-600 hover:bg-green-700 text-white font-black rounded-2xl flex items-center justify-center gap-3"
+                  className="w-full py-4 bg-green-600/80 hover:bg-green-600 text-white font-bold rounded-2xl flex items-center justify-center gap-3 text-sm"
                 >
                   <Share2 className="w-5 h-5" />
-                  <span>ENVIAR COMPROBANTE POR WHATSAPP</span>
+                  <span>Enviar por WhatsApp</span>
                 </Button>
               </>
             )}

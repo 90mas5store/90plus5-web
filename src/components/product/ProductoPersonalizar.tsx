@@ -10,7 +10,8 @@ import ProductImage from "@/components/ProductImage";
 import Button from "@/components/ui/MainButton";
 import { useCart } from "@/context/CartContext";
 import useToastMessage from "@/hooks/useToastMessage";
-import { ArrowLeft, ChevronLeft, ChevronRight, Shirt, CheckCircle2, Info } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Shirt, CheckCircle2, Info, Share2 } from "lucide-react";
+import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { ProductCustomizationSkeleton } from "@/components/skeletons/ProductSkeletons";
 import { usePrefetch } from "@/hooks/usePrefetch";
 import { usePrefersReducedMotion } from "@/hooks/useOptimization";
@@ -52,6 +53,7 @@ interface Product {
     league_id?: string | null;
     category_id?: string | null;
     allows_customization?: boolean;
+    trending_until?: string | null;
 }
 
 interface ProductoPersonalizarProps {
@@ -66,6 +68,12 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const toast = useToastMessage();
     const { prefetch, navigate } = usePrefetch();
     const prefersReducedMotion = usePrefersReducedMotion();
+    const liveMatches = useLiveMatches();
+
+    // Partido en vivo: via API (si el equipo tiene football_data_id) o manual (trending_until)
+    const liveMatch = product.team_id ? liveMatches[product.team_id] ?? null : null;
+    const isLiveManual = !liveMatch && !!product.trending_until && new Date(product.trending_until) > new Date();
+    const showLiveBanner = !!liveMatch || isLiveManual;
 
     const mapProduct = (p: Product) => ({
         ...p,
@@ -107,6 +115,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
 
     // Estado de carga para el botón de añadir
     const [isAdding, setIsAdding] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     // Galería de imágenes
     const [activeImageIdx, setActiveImageIdx] = useState(0);
@@ -198,12 +207,54 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                 originalesPorVersion,
             });
 
-            // Auto-seleccionar primera versión si existe
-            if (opcionesProducto.versiones?.length && !versionSeleccionada) {
+            // Pre-seleccionar desde URL params (link compartido) o auto-seleccionar primera versión
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramV = urlParams.get('v');
+            const paramT = urlParams.get('t');
+            const paramP = urlParams.get('p');
+            const paramD = urlParams.get('d');
+            const paramJ = urlParams.get('ji');
+            const paramCN = urlParams.get('cn');
+            const paramCNO = urlParams.get('cno');
+
+            // Versión (buscar por label)
+            const preVersion = paramV ? opcionesProducto.versiones?.find(v => v.label === paramV) : null;
+            if (preVersion) {
+                setVersionSeleccionada(preVersion);
+                setPrecioActual(preciosPorVersion[preVersion.label] ?? 0);
+                setPrecioOriginalActual(originalesPorVersion[preVersion.label] ?? null);
+            } else if (opcionesProducto.versiones?.length) {
                 const firstVersion = opcionesProducto.versiones[0];
                 setVersionSeleccionada(firstVersion);
                 setPrecioActual(preciosPorVersion[firstVersion.label] ?? product.precio);
                 setPrecioOriginalActual(originalesPorVersion[firstVersion.label] ?? null);
+            }
+
+            // Talla (buscar por label)
+            if (paramT) {
+                const preTalla = opcionesProducto.tallas?.find(t => t.label === paramT);
+                if (preTalla) setTallaSeleccionada(preTalla);
+            }
+
+            // Parche (buscar por label)
+            if (paramP) {
+                const preParche = opcionesProducto.parches?.find(p => p.label === paramP);
+                if (preParche) setParcheSeleccionado(preParche);
+            }
+
+            // Dorsal
+            if (paramD === 'j' && paramJ) {
+                const preJugador = dorsales.find(d => d.numero === paramJ); // buscar por número
+                if (preJugador) {
+                    setQuiereDorsal(true);
+                    setModoDorsal('jugador');
+                    setJugadorSeleccionado({ id: preJugador.id, numero: preJugador.numero, nombre: preJugador.jugador });
+                }
+            } else if (paramD === 'c') {
+                setQuiereDorsal(true);
+                setModoDorsal('personalizado');
+                if (paramCN) setNumeroPersonalizado(paramCN);
+                if (paramCNO) setNombrePersonalizado(decodeURIComponent(paramCNO));
             }
 
             setLoading(false);
@@ -343,6 +394,65 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
             setIsAdding(false);
             openCart();
         }, 600);
+    };
+
+    const copyToClipboard = (text: string) => {
+        // Fallback robusto: crea textarea temporal, lo enfoca y usa execCommand
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+    };
+
+    const handleShare = async () => {
+        const base = `${window.location.origin}${window.location.pathname}`;
+        const params = new URLSearchParams();
+
+        if (versionSeleccionada) params.set('v', versionSeleccionada.label);
+        if (tallaSeleccionada) params.set('t', tallaSeleccionada.label);
+        if (parcheSeleccionado) params.set('p', parcheSeleccionado.label);
+
+        if (quiereDorsal) {
+            if (modoDorsal === 'jugador' && jugadorSeleccionado) {
+                params.set('d', 'j');
+                params.set('ji', jugadorSeleccionado.numero); // número de camiseta, no UUID
+            } else if (modoDorsal === 'personalizado') {
+                params.set('d', 'c');
+                if (numeroPersonalizado) params.set('cn', numeroPersonalizado);
+                if (nombrePersonalizado) params.set('cno', encodeURIComponent(nombrePersonalizado));
+            }
+        }
+
+        const shareUrl = `${base}?${params.toString()}`;
+
+        if (typeof navigator !== 'undefined' && navigator.share) {
+            try {
+                await navigator.share({
+                    title: `${producto.equipo} – ${producto.modelo} | 90+5 Store`,
+                    text: `Mirá el kit que armé: ${producto.equipo} ${producto.modelo}`,
+                    url: shareUrl,
+                });
+                return;
+            } catch {
+                // Usuario canceló — no copiar al portapapeles automáticamente
+                return;
+            }
+        }
+
+        // Desktop: copiar al portapapeles con fallback robusto
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2500);
+        } catch {
+            copyToClipboard(shareUrl);
+        }
     };
 
     if (loading) return <ProductCustomizationSkeleton />;
@@ -518,9 +628,26 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             <div className="flex items-start gap-4">
                                 <TeamLogo src={producto.logoEquipo} alt={producto.equipo} size={56} />
                                 <div>
-                                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-none text-white">
-                                        {producto.equipo}
-                                    </h1>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-none text-white">
+                                            {producto.equipo}
+                                        </h1>
+                                        {showLiveBanner && (
+                                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-primary text-white shadow-[0_0_12px_rgba(229,9,20,0.6)] animate-pulse shrink-0">
+                                                ⚡ EN VIVO
+                                            </span>
+                                        )}
+                                    </div>
+                                    {liveMatch && (
+                                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/60 border border-primary/40 text-sm font-bold text-white">
+                                            <span className="text-white">{liveMatch.homeTeam}</span>
+                                            <span className="text-primary text-base">{liveMatch.homeScore} - {liveMatch.awayScore}</span>
+                                            <span className="text-white">{liveMatch.awayTeam}</span>
+                                            {liveMatch.minute && (
+                                                <span className="text-gray-400 text-xs font-normal">{liveMatch.minute}&apos;</span>
+                                            )}
+                                        </div>
+                                    )}
                                     <p className="text-primary font-semibold text-sm tracking-wide mt-2">
                                         {producto.modelo}
                                     </p>
@@ -740,8 +867,8 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             </div>
                         )}
 
-                        {/* Botón Final */}
-                        <div className="pt-4">
+                        {/* Botones: Añadir + Compartir */}
+                        <div className="pt-4 space-y-2">
                             <p className="text-center text-[10px] text-gray-400 mb-3 uppercase tracking-[0.1em] font-medium">
                                 {(() => {
                                     const now = new Date();
@@ -812,6 +939,23 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                     )}
                                 </AnimatePresence>
                             </Button>
+                            <button
+                                type="button"
+                                onClick={handleShare}
+                                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-white/10 hover:border-white/25 text-gray-500 hover:text-white transition-all text-xs font-bold uppercase tracking-widest"
+                            >
+                                {copied ? (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                        <span className="text-green-500">¡Link copiado!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Share2 className="w-4 h-4" />
+                                        <span>Compartir este kit</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>

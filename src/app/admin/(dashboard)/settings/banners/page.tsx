@@ -14,6 +14,7 @@ import Image from "next/image";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { clearProductCache } from "@/lib/api";
 import { logAdminAction } from "@/lib/logger";
+import { revalidateBannersAction } from "@/app/admin/actions";
 
 interface Banner {
     id: string;
@@ -163,6 +164,7 @@ export default function BannersPage() {
 
             fetchBanners();
             clearProductCache('config');
+            await revalidateBannersAction().catch(() => {});
         } catch (error) {
             toast.error("Error al guardar");
         }

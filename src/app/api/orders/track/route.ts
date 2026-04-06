@@ -162,14 +162,21 @@ export async function GET(request: NextRequest) {
                 .from('order_status_history')
                 .select('new_status, created_at')
                 .eq('order_id', order.id)
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: true });
             
-            if (historyData) {
+            if (historyData && historyData.length > 0) {
                 orderHistory = historyData.map((h) => ({
                     status_id: h.new_status,
                     label: statusMap[h.new_status]?.label || h.new_status,
                     date: h.created_at
                 }));
+            } else {
+                // Fallback para pedidos sin historial: mostrar estado actual con fecha de creación
+                orderHistory = [{
+                    status_id: order.status,
+                    label: statusMap[order.status]?.label || order.status,
+                    date: order.created_at
+                }];
             }
         } catch (e) {
             console.warn("No history table yet", e);

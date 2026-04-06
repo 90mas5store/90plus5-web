@@ -243,3 +243,37 @@ export async function registerPaymentAction(orderId: string, statusConfig: { new
     // 2. Actualizar estado del pedido (deposit_paid o shipped_to_costumer)
     return updateOrderStatus(orderId, statusConfig.newStatus)
 }
+
+/**
+ * Activa o desactiva el badge "⚡ EN VIVO" en un producto.
+ * @param productId UUID del producto
+ * @param hours  Duración en horas (2 | 4 | 8). Pasar null para desactivar.
+ */
+export async function setProductTrending(productId: string, hours: number | null) {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) throw new Error('Unauthorized')
+
+    const trendingUntil = hours
+        ? new Date(Date.now() + hours * 60 * 60 * 1000).toISOString()
+        : null
+
+    const { error } = await supabase
+        .from('products')
+        .update({ trending_until: trendingUntil })
+        .eq('id', productId)
+
+    if (error) throw new Error(error.message)
+
+    revalidatePath('/catalogo')
+    revalidatePath('/admin/productos')
+}
+
+/** Revalida el cache del home y catálogo tras cambios en banners */
+export async function revalidateBannersAction() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+    revalidatePath('/')
+    revalidatePath('/catalogo')
+}

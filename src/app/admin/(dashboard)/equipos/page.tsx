@@ -21,6 +21,7 @@ interface Team {
     league_id?: string
     is_national_team: boolean
     active: boolean
+    football_data_id?: number | null
     // Join
     leagues?: { name: string }
 }
@@ -56,7 +57,8 @@ export default function TeamsPage() {
         country: '',
         league_id: '',
         is_national_team: false,
-        active: true
+        active: true,
+        football_data_id: '' as string | number,
     })
 
     const fetchTeams = useCallback(async (p = page) => {
@@ -101,7 +103,8 @@ export default function TeamsPage() {
                 country: editingTeam.country || '',
                 league_id: editingTeam.league_id || '',
                 is_national_team: editingTeam.is_national_team,
-                active: editingTeam.active
+                active: editingTeam.active,
+                football_data_id: editingTeam.football_data_id ?? '',
             })
         } else {
             setFormData({
@@ -111,7 +114,8 @@ export default function TeamsPage() {
                 country: '',
                 league_id: '',
                 is_national_team: false,
-                active: true
+                active: true,
+                football_data_id: '',
             })
         }
     }, [editingTeam, isModalOpen])
@@ -124,6 +128,7 @@ export default function TeamsPage() {
 
         setSaving(true)
         try {
+            const fdId = formData.football_data_id === '' ? null : Number(formData.football_data_id)
             const payload = {
                 name: formData.name,
                 slug: formData.slug,
@@ -131,7 +136,8 @@ export default function TeamsPage() {
                 country: formData.country,
                 league_id: formData.league_id || null,
                 is_national_team: formData.is_national_team,
-                active: formData.active
+                active: formData.active,
+                football_data_id: fdId && !isNaN(fdId) ? fdId : null,
             }
 
             if (editingTeam) {
@@ -455,6 +461,23 @@ export default function TeamsPage() {
                                                 ))}
                                             </select>
                                         </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold uppercase text-gray-400 mb-1 block tracking-wider">
+                                            ID football-data.org
+                                            <span className="normal-case text-gray-600 font-normal ml-1">(para marcador EN VIVO automático)</span>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={formData.football_data_id}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, football_data_id: e.target.value }))}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none font-mono text-sm"
+                                            placeholder="Ej: 86 (Real Madrid)"
+                                        />
+                                        <p className="text-[11px] text-gray-600 mt-1">
+                                            Búscalo en api.football-data.org/v4/teams · Dejar vacío si no aplica
+                                        </p>
                                     </div>
                                 </div>
                             </div>

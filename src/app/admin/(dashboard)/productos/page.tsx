@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
     Search, Plus, Shirt, LayoutGrid, List as ListIcon,
-    Edit, Trash2, Tag, Trophy, Loader2, Copy, ChevronDown
+    Edit, Trash2, Tag, Trophy, Loader2, Copy, ChevronDown, Zap
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import useToastMessage from '@/hooks/useToastMessage'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
 import { useAdminRole } from '@/hooks/useAdminRole'
+import { setProductTrending } from '@/app/admin/actions'
 
 // Tipos adaptados para la vista
 type ProductView = {
@@ -23,6 +24,7 @@ type ProductView = {
     league?: { name: string; id: string }
     category?: { name: string; id: string }
     active: boolean
+    trending_until?: string | null
 }
 
 type CatalogItem = { id: string; name: string }
@@ -43,6 +45,7 @@ export default function ProductsPage() {
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
     const [duplicating, setDuplicating] = useState<string | null>(null)
+    const [trendingProduct, setTrendingProduct] = useState<string | null>(null)
     const [allCategories, setAllCategories] = useState<CatalogItem[]>([])
     const [allLeagues, setAllLeagues] = useState<CatalogItem[]>([])
 
@@ -67,12 +70,13 @@ export default function ProductsPage() {
             const { data, error } = await supabase
                 .from('products')
                 .select(`
-                    id, 
-                    name, 
+                    id,
+                    name,
                     image_url,
                     active,
                     category_id,
                     league_id,
+                    trending_until,
                     teams (name),
                     product_variants (price, active)
                 `)
@@ -101,7 +105,8 @@ export default function ProductsPage() {
                     team: p.teams,
                     league: { id: p.league_id || '', name: leaguesMap.get(p.league_id) || 'General' },
                     category: { id: p.category_id || '', name: categoriesMap.get(p.category_id) || 'Sin categoría' },
-                    active: p.active !== false
+                    active: p.active !== false,
+                    trending_until: p.trending_until ?? null,
                 }
             })
             setProducts(mapped)
@@ -164,6 +169,22 @@ export default function ProductsPage() {
             )
             toast.error('Error al cambiar el estado')
             console.error(error)
+        }
+    }
+
+    const handleTrending = async (productId: string, hours: number | null) => {
+        setTrendingProduct(productId)
+        try {
+            await setProductTrending(productId, hours)
+            const trendingUntil = hours
+                ? new Date(Date.now() + hours * 60 * 60 * 1000).toISOString()
+                : null
+            setProducts(prev => prev.map(p => p.id === productId ? { ...p, trending_until: trendingUntil } : p))
+            toast.success(hours ? `⚡ EN VIVO activado por ${hours}h` : 'EN VIVO desactivado')
+        } catch (err: unknown) {
+            toast.error(`Error: ${(err as Error).message}`)
+        } finally {
+            setTrendingProduct(null)
         }
     }
 
@@ -322,12 +343,17 @@ export default function ProductsPage() {
                                 <div key={product.id} className="group relative bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 flex flex-col">
                                     {/* Imagen */}
                                     <div className="aspect-[4/5] relative bg-white/5 overflow-hidden">
-                                        {/* Badge Categoria */}
-                                        <div className="absolute top-3 left-3 z-10">
+                                        {/* Badge Categoria + EN VIVO */}
+                                        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
                                             <span className="px-3 py-1 rounded-full text-xs font-bold bg-black/60 backdrop-blur-md text-white border border-white/10 flex items-center gap-1.5">
                                                 {getStatusIcon(product)}
                                                 {product.category?.name || 'General'}
                                             </span>
+                                            {product.trending_until && new Date(product.trending_until) > new Date() && (
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-white animate-pulse w-fit">
+                                                    ⚡ EN VIVO
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Menú Flotante (Solo aparece en hover) */}
@@ -338,6 +364,29 @@ export default function ProductsPage() {
                                             <button onClick={() => handleDuplicate(product)} disabled={duplicating === product.id} className="p-2.5 bg-black/80 border border-white/20 text-white rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform disabled:opacity-50" title="Duplicar">
                                                 {duplicating === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
                                             </button>
+                                            {/* Trending toggle */}
+                                            {trendingProduct === product.id ? (
+                                                <div className="p-2.5 bg-primary/20 rounded-full">
+                                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                                </div>
+                                            ) : product.trending_until && new Date(product.trending_until) > new Date() ? (
+                                                <button onClick={() => handleTrending(product.id, null)} className="p-2.5 bg-primary text-white rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform" title="Desactivar EN VIVO">
+                                                    <Zap className="w-4 h-4" fill="currentColor" />
+                                                </button>
+                                            ) : (
+                                                <div className="relative group/trending">
+                                                    <button className="p-2.5 bg-black/80 border border-white/20 text-gray-400 hover:text-primary hover:border-primary/50 rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all" title="Activar EN VIVO">
+                                                        <Zap className="w-4 h-4" />
+                                                    </button>
+                                                    <div className="absolute right-full mr-2 top-0 hidden group-hover/trending:flex flex-col gap-1 bg-neutral-900 border border-white/10 rounded-xl p-2 shadow-2xl">
+                                                        {[2, 4, 8].map(h => (
+                                                            <button key={h} onClick={() => handleTrending(product.id, h)} className="text-xs text-white hover:text-primary px-3 py-1.5 rounded-lg hover:bg-white/5 whitespace-nowrap transition-colors">
+                                                                {h}h
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <Image
@@ -453,6 +502,29 @@ export default function ProductsPage() {
                                                         <button onClick={() => handleDuplicate(product)} disabled={duplicating === product.id} title="Duplicar" className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-blue-500/20 text-white hover:text-blue-400 rounded-lg transition-colors disabled:opacity-30">
                                                             {duplicating === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
                                                         </button>
+                                                        {/* Trending */}
+                                                        {trendingProduct === product.id ? (
+                                                            <div className="w-9 h-9 flex items-center justify-center">
+                                                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                                            </div>
+                                                        ) : product.trending_until && new Date(product.trending_until) > new Date() ? (
+                                                            <button onClick={() => handleTrending(product.id, null)} title="Desactivar EN VIVO" className="w-9 h-9 flex items-center justify-center bg-primary/20 hover:bg-primary text-primary hover:text-white rounded-lg transition-colors">
+                                                                <Zap className="w-4 h-4" fill="currentColor" />
+                                                            </button>
+                                                        ) : (
+                                                            <div className="relative group/tl">
+                                                                <button title="Activar EN VIVO" className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-primary/20 text-gray-400 hover:text-primary rounded-lg transition-colors">
+                                                                    <Zap className="w-4 h-4" />
+                                                                </button>
+                                                                <div className="absolute bottom-full mb-1 right-0 hidden group-hover/tl:flex flex-row gap-1 bg-neutral-900 border border-white/10 rounded-xl p-1.5 shadow-2xl z-20">
+                                                                    {[2, 4, 8].map(h => (
+                                                                        <button key={h} onClick={() => handleTrending(product.id, h)} className="text-xs text-white hover:text-primary px-2.5 py-1.5 rounded-lg hover:bg-white/5 whitespace-nowrap transition-colors">
+                                                                            {h}h
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                         <button
                                                             className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-red-500/20 text-white hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-white"
                                                             onClick={() => handleDelete(product.id)}

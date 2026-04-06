@@ -78,6 +78,7 @@ export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product 
     league_id: raw.league_id,
     league_ids: raw.product_leagues?.map(pl => pl.league_id) || (raw.league_id ? [raw.league_id] : []),
     sort_order: raw.sort_order || 0,
+    trending_until: raw.trending_until ?? null,
     product_variants: variants.map(v => ({
       id: v.id,
       version: v.version,
@@ -104,6 +105,7 @@ async function fetchFeaturedFromSupabase(): Promise<Product[]> {
     team_id,
     category_id,
     league_id,
+    trending_until,
     teams(
       id,
       name,
@@ -531,7 +533,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         .from("products")
         .select(`
             id, name, slug, description, image_url, featured,
-            category_id, league_id, team_id,
+            category_id, league_id, team_id, trending_until,
             teams ( name, logo_url ),
             product_variants ( id, version, price, active, original_price, active_original_price ),
             product_leagues ( league_id )
@@ -626,7 +628,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     .from("products")
     .select(`
         id, name, slug, description, image_url, featured,
-        category_id, league_id, team_id,
+        category_id, league_id, team_id, trending_until,
         teams ( name, logo_url ),
         product_variants ( id, version, price, active, original_price, active_original_price ),
         product_leagues ( league_id )
@@ -684,6 +686,34 @@ export async function getTeamsByLeague(leagueId: string): Promise<{ id: string; 
   }
 
   // Deduplicar por team_id
+  const seen = new Set<string>();
+  const teams: { id: string; name: string; logo_url: string | null }[] = [];
+
+  for (const row of data || []) {
+    const team = Array.isArray(row.teams) ? row.teams[0] : row.teams;
+    if (team && !seen.has(team.id)) {
+      seen.add(team.id);
+      teams.push({ id: team.id, name: team.name, logo_url: team.logo_url });
+    }
+  }
+
+  return teams.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** 🏟️ Obtener equipos que tienen productos activos en una categoría */
+export async function getTeamsByCategory(categoryId: string): Promise<{ id: string; name: string; logo_url: string | null }[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('team_id, teams!inner(id, name, logo_url)')
+    .eq('category_id', categoryId)
+    .eq('active', true)
+    .not('team_id', 'is', null);
+
+  if (error) {
+    console.error('Error fetching teams by category:', error);
+    return [];
+  }
+
   const seen = new Set<string>();
   const teams: { id: string; name: string; logo_url: string | null }[] = [];
 

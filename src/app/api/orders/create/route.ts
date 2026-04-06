@@ -362,6 +362,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // 📋 HISTORIAL INICIAL — primer estado del pedido
+        await supabase
+            .from('order_status_history')
+            .insert({ order_id: order.id, new_status: 'pending_payment_50' });
+
         // 📊 AUDIT LOG — Registro inmutable de la transacción financiera
         // 🛡️ M4 FIX: No exponer PII (email, IP) en logs — solo datos operativos
         // console.warn se preserva en producción (removeConsole excluye 'warn')
@@ -497,12 +502,16 @@ export async function POST(request: NextRequest) {
                 };
             }) || [];
 
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://90mas5.store';
+            const proofUploadUrl = `${siteUrl}/comprobante/${order.id}`;
+
             await sendOrderConfirmationEmail({
                 customerName: payload.customer_name,
                 customerEmail: payload.customer_email,
                 orderId: order.id,
                 totalAmount: total_amount,
                 depositAmount: deposit_amount,
+                proofUploadUrl,
                 items: emailItems
             });
 
@@ -520,6 +529,7 @@ export async function POST(request: NextRequest) {
             // No fallamos la orden si falla el correo, solo logueamos
         }
 
+        const siteUrlFinal = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://90mas5.store';
         return NextResponse.json({
             success: true,
             order_id: order.id,
@@ -528,6 +538,7 @@ export async function POST(request: NextRequest) {
             deposit: deposit_amount,
             shipping: shippingCost,
             payment_id: payment?.id,
+            proof_upload_url: `${siteUrlFinal}/comprobante/${order.id}`,
         });
 
     } catch (error: unknown) {

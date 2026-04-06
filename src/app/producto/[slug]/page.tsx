@@ -44,6 +44,7 @@ type SupabaseProduct = {
         active: boolean;
     }> | null;
     allows_customization?: boolean;
+    trending_until?: string | null;
 };
 
 // Pre-generate the 30 most popular (featured) product pages at build time
@@ -77,7 +78,7 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
     const { data: product } = await supabase
         .from("products")
         .select(`
-            id, name, description, image_url, team_id, league_id, category_id, allows_customization,
+            id, name, description, image_url, team_id, league_id, category_id, allows_customization, trending_until,
             teams (name, logo_url),
             product_variants (version, price, original_price, active_original_price, active),
             product_images (id, image_url, sort_order)
@@ -103,6 +104,7 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
         variants: product.product_variants ?? null,
         product_images: (product.product_images ?? null) as { id: string; image_url: string; sort_order: number }[] | null,
         allows_customization: product.allows_customization ?? true,
+        trending_until: (product as { trending_until?: string | null }).trending_until ?? null,
     };
 }
 
