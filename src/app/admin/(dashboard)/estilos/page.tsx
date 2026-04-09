@@ -14,6 +14,7 @@ interface Patch {
     id: string
     name: string
     competition_id: string | null
+    category_id: string | null
     active: boolean
 }
 
@@ -21,6 +22,8 @@ interface Size {
     id: string
     label: string
     sort_order: number | null
+    category_id: string | null
+    gender: string | null
     active: boolean
 }
 
@@ -42,8 +45,19 @@ interface League {
     name: string
 }
 
-const EMPTY_PATCH = { name: '', competition_id: '', active: true }
-const EMPTY_SIZE = { label: '', sort_order: '', active: true }
+interface Category {
+    id: string
+    name: string
+}
+
+const GENDER_LABELS: Record<string, string> = {
+    man: 'Hombre',
+    woman: 'Mujer',
+    kid: 'Niño',
+}
+
+const EMPTY_PATCH = { name: '', competition_id: '', category_id: '', active: true }
+const EMPTY_SIZE = { label: '', sort_order: '', category_id: '', gender: '', active: true }
 
 const TABS = [
     { key: 'parches' as const, label: 'Parches' },
@@ -67,6 +81,7 @@ export default function EstilosPage() {
     const [patchForm, setPatchForm] = useState(EMPTY_PATCH)
     const [patchDeleteTarget, setPatchDeleteTarget] = useState<string | null>(null)
     const [leagues, setLeagues] = useState<League[]>([])
+    const [categories, setCategories] = useState<Category[]>([])
 
     // ── Tallas ────────────────────────────────────────────
     const [sizes, setSizes] = useState<Size[]>([])
@@ -109,6 +124,15 @@ export default function EstilosPage() {
         setLeagues(data || [])
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+    const fetchCategories = useCallback(async () => {
+        const { data } = await supabase
+            .from('categories')
+            .select('id, name')
+            .is('deleted_at', null)
+            .order('name')
+        setCategories(data || [])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
     const fetchSizes = useCallback(async () => {
         setSizesLoading(true)
         const { data, error } = await supabase
@@ -131,9 +155,10 @@ export default function EstilosPage() {
     useEffect(() => {
         fetchPatches()
         fetchLeagues()
+        fetchCategories()
         fetchSizes()
         fetchTeams()
-    }, [fetchPatches, fetchLeagues, fetchSizes, fetchTeams])
+    }, [fetchPatches, fetchLeagues, fetchCategories, fetchSizes, fetchTeams])
 
     // Jugadores al cambiar equipo
     useEffect(() => {
@@ -153,7 +178,7 @@ export default function EstilosPage() {
     // ── Patches CRUD ──────────────────────────────────────
     const openEditPatch = (p: Patch) => {
         setEditingPatch(p)
-        setPatchForm({ name: p.name, competition_id: p.competition_id || '', active: p.active })
+        setPatchForm({ name: p.name, competition_id: p.competition_id || '', category_id: p.category_id || '', active: p.active })
     }
 
     const openNewPatch = () => {
@@ -169,6 +194,7 @@ export default function EstilosPage() {
                 name: patchForm.name.trim(),
                 active: patchForm.active,
                 competition_id: patchForm.competition_id || null,
+                category_id: patchForm.category_id || null,
             }
             if (editingPatch) {
                 const { error } = await supabase
@@ -211,7 +237,7 @@ export default function EstilosPage() {
     // ── Sizes CRUD ────────────────────────────────────────
     const openEditSize = (s: Size) => {
         setEditingSize(s)
-        setSizeForm({ label: s.label, sort_order: s.sort_order?.toString() ?? '', active: s.active })
+        setSizeForm({ label: s.label, sort_order: s.sort_order?.toString() ?? '', category_id: s.category_id || '', gender: s.gender || '', active: s.active })
     }
 
     const openNewSize = () => {
@@ -226,6 +252,8 @@ export default function EstilosPage() {
             const payload = {
                 label: sizeForm.label.trim(),
                 sort_order: sizeForm.sort_order !== '' ? parseInt(sizeForm.sort_order) : null,
+                category_id: sizeForm.category_id || null,
+                gender: sizeForm.gender || null,
                 active: sizeForm.active,
             }
             if (editingSize) {
@@ -251,11 +279,25 @@ export default function EstilosPage() {
         }
     }
 
+    const openDeleteSize = (id: string) => {
+        setSizeDeleteTarget(id)
+    }
+
     const handleDeleteSize = async (id: string) => {
         try {
             const { error } = await supabase.from('sizes').delete().eq('id', id)
-            if (error) throw error
-            toast.success('Talla eliminada')
+            if (error) {
+                // FK violation (23503) → en uso, desactivar en lugar de eliminar
+                if (error.code === '23503') {
+                    const { error: updateError } = await supabase.from('sizes').update({ active: false }).eq('id', id)
+                    if (updateError) throw updateError
+                    toast.success('Talla desactivada — estaba en uso por productos existentes')
+                } else {
+                    throw error
+                }
+            } else {
+                toast.success('Talla eliminada')
+            }
             fetchSizes()
         } catch (err: unknown) {
             toast.error(`Error: ${(err as Error).message}`)
@@ -420,11 +462,21 @@ export default function EstilosPage() {
                                     <div className={`w-2 h-2 rounded-full shrink-0 ${p.active ? 'bg-green-500 shadow-[0_0_6px_#22c55e]' : 'bg-gray-600'}`} />
                                     <div className="flex-1 min-w-0">
                                         <p className="font-bold text-white truncate">{p.name}</p>
-                                        {p.competition_id && (
-                                            <p className="text-[11px] text-gray-500 truncate">
-                                                {leagues.find(l => l.id === p.competition_id)?.name ?? 'Liga desconocida'}
-                                            </p>
-                                        )}
+                                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                            {p.competition_id && (
+                                                <span className="text-[10px] text-gray-500 truncate">
+                                                    {leagues.find(l => l.id === p.competition_id)?.name ?? 'Liga desconocida'}
+                                                </span>
+                                            )}
+                                            {p.category_id && (
+                                                <span className="text-[10px] text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full font-bold">
+                                                    {categories.find(c => c.id === p.category_id)?.name ?? 'Categoría'}
+                                                </span>
+                                            )}
+                                            {!p.category_id && (
+                                                <span className="text-[10px] text-gray-600">Todas las categorías</span>
+                                            )}
+                                        </div>
                                     </div>
                                     {!p.active && (
                                         <span className="text-[10px] uppercase font-bold text-gray-600 border border-gray-700 px-2 py-0.5 rounded-full shrink-0">
@@ -483,6 +535,26 @@ export default function EstilosPage() {
                                     placeholder="Ej. Parche Champions, Liga MX..."
                                     className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-violet-500/50 outline-none transition-all font-medium"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">
+                                    Categoría (deporte)
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={patchForm.category_id}
+                                        onChange={e => setPatchForm(p => ({ ...p, category_id: e.target.value }))}
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-violet-500/50 outline-none appearance-none pr-10 font-medium"
+                                    >
+                                        <option value="">— Todas las categorías —</option>
+                                        {categories.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                </div>
+                                <p className="text-[10px] text-gray-600 mt-1.5 ml-1">Ej. "Fútbol" para que solo aparezca en camisas de fútbol</p>
                             </div>
 
                             <div>
@@ -562,9 +634,24 @@ export default function EstilosPage() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-bold text-white">{s.label}</p>
-                                        {s.sort_order !== null && (
-                                            <p className="text-[11px] text-gray-600">Orden: {s.sort_order}</p>
-                                        )}
+                                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                            {s.category_id && (
+                                                <span className="text-[10px] text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full font-bold">
+                                                    {categories.find(c => c.id === s.category_id)?.name ?? 'Cat.'}
+                                                </span>
+                                            )}
+                                            {s.gender && (
+                                                <span className="text-[10px] text-sky-400 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded-full font-bold">
+                                                    {GENDER_LABELS[s.gender] ?? s.gender}
+                                                </span>
+                                            )}
+                                            {!s.category_id && !s.gender && (
+                                                <span className="text-[10px] text-gray-600">Universal</span>
+                                            )}
+                                            {s.sort_order !== null && (
+                                                <span className="text-[10px] text-gray-600">Orden: {s.sort_order}</span>
+                                            )}
+                                        </div>
                                     </div>
                                     {!s.active && (
                                         <span className="text-[10px] uppercase font-bold text-gray-600 border border-gray-700 px-2 py-0.5 rounded-full shrink-0">
@@ -580,7 +667,7 @@ export default function EstilosPage() {
                                             <Edit className="w-4 h-4" />
                                         </button>
                                         <button
-                                            onClick={() => setSizeDeleteTarget(s.id)}
+                                            onClick={() => openDeleteSize(s.id)}
                                             disabled={!isSuperAdmin}
                                             title={!isSuperAdmin ? 'Solo super admin puede eliminar' : 'Eliminar'}
                                             className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
@@ -625,6 +712,46 @@ export default function EstilosPage() {
                                 />
                                 <p className="text-[10px] text-gray-600 mt-1.5 ml-1">Ropa (XS-XXL), tenis (24-30), niño (2-14 años), etc.</p>
                             </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">
+                                        Categoría
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            value={sizeForm.category_id}
+                                            onChange={e => setSizeForm(s => ({ ...s, category_id: e.target.value }))}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-violet-500/50 outline-none appearance-none pr-8 font-medium text-sm"
+                                        >
+                                            <option value="">— Universal —</option>
+                                            {categories.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">
+                                        Género
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            value={sizeForm.gender}
+                                            onChange={e => setSizeForm(s => ({ ...s, gender: e.target.value }))}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-violet-500/50 outline-none appearance-none pr-8 font-medium text-sm"
+                                        >
+                                            <option value="">— Todos —</option>
+                                            <option value="man">Hombre</option>
+                                            <option value="woman">Mujer</option>
+                                            <option value="kid">Niño</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-gray-600 -mt-2 ml-1">Sin selección = aplica a todos los productos</p>
 
                             <div>
                                 <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">
@@ -878,8 +1005,8 @@ export default function EstilosPage() {
             <ConfirmDialog
                 open={sizeDeleteTarget !== null}
                 title="Eliminar talla"
-                message="¿Eliminar esta talla? Los productos que la tengan asignada la perderán."
-                confirmLabel="Eliminar"
+                message="Si la talla está en uso por productos existentes se desactivará automáticamente (no se eliminará). Si no está en uso, se eliminará definitivamente."
+                confirmLabel="Continuar"
                 onConfirm={() => { if (sizeDeleteTarget) handleDeleteSize(sizeDeleteTarget) }}
                 onCancel={() => setSizeDeleteTarget(null)}
             />

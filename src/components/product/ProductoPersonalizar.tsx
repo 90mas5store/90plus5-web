@@ -676,8 +676,9 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
 
                         <div className="h-px bg-gradient-to-r from-white/10 to-transparent" />
 
-                        {/* Opciones de Versión */}
-                        {opciones?.versiones && opciones.versiones.length > 0 && (
+                        {/* Opciones de Versión — ocultar si es única versión "Estándar" (precio único) */}
+                        {opciones?.versiones && opciones.versiones.length > 0 &&
+                         !(opciones.versiones.length === 1 && opciones.versiones[0].label === 'Estandar') && (
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
                                     <h3 className="text-sm font-semibold text-gray-300">Versión</h3>

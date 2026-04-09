@@ -576,7 +576,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     .select(`
         id,
         name,
-        teams!inner ( name ),
+        teams ( name ),
         product_leagues${leagueId ? "!inner" : ""} ( league_id )
     `)
     .eq("active", true);

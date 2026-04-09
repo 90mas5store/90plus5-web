@@ -1,7 +1,7 @@
 'use client'
 // Force Refresh
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { clearProductCache } from '@/lib/api'
@@ -23,11 +23,14 @@ import ProductGalleryManager, { GalleryImage } from '@/components/admin/ProductG
 interface Size {
     id: string
     label: string
+    category_id: string | null
+    gender: string | null
 }
 
 interface Patch {
     id: string
     name: string
+    category_id: string | null
 }
 
 interface Variant {
@@ -68,7 +71,7 @@ export default function EditProductPage() {
     const [categories, setCategories] = useState<any[]>([])
     const [allSizes, setAllSizes] = useState<Size[]>([])
     const [allPatches, setAllPatches] = useState<Patch[]>([])
-    const [availableVersions, setAvailableVersions] = useState<string[]>(['Versión Jugador', 'Versión Fan'])
+    const [availableVersions, setAvailableVersions] = useState<string[]>(['Fan', 'Player', 'Estandar'])
 
     // Estado del Formulario Principal
     const [formData, setFormData] = useState({
@@ -85,6 +88,20 @@ export default function EditProductPage() {
         allows_customization: true,
         sort_order: 0
     })
+
+    // Tallas y parches filtrados por categoría y género del producto
+    const filteredSizes = useMemo(() => {
+        return allSizes.filter(s =>
+            (!s.category_id || !formData.category_id || s.category_id === formData.category_id) &&
+            (!s.gender || !formData.gender || s.gender === formData.gender)
+        )
+    }, [allSizes, formData.category_id, formData.gender])
+
+    const filteredPatches = useMemo(() => {
+        return allPatches.filter(p =>
+            !p.category_id || !formData.category_id || p.category_id === formData.category_id
+        )
+    }, [allPatches, formData.category_id])
 
     // Gestión Avanzada
     const [variants, setVariants] = useState<Variant[]>([])
@@ -110,8 +127,8 @@ export default function EditProductPage() {
                     supabase.from('teams').select('id, name').order('name'),
                     supabase.from('leagues').select('id, name').order('name'),
                     supabase.from('categories').select('id, name').order('name'),
-                    supabase.from('sizes').select('id, label, sort_order').eq('active', true).order('sort_order'),
-                    supabase.from('patches').select('id, name').eq('active', true).order('name'),
+                    supabase.from('sizes').select('id, label, sort_order, category_id, gender').eq('active', true).order('sort_order'),
+                    supabase.from('patches').select('id, name, category_id').eq('active', true).order('name'),
                 ])
 
                 setTeams(teamsRes.data || [])
@@ -140,8 +157,9 @@ export default function EditProductPage() {
                     .select('version')
 
                 if (allVariants) {
-                    const unique: string[] = Array.from(new Set<string>((allVariants as any[]).map((v) => String(v.version)))).sort()
-                    if (unique.length > 0) setAvailableVersions(unique)
+                    const dbVersions: string[] = Array.from(new Set<string>((allVariants as any[]).map((v) => String(v.version))))
+                    const merged = Array.from(new Set(['Fan', 'Player', 'Estandar', ...dbVersions])).sort()
+                    setAvailableVersions(merged)
                 }
 
                 // 2.1 Cargar Relaciones (Product Patches & Variant Sizes)
@@ -251,7 +269,7 @@ export default function EditProductPage() {
     const addVariant = () => {
         const newVariant: Variant = {
             tempId: `new_${Date.now()}`,
-            version: 'Versión Jugador', // Default fallback
+            version: 'Player', // Default fallback
             price: 1200,
             cost: 0,
             active: true,
@@ -930,7 +948,7 @@ export default function EditProductPage() {
                                                     <Ruler className="w-3 h-3" /> Tallas Disponibles
                                                 </label>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {allSizes.map(size => {
+                                                    {filteredSizes.map(size => {
                                                         const isSelected = variant.sizeIds.has(size.id)
                                                         return (
                                                             <button
@@ -949,6 +967,13 @@ export default function EditProductPage() {
                                                             </button>
                                                         )
                                                     })}
+                                                    {filteredSizes.length === 0 && (
+                                                        <span className="text-xs text-gray-600 italic">
+                                                            {!formData.category_id && !formData.gender
+                                                                ? 'No hay tallas activas en el catálogo.'
+                                                                : 'Sin tallas para la categoría/género seleccionado. Configúralas en Personalización.'}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -1150,7 +1175,7 @@ export default function EditProductPage() {
 
                         {/* Selector de Parches - Solo selección */}
                         <div className="flex flex-wrap gap-2">
-                            {allPatches.map(patch => {
+                            {filteredPatches.map(patch => {
                                 const isSelected = productPatches.has(patch.id)
                                 return (
                                     <button
@@ -1169,7 +1194,13 @@ export default function EditProductPage() {
                                     </button>
                                 )
                             })}
-                            {allPatches.length === 0 && <span className="text-xs text-gray-600">No hay parches en el catálogo.</span>}
+                            {filteredPatches.length === 0 && (
+                                <span className="text-xs text-gray-600">
+                                    {!formData.category_id
+                                        ? 'No hay parches en el catálogo.'
+                                        : 'Sin parches para esta categoría. Configúralos en Personalización.'}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>
