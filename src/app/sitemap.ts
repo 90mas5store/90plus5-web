@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const BASE_URL = 'https://90mas5.store'
 
@@ -17,10 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ]
 
     try {
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        const supabase = createAdminClient();
 
         // 2. Productos activos
         const { data: products } = await supabase
@@ -38,9 +35,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // 3. Páginas de categoría (/catalogo?categoria=...)
         const { data: categories } = await supabase
             .from('categories')
-            .select('slug, name');
+            .select('slug, name')
+            .is('deleted_at', null);
 
-        const categoryRoutes: MetadataRoute.Sitemap = (categories || []).map((cat) => ({
+        const categoryRoutes: MetadataRoute.Sitemap = (categories || []).filter(c => c.slug).map((cat) => ({
             url: `${BASE_URL}/catalogo?categoria=${encodeURIComponent(cat.slug)}`,
             lastModified: new Date(),
             changeFrequency: 'daily',
@@ -50,7 +48,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // 4. Páginas de liga (/catalogo?liga=...)
         const { data: leagues } = await supabase
             .from('leagues')
-            .select('slug, name');
+            .select('slug, name')
+            .is('deleted_at', null);
 
         const leagueRoutes: MetadataRoute.Sitemap = (leagues || []).filter(l => l.slug).map((league) => ({
             url: `${BASE_URL}/catalogo?liga=${encodeURIComponent(league.slug)}`,

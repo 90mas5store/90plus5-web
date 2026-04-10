@@ -53,6 +53,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       title: `${titleStr} | 90+5 Store`,
       description: `Más de 100 equipaciones oficiales temporada 25/26. Versión jugador y aficionado. Envíos rápidos a todo Honduras.`,
       url: canonicalUrl,
+      images: [{ url: 'https://90mas5.store/og-image.jpg', width: 1200, height: 630, alt: `${titleStr} - 90+5 Store` }],
     },
     twitter: {
       card: 'summary_large_image',

@@ -194,14 +194,25 @@ export default async function ProductoPage({ params }: Props) {
     ];
 
     // 🧠 Structured Data (JSON-LD) for Google Rich Results
-    const price = productData.variants?.[0]?.price ?? 0;
+    // Usa el precio de la primera variante activa; fallback a la primera variante si ninguna activa
+    const activeVariants = productData.variants?.filter(v => v.active) ?? [];
+    const price = activeVariants[0]?.price ?? productData.variants?.[0]?.price ?? 0;
     const productUrl = `https://90mas5.store/producto/${params.slug}`;
+
+    // Galería: imagen principal + product_images ordenadas
+    const galleryImages = [
+        ...(productData.image_url ? [productData.image_url] : []),
+        ...(productData.product_images ?? [])
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map(img => img.image_url)
+            .filter(url => url !== productData.image_url),
+    ];
 
     const productJsonLd = {
         "@context": "https://schema.org",
         "@type": "Product",
         "name": productData.name,
-        ...(productData.image_url && { "image": [productData.image_url] }),
+        ...(galleryImages.length > 0 && { "image": galleryImages }),
         ...(productData.description && { "description": productData.description }),
         "sku": productData.id,
         "brand": {
