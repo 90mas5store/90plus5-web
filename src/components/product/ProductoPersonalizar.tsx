@@ -156,10 +156,83 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         return () => { if (autoRotateRef.current) clearInterval(autoRotateRef.current); };
     }, [galleryImages.length, isHoveringImage]);
 
-    // Referencias para zoom
+    // Pinch-to-zoom táctil — listeners no-pasivos para poder llamar preventDefault()
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+
+        const getDist = (touches: TouchList) =>
+            Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+
+        const onStart = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                pinchStartDistRef.current = getDist(e.touches);
+                pinchStartScaleRef.current = imgScaleRef.current;
+                setIsPinching(true);
+            }
+        };
+
+        const onMove = (e: TouchEvent) => {
+            if (e.touches.length !== 2 || pinchStartDistRef.current === null) return;
+            e.preventDefault();
+            const ratio = getDist(e.touches) / pinchStartDistRef.current;
+            const next = Math.min(Math.max(pinchStartScaleRef.current * ratio, 1), 4);
+            imgScaleRef.current = next;
+            setImgScale(next);
+        };
+
+        const onEnd = (e: TouchEvent) => {
+            if (e.touches.length < 2) {
+                setIsPinching(false);
+                pinchStartDistRef.current = null;
+                // Snap a 1 si el zoom es mínimo
+                if (imgScaleRef.current < 1.15) {
+                    imgScaleRef.current = 1;
+                    setImgScale(1);
+                }
+                // Doble toque para resetear zoom
+                if (e.changedTouches.length === 1 && e.touches.length === 0) {
+                    const now = Date.now();
+                    if (now - lastTapRef.current < 300 && imgScaleRef.current > 1) {
+                        imgScaleRef.current = 1;
+                        setImgScale(1);
+                    }
+                    lastTapRef.current = now;
+                }
+            }
+        };
+
+        el.addEventListener('touchstart', onStart, { passive: false });
+        el.addEventListener('touchmove', onMove, { passive: false });
+        el.addEventListener('touchend', onEnd, { passive: false });
+        return () => {
+            el.removeEventListener('touchstart', onStart);
+            el.removeEventListener('touchmove', onMove);
+            el.removeEventListener('touchend', onEnd);
+        };
+    // containerRef es estable, los handlers usan solo refs — sin deps necesarias
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Resetear zoom al cambiar de imagen
+    useEffect(() => {
+        imgScaleRef.current = 1;
+        setImgScale(1);
+    }, [activeImageIdx]);
+
+    // Referencias para zoom (lente mouse — desktop)
     const containerRef = useRef<HTMLDivElement>(null);
     const lensRef = useRef<HTMLDivElement>(null);
     const blurRef = useRef<HTMLDivElement>(null);
+
+    // Pinch-to-zoom (táctil — mobile)
+    const [imgScale, setImgScale] = useState(1);
+    const [isPinching, setIsPinching] = useState(false);
+    const imgScaleRef = useRef(1);
+    const pinchStartDistRef = useRef<number | null>(null);
+    const pinchStartScaleRef = useRef(1);
+    const lastTapRef = useRef(0);
 
     useEffect(() => {
         setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 100);
@@ -502,14 +575,12 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.8 }}
-                            className="relative aspect-[4/5] md:aspect-square rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl group cursor-crosshair p-0"
+                            className="relative w-full h-[50vh] md:h-auto md:aspect-square rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl group cursor-crosshair p-0"
                             ref={containerRef}
                             onMouseMove={handleZoomMove}
-                            onTouchMove={handleZoomMove}
                             onMouseEnter={handleEnter}
-                            onTouchStart={handleEnter}
                             onMouseLeave={handleLeave}
-                            onTouchEnd={handleLeave}
+                            style={{ touchAction: imgScale > 1 || isPinching ? 'none' : 'pan-y' }}
                         >
                             <AnimatePresence initial={false}>
                                 <motion.div
@@ -520,16 +591,27 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                     transition={{ duration: 0.5, ease: "easeInOut" }}
                                     className="absolute inset-0 z-[1]"
                                 >
-                                    <ProductImage
-                                        src={activeImage}
-                                        alt={producto.modelo || "Producto"}
-                                        width={800}
-                                        height={800}
-                                        priority
-                                        quality={95}
-                                        sizes="(max-width: 1024px) 100vw, 60vw"
-                                        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                                    />
+                                    <div
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            transform: `scale(${imgScale})`,
+                                            transformOrigin: 'center center',
+                                            transition: isPinching ? 'none' : 'transform 0.25s ease-out',
+                                            willChange: 'transform',
+                                        }}
+                                    >
+                                        <ProductImage
+                                            src={activeImage}
+                                            alt={producto.modelo || "Producto"}
+                                            width={800}
+                                            height={800}
+                                            priority
+                                            quality={95}
+                                            sizes="(max-width: 1024px) 100vw, 60vw"
+                                            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                                        />
+                                    </div>
                                 </motion.div>
                             </AnimatePresence>
 
@@ -548,15 +630,15 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                 }}
                             />
 
-                            {/* Badge de Zoom */}
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 px-4 py-2 bg-black/60 md:bg-black/40 md:backdrop-blur-md rounded-full border border-white/10 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                            {/* Badge de Zoom — solo desktop */}
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 px-4 py-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 hidden md:flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Info className="w-4 h-4 text-primary" />
-                                <span className="text-[10px] font-bold uppercase tracking-tighter">Pasa el mouse o toca para zoom</span>
+                                <span className="text-[10px] font-bold uppercase tracking-tighter">Pasa el mouse para zoom</span>
                             </div>
 
-                            {/* Image counter badge — only when multiple images */}
+                            {/* Image counter badge — solo desktop */}
                             {galleryImages.length > 1 && (
-                                <div className="absolute top-4 right-4 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-[10px] font-bold text-gray-300">
+                                <div className="absolute top-4 right-4 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-[10px] font-bold text-gray-300 hidden md:flex">
                                     {activeImageIdx + 1} / {galleryImages.length}
                                 </div>
                             )}
@@ -583,6 +665,20 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                 </>
                             )}
 
+                            {/* Dot indicators — solo mobile, sobre la imagen */}
+                            {galleryImages.length > 1 && (
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex md:hidden gap-2">
+                                    {galleryImages.map((_, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={(e) => { e.stopPropagation(); setActiveImageIdx(idx); }}
+                                            aria-label={`Imagen ${idx + 1}`}
+                                            className={`rounded-full transition-all duration-300 ${activeImageIdx === idx ? 'w-5 h-2 bg-primary shadow-[0_0_8px_rgba(229,9,20,0.8)]' : 'w-2 h-2 bg-white/50'}`}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
                             {/* Barra de progreso auto-rotate */}
                             {galleryImages.length > 1 && !isHoveringImage && (
                                 <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/5 z-30">
@@ -596,14 +692,50 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             )}
                         </motion.div>
 
-                        {/* Thumbnails — only when there are multiple images */}
+                        {/* Título del producto — solo mobile */}
+                        <div className="flex lg:hidden flex-col gap-2 pt-1">
+                            <div className="flex items-center gap-3">
+                                <TeamLogo src={producto.logoEquipo} alt={producto.equipo} size={52} />
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-2xl font-black tracking-tight text-white leading-none truncate">
+                                        {producto.equipo}
+                                    </p>
+                                    <p className="text-primary font-bold text-xs uppercase tracking-widest mt-1.5 truncate">
+                                        {producto.modelo}
+                                    </p>
+                                </div>
+                                {showLiveBanner && (
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-primary text-white shrink-0 animate-pulse shadow-[0_0_12px_rgba(229,9,20,0.6)]">
+                                        ⚡ EN VIVO
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-baseline gap-2.5">
+                                {precioActual > 0 ? (
+                                    <>
+                                        <span className="text-3xl font-black text-white tracking-tight">
+                                            L {precioActual.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                        {precioOriginalActual?.active && precioOriginalActual.price > 0 && (
+                                            <span className="text-gray-500 line-through text-base opacity-50">
+                                                L {precioOriginalActual.price.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                        )}
+                                    </>
+                                ) : (
+                                    <span className="text-2xl font-bold text-white">Consultar precio</span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Thumbnails — solo desktop, múltiples imágenes */}
                         {galleryImages.length > 1 && (
-                            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                            <div className="hidden md:flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                                 {galleryImages.map((imgSrc, idx) => (
                                     <button
                                         key={idx}
                                         onClick={() => setActiveImageIdx(idx)}
-                                        className={`shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden border-2 transition-all duration-200 ${activeImageIdx === idx ? 'border-primary shadow-[0_0_10px_rgba(229,9,20,0.4)]' : 'border-white/10 hover:border-white/30'}`}
+                                        className={`shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all duration-200 ${activeImageIdx === idx ? 'border-primary shadow-[0_0_10px_rgba(229,9,20,0.4)]' : 'border-white/10 hover:border-white/30'}`}
                                         aria-label={`Ver imagen ${idx + 1}`}
                                     >
                                         <ProductImage
@@ -618,13 +750,14 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                 ))}
                             </div>
                         )}
+
                     </div>
 
                     {/* ⚙️ SECCIÓN PERSONALIZACIÓN */}
                     <div className="lg:col-span-5 flex flex-col gap-4">
 
-                        {/* Header Info */}
-                        <div className="flex flex-col gap-4">
+                        {/* Header Info — solo desktop (en mobile se muestra debajo de la imagen) */}
+                        <div className="hidden lg:flex flex-col gap-4">
                             <div className="flex items-start gap-4">
                                 <TeamLogo src={producto.logoEquipo} alt={producto.equipo} size={56} />
                                 <div>
