@@ -147,6 +147,47 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         })
                     }}
                 />
+                {/* 🧠 JSON-LD: SiteNavigationElement */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@graph": [
+                                {
+                                    "@type": "SiteNavigationElement",
+                                    "name": "Catálogo",
+                                    "url": "https://90mas5.store/catalogo"
+                                },
+                                {
+                                    "@type": "SiteNavigationElement",
+                                    "name": "Mundial 2026",
+                                    "url": "https://90mas5.store/catalogo?categoria=Mundial2026"
+                                },
+                                {
+                                    "@type": "SiteNavigationElement",
+                                    "name": "Camisetas Retro",
+                                    "url": "https://90mas5.store/catalogo?categoria=retro"
+                                },
+                                {
+                                    "@type": "SiteNavigationElement",
+                                    "name": "Fútbol",
+                                    "url": "https://90mas5.store/catalogo?categoria=Futbol"
+                                },
+                                {
+                                    "@type": "SiteNavigationElement",
+                                    "name": "Liga Hondubet",
+                                    "url": "https://90mas5.store/catalogo?liga=Liga-Hondubet"
+                                },
+                                {
+                                    "@type": "SiteNavigationElement",
+                                    "name": "Premier League",
+                                    "url": "https://90mas5.store/catalogo?liga=premier-league"
+                                }
+                            ]
+                        })
+                    }}
+                />
                 <Partytown
                     debug={process.env.NODE_ENV === 'development'}
                     forward={['gtag', 'fbq', 'dataLayer.push']}
