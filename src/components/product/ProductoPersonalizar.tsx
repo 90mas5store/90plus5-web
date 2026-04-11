@@ -144,9 +144,9 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         setActiveImageIdx(prev => prev >= galleryImages.length - 1 ? 0 : prev + 1);
     }, [galleryImages.length]);
 
-    // Auto-rotación: avanza cada 5s, pausa al hacer hover/zoom
+    // Auto-rotación: avanza cada 5s, pausa al hacer hover/zoom de lente o zoom táctil
     useEffect(() => {
-        if (galleryImages.length <= 1 || isHoveringImage) {
+        if (galleryImages.length <= 1 || isHoveringImage || imgScale > 1) {
             if (autoRotateRef.current) { clearInterval(autoRotateRef.current); autoRotateRef.current = null; }
             return;
         }
@@ -154,7 +154,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
             setActiveImageIdx(prev => (prev >= galleryImages.length - 1 ? 0 : prev + 1));
         }, 5000);
         return () => { if (autoRotateRef.current) clearInterval(autoRotateRef.current); };
-    }, [galleryImages.length, isHoveringImage]);
+    }, [galleryImages.length, isHoveringImage, imgScale]);
 
     // Referencias para zoom de lente (mouse — desktop)
     const containerRef = useRef<HTMLDivElement>(null);
