@@ -161,30 +161,33 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const lensRef = useRef<HTMLDivElement>(null);
     const blurRef = useRef<HTMLDivElement>(null);
 
-    // Pinch-to-zoom (táctil — mobile)
+    // Pinch-to-zoom + pan (táctil — mobile)
     const [imgScale, setImgScale] = useState(1);
+    const [imgTranslate, setImgTranslate] = useState({ x: 0, y: 0 });
     const [isPinching, setIsPinching] = useState(false);
     const imgScaleRef = useRef(1);
+    const imgTranslateRef = useRef({ x: 0, y: 0 });
     const pinchStartDistRef = useRef<number | null>(null);
     const pinchStartScaleRef = useRef(1);
+    const panStartRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
     const lastTapRef = useRef(0);
-    // Guardamos referencias a los listeners para poder removerlos en el cleanup
     const pinchElRef = useRef<HTMLDivElement | null>(null);
     const pinchListenersRef = useRef<{ s: EventListener; m: EventListener; e: EventListener } | null>(null);
 
-    // Resetear zoom al cambiar de imagen
-    useEffect(() => {
+    const resetZoomPan = useCallback(() => {
         imgScaleRef.current = 1;
+        imgTranslateRef.current = { x: 0, y: 0 };
         setImgScale(1);
-    }, [activeImageIdx]);
+        setImgTranslate({ x: 0, y: 0 });
+    }, []);
 
-    // Callback ref — se ejecuta exactamente cuando el DOM element monta/desmonta.
-    // Más confiable que useEffect+[loading] con LazyMotion/m.div.
+    // Resetear zoom + pan al cambiar de imagen
+    useEffect(() => { resetZoomPan(); }, [activeImageIdx, resetZoomPan]);
+
+    // Callback ref — se ejecuta exactamente cuando el DOM element monta/desmonta
     const combinedContainerRef = useCallback((el: HTMLDivElement | null) => {
-        // Actualizar containerRef para el zoom de lente (mouse)
         (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
 
-        // Cleanup de listeners anteriores
         if (pinchElRef.current && pinchListenersRef.current) {
             const { s, m: mv, e } = pinchListenersRef.current;
             pinchElRef.current.removeEventListener('touchstart', s);
@@ -195,35 +198,62 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         pinchElRef.current = el;
         if (!el) return;
 
-        const getDist = (touches: TouchList) =>
-            Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+        const getDist = (t: TouchList) =>
+            Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+        const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
         const onStart = (ev: TouchEvent) => {
             if (ev.touches.length === 2) {
                 ev.preventDefault();
+                panStartRef.current = null;
                 pinchStartDistRef.current = getDist(ev.touches);
                 pinchStartScaleRef.current = imgScaleRef.current;
                 setIsPinching(true);
+            } else if (ev.touches.length === 1 && imgScaleRef.current > 1) {
+                // Iniciar pan con un dedo cuando hay zoom activo
+                panStartRef.current = {
+                    x: ev.touches[0].clientX,
+                    y: ev.touches[0].clientY,
+                    tx: imgTranslateRef.current.x,
+                    ty: imgTranslateRef.current.y,
+                };
             }
         };
 
         const onMove = (ev: TouchEvent) => {
-            if (ev.touches.length !== 2 || pinchStartDistRef.current === null) return;
-            ev.preventDefault();
-            const ratio = getDist(ev.touches) / pinchStartDistRef.current;
-            const next = Math.min(Math.max(pinchStartScaleRef.current * ratio, 1), 4);
-            imgScaleRef.current = next;
-            setImgScale(next);
+            if (ev.touches.length === 2 && pinchStartDistRef.current !== null) {
+                // Pinch zoom
+                ev.preventDefault();
+                const ratio = getDist(ev.touches) / pinchStartDistRef.current;
+                const next = clamp(pinchStartScaleRef.current * ratio, 1, 4);
+                imgScaleRef.current = next;
+                setImgScale(next);
+            } else if (ev.touches.length === 1 && panStartRef.current && imgScaleRef.current > 1) {
+                // Pan con un dedo
+                ev.preventDefault();
+                const s = imgScaleRef.current;
+                const dx = ev.touches[0].clientX - panStartRef.current.x;
+                const dy = ev.touches[0].clientY - panStartRef.current.y;
+                const maxX = (s - 1) * el.offsetWidth / 2;
+                const maxY = (s - 1) * el.offsetHeight / 2;
+                const newX = clamp(panStartRef.current.tx + dx, -maxX, maxX);
+                const newY = clamp(panStartRef.current.ty + dy, -maxY, maxY);
+                imgTranslateRef.current = { x: newX, y: newY };
+                setImgTranslate({ x: newX, y: newY });
+            }
         };
 
         const onEnd = (ev: TouchEvent) => {
+            if (ev.touches.length === 0) panStartRef.current = null;
             if (ev.touches.length < 2) {
                 setIsPinching(false);
                 pinchStartDistRef.current = null;
-                // Snap a 1x si el zoom es mínimo
                 if (imgScaleRef.current < 1.15) {
                     imgScaleRef.current = 1;
+                    imgTranslateRef.current = { x: 0, y: 0 };
                     setImgScale(1);
+                    setImgTranslate({ x: 0, y: 0 });
                 }
                 // Doble toque: alterna 1x ↔ 2x
                 if (ev.changedTouches.length === 1 && ev.touches.length === 0) {
@@ -231,6 +261,10 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                     if (now - lastTapRef.current < 300) {
                         const next = imgScaleRef.current > 1 ? 1 : 2;
                         imgScaleRef.current = next;
+                        if (next === 1) {
+                            imgTranslateRef.current = { x: 0, y: 0 };
+                            setImgTranslate({ x: 0, y: 0 });
+                        }
                         setImgScale(next);
                     }
                     lastTapRef.current = now;
@@ -610,9 +644,10 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                         style={{
                                             width: '100%',
                                             height: '100%',
-                                            transform: `scale(${imgScale})`,
+                                            // translate en espacio visual; se divide por scale para aplicar en coords pre-escala
+                                            transform: `scale(${imgScale}) translate(${imgTranslate.x / imgScale}px, ${imgTranslate.y / imgScale}px)`,
                                             transformOrigin: 'center center',
-                                            transition: isPinching ? 'none' : 'transform 0.25s ease-out',
+                                            transition: isPinching ? 'none' : 'transform 0.2s ease-out',
                                             willChange: 'transform',
                                         }}
                                     >
@@ -679,6 +714,13 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                     </button>
                                 </>
                             )}
+
+                            {/* Hint de gestos — solo mobile */}
+                            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3 py-1 bg-black/65 backdrop-blur-sm rounded-full border border-white/10 flex md:hidden items-center pointer-events-none">
+                                <span className="text-[9px] text-white/70 font-medium tracking-tight whitespace-nowrap">
+                                    {imgScale > 1 ? '↕ Arrastra para moverte · doble tap para salir' : 'Pellizca · doble tap para zoom'}
+                                </span>
+                            </div>
 
                             {/* Dot indicators — solo mobile, sobre la imagen */}
                             {galleryImages.length > 1 && (
