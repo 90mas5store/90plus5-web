@@ -156,74 +156,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         return () => { if (autoRotateRef.current) clearInterval(autoRotateRef.current); };
     }, [galleryImages.length, isHoveringImage]);
 
-    // Pinch-to-zoom táctil — listeners no-pasivos para poder llamar preventDefault()
-    useEffect(() => {
-        const el = containerRef.current;
-        if (!el) return;
-
-        const getDist = (touches: TouchList) =>
-            Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
-
-        const onStart = (e: TouchEvent) => {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                pinchStartDistRef.current = getDist(e.touches);
-                pinchStartScaleRef.current = imgScaleRef.current;
-                setIsPinching(true);
-            }
-        };
-
-        const onMove = (e: TouchEvent) => {
-            if (e.touches.length !== 2 || pinchStartDistRef.current === null) return;
-            e.preventDefault();
-            const ratio = getDist(e.touches) / pinchStartDistRef.current;
-            const next = Math.min(Math.max(pinchStartScaleRef.current * ratio, 1), 4);
-            imgScaleRef.current = next;
-            setImgScale(next);
-        };
-
-        const onEnd = (e: TouchEvent) => {
-            if (e.touches.length < 2) {
-                setIsPinching(false);
-                pinchStartDistRef.current = null;
-                // Snap a 1 si el zoom es mínimo
-                if (imgScaleRef.current < 1.15) {
-                    imgScaleRef.current = 1;
-                    setImgScale(1);
-                }
-                // Doble toque: alterna entre 2x y 1x
-                if (e.changedTouches.length === 1 && e.touches.length === 0) {
-                    const now = Date.now();
-                    if (now - lastTapRef.current < 300) {
-                        const next = imgScaleRef.current > 1 ? 1 : 2;
-                        imgScaleRef.current = next;
-                        setImgScale(next);
-                    }
-                    lastTapRef.current = now;
-                }
-            }
-        };
-
-        el.addEventListener('touchstart', onStart, { passive: false });
-        el.addEventListener('touchmove', onMove, { passive: false });
-        el.addEventListener('touchend', onEnd, { passive: false });
-        return () => {
-            el.removeEventListener('touchstart', onStart);
-            el.removeEventListener('touchmove', onMove);
-            el.removeEventListener('touchend', onEnd);
-        };
-    // Re-ejecutar cuando loading=false: el skeleton no tiene el containerRef en el DOM,
-    // por lo que hay que esperar a que el contenedor real aparezca.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loading]);
-
-    // Resetear zoom al cambiar de imagen
-    useEffect(() => {
-        imgScaleRef.current = 1;
-        setImgScale(1);
-    }, [activeImageIdx]);
-
-    // Referencias para zoom (lente mouse — desktop)
+    // Referencias para zoom de lente (mouse — desktop)
     const containerRef = useRef<HTMLDivElement>(null);
     const lensRef = useRef<HTMLDivElement>(null);
     const blurRef = useRef<HTMLDivElement>(null);
@@ -235,6 +168,82 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const pinchStartDistRef = useRef<number | null>(null);
     const pinchStartScaleRef = useRef(1);
     const lastTapRef = useRef(0);
+    // Guardamos referencias a los listeners para poder removerlos en el cleanup
+    const pinchElRef = useRef<HTMLDivElement | null>(null);
+    const pinchListenersRef = useRef<{ s: EventListener; m: EventListener; e: EventListener } | null>(null);
+
+    // Resetear zoom al cambiar de imagen
+    useEffect(() => {
+        imgScaleRef.current = 1;
+        setImgScale(1);
+    }, [activeImageIdx]);
+
+    // Callback ref — se ejecuta exactamente cuando el DOM element monta/desmonta.
+    // Más confiable que useEffect+[loading] con LazyMotion/m.div.
+    const combinedContainerRef = useCallback((el: HTMLDivElement | null) => {
+        // Actualizar containerRef para el zoom de lente (mouse)
+        (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+
+        // Cleanup de listeners anteriores
+        if (pinchElRef.current && pinchListenersRef.current) {
+            const { s, m: mv, e } = pinchListenersRef.current;
+            pinchElRef.current.removeEventListener('touchstart', s);
+            pinchElRef.current.removeEventListener('touchmove', mv);
+            pinchElRef.current.removeEventListener('touchend', e);
+            pinchListenersRef.current = null;
+        }
+        pinchElRef.current = el;
+        if (!el) return;
+
+        const getDist = (touches: TouchList) =>
+            Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+
+        const onStart = (ev: TouchEvent) => {
+            if (ev.touches.length === 2) {
+                ev.preventDefault();
+                pinchStartDistRef.current = getDist(ev.touches);
+                pinchStartScaleRef.current = imgScaleRef.current;
+                setIsPinching(true);
+            }
+        };
+
+        const onMove = (ev: TouchEvent) => {
+            if (ev.touches.length !== 2 || pinchStartDistRef.current === null) return;
+            ev.preventDefault();
+            const ratio = getDist(ev.touches) / pinchStartDistRef.current;
+            const next = Math.min(Math.max(pinchStartScaleRef.current * ratio, 1), 4);
+            imgScaleRef.current = next;
+            setImgScale(next);
+        };
+
+        const onEnd = (ev: TouchEvent) => {
+            if (ev.touches.length < 2) {
+                setIsPinching(false);
+                pinchStartDistRef.current = null;
+                // Snap a 1x si el zoom es mínimo
+                if (imgScaleRef.current < 1.15) {
+                    imgScaleRef.current = 1;
+                    setImgScale(1);
+                }
+                // Doble toque: alterna 1x ↔ 2x
+                if (ev.changedTouches.length === 1 && ev.touches.length === 0) {
+                    const now = Date.now();
+                    if (now - lastTapRef.current < 300) {
+                        const next = imgScaleRef.current > 1 ? 1 : 2;
+                        imgScaleRef.current = next;
+                        setImgScale(next);
+                    }
+                    lastTapRef.current = now;
+                }
+            }
+        };
+
+        pinchListenersRef.current = { s: onStart as EventListener, m: onMove as EventListener, e: onEnd as EventListener };
+        el.addEventListener('touchstart', onStart, { passive: false });
+        el.addEventListener('touchmove', onMove, { passive: false });
+        el.addEventListener('touchend', onEnd, { passive: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 100);
@@ -582,7 +591,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.8 }}
                             className="relative w-full h-[50vh] md:h-auto md:aspect-square rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl group cursor-crosshair p-0"
-                            ref={containerRef}
+                            ref={combinedContainerRef}
                             onMouseMove={handleZoomMove}
                             onMouseEnter={handleEnter}
                             onMouseLeave={handleLeave}
