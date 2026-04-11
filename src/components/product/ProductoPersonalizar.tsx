@@ -212,9 +212,10 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
             el.removeEventListener('touchmove', onMove);
             el.removeEventListener('touchend', onEnd);
         };
-    // containerRef es estable, los handlers usan solo refs — sin deps necesarias
+    // Re-ejecutar cuando loading=false: el skeleton no tiene el containerRef en el DOM,
+    // por lo que hay que esperar a que el contenedor real aparezca.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [loading]);
 
     // Resetear zoom al cambiar de imagen
     useEffect(() => {
