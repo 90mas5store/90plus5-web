@@ -191,12 +191,13 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                     imgScaleRef.current = 1;
                     setImgScale(1);
                 }
-                // Doble toque para resetear zoom
+                // Doble toque: alterna entre 2x y 1x
                 if (e.changedTouches.length === 1 && e.touches.length === 0) {
                     const now = Date.now();
-                    if (now - lastTapRef.current < 300 && imgScaleRef.current > 1) {
-                        imgScaleRef.current = 1;
-                        setImgScale(1);
+                    if (now - lastTapRef.current < 300) {
+                        const next = imgScaleRef.current > 1 ? 1 : 2;
+                        imgScaleRef.current = next;
+                        setImgScale(next);
                     }
                     lastTapRef.current = now;
                 }
