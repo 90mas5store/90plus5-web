@@ -144,18 +144,6 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         setActiveImageIdx(prev => prev >= galleryImages.length - 1 ? 0 : prev + 1);
     }, [galleryImages.length]);
 
-    // Auto-rotación: avanza cada 5s, pausa al hacer hover/zoom de lente o zoom táctil
-    useEffect(() => {
-        if (galleryImages.length <= 1 || isHoveringImage || imgScale > 1) {
-            if (autoRotateRef.current) { clearInterval(autoRotateRef.current); autoRotateRef.current = null; }
-            return;
-        }
-        autoRotateRef.current = setInterval(() => {
-            setActiveImageIdx(prev => (prev >= galleryImages.length - 1 ? 0 : prev + 1));
-        }, 5000);
-        return () => { if (autoRotateRef.current) clearInterval(autoRotateRef.current); };
-    }, [galleryImages.length, isHoveringImage, imgScale]);
-
     // Referencias para zoom de lente (mouse — desktop)
     const containerRef = useRef<HTMLDivElement>(null);
     const lensRef = useRef<HTMLDivElement>(null);
@@ -173,6 +161,18 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const lastTapRef = useRef(0);
     const pinchElRef = useRef<HTMLDivElement | null>(null);
     const pinchListenersRef = useRef<{ s: EventListener; m: EventListener; e: EventListener } | null>(null);
+
+    // Auto-rotación: avanza cada 5s, pausa al hacer hover/zoom de lente o zoom táctil
+    useEffect(() => {
+        if (galleryImages.length <= 1 || isHoveringImage || imgScale > 1) {
+            if (autoRotateRef.current) { clearInterval(autoRotateRef.current); autoRotateRef.current = null; }
+            return;
+        }
+        autoRotateRef.current = setInterval(() => {
+            setActiveImageIdx(prev => (prev >= galleryImages.length - 1 ? 0 : prev + 1));
+        }, 5000);
+        return () => { if (autoRotateRef.current) clearInterval(autoRotateRef.current); };
+    }, [galleryImages.length, isHoveringImage, imgScale]);
 
     const resetZoomPan = useCallback(() => {
         imgScaleRef.current = 1;
