@@ -350,8 +350,11 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [versionSeleccionada]);
 
-    // === MANEJO DEL ZOOM (Mouse + Touch) ===
+    // === MANEJO DEL ZOOM DE LENTE (solo mouse — desktop) ===
+    const isTouchDevice = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+
     const handleZoomMove = (e: React.MouseEvent | React.TouchEvent) => {
+        if (isTouchDevice()) return;
         if (!containerRef.current || !lensRef.current) return;
 
         const rect = containerRef.current.getBoundingClientRect();
@@ -395,6 +398,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     };
 
     const handleEnter = () => {
+        if (isTouchDevice()) return;
         if (lensRef.current) lensRef.current.style.opacity = "1";
         if (blurRef.current) blurRef.current.style.opacity = "1";
         setIsHoveringImage(true);
@@ -580,7 +584,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             onMouseMove={handleZoomMove}
                             onMouseEnter={handleEnter}
                             onMouseLeave={handleLeave}
-                            style={{ touchAction: imgScale > 1 || isPinching ? 'none' : 'pan-y' }}
+                            style={{ touchAction: 'none' }}
                         >
                             <AnimatePresence initial={false}>
                                 <motion.div
