@@ -138,10 +138,12 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     // Navegación manual
     const goToPrev = useCallback(() => {
         setActiveImageIdx(prev => prev <= 0 ? galleryImages.length - 1 : prev - 1);
+        manualPauseUntilRef.current = Date.now() + 8000;
     }, [galleryImages.length]);
 
     const goToNext = useCallback(() => {
         setActiveImageIdx(prev => prev >= galleryImages.length - 1 ? 0 : prev + 1);
+        manualPauseUntilRef.current = Date.now() + 8000;
     }, [galleryImages.length]);
 
     // Referencias para zoom de lente (mouse — desktop)
@@ -161,14 +163,19 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const lastTapRef = useRef(0);
     const pinchElRef = useRef<HTMLDivElement | null>(null);
     const pinchListenersRef = useRef<{ s: EventListener; m: EventListener; e: EventListener } | null>(null);
+    const manualPauseUntilRef = useRef(0);
+    const galleryLengthRef = useRef(galleryImages.length);
+    const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
     // Auto-rotación: avanza cada 5s, pausa al hacer hover/zoom de lente o zoom táctil
     useEffect(() => {
+        galleryLengthRef.current = galleryImages.length;
         if (galleryImages.length <= 1 || isHoveringImage || imgScale > 1) {
             if (autoRotateRef.current) { clearInterval(autoRotateRef.current); autoRotateRef.current = null; }
             return;
         }
         autoRotateRef.current = setInterval(() => {
+            if (Date.now() < manualPauseUntilRef.current) return;
             setActiveImageIdx(prev => (prev >= galleryImages.length - 1 ? 0 : prev + 1));
         }, 5000);
         return () => { if (autoRotateRef.current) clearInterval(autoRotateRef.current); };
@@ -206,18 +213,23 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         const onStart = (ev: TouchEvent) => {
             if (ev.touches.length === 2) {
                 ev.preventDefault();
+                swipeStartRef.current = null;
                 panStartRef.current = null;
                 pinchStartDistRef.current = getDist(ev.touches);
                 pinchStartScaleRef.current = imgScaleRef.current;
                 setIsPinching(true);
             } else if (ev.touches.length === 1 && imgScaleRef.current > 1) {
                 // Iniciar pan con un dedo cuando hay zoom activo
+                swipeStartRef.current = null;
                 panStartRef.current = {
                     x: ev.touches[0].clientX,
                     y: ev.touches[0].clientY,
                     tx: imgTranslateRef.current.x,
                     ty: imgTranslateRef.current.y,
                 };
+            } else if (ev.touches.length === 1) {
+                // Posible swipe de navegación (sin zoom)
+                swipeStartRef.current = { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
             }
         };
 
@@ -255,10 +267,11 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                     setImgScale(1);
                     setImgTranslate({ x: 0, y: 0 });
                 }
-                // Doble toque: alterna 1x ↔ 2x
+                // Doble toque o swipe de navegación
                 if (ev.changedTouches.length === 1 && ev.touches.length === 0) {
                     const now = Date.now();
                     if (now - lastTapRef.current < 300) {
+                        // Doble toque: alterna 1x ↔ 2x
                         const next = imgScaleRef.current > 1 ? 1 : 2;
                         imgScaleRef.current = next;
                         if (next === 1) {
@@ -266,9 +279,22 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             setImgTranslate({ x: 0, y: 0 });
                         }
                         setImgScale(next);
+                    } else if (swipeStartRef.current && imgScaleRef.current <= 1) {
+                        // Swipe horizontal para navegar entre imágenes
+                        const dx = ev.changedTouches[0].clientX - swipeStartRef.current.x;
+                        const dy = ev.changedTouches[0].clientY - swipeStartRef.current.y;
+                        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                            if (dx < 0) {
+                                setActiveImageIdx(prev => prev >= galleryLengthRef.current - 1 ? 0 : prev + 1);
+                            } else {
+                                setActiveImageIdx(prev => prev <= 0 ? galleryLengthRef.current - 1 : prev - 1);
+                            }
+                            manualPauseUntilRef.current = Date.now() + 8000;
+                        }
                     }
                     lastTapRef.current = now;
                 }
+                swipeStartRef.current = null;
             }
         };
 
@@ -631,39 +657,38 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             onMouseLeave={handleLeave}
                             style={{ touchAction: 'none' }}
                         >
-                            <AnimatePresence initial={false}>
-                                <motion.div
-                                    key={activeImageIdx}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.5, ease: "easeInOut" }}
-                                    className="absolute inset-0 z-[1]"
+                            {/* Todas las imágenes pre-cargadas en el DOM — switching instantáneo sin re-fetch */}
+                            {galleryImages.map((imgSrc, idx) => (
+                                <div
+                                    key={imgSrc || idx}
+                                    className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${
+                                        activeImageIdx === idx ? 'opacity-100 z-[1]' : 'opacity-0 z-0 pointer-events-none'
+                                    }`}
                                 >
                                     <div
-                                        style={{
+                                        style={activeImageIdx === idx ? {
                                             width: '100%',
                                             height: '100%',
-                                            // translate en espacio visual; se divide por scale para aplicar en coords pre-escala
                                             transform: `scale(${imgScale}) translate(${imgTranslate.x / imgScale}px, ${imgTranslate.y / imgScale}px)`,
                                             transformOrigin: 'center center',
                                             transition: isPinching ? 'none' : 'transform 0.2s ease-out',
                                             willChange: 'transform',
-                                        }}
+                                        } : { width: '100%', height: '100%' }}
                                     >
                                         <ProductImage
-                                            src={activeImage}
-                                            alt={producto.modelo || "Producto"}
+                                            src={imgSrc}
+                                            alt={idx === 0 ? (producto.modelo || "Producto") : `Vista ${idx + 1}`}
                                             width={800}
                                             height={800}
-                                            priority
+                                            priority={idx === 0}
+                                            loading="eager"
                                             quality={95}
                                             sizes="(max-width: 1024px) 100vw, 60vw"
                                             className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                                         />
                                     </div>
-                                </motion.div>
-                            </AnimatePresence>
+                                </div>
+                            ))}
 
                             {/* Blur Overlay */}
                             <div
@@ -718,7 +743,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             {/* Hint de gestos — solo mobile */}
                             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3 py-1 bg-black/65 backdrop-blur-sm rounded-full border border-white/10 flex md:hidden items-center pointer-events-none">
                                 <span className="text-[9px] text-white/70 font-medium tracking-tight whitespace-nowrap">
-                                    {imgScale > 1 ? '↕ Arrastra para moverte · doble tap para salir' : 'Pellizca · doble tap para zoom'}
+                                    {imgScale > 1 ? '↕ Arrastra para moverte · doble tap para salir' : 'Desliza · pellizca · doble tap para zoom'}
                                 </span>
                             </div>
 
@@ -728,7 +753,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                     {galleryImages.map((_, idx) => (
                                         <button
                                             key={idx}
-                                            onClick={(e) => { e.stopPropagation(); setActiveImageIdx(idx); }}
+                                            onClick={(e) => { e.stopPropagation(); setActiveImageIdx(idx); manualPauseUntilRef.current = Date.now() + 8000; }}
                                             aria-label={`Imagen ${idx + 1}`}
                                             className={`rounded-full transition-all duration-300 ${activeImageIdx === idx ? 'w-5 h-2 bg-primary shadow-[0_0_8px_rgba(229,9,20,0.8)]' : 'w-2 h-2 bg-white/50'}`}
                                         />
@@ -740,6 +765,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             {galleryImages.length > 1 && !isHoveringImage && (
                                 <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/5 z-30">
                                     <div
+                                        key={activeImageIdx}
                                         className="h-full bg-primary/60 rounded-full"
                                         style={{
                                             animation: 'gallery-progress 5s linear infinite',
@@ -801,6 +827,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                             width={80}
                                             height={80}
                                             quality={70}
+                                            loading="eager"
                                             className="w-full h-full object-contain bg-black/40"
                                         />
                                     </button>

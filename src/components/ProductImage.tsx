@@ -19,6 +19,8 @@ type ProductImageProps = {
   showSkeleton?: boolean;
   /** Callback cuando la imagen carga */
   onLoad?: () => void;
+  /** Comportamiento de carga (eager para imágenes visibles inmediatamente) */
+  loading?: "eager" | "lazy";
 };
 
 // Skeleton loader para imágen de producto
@@ -51,6 +53,7 @@ function ProductImageComponent({
   sizes,
   showSkeleton = true,
   onLoad,
+  loading,
 }: ProductImageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -98,7 +101,7 @@ function ProductImageComponent({
         className={`${className} ${useFill && !className?.includes('object-') ? 'object-cover' : ''} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-500`}
         sizes={sizes || "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"}
         priority={priority}
-        loading={priority ? "eager" : "lazy"}
+        loading={loading ?? (priority ? "eager" : "lazy")}
         fetchPriority={priority ? "high" : "auto"}
         onLoad={handleLoad}
         onError={handleError}
