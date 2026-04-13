@@ -32,9 +32,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     displayName = cObj?.nombre;
   }
 
-  const titleStr = displayName
-    ? `Camisetas ${displayName}`
-    : 'Catálogo de Camisetas de Fútbol';
+  const titleStr = displayName || 'Catálogo';
 
   // Canonical dinámico: páginas filtradas tienen su propio canonical para SEO por keyword
   const canonicalUrl = ligaParam
@@ -45,7 +43,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   return {
     title: `${titleStr} | 90+5 Store Honduras`,
-    description: `Encuentra las equipaciones y ${titleStr} versión jugador y aficionado: Real Madrid, Barcelona, Olimpia, Motagua, Premier League y más. Envíos a todo Honduras.`,
+    description: `Explora nuestra colección de ${titleStr}: versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua y más. Envíos a todo Honduras.`,
     alternates: {
       canonical: canonicalUrl,
     },
