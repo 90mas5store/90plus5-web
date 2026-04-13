@@ -379,10 +379,10 @@ export default function Header() {
                         <div className="relative flex items-center justify-center">
                             {isActive("/") && <span className="absolute inset-0 bg-primary/35 blur-md rounded-xl scale-[1.8]" />}
                             <div className={`relative px-5 py-1.5 rounded-xl flex items-center justify-center transition-all duration-200 ${isActive("/") ? 'bg-primary/20 border border-primary/50' : ''}`}>
-                                <Home className={`w-5 h-5 transition-all duration-200 ${isActive("/") ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-600'}`} />
+                                <Home className={`w-5 h-5 transition-all duration-200 ${isActive("/") ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-400'}`} />
                             </div>
                         </div>
-                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${isActive("/") ? 'font-black text-white' : 'font-semibold text-gray-600'}`}>
+                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${isActive("/") ? 'font-black text-white' : 'font-semibold text-gray-400'}`}>
                             Inicio
                         </span>
                     </Link>
@@ -405,11 +405,11 @@ export default function Header() {
                                         className="w-5 h-5 object-contain brightness-0 invert drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]"
                                     />
                                 ) : (
-                                    <Grid3x3 className={`w-5 h-5 transition-all duration-200 ${(isCategoryActive || categorySheetOpen) ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-600'}`} />
+                                    <Grid3x3 className={`w-5 h-5 transition-all duration-200 ${(isCategoryActive || categorySheetOpen) ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-400'}`} />
                                 )}
                             </div>
                         </div>
-                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 max-w-[72px] truncate ${(isCategoryActive || categorySheetOpen) ? 'font-black text-white' : 'font-semibold text-gray-600'}`}>
+                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 max-w-[72px] truncate ${(isCategoryActive || categorySheetOpen) ? 'font-black text-white' : 'font-semibold text-gray-400'}`}>
                             {isCategoryActive && currentCategory ? currentCategory.nombre : 'Categorías'}
                         </span>
                     </button>
@@ -419,10 +419,10 @@ export default function Header() {
                         <div className="relative flex items-center justify-center">
                             {isActive("/catalogo") && <span className="absolute inset-0 bg-primary/35 blur-md rounded-xl scale-[1.8]" />}
                             <div className={`relative px-5 py-1.5 rounded-xl flex items-center justify-center transition-all duration-200 ${isActive("/catalogo") ? 'bg-primary/20 border border-primary/50' : ''}`}>
-                                <Sparkles className={`w-5 h-5 transition-all duration-200 ${isActive("/catalogo") ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-600'}`} />
+                                <Sparkles className={`w-5 h-5 transition-all duration-200 ${isActive("/catalogo") ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-400'}`} />
                             </div>
                         </div>
-                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${isActive("/catalogo") ? 'font-black text-white' : 'font-semibold text-gray-600'}`}>
+                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${isActive("/catalogo") ? 'font-black text-white' : 'font-semibold text-gray-400'}`}>
                             Todos
                         </span>
                     </Link>
@@ -432,10 +432,10 @@ export default function Header() {
                         <div className="relative flex items-center justify-center">
                             {isActive("/rastreo") && <span className="absolute inset-0 bg-primary/35 blur-md rounded-xl scale-[1.8]" />}
                             <div className={`relative px-5 py-1.5 rounded-xl flex items-center justify-center transition-all duration-200 ${isActive("/rastreo") ? 'bg-primary/20 border border-primary/50' : ''}`}>
-                                <Package className={`w-5 h-5 transition-all duration-200 ${isActive("/rastreo") ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-600'}`} />
+                                <Package className={`w-5 h-5 transition-all duration-200 ${isActive("/rastreo") ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.9)]' : 'text-gray-400'}`} />
                             </div>
                         </div>
-                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${isActive("/rastreo") ? 'font-black text-white' : 'font-semibold text-gray-600'}`}>
+                        <span className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${isActive("/rastreo") ? 'font-black text-white' : 'font-semibold text-gray-400'}`}>
                             Rastreo
                         </span>
                     </Link>
@@ -444,7 +444,7 @@ export default function Header() {
                     <button onClick={openCart} aria-label="Carrito de compras" className="flex flex-col items-center justify-center flex-1 h-full gap-1">
                         <div className="relative flex items-center justify-center">
                             <div className="relative px-5 py-1.5 rounded-xl flex items-center justify-center">
-                                <ShoppingCart className="w-5 h-5 text-gray-600" />
+                                <ShoppingCart className="w-5 h-5 text-gray-400" />
                                 {items.length > 0 && (
                                     <motion.span
                                         initial={{ scale: 0 }}
@@ -456,7 +456,7 @@ export default function Header() {
                                 )}
                             </div>
                         </div>
-                        <span className="text-[9px] font-semibold text-gray-600 tracking-widest uppercase">
+                        <span className="text-[9px] font-semibold text-gray-400 tracking-widest uppercase">
                             Carrito
                         </span>
                     </button>
