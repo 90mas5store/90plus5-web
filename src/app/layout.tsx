@@ -98,7 +98,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="es" className={`dark ${satoshi.className}`}>
             <head>
 
-                {/* Preconnect optimizado */}
+                {/* Preconnect optimizado — sin crossorigin para fetch API, con crossorigin para imágenes */}
+                <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
                 <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" crossOrigin="anonymous" />
                 <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
 

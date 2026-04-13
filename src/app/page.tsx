@@ -19,6 +19,9 @@ export default async function Home() {
         getBannersServer()
     ]);
 
+    // 🚀 Preload hero image: el browser descarga antes de que React hidrate
+    const firstBannerImage = bannersData?.[0]?.image_url as string | undefined;
+
     // Procesar ligas (Lógica servida directamente ya procesada)
     let ligasProcesadas: import('@/lib/types').League[] = [];
     if (configData?.ligas?.length) {
@@ -44,12 +47,28 @@ export default async function Home() {
 
     ligasProcesadas = ligasProcesadas.filter(l => !normalize(l.nombre).includes("mundial"));
 
+    // Generar URL optimizada de Next.js Image para el preload
+    const heroPreloadUrl = firstBannerImage
+        ? `/_next/image?url=${encodeURIComponent(firstBannerImage)}&w=1920&q=75`
+        : null;
+
     return (
-        <HomeClient
-            initialDestacados={featuredData || []}
-            initialBanners={bannersData || []}
-            initialLigas={ligasProcesadas}
-            initialCategorias={configData?.categorias || []}
-        />
+        <>
+            {/* 🚀 Preload LCP hero image — se descarga antes de la hidratación de React */}
+            {heroPreloadUrl && (
+                <link
+                    rel="preload"
+                    as="image"
+                    href={heroPreloadUrl}
+                    fetchPriority="high"
+                />
+            )}
+            <HomeClient
+                initialDestacados={featuredData || []}
+                initialBanners={bannersData || []}
+                initialLigas={ligasProcesadas}
+                initialCategorias={configData?.categorias || []}
+            />
+        </>
     );
 }
