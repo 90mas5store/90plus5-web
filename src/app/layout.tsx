@@ -115,7 +115,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             "description": "Tienda de camisetas de fútbol premium en Honduras. Envíos a todo el país.",
                             "sameAs": [
                                 "https://www.instagram.com/90mas5store",
-                                "https://www.facebook.com/90mas5store"
+                                "https://www.facebook.com/90mas5store",
+                                "https://www.tiktok.com/@90mas5",
+                                "https://wa.me/50432488860"
                             ],
                             "contactPoint": {
                                 "@type": "ContactPoint",
