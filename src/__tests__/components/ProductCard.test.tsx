@@ -3,6 +3,13 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import ProductCard from "@/components/ui/ProductCard";
 import { Product } from "@/lib/types";
 
+// Mock next/link
+vi.mock("next/link", () => ({
+    default: ({ children, href, onClick, ...props }: any) => (
+        <a href={href} onClick={onClick} {...props}>{children}</a>
+    ),
+}));
+
 // Mock child components
 vi.mock("@/components/ProductImage", () => ({
     default: ({ alt }: { alt: string }) => <img alt={alt} data-testid="product-image" />,
@@ -24,44 +31,37 @@ const mockProduct: Product = {
 
 describe("ProductCard", () => {
     it("renders product info correctly", () => {
-        const onPress = vi.fn();
-        render(<ProductCard item={mockProduct} onPress={onPress} />);
+        render(<ProductCard item={mockProduct} />);
 
         expect(screen.getByText("Barcelona")).toBeInTheDocument();
         expect(screen.getByText("Local 25/26")).toBeInTheDocument();
     });
 
-    it("is rendered as a button element (keyboard accessible)", () => {
-        const onPress = vi.fn();
-        render(<ProductCard item={mockProduct} onPress={onPress} />);
+    it("is rendered as a link to the product page", () => {
+        render(<ProductCard item={mockProduct} />);
 
-        const button = screen.getByRole("button");
-        expect(button).toBeInTheDocument();
-        expect(button.tagName).toBe("BUTTON");
-        expect(button).toHaveAttribute("type", "button");
+        const link = screen.getByRole("link", { name: /Barcelona Local 25\/26/i });
+        expect(link).toBeInTheDocument();
+        expect(link).toHaveAttribute("href", "/producto/barcelona-local-2526");
     });
 
     it("has accessible aria-label with product name", () => {
-        const onPress = vi.fn();
-        render(<ProductCard item={mockProduct} onPress={onPress} />);
+        render(<ProductCard item={mockProduct} />);
 
-        const button = screen.getByRole("button", { name: /Barcelona Local 25\/26/i });
-        expect(button).toBeInTheDocument();
+        const link = screen.getByRole("link", { name: /Barcelona Local 25\/26/i });
+        expect(link).toBeInTheDocument();
     });
 
     it("calls onPress when clicked", () => {
         const onPress = vi.fn();
         render(<ProductCard item={mockProduct} onPress={onPress} />);
 
-        fireEvent.click(screen.getByRole("button"));
+        fireEvent.click(screen.getByRole("link"));
         expect(onPress).toHaveBeenCalledTimes(1);
-        expect(onPress).toHaveBeenCalledWith(mockProduct);
     });
 
     it("shows product price", () => {
-        const onPress = vi.fn();
-        render(<ProductCard item={mockProduct} onPress={onPress} />);
-        // Price should be visible
+        render(<ProductCard item={mockProduct} />);
         expect(screen.getByText(/1,200/)).toBeInTheDocument();
     });
 });

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "@/lib/motion";
 import { getProductOptionsFromSupabase, getPlayersByTeam } from "@/lib/api";
 import HeatmapBackground from "@/components/HeatmapBackground";
@@ -66,7 +67,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const router = useRouter();
     const { addItem, openCart } = useCart();
     const toast = useToastMessage();
-    const { prefetch, navigate } = usePrefetch();
+    usePrefetch();
     const prefersReducedMotion = usePrefersReducedMotion();
     const liveMatches = useLiveMatches();
 
@@ -1191,20 +1192,16 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
                             {relatedProducts.map((item) => (
-                                <motion.div
+                                <Link
                                     key={item.id}
-                                    whileHover={{ y: -10 }}
-                                    className="group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5 hover:border-primary/40 transition-all duration-700 cursor-pointer aspect-[4/5] shadow-xl"
-                                    onMouseEnter={() => prefetch(`/producto/${item.slug || item.id}`)}
-                                    onClick={() => {
-                                        setLoading(true);
-                                        navigate(`/producto/${item.slug || item.id}`);
-                                    }}
+                                    href={`/producto/${item.slug || item.id}`}
+                                    onClick={() => setLoading(true)}
+                                    className="group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5 hover:border-primary/40 transition-all duration-700 cursor-pointer aspect-[4/5] shadow-xl block hover:-translate-y-2.5"
                                 >
                                     <div className="absolute inset-0">
                                         <ProductImage
                                             src={item.imagen}
-                                            alt={item.modelo}
+                                            alt={`${item.equipo} ${item.modelo}`}
                                             width={300}
                                             height={400}
                                             className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
@@ -1233,7 +1230,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                             </div>
                                         </div>
                                     </div>
-                                </motion.div>
+                                </Link>
                             ))}
                         </div>
                     </section>
