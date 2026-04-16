@@ -48,6 +48,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       canonical: canonicalUrl,
     },
     openGraph: {
+      type: 'website',
+      locale: 'es_HN',
       title: `${titleStr} | 90+5 Store`,
       description: `Más de 100 equipaciones oficiales temporada 25/26. Versión jugador y aficionado. Envíos rápidos a todo Honduras.`,
       url: canonicalUrl,

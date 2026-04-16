@@ -47,7 +47,7 @@ export default function HomeClient({
     initialCategorias
 }: HomeClientProps) {
     const router = useRouter();
-    const { navigate } = usePrefetch();
+    usePrefetch();
     const liveMatches = useLiveMatches();
 
     // State initialization with props
@@ -187,9 +187,8 @@ export default function HomeClient({
                                     item={item}
                                     priority={i < 4}
                                     enableGlow={!prefersReducedMotion}
-                                    onPress={(product) => {
+                                    onPress={() => {
                                         toast.loading("Cargando personalización...");
-                                        navigate(`/producto/${product.slug || product.id}`);
                                     }}
                                     liveMatch={liveMatches[item.team_id] ?? null}
                                 />

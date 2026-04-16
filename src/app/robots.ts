@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
             {
                 userAgent: '*',
                 allow: '/',
-                disallow: ['/api/', '/admin/', '/checkout/', '/rastreo/', '/perfil/'],
+                disallow: ['/api/', '/admin/', '/checkout/', '/rastreo/', '/perfil/', '/comprobante/'],
             },
             {
                 // Bloquear bots de IA para no entrenar modelos con el catálogo

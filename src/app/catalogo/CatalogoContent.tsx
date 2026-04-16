@@ -259,12 +259,11 @@ export default function CatalogoContent({
   }, [config]);
 
   // 🚀 Hook de prefetch
-  const { navigate } = usePrefetch();
+  usePrefetch();
   useProductPrefetch(productos.slice(0, 4));
 
-  const handlePersonalizar = (item: Product) => {
+  const handlePersonalizar = () => {
     toast.loading("Abriendo personalización...");
-    navigate(`/producto/${item.slug || item.id}`);
   };
 
   // === Carrusel Dinámico ===
@@ -291,6 +290,13 @@ export default function CatalogoContent({
 
   return (
     <main className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden">
+      {/* SEO: h1 visible para crawlers y screen readers */}
+      <h1 className="sr-only">
+        {selectedCategoryObj?.nombre || ligaSeleccionada
+          ? `Camisetas de Fútbol — ${selectedCategoryObj?.nombre || ligaSeleccionada}`
+          : "Catálogo de Camisetas de Fútbol en Honduras"}
+      </h1>
+
       {/* HERO */}
       <CatalogHeroContainer
         categorySlug={categoriaSeleccionada}

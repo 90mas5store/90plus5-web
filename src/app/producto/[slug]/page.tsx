@@ -135,6 +135,8 @@ export async function generateMetadata(
             canonical: `https://90mas5.store/producto/${params.slug}`,
         },
         openGraph: {
+            type: 'article',
+            locale: 'es_HN',
             title: fullTitle,
             description,
             url: `https://90mas5.store/producto/${params.slug}`,

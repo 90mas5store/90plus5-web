@@ -19,18 +19,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     try {
         const supabase = createAdminClient();
 
-        // 2. Productos activos
+        // 2. Productos activos (incluir image_url para Google Images sitemap)
         const { data: products } = await supabase
             .from('products')
-            .select('slug, updated_at, featured')
+            .select('slug, updated_at, featured, image_url, name, teams(name)')
             .eq('active', true);
 
-        const productRoutes: MetadataRoute.Sitemap = (products || []).map((product) => ({
-            url: `${BASE_URL}/producto/${product.slug}`,
-            lastModified: new Date(product.updated_at || new Date()),
-            changeFrequency: 'weekly',
-            priority: product.featured ? 0.8 : 0.6,
-        }))
+        const productRoutes: MetadataRoute.Sitemap = (products || []).map((product) => {
+            const teamName = (product.teams as any)?.name;
+            const imageTitle = teamName ? `${teamName} - ${product.name}` : product.name;
+            return {
+                url: `${BASE_URL}/producto/${product.slug}`,
+                lastModified: new Date(product.updated_at || new Date()),
+                changeFrequency: 'weekly',
+                priority: product.featured ? 0.8 : 0.6,
+                ...(product.image_url ? {
+                    images: [{
+                        url: product.image_url,
+                        title: imageTitle,
+                    }],
+                } : {}),
+            };
+        })
 
         // 3. Páginas de categoría (/catalogo?categoria=...)
         const { data: categories } = await supabase
