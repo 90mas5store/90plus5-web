@@ -9,7 +9,6 @@ import {
   Phone,
   Instagram,
   Facebook,
-  Twitter,
   MessageCircle,
   ChevronDown,
 } from "lucide-react";
@@ -176,7 +175,6 @@ export default function Footer() {
           {[
             { href: "https://instagram.com/90mas5.store", label: "Instagram", icon: <Instagram size={22} /> },
             { href: "https://facebook.com/90mas5.store", label: "Facebook", icon: <Facebook size={22} /> },
-            { href: "https://x.com/90plus5", label: "X (Twitter)", icon: <Twitter size={22} /> },
             { href: "https://www.tiktok.com/@90mas5", label: "TikTok", icon: <TikTokIcon size={20} /> },
           ].map((social, index) => (
             <motion.div
