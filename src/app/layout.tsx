@@ -234,8 +234,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
-                                    "name": "UEFA Champions League",
-                                    "url": "https://90mas5.store/catalogo?liga=champions-league"
+                                    "name": "Streetwear",
+                                    "url": "https://90mas5.store/catalogo?categoria=streetwear"
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
