@@ -32,7 +32,6 @@ export const metadata: Metadata = {
     description: "Compra las mejores camisetas de fútbol temporada 25/26 versión jugador y aficionado. Envíos a todo Honduras. Real Madrid, Barcelona, Olimpia, Motagua y más. Calidad Premium Garantizada.",
     applicationName: "90+5 Store",
     authors: [{ name: "90+5 Store", url: "https://90mas5.store" }],
-    generator: "Next.js",
     keywords: [
         "camisetas de fútbol honduras",
         "tienda deportiva tegucigalpa",
