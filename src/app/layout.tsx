@@ -234,8 +234,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
-                                    "name": "Camisetas Retro",
-                                    "url": "https://90mas5.store/catalogo?categoria=retro"
+                                    "name": "UEFA Champions League",
+                                    "url": "https://90mas5.store/catalogo?liga=champions-league"
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
