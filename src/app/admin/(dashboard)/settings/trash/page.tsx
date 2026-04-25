@@ -116,10 +116,10 @@ export default function TrashPage() {
         `${new Date(d).toLocaleDateString('es-HN')} ${new Date(d).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })}`;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Papelera de Reciclaje</h1>
-                <p className="text-gray-400">Recupera o elimina definitivamente los registros borrados.</p>
+                <h1 className="text-xl md:text-3xl font-bold text-white mb-1 md:mb-2">Papelera de Reciclaje</h1>
+                <p className="text-gray-400 text-sm">Recupera o elimina definitivamente los registros borrados.</p>
             </div>
 
             {loading ? (
@@ -127,7 +127,7 @@ export default function TrashPage() {
             ) : (
                 <>
                     {/* TABS */}
-                    <div className="flex gap-1 bg-black/30 border border-white/5 rounded-xl p-1 w-fit">
+                    <div className="flex flex-wrap gap-1 bg-black/30 border border-white/5 rounded-xl p-1">
                         {TABS.map(tab => (
                             <button
                                 key={tab.id}
@@ -155,7 +155,8 @@ export default function TrashPage() {
                         </div>
                     ) : (
                         <div className="bg-neutral-900 border border-white/10 rounded-xl overflow-hidden">
-                            <table className="w-full text-left">
+                            <div className="overflow-x-auto">
+                            <table className="w-full text-left min-w-[480px]">
                                 <thead className="bg-white/5 text-gray-400 text-xs uppercase font-bold">
                                     <tr>
                                         <th className="p-4">Elemento</th>
@@ -261,6 +262,7 @@ export default function TrashPage() {
                                     ))}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     )}
                 </>

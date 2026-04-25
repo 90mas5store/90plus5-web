@@ -222,7 +222,7 @@ export default function BannersPage() {
     };
 
     return (
-        <div className="flex flex-col md:flex-row gap-6 animate-in fade-in duration-500 h-[calc(100dvh-140px)]">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6 animate-in fade-in duration-500 h-auto md:h-[calc(100dvh-140px)]">
 
             {/* === LISTA LATERAL (Master) === */}
             <div className="w-full md:w-80 flex flex-col bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex-shrink-0">
@@ -324,7 +324,7 @@ export default function BannersPage() {
                     <form onSubmit={handleSubmit} className="flex flex-col h-full">
 
                         {/* --- HEADER FORMULARIO (CONTROLES AQUI) --- */}
-                        <div className="px-8 py-5 border-b border-white/5 bg-[#161616] flex flex-wrap gap-4 justify-between items-center shrink-0 z-10">
+                        <div className="px-4 md:px-8 py-4 md:py-5 border-b border-white/5 bg-[#161616] flex flex-wrap gap-3 md:gap-4 justify-between items-center shrink-0 z-10">
                             <div>
                                 <h2 className="text-lg font-bold text-white flex items-center gap-3">
                                     {isCreating ? "Crear Nuevo Banner" : "Editar Banner"}
@@ -370,11 +370,11 @@ export default function BannersPage() {
                         </div>
 
                         {/* --- BODY FORMULARIO --- */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
-                            <div className="max-w-5xl mx-auto space-y-10">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
+                            <div className="max-w-5xl mx-auto space-y-6 md:space-y-10">
 
                                 {/* 1. SECCIÓN MEDIA (Wide) */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 items-start">
                                     {/* Imagen Principal */}
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-end">
@@ -508,7 +508,7 @@ export default function BannersPage() {
                                 <hr className="border-white/5" />
 
                                 {/* 2. CONTENIDO & CONFIGURACIÓN */}
-                                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8">
 
                                     {/* Columna Izquierda: Textos (8/12) */}
                                     <div className="md:col-span-7 space-y-6">
