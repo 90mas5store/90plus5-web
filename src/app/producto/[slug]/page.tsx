@@ -135,12 +135,12 @@ export async function generateMetadata(
             canonical: `https://90mas5.store/producto/${params.slug}`,
         },
         openGraph: {
-            type: 'article',
+            type: 'website',
             locale: 'es_HN',
             title: fullTitle,
             description,
             url: `https://90mas5.store/producto/${params.slug}`,
-            images: [{ url: mainImage, width: 800, height: 800, alt: data.name }, ...previousImages],
+            images: [{ url: mainImage, alt: data.name }, ...previousImages],
         },
         twitter: {
             card: "summary_large_image",

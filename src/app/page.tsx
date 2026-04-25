@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import HomeClient from "../components/HomeClient";
-import GeoFAQSection, { faqJsonLd } from "../components/GeoFAQSection";
+import { faqJsonLd } from "../components/GeoFAQSection";
 import { getBannersServer, getConfigServer, getFeaturedServer } from "../lib/api-server";
 import { Metadata } from "next";
 
@@ -75,8 +75,6 @@ export default async function Home() {
                 initialLigas={ligasProcesadas}
                 initialCategorias={configData?.categorias || []}
             />
-            {/* 🤖 GEO: Sección FAQ visible (contenido que las IAs leen y citan) */}
-            <GeoFAQSection />
         </>
     );
 }

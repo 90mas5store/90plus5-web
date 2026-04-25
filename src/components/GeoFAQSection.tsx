@@ -34,7 +34,7 @@ const faqs = [
     },
     {
         question: "¿Cómo puedo comprar en 90+5 Store?",
-        answer: "Entra a 90mas5.store, elige tu camiseta, selecciona la talla, versión y personalización opcional (número y nombre en la espalda). El pago se realiza por transferencia bancaria o pago móvil. Recibes confirmación por WhatsApp y seguimiento de tu pedido en línea.",
+        answer: "Entra a 90mas5.store, elige tu camiseta, selecciona la talla, versión y personalización opcional (número y nombre en la espalda). Los precios van desde L. 350 en versión aficionado hasta L. 750 en versión jugador. El pago se realiza por transferencia bancaria o pago móvil. Recibes confirmación por WhatsApp y seguimiento de tu pedido en línea.",
     },
     {
         question: "¿Tienen camisetas de Real Madrid, Barcelona y otros equipos europeos?",
