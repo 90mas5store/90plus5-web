@@ -279,7 +279,7 @@ export default async function ProductoPage({ params }: Props) {
         },
         "category": "Camisetas de Fútbol",
         "keywords": [
-            `camiseta ${teamName2}`,
+            `camiseta ${teamName}`,
             `${productData.name} Honduras`,
             "camiseta fútbol Honduras",
             "versión jugador Honduras",
