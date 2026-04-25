@@ -5,6 +5,7 @@ import { motion } from "@/lib/motion";
 import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import GeoFAQSection from "@/components/GeoFAQSection";
 
 export default function ContactoPage() {
   const searchParams = useSearchParams();
@@ -140,43 +141,12 @@ export default function ContactoPage() {
       </section>
 
       {/* FAQ */}
-      <section
+      <div
         id="faq"
-        className="relative z-10 px-6 sm:px-16 py-16 border-t border-white/10 bg-black/60 backdrop-blur-sm"
+        className="relative z-10 border-t border-white/10 bg-black/60 backdrop-blur-sm"
       >
-        <h2 className="text-2xl font-bold mb-6 text-white/90">
-          Preguntas Frecuentes (FAQ)
-        </h2>
-
-        <div className="grid gap-6 max-w-3xl">
-          <div>
-            <h3 className="font-semibold text-white/90">
-              ¿Cómo realizo un pedido?
-            </h3>
-            <p className="text-gray-400 text-sm">
-              Próximamente agregaremos aquí una guía paso a paso para comprar desde la tienda.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-white/90">
-              ¿Hacen envíos a todo el país?
-            </h3>
-            <p className="text-gray-400 text-sm">
-              Sí, hacemos envíos en Honduras. Pronto añadiremos más detalles sobre costos y tiempos de entrega.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-white/90">
-              ¿Puedo cambiar o devolver un producto?
-            </h3>
-            <p className="text-gray-400 text-sm">
-              Próximamente encontrarás aquí nuestras políticas de cambio y devolución.
-            </p>
-          </div>
-        </div>
-      </section>
+        <GeoFAQSection />
+      </div>
 
       {/* FOOTER SIMPLE */}
       <footer className="text-center py-8 text-gray-500 text-sm border-t border-white/10">
