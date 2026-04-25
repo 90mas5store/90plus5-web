@@ -247,8 +247,8 @@ export default function ContabilidadPage() {
 
             {/* HEADER */}
             <div>
-                <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                    <DollarSign className="w-8 h-8 text-primary" />
+                <h1 className="text-xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3">
+                    <DollarSign className="w-5 h-5 md:w-8 md:h-8 text-primary" />
                     Contabilidad
                 </h1>
                 <p className="text-gray-400 mt-1 text-sm">

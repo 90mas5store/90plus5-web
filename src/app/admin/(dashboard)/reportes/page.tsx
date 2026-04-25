@@ -250,12 +250,12 @@ export default function ReportesPage() {
     return (
         <div className="max-w-4xl mx-auto">
             {/* HEADER */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                    <FileSpreadsheet className="w-8 h-8 text-primary" />
+            <div className="mb-4 md:mb-8">
+                <h1 className="text-xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3">
+                    <FileSpreadsheet className="w-5 h-5 md:w-8 md:h-8 text-primary" />
                     Reportes de Pedidos
                 </h1>
-                <p className="text-gray-400 mt-2">
+                <p className="text-gray-400 mt-1 md:mt-2 text-sm">
                     Genera reportes en Excel o CSV procesados localmente.
                 </p>
             </div>
