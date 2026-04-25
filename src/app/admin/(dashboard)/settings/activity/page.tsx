@@ -64,7 +64,7 @@ export default function ActivityLogsPage() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto py-8 space-y-8 animate-in fade-in duration-700">
+        <div className="max-w-5xl mx-auto py-4 md:py-8 space-y-4 md:space-y-8 animate-in fade-in duration-700">
 
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/10 pb-6">

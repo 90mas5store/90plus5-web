@@ -114,7 +114,7 @@ export default function AdminUsersPage() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto py-8 space-y-10 animate-in fade-in duration-700">
+        <div className="max-w-5xl mx-auto py-4 md:py-8 space-y-6 md:space-y-10 animate-in fade-in duration-700">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/10 pb-6">
                 <div>
@@ -131,11 +131,11 @@ export default function AdminUsersPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 items-start">
 
                 {/* COLUMNA 1: FORMULARIO (Sticky) */}
                 <div className="lg:col-span-1">
-                    <div className="bg-[#111] border border-white/10 rounded-3xl p-6 sticky top-8 shadow-2xl">
+                    <div className="bg-[#111] border border-white/10 rounded-3xl p-5 md:p-6 sticky top-4 md:top-8 shadow-2xl">
                         <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 text-primary">
                             <UserPlus size={24} />
                         </div>
