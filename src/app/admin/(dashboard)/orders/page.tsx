@@ -76,51 +76,91 @@ export default async function OrdersPage({
                 </div>
             </div>
 
-            {/* TABLE */}
+            {/* TABLE / CARDS */}
             <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-                <div className="overflow-x-auto">
+
+
+                <div className="md:hidden divide-y divide-white/5">
+                    {orders?.map((order) => (
+                        <Link
+                            key={order.id}
+                            href={`/admin/orders/${order.id}`}
+                            className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 transition-colors"
+                        >
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                    <span className="font-mono font-black text-white text-xs">#{order.id.slice(0, 8).toUpperCase()}</span>
+                                    <OrderStatusBadge status={order.status} />
+                                </div>
+                                <div className="text-sm font-semibold text-white truncate">{order.customer_name}</div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] text-gray-500">{formatDate(order.created_at, false, HONDURAS_TIMEZONE)}</span>
+                                    {order.shipping_municipality && (
+                                        <>
+                                            <span className="text-gray-700">·</span>
+                                            <span className="text-[10px] text-gray-500 truncate">{order.shipping_municipality}</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <span className="font-black text-white text-sm">L {order.total_amount?.toLocaleString("es-HN") ?? 0}</span>
+                                <ChevronRight className="w-4 h-4 text-gray-600" />
+                            </div>
+                        </Link>
+                    ))}
+                    {(!orders || orders.length === 0) && (
+                        <div className="px-6 py-16 text-center text-gray-500">
+                            <p className="font-bold mb-1">No se encontraron pedidos</p>
+                            <p className="text-sm">Aún no hay ventas registradas.</p>
+                        </div>
+                    )}
+                </div>
+
+
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-black/40 text-gray-400 text-xs uppercase font-bold tracking-wider">
                             <tr>
-                                <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5"># Referencia</th>
-                                <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5">Cliente</th>
-                                <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5 hidden md:table-cell">Ubicación</th>
-                                <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5">Fecha</th>
-                                <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5 text-center">Estado</th>
-                                <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5 text-right">Total</th>
-                                <th className="px-3 md:px-6 py-3 md:py-4 border-b border-white/5 text-right">Acciones</th>
+                                <th className="px-6 py-4 border-b border-white/5"># Ref.</th>
+                                <th className="px-6 py-4 border-b border-white/5">Cliente</th>
+                                <th className="px-6 py-4 border-b border-white/5">Ubicación</th>
+                                <th className="px-6 py-4 border-b border-white/5">Fecha</th>
+                                <th className="px-6 py-4 border-b border-white/5 text-center">Estado</th>
+                                <th className="px-6 py-4 border-b border-white/5 text-right">Total</th>
+                                <th className="px-6 py-4 border-b border-white/5 text-right">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5 text-xs md:text-sm">
+                        <tbody className="divide-y divide-white/5 text-sm">
                             {orders?.map((order) => (
                                 <tr key={order.id} className="hover:bg-white/5 transition-colors group">
-                                    <td className="px-3 md:px-6 py-3 md:py-4 font-mono text-gray-500">
-                                        <span className="text-white font-bold text-xs md:text-sm">#{order.id.slice(0, 8).toUpperCase()}</span>
+                                    <td className="px-6 py-4 font-mono">
+                                        <span className="text-white font-bold">#{order.id.slice(0, 8).toUpperCase()}</span>
                                     </td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4">
-                                        <div className="font-bold text-white mb-0.5 text-xs md:text-sm">{order.customer_name}</div>
-                                        <div className="text-[10px] md:text-xs text-gray-500 hidden md:block">{order.customer_email}</div>
-                                        <div className="text-[10px] md:text-xs text-gray-600 font-mono mt-1 hidden md:block">{order.customer_phone}</div>
+                                    <td className="px-6 py-4">
+                                        <div className="font-bold text-white mb-0.5">{order.customer_name}</div>
+                                        <div className="text-xs text-gray-500">{order.customer_email}</div>
+                                        <div className="text-xs text-gray-600 font-mono mt-1">{order.customer_phone}</div>
                                     </td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4 text-gray-400 text-xs hidden md:table-cell">
+                                    <td className="px-6 py-4 text-gray-400 text-xs">
                                         <div className="text-white font-medium">{order.shipping_municipality}</div>
                                         <div>{order.shipping_department}</div>
                                     </td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4 text-gray-400 text-[10px] md:text-sm">
+                                    <td className="px-6 py-4 text-gray-400 text-sm">
                                         {formatDate(order.created_at, true, HONDURAS_TIMEZONE)}
                                     </td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4 text-center">
+                                    <td className="px-6 py-4 text-center">
                                         <OrderStatusBadge status={order.status} />
                                     </td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold text-white text-sm md:text-base">
+                                    <td className="px-6 py-4 text-right font-bold text-white">
                                         L {order.total_amount?.toLocaleString("es-HN") ?? 0}
                                     </td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4 text-right">
+                                    <td className="px-6 py-4 text-right">
                                         <Link
                                             href={`/admin/orders/${order.id}`}
-                                            className="inline-flex items-center justify-center p-1.5 md:p-2 rounded-lg bg-white/5 hover:bg-primary hover:text-white transition-all text-gray-400"
+                                            className="inline-flex items-center justify-center p-2 rounded-lg bg-white/5 hover:bg-primary hover:text-white transition-all text-gray-400"
                                         >
-                                            <Eye className="w-3 h-3 md:w-4 md:h-4" />
+                                            <Eye className="w-4 h-4" />
                                         </Link>
                                     </td>
                                 </tr>

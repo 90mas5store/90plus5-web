@@ -40,19 +40,24 @@ export default function CatalogHeroContainer({
                 targetLink += `?categoria=${categorySlug}`;
             } else if (leagueSlug) {
                 targetLink += `?liga=${leagueSlug}`;
-            } else {
-                if (mounted) setLoading(false);
-                return;
             }
 
             try {
-                const { data } = await supabase
+                let query = supabase
                     .from("banners")
                     .select("title, description, image_url, video_url, button_text, link_url, sort_order")
                     .eq("active", true)
-                    .ilike("link_url", `%${targetLink}%`)
                     .order("sort_order", { ascending: true })
                     .limit(5);
+
+                // Para /catalogo exacto usamos eq para no matchear /catalogo?categoria=X
+                if (targetLink === "/catalogo") {
+                    query = query.eq("link_url", "/catalogo");
+                } else {
+                    query = query.ilike("link_url", `%${targetLink}%`);
+                }
+
+                const { data } = await query;
 
                 if (!mounted) return;
 
