@@ -178,15 +178,15 @@ export default function CategoriesPage() {
     )
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+        <div className="space-y-4 md:space-y-8 animate-in fade-in duration-500 pb-20">
             {/* Header */}
-            <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-6 justify-between items-start md:items-center">
                 <div>
-                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                        <Tag className="w-8 h-8 text-primary" />
+                    <h1 className="text-xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3">
+                        <Tag className="w-5 h-5 md:w-8 md:h-8 text-primary" />
                         Categorías
                     </h1>
-                    <p className="text-gray-400 mt-2">
+                    <p className="text-gray-400 mt-1 md:mt-2 text-sm">
                         Gestiona las categorías principales de la tienda.
                     </p>
                 </div>
@@ -196,9 +196,9 @@ export default function CategoriesPage() {
                         setEditingCategory(null)
                         setIsModalOpen(true)
                     }}
-                    className="bg-white text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-200 transition-all shadow-lg shadow-white/5"
+                    className="bg-white text-black px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-200 transition-all shadow-lg shadow-white/5 w-full md:w-auto text-sm md:text-base"
                 >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
                     Nueva Categoría
                 </button>
             </div>
@@ -207,7 +207,7 @@ export default function CategoriesPage() {
             <div className="bg-neutral-900 border border-white/5 rounded-3xl overflow-hidden p-6 md:p-8">
 
                 {/* Tools */}
-                <div className="mb-8 flex flex-col md:flex-row gap-4 justify-between">
+                <div className="mb-4 md:mb-8 flex flex-col md:flex-row gap-3 md:gap-4 justify-between">
                     <div className="relative w-full md:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                         <input

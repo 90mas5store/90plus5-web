@@ -235,22 +235,22 @@ export default function ProductsPage() {
     })
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-4 md:space-y-8 animate-in fade-in duration-500">
             {/* HEADER & ACCIONES */}
-            <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-6 justify-between items-start md:items-center">
                 <div>
-                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                        <Shirt className="w-8 h-8 text-primary" />
+                    <h1 className="text-xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3">
+                        <Shirt className="w-5 h-5 md:w-8 md:h-8 text-primary" />
                         Catálogo de Productos
                     </h1>
-                    <p className="text-gray-400 mt-2">
+                    <p className="text-gray-400 mt-1 md:mt-2 text-sm">
                         Gestiona tu inventario, precios y existencias.
                     </p>
                 </div>
 
                 <Link
                     href="/admin/productos/nuevo"
-                    className="group bg-white text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-200 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-white/5"
+                    className="group bg-white text-black px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-200 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-white/5 w-full md:w-auto text-sm md:text-base"
                 >
                     <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                     Nuevo Producto
@@ -338,7 +338,7 @@ export default function ProductsPage() {
                 <>
                     {/* VISTA GRID */}
                     {viewMode === 'grid' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
                             {filteredProducts.map(product => (
                                 <div key={product.id} className="group relative bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 flex flex-col">
                                     {/* Imagen */}
@@ -433,7 +433,59 @@ export default function ProductsPage() {
                     {/* VISTA LISTA */}
                     {viewMode === 'list' && (
                         <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-                            <div className="overflow-x-auto">
+
+                            {/* MOBILE: Cards */}
+                            <div className="md:hidden divide-y divide-white/5">
+                                {filteredProducts.map(product => (
+                                    <div key={product.id} className="p-3.5 space-y-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-14 h-14 relative rounded-lg overflow-hidden bg-white/5 border border-white/10 shrink-0">
+                                                <Image
+                                                    src={product.image || '/heroes/default.jpg'}
+                                                    alt={product.name}
+                                                    fill
+                                                    className="object-cover"
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-white truncate text-sm">{product.name}</p>
+                                                <p className="text-xs text-primary truncate">{product.team?.name || 'Sin equipo'}</p>
+                                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                                    <span className="text-[10px] text-gray-500">{product.category?.name || 'N/A'}</span>
+                                                    <span className="text-gray-700">·</span>
+                                                    <span className="text-[10px] text-gray-500">{product.league?.name || 'N/A'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className="font-black text-white text-sm">L {product.price}</p>
+                                                <button onClick={() => handleToggleActive(product.id, product.active)} className="flex items-center gap-1 mt-1 ml-auto">
+                                                    <div className={`w-2 h-2 rounded-full ${product.active ? 'bg-green-500' : 'bg-red-500'}`} />
+                                                    <span className="text-[10px] text-gray-500">{product.active ? 'Activo' : 'Inactivo'}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                                            <Link href={`/admin/productos/editar/${product.id}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors text-xs font-bold">
+                                                <Edit className="w-3.5 h-3.5" /> Editar
+                                            </Link>
+                                            <button onClick={() => handleDuplicate(product)} disabled={duplicating === product.id} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white/5 hover:bg-blue-500/20 rounded-lg text-gray-400 hover:text-blue-400 transition-colors text-xs font-bold disabled:opacity-30">
+                                                {duplicating === product.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />} Copiar
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(product.id)}
+                                                disabled={!isSuperAdmin}
+                                                className="p-2 bg-white/5 hover:bg-red-500/20 rounded-lg text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30"
+                                                title={!isSuperAdmin ? 'Solo los super admins pueden eliminar' : 'Mover a papelera'}
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* DESKTOP: Table */}
+                            <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="border-b border-white/5 bg-white/5 text-xs uppercase tracking-wider text-gray-400">

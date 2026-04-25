@@ -264,7 +264,7 @@ export default function DescuentosPage() {
                     <button
                         key={t}
                         onClick={() => setTab(t)}
-                        className={`px-6 py-3 text-sm font-bold uppercase tracking-widest transition-all border-b-2 ${tab === t
+                        className={`px-4 md:px-6 py-2.5 md:py-3 text-xs md:text-sm font-bold uppercase tracking-widest transition-all border-b-2 ${tab === t
                             ? 'border-white text-white'
                             : 'border-transparent text-gray-500 hover:text-gray-300'
                             }`}
