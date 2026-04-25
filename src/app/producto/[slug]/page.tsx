@@ -210,28 +210,86 @@ export default async function ProductoPage({ params }: Props) {
             .filter(url => url !== productData.image_url),
     ];
 
-    const productJsonLd = {
-        "@context": "https://schema.org",
-        "@type": "Product",
-        "name": productData.name,
-        ...(galleryImages.length > 0 && { "image": galleryImages }),
-        ...(productData.description && { "description": productData.description }),
-        "sku": productData.id,
-        "brand": {
-            "@type": "Brand",
-            "name": productData.teams?.name || "90+5 Store"
-        },
-        "offers": {
+    // Descripción enriquecida: usa la del producto o genera una automática
+    const hasJugador = activeVariants.some(v => v.version?.toLowerCase().includes('jugador'));
+    const hasAficionado = activeVariants.some(v => v.version?.toLowerCase().includes('aficionado'));
+    const versionStr = hasJugador && hasAficionado
+        ? "versión jugador y aficionado"
+        : hasJugador ? "versión jugador" : hasAficionado ? "versión aficionado" : "";
+    const autoDescription = [
+        `Camiseta ${teamName} ${productData.name} temporada 25/26.`,
+        versionStr ? `Disponible en ${versionStr}.` : "",
+        "Envíos a todo Honduras.",
+        "Compra en 90+5 Store, la tienda de fútbol #1 en Honduras.",
+    ].filter(Boolean).join(" ");
+    const enrichedDescription = productData.description || autoDescription;
+
+    // Múltiples Offers: una por cada variante activa
+    const offers = activeVariants.length > 0
+        ? activeVariants.map(v => {
+            const versionLabel = v.version?.toLowerCase().includes('jugador')
+                ? "Versión Jugador"
+                : v.version?.toLowerCase().includes('aficionado')
+                    ? "Versión Aficionado"
+                    : v.version;
+            return {
+                "@type": "Offer",
+                "name": `${productData.name} — ${versionLabel}`,
+                "url": productUrl,
+                "priceCurrency": "HNL",
+                "price": v.price,
+                ...(v.original_price && v.active_original_price
+                    ? { "priceValidUntil": new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0] }
+                    : {}),
+                "availability": "https://schema.org/InStock",
+                "itemCondition": "https://schema.org/NewCondition",
+                "areaServed": { "@type": "Country", "name": "Honduras" },
+                "seller": {
+                    "@type": "Organization",
+                    "name": "90+5 Store",
+                    "url": "https://90mas5.store"
+                }
+            };
+        })
+        : [{
             "@type": "Offer",
             "url": productUrl,
             "priceCurrency": "HNL",
             "price": price,
             "availability": "https://schema.org/InStock",
             "itemCondition": "https://schema.org/NewCondition",
+            "areaServed": { "@type": "Country", "name": "Honduras" },
             "seller": {
                 "@type": "Organization",
-                "name": "90+5 Store"
+                "name": "90+5 Store",
+                "url": "https://90mas5.store"
             }
+        }];
+
+    const productJsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": productData.name,
+        ...(galleryImages.length > 0 && { "image": galleryImages }),
+        "description": enrichedDescription,
+        "sku": productData.id,
+        "brand": {
+            "@type": "Brand",
+            "name": productData.teams?.name || "90+5 Store"
+        },
+        "category": "Camisetas de Fútbol",
+        "keywords": [
+            `camiseta ${teamName2}`,
+            `${productData.name} Honduras`,
+            "camiseta fútbol Honduras",
+            "versión jugador Honduras",
+            "comprar camiseta Honduras",
+        ].filter(Boolean).join(", "),
+        "offers": offers.length === 1 ? offers[0] : offers,
+        "seller": {
+            "@type": "Organization",
+            "name": "90+5 Store",
+            "url": "https://90mas5.store"
         }
     };
 

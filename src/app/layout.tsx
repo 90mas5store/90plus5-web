@@ -110,9 +110,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             "@context": "https://schema.org",
                             "@type": "Organization",
                             "name": "90+5 Store",
+                            "alternateName": ["90mas5 Store", "90+5", "Noventa más cinco Store"],
                             "url": "https://90mas5.store",
-                            "logo": "https://90mas5.store/logo.svg",
-                            "description": "Tienda de camisetas de fútbol premium en Honduras. Envíos a todo el país.",
+                            "logo": {
+                                "@type": "ImageObject",
+                                "url": "https://90mas5.store/logo.svg",
+                                "width": 200,
+                                "height": 200
+                            },
+                            "description": "La mejor tienda de camisetas de fútbol en Honduras. Equipaciones oficiales temporada 25/26 en versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua, Bayern, y más. Envíos a todo Honduras.",
+                            "foundingDate": "2024",
+                            "areaServed": {
+                                "@type": "Country",
+                                "name": "Honduras"
+                            },
+                            "priceRange": "HNL 350 - HNL 900",
+                            "telephone": "+50432488860",
                             "sameAs": [
                                 "https://www.instagram.com/90mas5store",
                                 "https://www.facebook.com/90mas5store",
@@ -121,10 +134,63 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             ],
                             "contactPoint": {
                                 "@type": "ContactPoint",
+                                "telephone": "+50432488860",
                                 "contactType": "customer service",
+                                "contactOption": "TollFree",
                                 "availableLanguage": "Spanish",
                                 "areaServed": "HN"
                             }
+                        })
+                    }}
+                />
+                {/* 🧠 JSON-LD: LocalBusiness (SportingGoodsStore) — clave para consultas "en Honduras" */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": ["LocalBusiness", "SportingGoodsStore", "Store"],
+                            "name": "90+5 Store",
+                            "description": "Tienda online líder en Honduras especializada en camisetas de fútbol premium. Versión jugador y aficionado. Temporada 25/26. Envíos a todo Honduras.",
+                            "url": "https://90mas5.store",
+                            "telephone": "+50432488860",
+                            "image": "https://90mas5.store/og-image.jpg",
+                            "logo": "https://90mas5.store/logo.svg",
+                            "priceRange": "HNL 350 - HNL 900",
+                            "currenciesAccepted": "HNL",
+                            "paymentAccepted": "Transferencia bancaria, Pago móvil",
+                            "address": {
+                                "@type": "PostalAddress",
+                                "addressCountry": "HN",
+                                "addressRegion": "Honduras",
+                                "description": "Servicio de entrega a domicilio en todo Honduras"
+                            },
+                            "areaServed": [
+                                { "@type": "City", "name": "Tegucigalpa" },
+                                { "@type": "City", "name": "San Pedro Sula" },
+                                { "@type": "City", "name": "La Ceiba" },
+                                { "@type": "City", "name": "Comayagua" },
+                                { "@type": "City", "name": "Choluteca" },
+                                { "@type": "City", "name": "Santa Bárbara" },
+                                { "@type": "Country", "name": "Honduras" }
+                            ],
+                            "hasOfferCatalog": {
+                                "@type": "OfferCatalog",
+                                "name": "Camisetas de Fútbol",
+                                "description": "Catálogo de equipaciones de fútbol temporada 25/26. Real Madrid, Barcelona, Olimpia, Motagua, Bayern Munich, Liga Hondubet, Premier League, La Liga, Champions League y más.",
+                                "itemListElement": [
+                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Camisetas versión jugador" } },
+                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Camisetas versión aficionado" } },
+                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Equipaciones Liga Hondubet" } },
+                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Camisetas Mundial 2026" } },
+                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Camisetas Retro" } }
+                                ]
+                            },
+                            "sameAs": [
+                                "https://www.instagram.com/90mas5store",
+                                "https://www.facebook.com/90mas5store",
+                                "https://www.tiktok.com/@90mas5"
+                            ]
                         })
                     }}
                 />

@@ -456,8 +456,7 @@ export default function HeroBanner({
                     quality={75}
                     loading="eager"
                     fetchPriority="high"
-                    className="object-cover object-center z-0"
-                    style={{ objectPosition: 'center 30%' }}
+                    className="object-cover z-0 object-[center_center] md:object-[center_30%]"
                     onLoad={handleImageLoad}
                     onError={handleImageError}
                     sizes="100vw"

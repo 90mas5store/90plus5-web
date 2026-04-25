@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import {
     Plus, Trash2, Edit, Save, X, Image as ImageIcon,
     Link as LinkIcon, Monitor, Smartphone, Eye,
-    MoreVertical, CheckCircle, AlertCircle, ArrowUp, ArrowDown, Search, Film, Loader2
+    MoreVertical, CheckCircle, AlertCircle, ArrowUp, ArrowDown, Search, Film, Loader2,
+    ChevronDown, ExternalLink
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import ImageUpload from "@/components/admin/ImageUpload";
@@ -45,6 +46,9 @@ export default function BannersPage() {
     const [linkType, setLinkType] = useState<'catalog' | 'custom'>('catalog');
     const [selectedCatalogFilter, setSelectedCatalogFilter] = useState<'all' | 'category' | 'league'>('all');
     const [selectedSlug, setSelectedSlug] = useState('');
+
+    const [previewOpen, setPreviewOpen] = useState(true);
+    const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
 
     const supabaseRef = useRef(createClient());
     const supabase = supabaseRef.current;
@@ -210,6 +214,7 @@ export default function BannersPage() {
 
             await supabase.from("banners").update({ active: newStatus }).eq("id", banner.id);
             clearProductCache('config');
+            await revalidateBannersAction().catch(() => {});
         } catch (e) {
             toast.error("Error update");
             fetchBanners(); // Revert
@@ -410,6 +415,96 @@ export default function BannersPage() {
                                     </div>
                                 </div>
 
+                                {/* LIVE PREVIEW */}
+                                <div className="rounded-2xl border border-white/10 overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPreviewOpen(p => !p)}
+                                        className="w-full flex items-center justify-between px-5 py-3 bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
+                                    >
+                                        <span className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-widest">
+                                            <Eye size={14} className="text-primary" /> Vista Previa
+                                        </span>
+                                        <div className="flex items-center gap-3">
+                                            {previewOpen && (
+                                                <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/10" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPreviewMode('desktop')}
+                                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${previewMode === 'desktop' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
+                                                    >
+                                                        <Monitor size={11} /> Desktop
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPreviewMode('mobile')}
+                                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${previewMode === 'mobile' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
+                                                    >
+                                                        <Smartphone size={11} /> Mobile
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <ChevronDown size={14} className={`text-gray-500 transition-transform ${previewOpen ? 'rotate-180' : ''}`} />
+                                        </div>
+                                    </button>
+
+                                    {previewOpen && (
+                                        <div className="p-4 bg-black/20">
+                                            <div className={`mx-auto transition-all duration-300 ${previewMode === 'mobile' ? 'max-w-[390px]' : 'w-full'}`}>
+                                                <div className="relative rounded-xl overflow-hidden bg-neutral-900 border border-white/5"
+                                                    style={{ aspectRatio: previewMode === 'mobile' ? '9/5' : '16/5' }}
+                                                >
+                                                    {/* Imagen de fondo */}
+                                                    {formData.image_url ? (
+                                                        <img
+                                                            src={formData.image_url}
+                                                            alt=""
+                                                            className="absolute inset-0 w-full h-full object-cover"
+                                                            style={{ objectPosition: previewMode === 'mobile' ? 'center center' : 'center 30%' }}
+                                                        />
+                                                    ) : (
+                                                        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center">
+                                                            <ImageIcon size={32} className="text-gray-600" />
+                                                        </div>
+                                                    )}
+                                                    {/* Overlay */}
+                                                    <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
+                                                    {/* Texto */}
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 gap-1.5">
+                                                        {formData.title && (
+                                                            <p className="text-white font-extrabold drop-shadow-lg leading-tight"
+                                                                style={{ fontSize: previewMode === 'mobile' ? '14px' : '22px' }}
+                                                            >
+                                                                {formData.title}
+                                                            </p>
+                                                        )}
+                                                        {formData.description && (
+                                                            <p className="text-gray-300 leading-tight"
+                                                                style={{ fontSize: previewMode === 'mobile' ? '10px' : '13px' }}
+                                                            >
+                                                                {formData.description}
+                                                            </p>
+                                                        )}
+                                                        {formData.button_text && (
+                                                            <span className="mt-1 inline-flex items-center gap-1 bg-primary text-black font-bold rounded-full px-3 py-1"
+                                                                style={{ fontSize: previewMode === 'mobile' ? '9px' : '11px' }}
+                                                            >
+                                                                {formData.button_text} <ExternalLink size={previewMode === 'mobile' ? 8 : 10} />
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {/* Destino badge */}
+                                                    <div className="absolute bottom-2 right-2">
+                                                        <span className="text-[9px] font-mono bg-black/60 text-gray-400 px-1.5 py-0.5 rounded border border-white/10">
+                                                            {formData.link_url || '/catalogo'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <hr className="border-white/5" />
 
                                 {/* 2. CONTENIDO & CONFIGURACIÓN */}
@@ -448,6 +543,16 @@ export default function BannersPage() {
                                                     onChange={e => setFormData({ ...formData, description: e.target.value })}
                                                     className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white text-sm min-h-[100px] resize-y focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-700"
                                                     placeholder="Escribe una descripción inspiradora corta..."
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-gray-400 ml-1">TEXTO DEL BOTÓN CTA</label>
+                                                <input
+                                                    value={formData.button_text || ""}
+                                                    onChange={e => setFormData({ ...formData, button_text: e.target.value })}
+                                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-700"
+                                                    placeholder="Ver Colección"
                                                 />
                                             </div>
                                         </div>

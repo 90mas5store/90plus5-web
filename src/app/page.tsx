@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import HomeClient from "../components/HomeClient";
+import GeoFAQSection, { faqJsonLd } from "../components/GeoFAQSection";
 import { getBannersServer, getConfigServer, getFeaturedServer } from "../lib/api-server";
 import { Metadata } from "next";
 
@@ -63,12 +64,19 @@ export default async function Home() {
                     fetchPriority="high"
                 />
             )}
+            {/* 🤖 GEO: FAQPage JSON-LD para ChatGPT, Perplexity, Google AI Overview */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+            />
             <HomeClient
                 initialDestacados={featuredData || []}
                 initialBanners={bannersData || []}
                 initialLigas={ligasProcesadas}
                 initialCategorias={configData?.categorias || []}
             />
+            {/* 🤖 GEO: Sección FAQ visible (contenido que las IAs leen y citan) */}
+            <GeoFAQSection />
         </>
     );
 }
