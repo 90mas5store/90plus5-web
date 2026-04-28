@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -640,24 +640,34 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         const shareUrl = buildShareUrl();
         const precio = precioActual || producto.precio || 0;
 
+                const E = {
+            fire: '\u{1F525}',
+            shirt: '\u{1F455}',
+            ruler: '\u{1F4CF}',
+            medal: '\u{1F3C5}',
+            numbers: '\u{1F522}',
+            money: '\u{1F4B0}',
+            down: '\u{1F447}',
+        };
+
         const lines: string[] = [
-            `🔥 *${producto.equipo} – ${producto.modelo}*`,
+            `${E.fire} *${producto.equipo} – ${producto.modelo}*`,
             `_La encontré en 90+5 y está brutal_`,
             ``,
         ];
 
         const config: string[] = [];
         if (versionSeleccionada && versionSeleccionada.label.toLowerCase() !== 'estándar' && versionSeleccionada.label.toLowerCase() !== 'estandar') {
-            config.push(`• 👕 Versión: ${versionSeleccionada.label}`);
+            config.push(`• ${E.shirt} Versión: ${versionSeleccionada.label}`);
         }
-        if (tallaSeleccionada) config.push(`• 📏 Talla: ${tallaSeleccionada.label}`);
-        if (parcheSeleccionado) config.push(`• 🏅 Parche: ${parcheSeleccionado.label}`);
+        if (tallaSeleccionada) config.push(`• ${E.ruler} Talla: ${tallaSeleccionada.label}`);
+        if (parcheSeleccionado) config.push(`• ${E.medal} Parche: ${parcheSeleccionado.label}`);
         if (quiereDorsal) {
             if (modoDorsal === 'jugador' && jugadorSeleccionado) {
-                config.push(`• 🔢 Dorsal: ${jugadorSeleccionado.numero} – ${jugadorSeleccionado.nombre}`);
+                config.push(`• ${E.numbers} Dorsal: ${jugadorSeleccionado.numero} – ${jugadorSeleccionado.nombre}`);
             } else if (modoDorsal === 'personalizado' && (numeroPersonalizado || nombrePersonalizado)) {
                 const dorsal = [numeroPersonalizado, nombrePersonalizado].filter(Boolean).join(' – ');
-                config.push(`• 🔢 Dorsal: ${dorsal}`);
+                config.push(`• ${E.numbers} Dorsal: ${dorsal}`);
             }
         }
 
@@ -667,9 +677,9 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
             lines.push(``);
         }
 
-        if (precio > 0) lines.push(`💰 *L${precio.toLocaleString('es-HN')}*`);
+        if (precio > 0) lines.push(`${E.money} *L${precio.toLocaleString('es-HN')}*`);
         lines.push(``);
-        lines.push(`👇 Miralo acá:`);
+        lines.push(`${E.down} Miralo acá:`);
         lines.push(shareUrl);
 
         const text = encodeURIComponent(lines.join('\n'));
