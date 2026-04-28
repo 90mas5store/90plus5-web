@@ -638,7 +638,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
 
     const handleShareWhatsApp = () => {
         const shareUrl = buildShareUrl();
-        const precio = versionSeleccionada?.price || producto.precio || 0;
+        const precio = precioActual || producto.precio || 0;
 
         const lines: string[] = [
             `🔥 *${producto.equipo} – ${producto.modelo}*`,
