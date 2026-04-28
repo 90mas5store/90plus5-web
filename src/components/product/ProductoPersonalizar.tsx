@@ -651,7 +651,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
             config.push(`• 👕 Versión: ${versionSeleccionada.label}`);
         }
         if (tallaSeleccionada) config.push(`• 📏 Talla: ${tallaSeleccionada.label}`);
-        if (parcheSeleccionado) config.push(`• 🏅 Parche: ${parcheSeleccionado.name}`);
+        if (parcheSeleccionado) config.push(`• 🏅 Parche: ${parcheSeleccionado.label}`);
         if (quiereDorsal) {
             if (modoDorsal === 'jugador' && jugadorSeleccionado) {
                 config.push(`• 🔢 Dorsal: ${jugadorSeleccionado.numero} – ${jugadorSeleccionado.nombre}`);
