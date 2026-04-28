@@ -113,9 +113,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             "url": "https://90mas5.store",
                             "logo": {
                                 "@type": "ImageObject",
-                                "url": "https://90mas5.store/logo.svg",
-                                "width": 200,
-                                "height": 200
+                                "url": "https://90mas5.store/logo-512.png",
+                                "width": 512,
+                                "height": 512
                             },
                             "description": "La mejor tienda de camisetas de fútbol en Honduras. Equipaciones oficiales temporada 25/26 en versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua, Bayern, y más. Envíos a todo Honduras.",
                             "foundingDate": "2024",
