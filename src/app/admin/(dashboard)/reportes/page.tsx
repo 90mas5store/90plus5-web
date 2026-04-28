@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileSpreadsheet, Download, Loader2, FileText, Filter, TrendingUp, BarChart2 } from 'lucide-react'
+import { FileSpreadsheet, Download, Loader2, FileText, Filter, TrendingUp, BarChart2, Share2 } from 'lucide-react'
 import useToastMessage from '@/hooks/useToastMessage'
 import { createClient } from '@/lib/supabase/client'
 
@@ -14,6 +14,8 @@ export default function ReportesPage() {
     const [loading, setLoading] = useState(false)
     const [bestSellers, setBestSellers] = useState<{ name: string; units: number; revenue: number }[]>([])
     const [loadingBest, setLoadingBest] = useState(false)
+    const [shareStats, setShareStats] = useState<{ product_name: string; team_name: string | null; count: number }[]>([])
+    const [loadingShares, setLoadingShares] = useState(false)
 
     // Opciones de estado
     const statusOptions = [
@@ -97,6 +99,38 @@ export default function ReportesPage() {
             toast.error('Error al calcular')
         } finally {
             setLoadingBest(false)
+        }
+    }
+
+    const loadShareStats = async () => {
+        if (!startDate || !endDate) { toast.error('Por favor selecciona ambas fechas'); return }
+        setLoadingShares(true)
+        try {
+            const supabase = createClient()
+            const { data, error } = await supabase
+                .from('product_share_events')
+                .select('product_name, team_name')
+                .gte('created_at', startDate)
+                .lte('created_at', endDate + 'T23:59:59Z')
+
+            if (error) throw error
+
+            const map = new Map<string, { team_name: string | null; count: number }>()
+            for (const row of (data || [])) {
+                const existing = map.get(row.product_name) || { team_name: row.team_name, count: 0 }
+                existing.count++
+                map.set(row.product_name, existing)
+            }
+            const sorted = Array.from(map.entries())
+                .map(([product_name, v]) => ({ product_name, ...v }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 15)
+            setShareStats(sorted)
+            if (sorted.length === 0) toast.warning('Sin presumes en este rango')
+        } catch {
+            toast.error('Error al cargar presumes')
+        } finally {
+            setLoadingShares(false)
         }
     }
 
@@ -386,6 +420,60 @@ export default function ReportesPage() {
                                                 <span className="text-xs text-gray-500">{item.units} uds.</span>
                                                 <span className="text-xs font-bold text-white">L {item.revenue.toLocaleString('es-HN')}</span>
                                             </div>
+                                        </div>
+                                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-primary rounded-full transition-all"
+                                                style={{ width: `${barWidth}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
+            </div>
+            {/* PRESUMES DE KIT */}
+            <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Share2 className="w-5 h-5 text-gray-400" />
+                        Presumes de Kit
+                    </h2>
+                    <button
+                        onClick={loadShareStats}
+                        disabled={loadingShares}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-50"
+                    >
+                        {loadingShares ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart2 className="w-4 h-4" />}
+                        Calcular
+                    </button>
+                </div>
+
+                {shareStats.length === 0 ? (
+                    <p className="text-sm text-gray-600 italic text-center py-6">
+                        Haz clic en &quot;Calcular&quot; para ver qué productos se presumen más en el rango seleccionado.
+                    </p>
+                ) : (
+                    <div className="space-y-2">
+                        {shareStats.map((item, idx) => {
+                            const maxCount = shareStats[0]?.count || 1
+                            const barWidth = Math.round((item.count / maxCount) * 100)
+                            return (
+                                <div key={item.product_name} className="flex items-center gap-3">
+                                    <span className="text-xs font-bold text-gray-600 w-5 text-right shrink-0">{idx + 1}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <div className="min-w-0">
+                                                <span className="text-sm text-white font-medium truncate block">{item.product_name}</span>
+                                                {item.team_name && (
+                                                    <span className="text-xs text-gray-500">{item.team_name}</span>
+                                                )}
+                                            </div>
+                                            <span className="text-xs font-bold text-white shrink-0 ml-2">
+                                                {item.count} {item.count === 1 ? 'vez' : 'veces'}
+                                            </span>
                                         </div>
                                         <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                                             <div
