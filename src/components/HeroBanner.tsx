@@ -169,14 +169,14 @@ function HeroOverlayText({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4"
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-5 pt-16 md:pt-0"
         >
             {title && (
                 <motion.h2
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.1 }}
-                    className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white tracking-tight drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)]"
+                    className="text-xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)] leading-tight"
                 >
                     {title}
                 </motion.h2>
@@ -186,7 +186,7 @@ function HeroOverlayText({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="mt-4 text-base sm:text-xl md:text-2xl text-gray-200 font-medium max-w-2xl drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)]"
+                    className="mt-2 sm:mt-4 text-xs sm:text-lg md:text-xl text-gray-200 font-medium max-w-2xl drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)]"
                 >
                     {subtitle}
                 </motion.p>
@@ -200,12 +200,12 @@ function HeroOverlayText({
                     {link ? (
                         <a
                             href={link}
-                            className="mt-6 inline-flex items-center gap-2 bg-primary hover:brightness-110 text-white font-black uppercase tracking-wide rounded-2xl px-7 py-3.5 text-sm sm:text-base transition-all duration-300 shadow-[0_10px_30px_rgba(229,9,20,0.35)] hover:shadow-[0_15px_40px_rgba(229,9,20,0.5)] hover:scale-105 active:scale-95"
+                            className="mt-3 sm:mt-6 inline-flex items-center gap-2 bg-primary hover:brightness-110 text-white font-black uppercase tracking-wide rounded-xl sm:rounded-2xl px-5 py-2.5 sm:px-7 sm:py-3.5 text-xs sm:text-sm md:text-base transition-all duration-300 shadow-[0_8px_20px_rgba(229,9,20,0.35)] hover:shadow-[0_15px_40px_rgba(229,9,20,0.5)] hover:scale-105 active:scale-95"
                         >
                             {buttonText}
                         </a>
                     ) : (
-                        <span className="mt-6 inline-flex items-center gap-2 bg-primary text-white font-black uppercase tracking-wide rounded-2xl px-7 py-3.5 text-sm sm:text-base shadow-[0_10px_30px_rgba(229,9,20,0.35)]">
+                        <span className="mt-3 sm:mt-6 inline-flex items-center gap-2 bg-primary text-white font-black uppercase tracking-wide rounded-xl sm:rounded-2xl px-5 py-2.5 sm:px-7 sm:py-3.5 text-xs sm:text-sm md:text-base shadow-[0_8px_20px_rgba(229,9,20,0.35)]">
                             {buttonText}
                         </span>
                     )}
@@ -449,7 +449,7 @@ export default function HeroBanner({
     return (
         <section
             ref={containerRef}
-            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden ${className} ${!minHeight ? 'min-h-[calc(35dvh+4rem)] md:min-h-[55dvh]' : ''}`}
+            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden ${className} ${!minHeight ? 'min-h-[55dvh] md:min-h-[60dvh]' : ''}`}
             style={minHeight ? { minHeight } : undefined}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
