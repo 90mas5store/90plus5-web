@@ -10,6 +10,8 @@ interface Props {
     categoryName?: string;
     adjacentCategories?: string[];
     prefersReducedMotion?: boolean;
+    imagePositionDesktop?: string;
+    imagePositionMobile?: string;
 }
 
 export default function CatalogHeroContainer({
@@ -17,40 +19,32 @@ export default function CatalogHeroContainer({
     leagueSlug,
     categoryName,
     adjacentCategories,
-    prefersReducedMotion = false
+    prefersReducedMotion = false,
+    imagePositionDesktop,
+    imagePositionMobile,
 }: Props) {
     const [dynamicSlides, setDynamicSlides] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
 
-    // Clave para evitar recargas innecesarias:
-    // Si hay categoría, esa es la clave. Si no, la liga.
-    // Al filtrar por liga DENTRO de una categoría, esta clave NO cambia, 
-    // por lo tanto el efecto NO corre y el banner NO parpadea.
     const bannerContextKey = categorySlug || leagueSlug;
 
     useEffect(() => {
         let mounted = true;
 
         async function findBanners() {
-            // Construir link según contexto
             let targetLink = "/catalogo";
-
-            if (categorySlug) {
-                targetLink += `?categoria=${categorySlug}`;
-            } else if (leagueSlug) {
-                targetLink += `?liga=${leagueSlug}`;
-            }
+            if (categorySlug) targetLink += `?categoria=${categorySlug}`;
+            else if (leagueSlug) targetLink += `?liga=${leagueSlug}`;
 
             try {
                 let query = supabase
                     .from("banners")
-                    .select("title, description, image_url, video_url, button_text, link_url, sort_order")
+                    .select("title, description, image_url, video_url, button_text, show_button, link_url, sort_order, image_position_desktop, image_position_mobile")
                     .eq("active", true)
                     .order("sort_order", { ascending: true })
                     .limit(5);
 
-                // Para /catalogo exacto usamos eq para no matchear /catalogo?categoria=X
                 if (targetLink === "/catalogo") {
                     query = query.eq("link_url", "/catalogo");
                 } else {
@@ -68,32 +62,32 @@ export default function CatalogHeroContainer({
                         title: b.title,
                         subtitle: b.description,
                         link: b.link_url,
-                        buttonText: b.button_text || "Ver Más"
+                        buttonText: b.button_text,
+                        showButton: b.show_button ?? false,
+                        imagePositionDesktop: b.image_position_desktop || imagePositionDesktop || '50% 40%',
+                        imagePositionMobile: b.image_position_mobile || imagePositionMobile || '50% 50%',
                     })));
                 } else {
                     setDynamicSlides([]);
                 }
             } catch (e) {
-                // Ignorar error
+                // ignorar error
             } finally {
                 if (mounted) setLoading(false);
             }
         }
 
         findBanners();
-
         return () => { mounted = false; };
-    // categorySlug, leagueSlug, supabase omitted: bannerContextKey already encapsulates them
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [bannerContextKey]);
 
-    // A) Si encontramos banners (1 o varios), mostramos Carrusel/Hero Dinámico
     if (dynamicSlides.length > 0) {
         return (
             <HeroBanner
                 slides={dynamicSlides}
-                slideInterval={5000} // Rotación automática
-                className="min-h-[35dvh] md:min-h-[55dvh] mb-4"
+                slideInterval={5000}
+                className="min-h-[55dvh] md:min-h-[60dvh] mb-4"
                 alt={categoryName || "Catálogo"}
                 overlayOpacity={0.6}
                 adjacentCategories={adjacentCategories}
@@ -102,15 +96,16 @@ export default function CatalogHeroContainer({
         );
     }
 
-    // Fallback: Lógica original (buscar imagen en local file system por slug)
     return (
         <HeroBanner
             categorySlug={categorySlug || leagueSlug || "default"}
-            className="min-h-[35dvh] md:min-h-[55dvh] mb-4"
+            className="min-h-[55dvh] md:min-h-[60dvh] mb-4"
             alt={categoryName || "Catálogo 90+5 Store"}
             overlayOpacity={0.6}
             adjacentCategories={adjacentCategories}
             enableParallax={!prefersReducedMotion}
+            imagePositionDesktop={imagePositionDesktop || '50% 40%'}
+            imagePositionMobile={imagePositionMobile || '50% 50%'}
         />
     );
 }

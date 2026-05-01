@@ -11,6 +11,8 @@ import { revalidateConfig } from '@/app/admin/actions'
 import ImageUpload from '@/components/admin/ImageUpload'
 import { motion, AnimatePresence } from '@/lib/motion'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
+import FocalPointPicker from '@/components/admin/FocalPointPicker'
+import { Monitor, Smartphone } from 'lucide-react'
 
 const PAGE_SIZE = 20
 
@@ -21,6 +23,8 @@ interface Category {
     icon_url?: string
     active: boolean
     order_index: number
+    hero_image_position_desktop?: string
+    hero_image_position_mobile?: string
 }
 
 export default function CategoriesPage() {
@@ -46,7 +50,9 @@ export default function CategoriesPage() {
         slug: '',
         icon_url: '',
         active: true,
-        order_index: 0
+        order_index: 0,
+        hero_image_position_desktop: '50% 40%',
+        hero_image_position_mobile: '50% 50%',
     })
 
     const fetchCategories = useCallback(async (p = page) => {
@@ -83,7 +89,9 @@ export default function CategoriesPage() {
                 slug: editingCategory.slug,
                 icon_url: editingCategory.icon_url || '',
                 active: editingCategory.active,
-                order_index: editingCategory.order_index || 0
+                order_index: editingCategory.order_index || 0,
+                hero_image_position_desktop: editingCategory.hero_image_position_desktop || '50% 40%',
+                hero_image_position_mobile: editingCategory.hero_image_position_mobile || '50% 50%',
             })
         } else {
             setFormData({
@@ -91,7 +99,9 @@ export default function CategoriesPage() {
                 slug: '',
                 icon_url: '',
                 active: true,
-                order_index: categories.length + 1
+                order_index: categories.length + 1,
+                hero_image_position_desktop: '50% 40%',
+                hero_image_position_mobile: '50% 50%',
             })
         }
     }, [editingCategory, isModalOpen, categories.length])
@@ -109,7 +119,9 @@ export default function CategoriesPage() {
                 slug: formData.slug,
                 icon_url: formData.icon_url,
                 active: formData.active,
-                order_index: formData.order_index
+                order_index: formData.order_index,
+                hero_image_position_desktop: formData.hero_image_position_desktop,
+                hero_image_position_mobile: formData.hero_image_position_mobile,
             }
 
             if (editingCategory) {
@@ -412,6 +424,41 @@ export default function CategoriesPage() {
                                             className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none font-mono text-sm"
                                             placeholder="ej: camisetas"
                                         />
+                                    </div>
+                                </div>
+
+                                {/* Punto focal del hero */}
+                                <div className="rounded-2xl border border-white/10 overflow-hidden">
+                                    <div className="px-4 py-3 bg-white/[0.03] flex items-center gap-2">
+                                        <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Punto Focal — Hero Banner</span>
+                                    </div>
+                                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Monitor size={13} className="text-gray-500" />
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Desktop</span>
+                                            </div>
+                                            <FocalPointPicker
+                                                label="Desktop"
+                                                imageUrl={formData.slug ? `/heroes/${formData.slug}.jpg` : undefined}
+                                                value={formData.hero_image_position_desktop}
+                                                onChange={v => setFormData(prev => ({ ...prev, hero_image_position_desktop: v }))}
+                                                aspectRatio="16/5"
+                                            />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Smartphone size={13} className="text-gray-500" />
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile</span>
+                                            </div>
+                                            <FocalPointPicker
+                                                label="Mobile"
+                                                imageUrl={formData.slug ? `/heroes/${formData.slug}.jpg` : undefined}
+                                                value={formData.hero_image_position_mobile}
+                                                onChange={v => setFormData(prev => ({ ...prev, hero_image_position_mobile: v }))}
+                                                aspectRatio="4/3"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

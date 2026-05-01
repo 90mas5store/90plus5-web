@@ -143,13 +143,13 @@ async function fetchConfigFromSupabase(): Promise<Config> {
   ] = await Promise.all([
     supabase
       .from("categories")
-      .select("id,name,slug,order_index,icon_url")
+      .select("id,name,slug,order_index,icon_url,hero_image_position_desktop,hero_image_position_mobile")
       .eq("active", true)
       .order("order_index", { ascending: true }),
 
     supabase
       .from("leagues")
-      .select("id,name,slug,image_url,category_id")
+      .select("id,name,slug,image_url,category_id,hero_image_position_desktop,hero_image_position_mobile")
       .eq("active", true)
       .order("sort_order", { ascending: true }),
   ]);
@@ -171,16 +171,19 @@ async function fetchConfigFromSupabase(): Promise<Config> {
     slug: cat.slug,
     order: cat.order_index,
     icon_url: cat.icon_url,
+    hero_image_position_desktop: cat.hero_image_position_desktop,
+    hero_image_position_mobile: cat.hero_image_position_mobile,
   }));
 
   // 3️⃣ Adaptamos ligas al shape que espera el frontend
-  // Config.ligas = League[]
   const adaptedLigas = (leagues ?? []).map((league: Record<string, unknown>) => ({
     id: league.id,
     nombre: league.name,
     slug: league.slug,
     imagen: league.image_url ?? "",
     category_id: league.category_id,
+    hero_image_position_desktop: league.hero_image_position_desktop,
+    hero_image_position_mobile: league.hero_image_position_mobile,
   }));
 
   // 4️⃣ Devolvemos EXACTAMENTE el Config esperado

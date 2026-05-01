@@ -48,6 +48,10 @@ interface HeroBannerProps {
     title?: string;
     /** Subtítulo overlay opcional */
     subtitle?: string;
+    /** Posición focal de imagen en desktop (CSS object-position, ej: "50% 40%") */
+    imagePositionDesktop?: string;
+    /** Posición focal de imagen en mobile (CSS object-position, ej: "50% 50%") */
+    imagePositionMobile?: string;
     /** Children opcionales (para renderizar contenido encima) */
     children?: React.ReactNode;
     /** Clases adicionales */
@@ -231,6 +235,8 @@ export default function HeroBanner({
     overlayOpacity = 0.5,
     enableParallax = true,
     parallaxIntensity = 0.3,
+    imagePositionDesktop,
+    imagePositionMobile,
     title,
     subtitle,
     children,
@@ -276,6 +282,8 @@ export default function HeroBanner({
                 : undefined),
             title: title,
             subtitle: subtitle,
+            imagePositionDesktop: imagePositionDesktop,
+            imagePositionMobile: imagePositionMobile,
         }];
 
     const currentSlideData = preparedSlides[currentSlide];
@@ -589,11 +597,15 @@ export function CategoryHeroBanner({
     categorySlug,
     minHeight,
     adjacentCategories = [],
+    imagePositionDesktop,
+    imagePositionMobile,
     children
 }: {
     categorySlug: string;
     minHeight?: string;
     adjacentCategories?: string[];
+    imagePositionDesktop?: string;
+    imagePositionMobile?: string;
     children?: React.ReactNode;
 }) {
     return (
@@ -602,6 +614,8 @@ export function CategoryHeroBanner({
             minHeight={minHeight}
             alt={`Hero ${categorySlug}`}
             adjacentCategories={adjacentCategories}
+            imagePositionDesktop={imagePositionDesktop}
+            imagePositionMobile={imagePositionMobile}
         >
             {children}
         </HeroBanner>
