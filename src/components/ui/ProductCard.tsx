@@ -62,7 +62,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
             href={productHref}
             onClick={onPress ? () => onPress(item) : undefined}
             aria-label={`Ver ${equipo} ${modelo}`}
-            className={`group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5
+            className={`group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/10
             ${enableGlow ? 'hover:shadow-[0_0_22px_rgba(229,9,20,0.25)] hover:border-primary/45' : 'hover:border-primary/40'}
             transition-all duration-500 ease-out cursor-pointer aspect-[4/5] shadow-2xl animate-in fade-in zoom-in-95 fill-mode-both w-full text-left block`}
             style={{ animationDuration: '600ms' }}
@@ -78,8 +78,13 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                     priority={priority}
                 />
 
-                {/* Dynamic Overlays */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+                {/* Gradient inferior — legibilidad del texto */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90 group-hover:opacity-100 transition-opacity duration-500" />
+                {/* Gradient superior — enmarca fotos con fondo blanco */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-transparent" />
+                {/* Vignette lateral — define los bordes de la imagen */}
+                <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%)' }} />
+                {/* Tint primario en hover */}
                 <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             </div>
 

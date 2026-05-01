@@ -142,7 +142,7 @@ export async function getConfigServer(): Promise<Config> {
 export async function getBannersServer() {
     const { data, error } = await supabase
         .from("banners")
-        .select("id, title, description, image_url, video_url, link_url, button_text")
+        .select("id, title, description, image_url, video_url, link_url, button_text, show_button, image_position_desktop, image_position_mobile")
         .eq("active", true)
         .eq("show_on_home", true)
         .order("sort_order", { ascending: true });
