@@ -10,16 +10,15 @@ import { usePrefersReducedMotion } from "@/hooks/useOptimization";
 // ============================================
 
 interface HeroSlide {
-    /** Ruta a la imagen */
     imageSrc?: string;
-    /** Ruta al video */
     videoSrc?: string;
-    /** Título overlay (opcional) */
     title?: string;
-    /** Subtítulo overlay (opcional) */
     subtitle?: string;
-    /** Link al hacer clic (opcional) */
     link?: string;
+    buttonText?: string;
+    showButton?: boolean;
+    imagePositionDesktop?: string;
+    imagePositionMobile?: string;
 }
 
 interface HeroBannerProps {
@@ -152,12 +151,18 @@ function SlideIndicators({
 
 function HeroOverlayText({
     title,
-    subtitle
+    subtitle,
+    buttonText,
+    showButton,
+    link
 }: {
     title?: string;
     subtitle?: string;
+    buttonText?: string;
+    showButton?: boolean;
+    link?: string;
 }) {
-    if (!title && !subtitle) return null;
+    if (!title && !subtitle && !(showButton && buttonText)) return null;
 
     return (
         <motion.div
@@ -185,6 +190,26 @@ function HeroOverlayText({
                 >
                     {subtitle}
                 </motion.p>
+            )}
+            {showButton && buttonText && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                >
+                    {link ? (
+                        <a
+                            href={link}
+                            className="mt-6 inline-flex items-center gap-2 bg-primary hover:brightness-110 text-white font-black uppercase tracking-wide rounded-2xl px-7 py-3.5 text-sm sm:text-base transition-all duration-300 shadow-[0_10px_30px_rgba(229,9,20,0.35)] hover:shadow-[0_15px_40px_rgba(229,9,20,0.5)] hover:scale-105 active:scale-95"
+                        >
+                            {buttonText}
+                        </a>
+                    ) : (
+                        <span className="mt-6 inline-flex items-center gap-2 bg-primary text-white font-black uppercase tracking-wide rounded-2xl px-7 py-3.5 text-sm sm:text-base shadow-[0_10px_30px_rgba(229,9,20,0.35)]">
+                            {buttonText}
+                        </span>
+                    )}
+                </motion.div>
             )}
         </motion.div>
     );
@@ -424,7 +449,7 @@ export default function HeroBanner({
     return (
         <section
             ref={containerRef}
-            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden ${className} ${!minHeight ? 'min-h-[calc(35dvh+4rem)] md:min-h-[55dvh]' : ''}`}
+            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden pt-16 md:pt-[70px] ${className} ${!minHeight ? 'min-h-[calc(35dvh+4rem)] md:min-h-[55dvh]' : ''}`}
             style={minHeight ? { minHeight } : undefined}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -447,6 +472,10 @@ export default function HeroBanner({
             {/* Background Media Container with Parallax */}
             <div className="absolute inset-0">
                 {/* 1. Base Image Layer - SIEMPRE VISIBLE - SIN ANIMACIONES */}
+                <style dangerouslySetInnerHTML={{ __html: `
+                    .hero-img-${currentSlide} { object-position: ${currentSlideData.imagePositionMobile || 'center center'}; }
+                    @media (min-width: 768px) { .hero-img-${currentSlide} { object-position: ${currentSlideData.imagePositionDesktop || 'center center'}; } }
+                ` }} />
                 <Image
                     key={finalImageSrc}
                     src={finalImageSrc}
@@ -456,7 +485,7 @@ export default function HeroBanner({
                     quality={75}
                     loading="eager"
                     fetchPriority="high"
-                    className="object-cover z-0 object-[center_55%] md:object-[center_30%]"
+                    className={`object-cover z-0 hero-img-${currentSlide}`}
                     onLoad={handleImageLoad}
                     onError={handleImageError}
                     sizes="100vw"
@@ -509,10 +538,13 @@ export default function HeroBanner({
             </div>
 
 
-            {/* Overlay Text (optional) */}
+            {/* Overlay Text + CTA Button */}
             <HeroOverlayText
                 title={currentSlideData.title}
                 subtitle={currentSlideData.subtitle}
+                buttonText={currentSlideData.buttonText}
+                showButton={currentSlideData.showButton}
+                link={currentSlideData.link}
             />
 
             {/* Slide Indicators */}

@@ -25,9 +25,55 @@ interface Banner {
     video_url?: string;
     link_url: string;
     button_text: string;
+    show_button: boolean;
     active: boolean;
     show_on_home: boolean;
     sort_order: number;
+    image_position_desktop: string;
+    image_position_mobile: string;
+}
+
+const POSITION_PRESETS = [
+    { label: '↖', value: 'left top' },
+    { label: '↑', value: 'center top' },
+    { label: '↗', value: 'right top' },
+    { label: '←', value: 'left center' },
+    { label: '•', value: 'center center' },
+    { label: '→', value: 'right center' },
+    { label: '↙', value: 'left bottom' },
+    { label: '↓', value: 'center bottom' },
+    { label: '↘', value: 'right bottom' },
+];
+
+function PositionPicker({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+    return (
+        <div className="space-y-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</label>
+            <div className="grid grid-cols-3 gap-1 w-fit">
+                {POSITION_PRESETS.map(p => (
+                    <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => onChange(p.value)}
+                        className={`w-8 h-8 rounded-md text-xs font-bold flex items-center justify-center transition-all border ${
+                            value === p.value
+                                ? 'bg-primary text-black border-primary shadow-lg shadow-primary/30'
+                                : 'bg-black/50 text-gray-500 border-white/10 hover:border-white/30 hover:text-white'
+                        }`}
+                        title={p.value}
+                    >
+                        {p.label}
+                    </button>
+                ))}
+            </div>
+            <input
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-gray-400 font-mono focus:border-primary/50 outline-none"
+                placeholder="center center"
+            />
+        </div>
+    );
 }
 
 export default function BannersPage() {
@@ -120,7 +166,10 @@ export default function BannersPage() {
             show_on_home: true,
             sort_order: (banners.length > 0 ? Math.max(...banners.map(b => b.sort_order)) : 0) + 10,
             button_text: "Ver Colección",
-            link_url: "/catalogo"
+            show_button: false,
+            link_url: "/catalogo",
+            image_position_desktop: "center center",
+            image_position_mobile: "center center",
         });
         setLinkType('catalog');
         setSelectedCatalogFilter('all');
@@ -460,7 +509,7 @@ export default function BannersPage() {
                                                             src={formData.image_url}
                                                             alt=""
                                                             className="absolute inset-0 w-full h-full object-cover"
-                                                            style={{ objectPosition: previewMode === 'mobile' ? 'center center' : 'center 30%' }}
+                                                            style={{ objectPosition: previewMode === 'mobile' ? (formData.image_position_mobile || 'center center') : (formData.image_position_desktop || 'center center') }}
                                                         />
                                                     ) : (
                                                         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center">
@@ -485,7 +534,7 @@ export default function BannersPage() {
                                                                 {formData.description}
                                                             </p>
                                                         )}
-                                                        {formData.button_text && (
+                                                        {formData.show_button && formData.button_text && (
                                                             <span className="mt-1 inline-flex items-center gap-1 bg-primary text-black font-bold rounded-full px-3 py-1"
                                                                 style={{ fontSize: previewMode === 'mobile' ? '9px' : '11px' }}
                                                             >
@@ -503,6 +552,33 @@ export default function BannersPage() {
                                             </div>
                                         </div>
                                     )}
+                                </div>
+
+                                {/* POSICIÓN DE IMAGEN */}
+                                <div className="rounded-2xl border border-white/10 overflow-hidden">
+                                    <div className="px-5 py-3 bg-white/[0.03]">
+                                        <span className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-widest">
+                                            <ImageIcon size={14} className="text-blue-400" /> Posición de Imagen (Punto Focal)
+                                        </span>
+                                    </div>
+                                    <div className="p-5 flex flex-wrap gap-8">
+                                        <div className="flex items-start gap-3">
+                                            <Monitor size={16} className="text-gray-500 mt-6 shrink-0" />
+                                            <PositionPicker
+                                                label="Desktop"
+                                                value={formData.image_position_desktop || 'center center'}
+                                                onChange={v => setFormData({ ...formData, image_position_desktop: v })}
+                                            />
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <Smartphone size={16} className="text-gray-500 mt-6 shrink-0" />
+                                            <PositionPicker
+                                                label="Mobile"
+                                                value={formData.image_position_mobile || 'center center'}
+                                                onChange={v => setFormData({ ...formData, image_position_mobile: v })}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <hr className="border-white/5" />
@@ -546,12 +622,26 @@ export default function BannersPage() {
                                                 />
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-gray-400 ml-1">TEXTO DEL BOTÓN CTA</label>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-xs font-bold text-gray-400 ml-1">TEXTO DEL BOTÓN CTA</label>
+                                                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all select-none border ${formData.show_button ? 'bg-primary/10 text-primary border-primary/20' : 'bg-transparent text-gray-600 border-transparent hover:bg-white/5'}`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.show_button || false}
+                                                            onChange={e => setFormData({ ...formData, show_button: e.target.checked })}
+                                                            className="sr-only"
+                                                        />
+                                                        <div className={`w-2 h-2 rounded-full ${formData.show_button ? 'bg-primary shadow-[0_0_5px_currentColor]' : 'bg-gray-600'}`} />
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                                                            {formData.show_button ? 'Visible' : 'Oculto'}
+                                                        </span>
+                                                    </label>
+                                                </div>
                                                 <input
                                                     value={formData.button_text || ""}
                                                     onChange={e => setFormData({ ...formData, button_text: e.target.value })}
-                                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-700"
+                                                    className={`w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-700 ${!formData.show_button ? 'opacity-40' : ''}`}
                                                     placeholder="Ver Colección"
                                                 />
                                             </div>

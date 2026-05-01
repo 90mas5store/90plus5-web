@@ -165,4 +165,7 @@ export interface SupabaseRawBanner {
   video_url?: string;
   link_url?: string;
   button_text?: string;
+  show_button?: boolean;
+  image_position_desktop?: string;
+  image_position_mobile?: string;
 }
