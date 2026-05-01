@@ -33,6 +33,8 @@ export interface Category {
   slug: string;
   order: number;
   icon_url?: string;
+  hero_image_position_desktop?: string;
+  hero_image_position_mobile?: string;
 }
 
 export interface League {
@@ -41,6 +43,8 @@ export interface League {
   slug: string;
   imagen: string;
   category_id?: string;
+  hero_image_position_desktop?: string;
+  hero_image_position_mobile?: string;
 }
 
 export interface Config {

@@ -45,6 +45,8 @@ interface ExtendedLeague {
   id: string | null;
   category_id?: string | null;
   slug?: string;
+  hero_image_position_desktop?: string;
+  hero_image_position_mobile?: string;
 }
 
 interface CatalogoContentProps {
@@ -304,6 +306,14 @@ export default function CatalogoContent({
         categoryName={selectedCategoryObj?.nombre || ligaSeleccionada || undefined}
         adjacentCategories={adjacentCategories}
         prefersReducedMotion={prefersReducedMotion}
+        imagePositionDesktop={
+          selectedCategoryObj?.hero_image_position_desktop ||
+          selectedLeagueObj?.hero_image_position_desktop
+        }
+        imagePositionMobile={
+          selectedCategoryObj?.hero_image_position_mobile ||
+          selectedLeagueObj?.hero_image_position_mobile
+        }
       />
 
       {/* BUSCADOR */}

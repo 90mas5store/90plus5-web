@@ -95,13 +95,13 @@ export async function getConfigServer(): Promise<Config> {
     ] = await Promise.all([
         supabase
             .from("categories")
-            .select("id,name,slug,order_index,icon_url")
+            .select("id,name,slug,order_index,icon_url,hero_image_position_desktop,hero_image_position_mobile")
             .eq("active", true)
             .order("order_index", { ascending: true }),
 
         supabase
             .from("leagues")
-            .select("id,name,slug,image_url,category_id")
+            .select("id,name,slug,image_url,category_id,hero_image_position_desktop,hero_image_position_mobile")
             .eq("active", true)
             .order("sort_order", { ascending: true }),
     ]);
@@ -122,6 +122,8 @@ export async function getConfigServer(): Promise<Config> {
         slug: cat.slug,
         order: cat.order_index,
         icon_url: cat.icon_url,
+        hero_image_position_desktop: cat.hero_image_position_desktop,
+        hero_image_position_mobile: cat.hero_image_position_mobile,
     }));
 
     const adaptedLigas = (leagues ?? []).map((league: Record<string, unknown>) => ({
@@ -130,6 +132,8 @@ export async function getConfigServer(): Promise<Config> {
         slug: league.slug,
         imagen: league.image_url ?? "",
         category_id: league.category_id,
+        hero_image_position_desktop: league.hero_image_position_desktop,
+        hero_image_position_mobile: league.hero_image_position_mobile,
     }));
 
     return {
