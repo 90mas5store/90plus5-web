@@ -30,8 +30,8 @@ export default function HomeBannerContainer({ initialBanners }: HomeBannerContai
         link: b.link_url,
         buttonText: b.button_text,
         showButton: b.show_button ?? false,
-        imagePositionDesktop: b.image_position_desktop || 'center center',
-        imagePositionMobile: b.image_position_mobile || 'center center',
+        imagePositionDesktop: b.image_position_desktop || '50% 40%',
+        imagePositionMobile: b.image_position_mobile || '50% 50%',
     })) || [];
 
     // Si no hay slides, mostrar fallback

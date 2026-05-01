@@ -449,7 +449,7 @@ export default function HeroBanner({
     return (
         <section
             ref={containerRef}
-            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden pt-16 md:pt-[70px] ${className} ${!minHeight ? 'min-h-[calc(35dvh+4rem)] md:min-h-[55dvh]' : ''}`}
+            className={`relative z-0 flex flex-col items-center justify-center text-center overflow-hidden ${className} ${!minHeight ? 'min-h-[calc(35dvh+4rem)] md:min-h-[55dvh]' : ''}`}
             style={minHeight ? { minHeight } : undefined}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}

@@ -33,45 +33,76 @@ interface Banner {
     image_position_mobile: string;
 }
 
-const POSITION_PRESETS = [
-    { label: '↖', value: 'left top' },
-    { label: '↑', value: 'center top' },
-    { label: '↗', value: 'right top' },
-    { label: '←', value: 'left center' },
-    { label: '•', value: 'center center' },
-    { label: '→', value: 'right center' },
-    { label: '↙', value: 'left bottom' },
-    { label: '↓', value: 'center bottom' },
-    { label: '↘', value: 'right bottom' },
-];
+function parseFocalPoint(v: string): { x: number; y: number } {
+    const pct = v.match(/^(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/);
+    if (pct) return { x: parseFloat(pct[1]), y: parseFloat(pct[2]) };
+    const xMap: Record<string, number> = { left: 0, center: 50, right: 100 };
+    const yMap: Record<string, number> = { top: 0, center: 50, bottom: 100 };
+    const [xStr = 'center', yStr = 'center'] = v.trim().split(/\s+/);
+    return { x: xMap[xStr] ?? 50, y: yMap[yStr] ?? 50 };
+}
 
-function PositionPicker({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+function FocalPointPicker({ imageUrl, value, onChange, label, aspectRatio }: {
+    imageUrl?: string; value: string; onChange: (v: string) => void; label: string; aspectRatio: string;
+}) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const isDragging = useRef(false);
+    const { x, y } = parseFocalPoint(value);
+
+    const updateFromPointer = (clientX: number, clientY: number) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const nx = Math.round(Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)));
+        const ny = Math.round(Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)));
+        onChange(`${nx}% ${ny}%`);
+    };
+
     return (
-        <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</label>
-            <div className="grid grid-cols-3 gap-1 w-fit">
-                {POSITION_PRESETS.map(p => (
-                    <button
-                        key={p.value}
-                        type="button"
-                        onClick={() => onChange(p.value)}
-                        className={`w-8 h-8 rounded-md text-xs font-bold flex items-center justify-center transition-all border ${
-                            value === p.value
-                                ? 'bg-primary text-black border-primary shadow-lg shadow-primary/30'
-                                : 'bg-black/50 text-gray-500 border-white/10 hover:border-white/30 hover:text-white'
-                        }`}
-                        title={p.value}
-                    >
-                        {p.label}
-                    </button>
-                ))}
+        <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</span>
+                <span className="text-[10px] font-mono text-gray-600">{Math.round(x)}% {Math.round(y)}%</span>
             </div>
-            <input
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-gray-400 font-mono focus:border-primary/50 outline-none"
-                placeholder="center center"
-            />
+            <div
+                ref={containerRef}
+                className="relative rounded-xl overflow-hidden cursor-crosshair select-none border border-white/10 bg-neutral-900"
+                style={{ aspectRatio }}
+                onMouseDown={e => { isDragging.current = true; updateFromPointer(e.clientX, e.clientY); e.preventDefault(); }}
+                onMouseMove={e => { if (isDragging.current) updateFromPointer(e.clientX, e.clientY); }}
+                onMouseUp={() => { isDragging.current = false; }}
+                onMouseLeave={() => { isDragging.current = false; }}
+                onTouchStart={e => { isDragging.current = true; updateFromPointer(e.touches[0].clientX, e.touches[0].clientY); }}
+                onTouchMove={e => { if (isDragging.current) updateFromPointer(e.touches[0].clientX, e.touches[0].clientY); }}
+                onTouchEnd={() => { isDragging.current = false; }}
+            >
+                {imageUrl ? (
+                    <img src={imageUrl} alt="" draggable={false}
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                        style={{ objectPosition: `${x}% ${y}%` }}
+                    />
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <ImageIcon size={20} className="text-gray-700" />
+                    </div>
+                )}
+                {/* Grid de tercios */}
+                <div className="absolute inset-0 pointer-events-none opacity-20">
+                    <div className="absolute top-1/3 left-0 right-0 h-px bg-white" />
+                    <div className="absolute top-2/3 left-0 right-0 h-px bg-white" />
+                    <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white" />
+                    <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white" />
+                </div>
+                {/* Líneas de crosshair */}
+                <div className="absolute top-0 bottom-0 w-px bg-white/40 pointer-events-none" style={{ left: `${x}%` }} />
+                <div className="absolute left-0 right-0 h-px bg-white/40 pointer-events-none" style={{ top: `${y}%` }} />
+                {/* Punto focal */}
+                <div className="absolute w-4 h-4 rounded-full border-2 border-white pointer-events-none -translate-x-1/2 -translate-y-1/2 shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
+                    style={{ left: `${x}%`, top: `${y}%`, background: 'rgba(229,9,20,0.9)' }}
+                />
+                <div className="absolute bottom-1 inset-x-0 flex justify-center pointer-events-none">
+                    <span className="text-[8px] text-white/30">Arrastra para mover</span>
+                </div>
+            </div>
         </div>
     );
 }
@@ -501,7 +532,7 @@ export default function BannersPage() {
                                         <div className="p-4 bg-black/20">
                                             <div className={`mx-auto transition-all duration-300 ${previewMode === 'mobile' ? 'max-w-[390px]' : 'w-full'}`}>
                                                 <div className="relative rounded-xl overflow-hidden bg-neutral-900 border border-white/5"
-                                                    style={{ aspectRatio: previewMode === 'mobile' ? '9/5' : '16/5' }}
+                                                    style={{ aspectRatio: previewMode === 'mobile' ? '4/3' : '16/5' }}
                                                 >
                                                     {/* Imagen de fondo */}
                                                     {formData.image_url ? (
@@ -554,28 +585,38 @@ export default function BannersPage() {
                                     )}
                                 </div>
 
-                                {/* POSICIÓN DE IMAGEN */}
+                                {/* PUNTO FOCAL */}
                                 <div className="rounded-2xl border border-white/10 overflow-hidden">
                                     <div className="px-5 py-3 bg-white/[0.03]">
                                         <span className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-widest">
-                                            <ImageIcon size={14} className="text-blue-400" /> Posición de Imagen (Punto Focal)
+                                            <ImageIcon size={14} className="text-blue-400" /> Punto Focal de Imagen
                                         </span>
                                     </div>
-                                    <div className="p-5 flex flex-wrap gap-8">
-                                        <div className="flex items-start gap-3">
-                                            <Monitor size={16} className="text-gray-500 mt-6 shrink-0" />
-                                            <PositionPicker
+                                    <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Monitor size={13} className="text-gray-500" />
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Desktop</span>
+                                            </div>
+                                            <FocalPointPicker
                                                 label="Desktop"
-                                                value={formData.image_position_desktop || 'center center'}
-                                                onChange={v => setFormData({ ...formData, image_position_desktop: v })}
+                                                imageUrl={formData.image_url}
+                                                value={formData.image_position_desktop || '50% 50%'}
+                                                onChange={v => setFormData(prev => ({ ...prev, image_position_desktop: v }))}
+                                                aspectRatio="16/5"
                                             />
                                         </div>
-                                        <div className="flex items-start gap-3">
-                                            <Smartphone size={16} className="text-gray-500 mt-6 shrink-0" />
-                                            <PositionPicker
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Smartphone size={13} className="text-gray-500" />
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile</span>
+                                            </div>
+                                            <FocalPointPicker
                                                 label="Mobile"
-                                                value={formData.image_position_mobile || 'center center'}
-                                                onChange={v => setFormData({ ...formData, image_position_mobile: v })}
+                                                imageUrl={formData.image_url}
+                                                value={formData.image_position_mobile || '50% 50%'}
+                                                onChange={v => setFormData(prev => ({ ...prev, image_position_mobile: v }))}
+                                                aspectRatio="4/3"
                                             />
                                         </div>
                                     </div>
@@ -625,22 +666,22 @@ export default function BannersPage() {
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <label className="text-xs font-bold text-gray-400 ml-1">TEXTO DEL BOTÓN CTA</label>
-                                                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all select-none border ${formData.show_button ? 'bg-primary/10 text-primary border-primary/20' : 'bg-transparent text-gray-600 border-transparent hover:bg-white/5'}`}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={formData.show_button || false}
-                                                            onChange={e => setFormData({ ...formData, show_button: e.target.checked })}
-                                                            className="sr-only"
-                                                        />
-                                                        <div className={`w-2 h-2 rounded-full ${formData.show_button ? 'bg-primary shadow-[0_0_5px_currentColor]' : 'bg-gray-600'}`} />
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                                                            {formData.show_button ? 'Visible' : 'Oculto'}
-                                                        </span>
-                                                    </label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData(prev => ({ ...prev, show_button: !prev.show_button }))}
+                                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border text-[10px] font-bold uppercase tracking-wider ${
+                                                            formData.show_button
+                                                                ? 'bg-primary/10 text-primary border-primary/20'
+                                                                : 'text-gray-600 border-white/10 hover:bg-white/5'
+                                                        }`}
+                                                    >
+                                                        <div className={`w-2 h-2 rounded-full transition-colors ${formData.show_button ? 'bg-primary' : 'bg-gray-600'}`} />
+                                                        {formData.show_button ? 'Visible' : 'Oculto'}
+                                                    </button>
                                                 </div>
                                                 <input
                                                     value={formData.button_text || ""}
-                                                    onChange={e => setFormData({ ...formData, button_text: e.target.value })}
+                                                    onChange={e => setFormData(prev => ({ ...prev, button_text: e.target.value }))}
                                                     className={`w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-700 ${!formData.show_button ? 'opacity-40' : ''}`}
                                                     placeholder="Ver Colección"
                                                 />
