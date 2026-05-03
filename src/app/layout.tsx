@@ -178,11 +178,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 "name": "Camisetas de Fútbol",
                                 "description": "Catálogo de equipaciones de fútbol temporada 25/26. Real Madrid, Barcelona, Olimpia, Motagua, Bayern Munich, Liga Hondubet, Premier League, La Liga, Champions League y más.",
                                 "itemListElement": [
-                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Camisetas versión jugador" } },
-                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Camisetas versión aficionado" } },
-                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Equipaciones Liga Hondubet" } },
-                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Camisetas Mundial 2026" } },
-                                    { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Camisetas Retro" } }
+                                    { "@type": "ListItem", "position": 1, "name": "Camisetas versión jugador" },
+                                    { "@type": "ListItem", "position": 2, "name": "Camisetas versión aficionado" },
+                                    { "@type": "ListItem", "position": 3, "name": "Equipaciones Liga Hondubet" },
+                                    { "@type": "ListItem", "position": 4, "name": "Camisetas Mundial 2026" },
+                                    { "@type": "ListItem", "position": 5, "name": "Camisetas Retro" }
                                 ]
                             },
                             "sameAs": [
