@@ -10,7 +10,7 @@ export type ProductVariant = {
 export interface Product {
   id: string;
   equipo: string;
-  team_id: string;   // ✅ CLAVE
+  team_id: string;
   modelo: string;
   precio: number;
   imagen: string;
@@ -20,7 +20,10 @@ export interface Product {
   logoEquipo?: string;
   category_id?: string;
   league_id?: string;
-  league_ids?: string[]; // ✅ Support for multiple leagues
+  league_ids?: string[];
+  brand_id?: string | null;
+  brand_name?: string | null;
+  brand_logo?: string | null;
   slug?: string;
   sort_order?: number;
   trending_until?: string | null;
@@ -47,9 +50,19 @@ export interface League {
   hero_image_position_mobile?: string;
 }
 
+export interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url?: string | null;
+  active?: boolean;
+  sort_order?: number;
+}
+
 export interface Config {
   categorias: Category[];
   ligas: League[];
+  marcas: Brand[];
   banners?: { imagen: string; link: string }[];
   [key: string]: unknown;
 }
@@ -96,8 +109,10 @@ export interface SupabaseRawProduct {
   team_id: string;
   category_id?: string;
   league_id?: string;
+  brand_id?: string | null;
   active?: boolean;
   teams?: { id?: string; name: string; logo_url?: string } | { id?: string; name: string; logo_url?: string }[] | null;
+  brands?: { id?: string; name: string; slug?: string; logo_url?: string | null } | { id?: string; name: string; slug?: string; logo_url?: string | null }[] | null;
   product_variants?: SupabaseRawVariant[];
   product_leagues?: { league_id: string }[];
   product_images?: { id: string; image_url: string; sort_order: number }[];

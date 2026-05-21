@@ -27,7 +27,10 @@ type SupabaseProduct = {
     team_id: string | null;
     league_id: string | null;
     category_id: string | null;
+    brand_id: string | null;
     teams: { name: string; logo_url: string } | null;
+    brands: { name: string; slug: string } | null;
+    categories: { name: string } | null;
     product_images: { id: string; image_url: string; sort_order: number }[] | null;
     product_variants: Array<{
         version: string;
@@ -78,8 +81,10 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
     const { data: product } = await supabase
         .from("products")
         .select(`
-            id, name, description, image_url, team_id, league_id, category_id, allows_customization, trending_until,
+            id, name, description, image_url, team_id, league_id, category_id, brand_id, allows_customization, trending_until,
             teams (name, logo_url),
+            brands (name, slug),
+            categories (name),
             product_variants (version, price, original_price, active_original_price, active),
             product_images (id, image_url, sort_order)
         `)
@@ -91,6 +96,9 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
 
     const teams = Array.isArray(product.teams) ? product.teams[0] : product.teams;
 
+    const brands = Array.isArray(product.brands) ? product.brands[0] : product.brands;
+    const categories = Array.isArray(product.categories) ? product.categories[0] : product.categories;
+
     return {
         id: product.id,
         name: product.name,
@@ -99,7 +107,10 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
         team_id: product.team_id ?? null,
         league_id: product.league_id ?? null,
         category_id: product.category_id ?? null,
+        brand_id: product.brand_id ?? null,
         teams: teams ? { name: teams.name, logo_url: teams.logo_url ?? "" } : null,
+        brands: brands ? { name: brands.name, slug: brands.slug ?? "" } : null,
+        categories: categories ? { name: categories.name } : null,
         product_variants: product.product_variants ?? null,
         variants: product.product_variants ?? null,
         product_images: (product.product_images ?? null) as { id: string; image_url: string; sort_order: number }[] | null,
@@ -120,13 +131,12 @@ export async function generateMetadata(
 
     const previousImages = (await parent).openGraph?.images || [];
     const mainImage = data.image_url || "/og-image.jpg";
-    const teamName = data.teams?.name || "Fútbol";
+    const displayName = data.teams?.name || data.brands?.name || "Fútbol";
 
-    // Formato solicitado: Equipo - Producto (El template del layout añade " | 90+5 Store")
-    const title = `${teamName} - ${data.name}`;
-    const fullTitle = `${title} | 90+5 Store`; // Para OpenGraph/Twitter que no usan template
+    const title = `${displayName} - ${data.name}`;
+    const fullTitle = `${title} | 90+5 Store`;
 
-    const description = data.description || `Compra la camiseta del ${teamName} al mejor precio. Envíos a todo Honduras.`;
+    const description = data.description || `Compra ${data.name} de ${displayName} al mejor precio. Envíos a todo Honduras.`;
 
     return {
         title, // Se aplicará el template: "%s | 90+5 Store"
@@ -170,8 +180,9 @@ export default async function ProductoPage({ params }: Props) {
         .from("products")
         .select(`
             id, name, slug, image_url, featured,
-            team_id, category_id, league_id,
+            team_id, category_id, league_id, brand_id,
             teams (name, logo_url),
+            brands (name, slug, logo_url),
             product_variants (version, price, active, original_price, active_original_price)
         `)
         .eq("active", true)
@@ -179,8 +190,8 @@ export default async function ProductoPage({ params }: Props) {
         .order("featured", { ascending: false })
         .limit(4);
 
-    const filterField = productData.league_id ? "league_id" : "category_id";
-    const filterValue = productData.league_id ?? productData.category_id;
+    const filterField = productData.brand_id ? "brand_id" : productData.league_id ? "league_id" : "category_id";
+    const filterValue = productData.brand_id ?? productData.league_id ?? productData.category_id;
 
     const { data: relatedRaw } = filterValue
         ? await relatedBase.eq(filterField, filterValue)
@@ -189,7 +200,8 @@ export default async function ProductoPage({ params }: Props) {
     const relatedProducts = (relatedRaw as SupabaseRawProduct[] | null || []).map(adaptSupabaseProductToProduct);
 
     // 🧭 Breadcrumb data
-    const teamName = productData.teams?.name || "Catálogo";
+    const teamName = productData.teams?.name || productData.brands?.name || "Catálogo";
+    const categoryName = productData.categories?.name || null;
     const breadcrumbItems = [
         { label: "Catálogo", href: "/catalogo" },
         { label: `${teamName} — ${productData.name}` },
@@ -216,12 +228,20 @@ export default async function ProductoPage({ params }: Props) {
     const versionStr = hasJugador && hasAficionado
         ? "versión jugador y aficionado"
         : hasJugador ? "versión jugador" : hasAficionado ? "versión aficionado" : "";
-    const autoDescription = [
-        `Camiseta ${teamName} ${productData.name} temporada 25/26.`,
-        versionStr ? `Disponible en ${versionStr}.` : "",
-        "Envíos a todo Honduras.",
-        "Compra en 90+5 Store, la tienda de fútbol #1 en Honduras.",
-    ].filter(Boolean).join(" ");
+    const isBrandProduct = !productData.teams?.name && !!productData.brands?.name;
+    const autoDescription = isBrandProduct
+        ? [
+            `${productData.brands!.name} ${productData.name}.`,
+            categoryName ? `Categoría: ${categoryName}.` : "",
+            "Envíos a todo Honduras.",
+            "Compra en 90+5 Store.",
+        ].filter(Boolean).join(" ")
+        : [
+            `Camiseta ${teamName} ${productData.name} temporada 25/26.`,
+            versionStr ? `Disponible en ${versionStr}.` : "",
+            "Envíos a todo Honduras.",
+            "Compra en 90+5 Store, la tienda de fútbol #1 en Honduras.",
+        ].filter(Boolean).join(" ");
     const enrichedDescription = productData.description || autoDescription;
 
     // Múltiples Offers: una por cada variante activa
@@ -275,15 +295,14 @@ export default async function ProductoPage({ params }: Props) {
         "sku": productData.id,
         "brand": {
             "@type": "Brand",
-            "name": productData.teams?.name || "90+5 Store"
+            "name": productData.brands?.name || productData.teams?.name || "90+5 Store"
         },
-        "category": "Camisetas de Fútbol",
+        "category": categoryName || "Deportes",
         "keywords": [
-            `camiseta ${teamName}`,
+            productData.teams?.name ? `camiseta ${teamName}` : `${productData.brands?.name || ''} ${categoryName || ''}`.trim(),
             `${productData.name} Honduras`,
-            "camiseta fútbol Honduras",
-            "versión jugador Honduras",
-            "comprar camiseta Honduras",
+            productData.teams?.name ? "camiseta fútbol Honduras" : `${productData.brands?.name || ''} Honduras`.trim(),
+            "comprar Honduras",
         ].filter(Boolean).join(", "),
         "offers": offers.length === 1 ? offers[0] : offers,
         "seller": {

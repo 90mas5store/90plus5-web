@@ -21,6 +21,7 @@ type ProductView = {
     price: number
     image: string
     team?: { name: string }
+    brand?: { name: string } | null
     league?: { name: string; id: string }
     category?: { name: string; id: string }
     active: boolean
@@ -76,8 +77,10 @@ export default function ProductsPage() {
                     active,
                     category_id,
                     league_id,
+                    brand_id,
                     trending_until,
                     teams (name),
+                    brands (name),
                     product_variants (price, active)
                 `)
                 .is('deleted_at', null)
@@ -96,6 +99,7 @@ export default function ProductsPage() {
                     ? Math.min(...priceList.map((v: any) => v.price || 0))
                     : 0
 
+                const brandObj = Array.isArray(p.brands) ? p.brands[0] : p.brands;
                 return {
                     id: p.id,
                     name: p.name || 'Sin nombre',
@@ -103,6 +107,7 @@ export default function ProductsPage() {
                     price: price,
                     image: p.image_url || null,
                     team: p.teams,
+                    brand: brandObj ? { name: brandObj.name } : null,
                     league: { id: p.league_id || '', name: leaguesMap.get(p.league_id) || 'General' },
                     category: { id: p.category_id || '', name: categoriesMap.get(p.category_id) || 'Sin categoría' },
                     active: p.active !== false,
@@ -224,7 +229,8 @@ export default function ProductsPage() {
     // Filtrado
     const filteredProducts = products.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-            (p.team?.name || '').toLowerCase().includes(search.toLowerCase())
+            (p.team?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+            (p.brand?.name || '').toLowerCase().includes(search.toLowerCase())
         const matchesCategory = filterCategory === 'all' || p.category?.id === filterCategory
         const matchesLeague = filterLeague === 'all' || p.league?.id === filterLeague
         const matchesStatus =
@@ -406,7 +412,7 @@ export default function ProductsPage() {
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-xs font-bold text-primary tracking-wider uppercase">
-                                                    {product.team?.name || 'Sin equipo'}
+                                                    {product.team?.name || product.brand?.name || 'Sin equipo'}
                                                 </span>
                                             </div>
                                             <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-primary transition-colors">
@@ -449,7 +455,7 @@ export default function ProductsPage() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-bold text-white truncate text-sm">{product.name}</p>
-                                                <p className="text-xs text-primary truncate">{product.team?.name || 'Sin equipo'}</p>
+                                                <p className="text-xs text-primary truncate">{product.team?.name || product.brand?.name || 'Sin equipo'}</p>
                                                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                                     <span className="text-[10px] text-gray-500">{product.category?.name || 'N/A'}</span>
                                                     <span className="text-gray-700">·</span>

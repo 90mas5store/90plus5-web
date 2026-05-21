@@ -35,15 +35,19 @@ const glowHover = {
 // Use standard button instead of div for semantics and keyboard accessibility
 export default function ProductCard({ item, priority = false, onPress, enableGlow = true, topSeller = false, liveMatch = null }: ProductCardProps) {
 
-    // Extraer datos asegurando que no fallen
     const {
         equipo,
         modelo,
         precio,
         imagen,
         logoEquipo,
+        brand_name,
+        brand_logo,
         trending_until,
     } = item;
+
+    const displayName = equipo || brand_name || '';
+    const displayLogo = logoEquipo || brand_logo || undefined;
 
     // isLive: partido en curso via API, O activación manual admin
     const isLive = !!liveMatch || (trending_until ? new Date(trending_until) > new Date() : false);
@@ -61,7 +65,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
         <Link
             href={productHref}
             onClick={onPress ? () => onPress(item) : undefined}
-            aria-label={`Ver ${equipo} ${modelo}`}
+            aria-label={`Ver ${displayName} ${modelo}`}
             className={`group relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/10
             ${enableGlow ? 'hover:shadow-[0_0_22px_rgba(229,9,20,0.25)] hover:border-primary/45' : 'hover:border-primary/40'}
             transition-all duration-500 ease-out cursor-pointer aspect-[4/5] shadow-2xl animate-in fade-in zoom-in-95 fill-mode-both w-full text-left block`}
@@ -71,7 +75,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
             <div className="absolute inset-0">
                 <ProductImage
                     src={imagen}
-                    alt={`${equipo} ${modelo}`}
+                    alt={`${displayName} ${modelo}`}
                     // Sizes optimizados para grid responsivo
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
@@ -88,12 +92,12 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                 <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             </div>
 
-            {/* 🏷️ Team Logo Overlay */}
-            {logoEquipo && (
+            {/* 🏷️ Team/Brand Logo Overlay */}
+            {displayLogo && (
                 <div className="absolute top-3 left-3 md:top-5 md:left-5 z-20 transform group-hover:scale-110 transition-transform duration-500">
                     <TeamLogo
-                        src={logoEquipo}
-                        alt={equipo}
+                        src={displayLogo}
+                        alt={displayName}
                         size={32} // Más pequeño en móvil
                         className="w-8 h-8 md:w-12 md:h-12" // Responsive
                     />
@@ -127,7 +131,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
             <div className="absolute inset-0 z-10 flex flex-col justify-end p-3 sm:p-4 md:p-6">
                 <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-16 md:group-hover:-translate-y-20">
                     <h3 className="text-base sm:text-lg md:text-2xl font-bold text-white leading-tight tracking-tight drop-shadow-lg">
-                        {equipo}
+                        {displayName}
                     </h3>
                     <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm font-medium tracking-wide mt-0.5 sm:mt-1">
                         {modelo}
