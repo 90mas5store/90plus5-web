@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
-import { getCatalogPaginated, getConfig, getTeamsByLeague, getTeamsByCategory } from "../../lib/api";
+import { getCatalogPaginated, getConfig, getTeamsByLeague, getTeamsByCategory, getBrandsByCategory } from "../../lib/api";
 import dynamic from "next/dynamic";
-import { Product, Config, Category, League } from "../../lib/types";
+import { Product, Brand, Config, Category, League } from "../../lib/types";
 
 // 🏗️ Carga dinámica de componentes pesados
 const CarruselDeCategoria = dynamic(() => import("../../components/catalogo/CarruselDeCategoria"), {
@@ -87,6 +87,9 @@ export default function CatalogoContent({
   // === Equipos por liga ===
   const [teams, setTeams] = useState<{ id: string; name: string; logo_url: string | null }[]>([]);
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string | null>(null);
+  // === Marcas por categoría ===
+  const [categoryBrands, setCategoryBrands] = useState<Brand[]>([]);
+  const [marcaSeleccionada, setMarcaSeleccionada] = useState<string | null>(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 400); // 400ms delay
   const prefersReducedMotion = usePrefersReducedMotion();
   const toast = useToastMessage();
@@ -128,7 +131,7 @@ export default function CatalogoContent({
     async function fetchConfigData() {
       try {
         const cfg = await getConfig();
-        setConfig(cfg || { categorias: [], ligas: [] });
+        setConfig(cfg || { categorias: [], ligas: [], marcas: [] });
 
         if (cfg?.ligas?.length) {
           setLigas(cfg.ligas);
@@ -197,6 +200,7 @@ export default function CatalogoContent({
         categoryId: selectedCategoryObj?.id,
         leagueId: selectedLeagueObj?.id,
         teamId: equipoSeleccionado ?? undefined,
+        brandId: marcaSeleccionada ?? undefined,
       });
 
       if (isAppend) {
@@ -221,7 +225,7 @@ export default function CatalogoContent({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, toast, config, categoriaParam, ligaParam]);
+  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada, toast, config, categoriaParam, ligaParam]);
 
   // Efecto Principal: Disparar Fetch cuando cambian filtros
   // Siempre fetchea en mount para garantizar datos frescos (evita stale data del Router Cache)
@@ -230,7 +234,7 @@ export default function CatalogoContent({
     fetchProducts(1, false);
   // fetchProducts omitted: its extra deps (config, toast, etc.) would cause unwanted re-runs
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado]);
+  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada]);
 
   // 2. Función para cargar más (botón)
   const handleLoadMore = () => {
@@ -239,17 +243,23 @@ export default function CatalogoContent({
     fetchProducts(nextPage, true);
   };
 
-  // === Cargar equipos: por liga si hay liga, por categoría si no ===
+  // === Cargar equipos y marcas: por liga si hay liga, por categoría si no ===
   useEffect(() => {
     if (selectedLeagueObj?.id) {
       setEquipoSeleccionado(null);
+      setMarcaSeleccionada(null);
+      setCategoryBrands([]);
       getTeamsByLeague(selectedLeagueObj.id).then(setTeams);
     } else if (selectedCategoryObj?.id) {
       setEquipoSeleccionado(null);
+      setMarcaSeleccionada(null);
       getTeamsByCategory(selectedCategoryObj.id).then(setTeams);
+      getBrandsByCategory(selectedCategoryObj.id).then(setCategoryBrands);
     } else {
       setTeams([]);
+      setCategoryBrands([]);
       setEquipoSeleccionado(null);
+      setMarcaSeleccionada(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeagueObj?.id, selectedCategoryObj?.id]);
@@ -388,10 +398,49 @@ export default function CatalogoContent({
           selected={equipoSeleccionado}
           onSelect={(id) => {
             setEquipoSeleccionado(id);
+            setMarcaSeleccionada(null);
             shouldScrollOnFilter.current = false;
           }}
           leagueName={ligaSeleccionada ?? undefined}
         />
+      )}
+
+      {/* FILTRO DE MARCAS — visible si la categoría tiene productos con marca */}
+      {categoryBrands.length >= 2 && !ligaSeleccionada && (
+        <div className="px-4 pb-5 max-w-7xl mx-auto">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-px flex-1 bg-white/5" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+              Marcas
+            </span>
+            <div className="h-px flex-1 bg-white/5" />
+          </div>
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+            {categoryBrands.map((brand) => {
+              const isSelected = marcaSeleccionada === brand.id;
+              return (
+                <button
+                  key={brand.id}
+                  onClick={() => {
+                    setMarcaSeleccionada(isSelected ? null : brand.id);
+                    setEquipoSeleccionado(null);
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold whitespace-nowrap transition-all ${
+                    isSelected
+                      ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.2)]'
+                      : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  {brand.logo_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={brand.logo_url} alt="" className="w-5 h-5 object-contain" />
+                  )}
+                  {brand.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* GRID DE PRODUCTOS */}

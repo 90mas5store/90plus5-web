@@ -1,4 +1,4 @@
-import { Product, Config, ShippingZone, SupabaseRawProduct } from "./types";
+import { Product, Brand, Config, ShippingZone, SupabaseRawProduct } from "./types";
 import { supabase } from "./supabase/client";
 
 export interface CatalogParams {
@@ -8,6 +8,7 @@ export interface CatalogParams {
   categoryId?: string;
   leagueId?: string;
   teamId?: string;
+  brandId?: string;
 }
 
 // ✅ Cliente Supabase inicializado correctamente
@@ -26,8 +27,14 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
             category_id,
             league_id,
             team_id,
+            brand_id,
             teams (
             name,
+            logo_url
+          ),
+            brands (
+            name,
+            slug,
             logo_url
           ),
             product_variants (
@@ -42,7 +49,7 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
         `)
 
     .eq("active", true)
-    .order("name", { ascending: true }); // 🔤 Orden alfabético para catálogo
+    .order("name", { ascending: true });
 
   if (error) {
     console.error("Error fetching catalog from Supabase:", error);
@@ -63,6 +70,7 @@ export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product 
       : 0;
 
   const teams = Array.isArray(raw.teams) ? raw.teams[0] : raw.teams;
+  const brand = Array.isArray(raw.brands) ? raw.brands[0] : raw.brands ?? null;
 
   return {
     id: raw.id,
@@ -77,6 +85,9 @@ export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product 
     category_id: raw.category_id,
     league_id: raw.league_id,
     league_ids: raw.product_leagues?.map(pl => pl.league_id) || (raw.league_id ? [raw.league_id] : []),
+    brand_id: raw.brand_id ?? null,
+    brand_name: brand?.name ?? null,
+    brand_logo: brand?.logo_url ?? null,
     sort_order: raw.sort_order || 0,
     trending_until: raw.trending_until ?? null,
     product_variants: variants.map(v => ({
@@ -105,10 +116,16 @@ async function fetchFeaturedFromSupabase(): Promise<Product[]> {
     team_id,
     category_id,
     league_id,
+    brand_id,
     trending_until,
     teams(
       id,
       name,
+      logo_url
+    ),
+    brands(
+      name,
+      slug,
       logo_url
     ),
     product_variants(
@@ -123,7 +140,7 @@ async function fetchFeaturedFromSupabase(): Promise<Product[]> {
       `)
     .eq("active", true)
     .eq("featured", true)
-    .order("sort_order", { ascending: true }); // 🎯 HOME = ORDEN MANUAL
+    .order("sort_order", { ascending: true });
 
   if (error) {
     console.error("Error fetching featured from Supabase:", error);
@@ -186,10 +203,31 @@ async function fetchConfigFromSupabase(): Promise<Config> {
     hero_image_position_mobile: league.hero_image_position_mobile,
   }));
 
-  // 4️⃣ Devolvemos EXACTAMENTE el Config esperado
+  // 4️⃣ Traemos marcas
+  const { data: brands, error: brandError } = await supabase
+    .from("brands")
+    .select("id, name, slug, logo_url, sort_order")
+    .eq("active", true)
+    .is("deleted_at", null)
+    .order("sort_order", { ascending: true });
+
+  if (brandError) {
+    console.error("Error fetching brands:", brandError);
+  }
+
+  const adaptedMarcas: Brand[] = (brands ?? []).map((b: Record<string, unknown>) => ({
+    id: b.id as string,
+    name: b.name as string,
+    slug: b.slug as string,
+    logo_url: (b.logo_url as string) ?? null,
+    sort_order: (b.sort_order as number) ?? 0,
+  }));
+
+  // 5️⃣ Devolvemos EXACTAMENTE el Config esperado
   return {
     categorias: adaptedCategorias,
     ligas: adaptedLigas,
+    marcas: adaptedMarcas,
   } as Config;
 }
 
@@ -492,6 +530,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     categoryId,
     leagueId,
     teamId,
+    brandId,
   } = params;
 
   // 1️⃣ Revisar Caché (solo en el navegador — el servidor no puede limpiar este cache desde el cliente)
@@ -532,8 +571,9 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         .from("products")
         .select(`
             id, name, slug, description, image_url, featured,
-            category_id, league_id, team_id, trending_until,
+            category_id, league_id, team_id, brand_id, trending_until,
             teams ( name, logo_url ),
+            brands ( name, slug, logo_url ),
             product_variants ( id, version, price, active, original_price, active_original_price ),
             product_leagues ( league_id )
         `)
@@ -541,6 +581,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         .eq("active", true);
 
       if (teamId) fuzzyQuery = fuzzyQuery.eq('team_id', teamId);
+      if (brandId) fuzzyQuery = fuzzyQuery.eq('brand_id', brandId);
 
       const { data: productsData, error: productsError } = await fuzzyQuery;
 
@@ -575,7 +616,10 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     .select(`
         id,
         name,
+        team_id,
+        brand_id,
         teams ( name ),
+        brands ( name ),
         product_leagues${leagueId ? "!inner" : ""} ( league_id )
     `)
     .eq("active", true);
@@ -584,6 +628,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   if (categoryId) metadataQuery = metadataQuery.eq('category_id', categoryId);
   if (leagueId) metadataQuery = metadataQuery.eq('product_leagues.league_id', leagueId);
   if (teamId) metadataQuery = metadataQuery.eq('team_id', teamId);
+  if (brandId) metadataQuery = metadataQuery.eq('brand_id', brandId);
 
   // 3. Ejecutar Query Ligera
   const { data: allMetadata, error: metaError } = await metadataQuery;
@@ -595,17 +640,16 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
 
   // 4. Ordenamiento Estricto en Memoria
   const sortedMetadata = (allMetadata || []).sort((a, b) => {
-    // Normalización de seguridad (usamos "zzz" para items sin equipo)
     const teamsA = Array.isArray(a.teams) ? a.teams[0] : a.teams;
     const teamsB = Array.isArray(b.teams) ? b.teams[0] : b.teams;
-    const teamA = (teamsA?.name || "zzz").toLowerCase().trim();
-    const teamB = (teamsB?.name || "zzz").toLowerCase().trim();
+    const brandsA = Array.isArray(a.brands) ? a.brands[0] : a.brands;
+    const brandsB = Array.isArray(b.brands) ? b.brands[0] : b.brands;
+    const groupA = (teamsA?.name || brandsA?.name || "zzz").toLowerCase().trim();
+    const groupB = (teamsB?.name || brandsB?.name || "zzz").toLowerCase().trim();
 
-    // Nivel 1: Equipo
-    const teamCompare = teamA.localeCompare(teamB);
-    if (teamCompare !== 0) return teamCompare;
+    const groupCompare = groupA.localeCompare(groupB);
+    if (groupCompare !== 0) return groupCompare;
 
-    // Nivel 2: Producto (Modelo)
     const nameA = (a.name || "").toLowerCase().trim();
     const nameB = (b.name || "").toLowerCase().trim();
     return nameA.localeCompare(nameB);
@@ -627,8 +671,9 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     .from("products")
     .select(`
         id, name, slug, description, image_url, featured,
-        category_id, league_id, team_id, trending_until,
+        category_id, league_id, team_id, brand_id, trending_until,
         teams ( name, logo_url ),
+        brands ( name, slug, logo_url ),
         product_variants ( id, version, price, active, original_price, active_original_price ),
         product_leagues ( league_id )
     `)
@@ -727,6 +772,34 @@ export async function getTeamsByCategory(categoryId: string): Promise<{ id: stri
   return teams.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** 🏷️ Obtener marcas que tienen productos activos en una categoría */
+export async function getBrandsByCategory(categoryId: string): Promise<Brand[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('brand_id, brands!inner(id, name, slug, logo_url)')
+    .eq('category_id', categoryId)
+    .eq('active', true)
+    .not('brand_id', 'is', null);
+
+  if (error) {
+    console.error('Error fetching brands by category:', error);
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const brands: Brand[] = [];
+
+  for (const row of data || []) {
+    const brand = Array.isArray(row.brands) ? row.brands[0] : row.brands;
+    if (brand && !seen.has(brand.id)) {
+      seen.add(brand.id);
+      brands.push({ id: brand.id, name: brand.name, slug: brand.slug, logo_url: brand.logo_url });
+    }
+  }
+
+  return brands.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** ⚙️ Obtener configuración global (ligas, banners, etc.) */
 export async function getConfig(): Promise<Config> {
   return getCached<Config>("config_v5", () =>
@@ -781,8 +854,14 @@ export async function getProductById(idOrSlug: string): Promise<Product> {
     team_id,
     category_id,
     league_id,
+    brand_id,
     teams(
       name,
+      logo_url
+    ),
+    brands(
+      name,
+      slug,
       logo_url
     ),
     product_variants(

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { Product, Config, SupabaseRawProduct } from "./types";
+import { Product, Brand, Config, SupabaseRawProduct } from "./types";
 
 // ✅ Cliente seguro para Server Components (solo necesita URL + ANON KEY para datos públicos)
 const supabase = createClient(
@@ -20,6 +20,7 @@ function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product {
             : 0;
 
     const teams = Array.isArray(raw.teams) ? raw.teams[0] : raw.teams;
+    const brand = Array.isArray(raw.brands) ? raw.brands[0] : raw.brands ?? null;
 
     return {
         id: raw.id,
@@ -34,6 +35,9 @@ function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product {
         category_id: raw.category_id,
         league_id: raw.league_id,
         league_ids: raw.product_leagues?.map(pl => pl.league_id) || (raw.league_id ? [raw.league_id] : []),
+        brand_id: raw.brand_id ?? null,
+        brand_name: brand?.name ?? null,
+        brand_logo: brand?.logo_url ?? null,
         sort_order: raw.sort_order || 0,
         product_variants: variants.map(v => ({
             id: v.id,
@@ -59,9 +63,15 @@ export async function getFeaturedServer(): Promise<Product[]> {
             team_id,
             category_id,
             league_id,
+            brand_id,
             teams(
                 id,
                 name,
+                logo_url
+            ),
+            brands(
+                name,
+                slug,
                 logo_url
             ),
             product_variants(
@@ -76,7 +86,7 @@ export async function getFeaturedServer(): Promise<Product[]> {
         `)
         .eq("active", true)
         .eq("featured", true)
-        .order("sort_order", { ascending: true }); // 🎯 HOME = ORDEN MANUAL (sort_order)
+        .order("sort_order", { ascending: true });
 
     if (error) {
         console.error("Error fetching featured from Supabase (Server):", error);
@@ -136,9 +146,29 @@ export async function getConfigServer(): Promise<Config> {
         hero_image_position_mobile: league.hero_image_position_mobile,
     }));
 
+    const { data: brands, error: brandError } = await supabase
+        .from("brands")
+        .select("id, name, slug, logo_url, sort_order")
+        .eq("active", true)
+        .is("deleted_at", null)
+        .order("sort_order", { ascending: true });
+
+    if (brandError) {
+        console.error("Error fetching brands:", brandError);
+    }
+
+    const adaptedMarcas: Brand[] = (brands ?? []).map((b: Record<string, unknown>) => ({
+        id: b.id as string,
+        name: b.name as string,
+        slug: b.slug as string,
+        logo_url: (b.logo_url as string) ?? null,
+        sort_order: (b.sort_order as number) ?? 0,
+    }));
+
     return {
         categorias: adaptedCategorias,
         ligas: adaptedLigas,
+        marcas: adaptedMarcas,
     } as Config;
 }
 

@@ -63,6 +63,7 @@ export default function CreateProductPage() {
     const [teams, setTeams] = useState<any[]>([])
     const [leagues, setLeagues] = useState<any[]>([])
     const [categories, setCategories] = useState<any[]>([])
+    const [brands, setBrands] = useState<any[]>([])
     const [allSizes, setAllSizes] = useState<Size[]>([])
     const [allPatches, setAllPatches] = useState<Patch[]>([])
     const [availableVersions, setAvailableVersions] = useState<string[]>(['Fan', 'Player', 'Estandar'])
@@ -76,6 +77,7 @@ export default function CreateProductPage() {
         team_id: '',
         league_id: '',
         category_id: '',
+        brand_id: '',
         gender: '',
         active: true,
         featured: false,
@@ -117,12 +119,13 @@ export default function CreateProductPage() {
         const loadData = async () => {
             try {
                 // 1. Cargar catálogos
-                const [teamsRes, leaguesRes, catsRes, sizesRes, patchesRes] = await Promise.all([
+                const [teamsRes, leaguesRes, catsRes, sizesRes, patchesRes, brandsRes] = await Promise.all([
                     supabase.from('teams').select('id, name').order('name'),
                     supabase.from('leagues').select('id, name').order('name'),
                     supabase.from('categories').select('id, name').order('name'),
                     supabase.from('sizes').select('id, label, sort_order, category_id, gender').eq('active', true).order('sort_order'),
                     supabase.from('patches').select('id, name, category_id').eq('active', true).order('name'),
+                    supabase.from('brands').select('id, name').eq('active', true).is('deleted_at', null).order('name'),
                 ])
 
                 setTeams(teamsRes.data || [])
@@ -130,6 +133,7 @@ export default function CreateProductPage() {
                 setCategories(catsRes.data || [])
                 setAllSizes(sizesRes.data || [])
                 setAllPatches(patchesRes.data || [])
+                setBrands(brandsRes.data || [])
 
                 // 2.0 Cargar Versiones Existentes (para el dropdown) - Opcional, pero útil para sugerencias
                 const { data: allVariants } = await supabase
@@ -317,6 +321,7 @@ export default function CreateProductPage() {
                     team_id: formData.team_id || null,
                     league_id: selectedLeagues.size > 0 ? Array.from(selectedLeagues)[0] : (formData.league_id || null),
                     category_id: formData.category_id || null,
+                    brand_id: (formData.brand_id && formData.brand_id !== 'pending') ? formData.brand_id : null,
                     gender: formData.gender || null,
                     active: formData.active,
                     featured: formData.featured,
@@ -893,54 +898,6 @@ export default function CreateProductPage() {
                         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Clasificación</h2>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">Equipo</label>
-                            <select
-                                name="team_id"
-                                value={formData.team_id}
-                                onChange={handleChange}
-                                className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none transition-colors appearance-none"
-                            >
-                                <option value="">Seleccionar Equipo</option>
-                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">Ligas / Competiciones</label>
-                            <div className="bg-black/50 border border-white/10 rounded-xl p-3 max-h-48 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-                                {leagues.map(l => {
-                                    const isSelected = selectedLeagues.has(l.id)
-                                    return (
-                                        <div
-                                            key={l.id}
-                                            onClick={() => setSelectedLeagues(prev => {
-                                                const next = new Set(prev)
-                                                if (next.has(l.id)) next.delete(l.id)
-                                                else next.add(l.id)
-                                                return next
-                                            })}
-                                            className={`
-                                                flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors
-                                                ${isSelected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white/5 border border-transparent'}
-                                            `}
-                                        >
-                                            <div className={`
-                                                w-4 h-4 rounded border flex items-center justify-center transition-colors
-                                                ${isSelected ? 'bg-primary border-primary' : 'border-white/30'}
-                                            `}>
-                                                {isSelected && <CheckCircle className="w-3 h-3 text-black" />}
-                                            </div>
-                                            <span className={`text-sm ${isSelected ? 'text-primary font-bold' : 'text-gray-400'}`}>
-                                                {l.name}
-                                            </span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                            <p className="text-[10px] text-gray-600 mt-1 ml-1">* Selecciona todas las que apliquen (Ej: LaLiga + Champions)</p>
-                        </div>
-
-                        <div>
                             <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">Categoría</label>
                             <select
                                 name="category_id"
@@ -952,6 +909,92 @@ export default function CreateProductPage() {
                                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
+
+                        {/* Tipo: Equipo de fútbol O Marca */}
+                        <div className="pt-2">
+                            <label className="block text-xs font-bold uppercase text-gray-500 mb-3 ml-1">Tipo de producto</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, brand_id: '', team_id: prev.team_id }))}
+                                    className={`py-2.5 rounded-xl border text-xs font-bold transition-all ${!formData.brand_id ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-black/30 text-gray-500 hover:border-white/30'}`}
+                                >
+                                    Equipo de fútbol
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, team_id: '', brand_id: prev.brand_id || 'pending' }))}
+                                    className={`py-2.5 rounded-xl border text-xs font-bold transition-all ${formData.brand_id ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-black/30 text-gray-500 hover:border-white/30'}`}
+                                >
+                                    Marca (sin equipo)
+                                </button>
+                            </div>
+                        </div>
+
+                        {!formData.brand_id ? (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">Equipo</label>
+                                    <select
+                                        name="team_id"
+                                        value={formData.team_id}
+                                        onChange={handleChange}
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none transition-colors appearance-none"
+                                    >
+                                        <option value="">Seleccionar Equipo</option>
+                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">Ligas / Competiciones</label>
+                                    <div className="bg-black/50 border border-white/10 rounded-xl p-3 max-h-48 overflow-y-auto custom-scrollbar flex flex-col gap-2">
+                                        {leagues.map(l => {
+                                            const isSelected = selectedLeagues.has(l.id)
+                                            return (
+                                                <div
+                                                    key={l.id}
+                                                    onClick={() => setSelectedLeagues(prev => {
+                                                        const next = new Set(prev)
+                                                        if (next.has(l.id)) next.delete(l.id)
+                                                        else next.add(l.id)
+                                                        return next
+                                                    })}
+                                                    className={`
+                                                        flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors
+                                                        ${isSelected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white/5 border border-transparent'}
+                                                    `}
+                                                >
+                                                    <div className={`
+                                                        w-4 h-4 rounded border flex items-center justify-center transition-colors
+                                                        ${isSelected ? 'bg-primary border-primary' : 'border-white/30'}
+                                                    `}>
+                                                        {isSelected && <CheckCircle className="w-3 h-3 text-black" />}
+                                                    </div>
+                                                    <span className={`text-sm ${isSelected ? 'text-primary font-bold' : 'text-gray-400'}`}>
+                                                        {l.name}
+                                                    </span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    <p className="text-[10px] text-gray-600 mt-1 ml-1">* Selecciona todas las que apliquen (Ej: LaLiga + Champions)</p>
+                                </div>
+                            </>
+                        ) : (
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">Marca</label>
+                                <select
+                                    name="brand_id"
+                                    value={formData.brand_id === 'pending' ? '' : formData.brand_id}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, brand_id: e.target.value || 'pending', team_id: '' }))}
+                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none transition-colors appearance-none"
+                                >
+                                    <option value="">Seleccionar Marca</option>
+                                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     {/* Audiencia */}

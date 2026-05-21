@@ -19,6 +19,7 @@ import {
     Trash2,
     Scissors,
     DollarSign,
+    Bookmark,
 } from 'lucide-react';
 
 interface AdminBottomNavProps {
@@ -58,6 +59,7 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
                 { label: 'Categorías', href: '/admin/categorias', icon: Tag },
                 { label: 'Ligas', href: '/admin/ligas', icon: Trophy },
                 { label: 'Equipos', href: '/admin/equipos', icon: Shield },
+                { label: 'Marcas', href: '/admin/marcas', icon: Bookmark },
                 { label: 'Personal.', href: '/admin/estilos', icon: Scissors },
             ],
         },

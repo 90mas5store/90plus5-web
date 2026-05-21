@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut, LayoutDashboard, Package, FileSpreadsheet, Shirt, Users, Tag, Trophy, Shield, LayoutTemplate, Lock, Activity, Trash2, Scissors, DollarSign } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, FileSpreadsheet, Shirt, Users, Tag, Trophy, Shield, LayoutTemplate, Lock, Activity, Trash2, Scissors, DollarSign, Bookmark } from 'lucide-react';
 
 interface AdminSidebarProps {
     userEmail?: string;
@@ -78,6 +78,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                     { label: 'Categorías', href: '/admin/categorias', icon: Tag },
                     { label: 'Ligas', href: '/admin/ligas', icon: Trophy },
                     { label: 'Equipos', href: '/admin/equipos', icon: Shield },
+                    { label: 'Marcas', href: '/admin/marcas', icon: Bookmark },
                     { label: 'Personalización', href: '/admin/estilos', icon: Scissors },
                 ].map((item) => {
                     const active = isActive(item.href);
