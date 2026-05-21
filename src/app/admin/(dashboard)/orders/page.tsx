@@ -32,7 +32,10 @@ export default async function OrdersPage({
         .range(from, to);
 
     if (queryTerm) {
-        query = query.or(`customer_name.ilike.%${queryTerm}%,customer_email.ilike.%${queryTerm}%,id.ilike.%${queryTerm}%`)
+        const sanitized = queryTerm.replace(/[%_,().]/g, '');
+        if (sanitized) {
+            query = query.or(`customer_name.ilike.%${sanitized}%,customer_email.ilike.%${sanitized}%,id.ilike.%${sanitized}%`)
+        }
     }
     if (statusFilter) {
         query = query.eq('status', statusFilter)

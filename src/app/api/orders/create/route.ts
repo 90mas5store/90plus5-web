@@ -107,16 +107,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, fake: true }, { status: 200 });
         }
 
-        // 🔑 IDEMPOTENCY CHECK — previene órdenes duplicadas por doble-click o retry
-        if (payload.idempotency_key) {
-            const { data: existing } = await supabase
-                .from('orders')
-                .select('id')
-                .eq('idempotency_key', payload.idempotency_key)
-                .maybeSingle()
-            if (existing) {
-                return NextResponse.json({ success: true, order_id: existing.id, duplicate: true }, { status: 200 })
-            }
+        // 🔑 IDEMPOTENCY — requerir key para prevenir duplicados
+        if (!payload.idempotency_key || typeof payload.idempotency_key !== 'string' || payload.idempotency_key.length < 5) {
+            return NextResponse.json(
+                { success: false, error: 'Falta clave de idempotencia' },
+                { status: 400 }
+            );
         }
 
         // 1️⃣ VALIDACIÓN BÁSICA
@@ -313,164 +309,99 @@ export async function POST(request: NextRequest) {
         const total_amount = effectiveSubtotal + shippingCost;
         const deposit_amount = total_amount * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
 
-        // 3️⃣ CREAR ORDEN
-        // 🛡️ M5 NOTE: La creación de orden+items+pago NO es atómica. Si falla un paso
-        // intermedio, se realiza cleanup manual (delete). Para máxima integridad, migrar a
-        // una función RPC de PostgreSQL (CREATE OR REPLACE FUNCTION create_order_atomic).
-        // Ver: https://supabase.com/docs/guides/database/functions
-        const orderData: Record<string, unknown> = {
-            customer_id: null,
-            status: 'pending_payment_50',
+        // 3️⃣ CREAR ORDEN — transacción atómica via RPC PostgreSQL
+        const cleanUUID = (id: string | null | undefined) => (!id || id.trim() === '') ? null : id;
+
+        const rpcOrderData = {
             subtotal: calculatedSubtotal,
             deposit_amount,
             total_amount,
             discount_amount: discountAmount,
-            ...(discountCodeId ? { discount_code_id: discountCodeId } : {}),
-            ...(payload.idempotency_key ? { idempotency_key: payload.idempotency_key } : {}),
+            idempotency_key: payload.idempotency_key,
+            customer_name: payload.customer_name,
+            customer_email: payload.customer_email,
+            customer_phone: payload.customer_phone,
+            shipping_department: payload.shipping_department,
+            shipping_municipality: payload.shipping_municipality,
+            shipping_address: payload.shipping_address,
         };
 
-        const customerFields = [
-            'customer_name', 'customer_email', 'customer_phone',
-            'shipping_department', 'shipping_municipality', 'shipping_address'
-        ];
+        const rpcItems = secureItems.map(item => ({
+            product_id: cleanUUID(item.product_id),
+            variant_id: cleanUUID(item.variant_id),
+            size_id: cleanUUID(item.size_id),
+            patch_id: cleanUUID(item.patch_id),
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            personalization_type: item.personalization_type || 'none',
+            player_id: cleanUUID(item.player_id),
+            custom_number: item.custom_number ? String(item.custom_number) : null,
+            custom_name: item.custom_name ? item.custom_name.trim() : null,
+        }));
 
-        customerFields.forEach(field => {
-            const payloadField = field as keyof CreateOrderPayload;
-            if (payload[payloadField]) {
-                orderData[field] = payload[payloadField];
-            }
+        const rpcPayment = {
+            amount: deposit_amount,
+            type: 'deposit',
+            status: 'pending',
+            provider: 'manual',
+            method: payload.payment_method,
+            notes: `Anticipo del ${BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE * 100}% - Método: ${payload.payment_method}`,
+        };
+
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('create_order_atomic', {
+            p_order: rpcOrderData,
+            p_items: rpcItems,
+            p_payment: rpcPayment,
+            p_discount_code_id: discountCodeId,
+            p_discount_amount: discountAmount,
+            p_customer_email: payload.customer_email.toLowerCase().trim(),
         });
 
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert(orderData)
-            .select()
-            .single();
-
-        if (orderError) {
-            console.error('❌ Error creating order:', orderError);
+        if (rpcError) {
+            console.error('❌ Error creating order (RPC):', rpcError);
             return NextResponse.json(
-                { success: false, error: 'Error al crear la orden', details: orderError.message, pgCode: orderError.code },
+                { success: false, error: 'Error al crear la orden', details: rpcError.message },
                 { status: 500 }
             );
         }
 
-        if (!order) {
+        if (!rpcResult) {
             return NextResponse.json(
-                { success: false, error: 'No se pudo crear la orden (Empty result)' },
+                { success: false, error: 'No se pudo crear la orden (empty RPC result)' },
                 { status: 500 }
             );
         }
 
-        // 📋 HISTORIAL INICIAL — primer estado del pedido
-        await supabase
-            .from('order_status_history')
-            .insert({ order_id: order.id, new_status: 'pending_payment_50' });
+        const orderId: string = rpcResult.order_id;
+        const isDuplicate: boolean = rpcResult.duplicate === true;
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://90mas5.store';
 
-        // 📊 AUDIT LOG — Registro inmutable de la transacción financiera
-        // 🛡️ M4 FIX: No exponer PII (email, IP) en logs — solo datos operativos
-        // console.warn se preserva en producción (removeConsole excluye 'warn')
+        if (isDuplicate) {
+            return NextResponse.json({
+                success: true,
+                order_id: orderId,
+                order_number: orderId.slice(0, 8).toUpperCase(),
+                total: rpcResult.total,
+                deposit: rpcResult.deposit,
+                shipping: shippingCost,
+                duplicate: true,
+                proof_upload_url: `${siteUrl}/comprobante/${orderId}`,
+            });
+        }
+
+        // 📊 AUDIT LOG
         console.warn(JSON.stringify({
             event: 'ORDER_CREATED',
             timestamp: new Date().toISOString(),
-            order_id: order.id,
+            order_id: orderId,
             payment_method: payload.payment_method,
             total_amount,
             deposit_amount,
             items_count: payload.items.length,
         }));
 
-        // 4️⃣ CREAR ORDER_ITEMS
-        const orderItems = secureItems.map(item => {
-            // Helper to clean UUIDs (empty string -> null)
-            const cleanUUID = (id: string | null | undefined) => (!id || id.trim() === '') ? null : id;
-
-            return {
-                order_id: order.id,
-                product_id: cleanUUID(item.product_id),
-                variant_id: cleanUUID(item.variant_id),
-                size_id: cleanUUID(item.size_id),
-                patch_id: cleanUUID(item.patch_id),
-                quantity: item.quantity,
-                unit_price: item.unit_price,
-                personalization_type: item.personalization_type || 'none',
-                player_id: cleanUUID(item.player_id),
-                custom_number: item.custom_number ? parseInt(String(item.custom_number)) || null : null,
-                custom_name: item.custom_name ? item.custom_name.trim() : null,
-                // Explicitly set timestamp to avoid DB trigger timezone issues
-                created_at: new Date().toISOString(),
-            };
-        });
-
-
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItems);
-
-        if (itemsError) {
-            console.error('❌ Error creating order items:', itemsError);
-            await supabase.from('orders').delete().eq('id', order.id);
-            return NextResponse.json(
-                { success: false, error: 'Error al crear items', details: itemsError.message },
-                { status: 500 }
-            );
-        }
-
-        // 4.5️⃣ REGISTRAR USO DE CÓDIGO DE DESCUENTO
-        if (discountCodeId && discountAmount > 0) {
-            // Fetch current used_count, increment, insert usage record
-            const { data: dcCurrent } = await supabase
-                .from('discount_codes')
-                .select('used_count')
-                .eq('id', discountCodeId)
-                .single();
-
-            await Promise.allSettled([
-                supabase
-                    .from('discount_codes')
-                    .update({ used_count: (dcCurrent?.used_count ?? 0) + 1, updated_at: new Date().toISOString() })
-                    .eq('id', discountCodeId),
-                supabase
-                    .from('discount_code_usage')
-                    .insert({
-                        code_id: discountCodeId,
-                        order_id: order.id,
-                        customer_email: payload.customer_email.toLowerCase().trim(),
-                        discount_amount: discountAmount,
-                    }),
-            ]);
-        }
-
-        // 5️⃣ CREAR REGISTRO DE PAGO
-        const paymentData = {
-            order_id: order.id,
-            amount: deposit_amount,
-            type: 'deposit' as const,
-            status: 'pending' as const,
-            provider: 'manual',
-            method: payload.payment_method,
-            notes: `Anticipo del ${BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE * 100}% - Método: ${payload.payment_method}`,
-        };
-
-        const { data: payment, error: paymentError } = await supabase
-            .from('payments')
-            .insert(paymentData)
-            .select()
-            .single();
-
-        if (paymentError) {
-            console.error('❌ Error creating payment:', paymentError);
-            await supabase.from('order_items').delete().eq('order_id', order.id);
-            await supabase.from('orders').delete().eq('id', order.id);
-            return NextResponse.json(
-                { success: false, error: 'Error al crear pago', details: paymentError.message },
-                { status: 500 }
-            );
-        }
-
-        // 6️⃣ CORREO DE CONFIRMACIÓN
+        // 4️⃣ CORREO DE CONFIRMACIÓN (fuera de la transacción — no bloquea la orden)
         try {
-            // Recuperar detalles para el correo (joins)
             const { data: enrichedItems } = await supabase
                 .from('order_items')
                 .select(`
@@ -483,7 +414,7 @@ export async function POST(request: NextRequest) {
                     sizes (label),
                     patches (name)
                 `)
-                .eq('order_id', order.id);
+                .eq('order_id', orderId);
 
             const emailItems = (enrichedItems as SupabaseRawOrderItem[] | null)?.map((item) => {
                 const customization: string[] = [];
@@ -502,43 +433,39 @@ export async function POST(request: NextRequest) {
                 };
             }) || [];
 
-            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://90mas5.store';
-            const proofUploadUrl = `${siteUrl}/comprobante/${order.id}`;
+            const proofUploadUrl = `${siteUrl}/comprobante/${orderId}`;
 
             await sendOrderConfirmationEmail({
                 customerName: payload.customer_name,
                 customerEmail: payload.customer_email,
-                orderId: order.id,
+                orderId,
                 totalAmount: total_amount,
                 depositAmount: deposit_amount,
                 proofUploadUrl,
                 items: emailItems
             });
 
-            // 👑 Admin Notification
             await sendAdminNewOrderEmail({
                 customerName: payload.customer_name,
                 customerEmail: payload.customer_email,
-                orderId: order.id,
+                orderId,
                 totalAmount: total_amount,
                 items: emailItems
             });
 
         } catch (emailErr) {
             console.error('⚠️ Error enviando correo:', emailErr);
-            // No fallamos la orden si falla el correo, solo logueamos
         }
 
-        const siteUrlFinal = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://90mas5.store';
         return NextResponse.json({
             success: true,
-            order_id: order.id,
-            order_number: order.id.slice(0, 8).toUpperCase(),
+            order_id: orderId,
+            order_number: orderId.slice(0, 8).toUpperCase(),
             total: total_amount,
             deposit: deposit_amount,
             shipping: shippingCost,
-            payment_id: payment?.id,
-            proof_upload_url: `${siteUrlFinal}/comprobante/${order.id}`,
+            payment_id: rpcResult.payment_id,
+            proof_upload_url: `${siteUrl}/comprobante/${orderId}`,
         });
 
     } catch (error: unknown) {

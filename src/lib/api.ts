@@ -227,83 +227,78 @@ export async function getPlayersByTeam(teamId: string) {
 
 
 export async function getProductOptionsFromSupabase(productId: string) {
-  /* =========================
-   * 1️⃣ VARIANTES (con ID + label)
-   * ========================= */
-  const { data: variants, error: variantsError } = await supabase
-    .from("product_variants")
-    .select("id, version")
-    .eq("product_id", productId)
-    .eq("active", true);
+  // Cadena A (variants → variant_sizes → sizes) y Cadena B (product_patches → patches)
+  // son independientes — corren en paralelo para reducir latencia.
 
-  if (variantsError) throw variantsError;
-
-  // Crear mapa de versión -> id (para lookup)
-  const versionesMap: Record<string, string> = {};
-  (variants ?? []).forEach(v => {
-    if (!versionesMap[v.version]) {
-      versionesMap[v.version] = v.id;
-    }
-  });
-
-  // Array de objetos {id, label} para versiones
-  const versiones = Object.entries(versionesMap).map(([label, id]) => ({ id, label }));
-  const variantIds = (variants ?? []).map(v => v.id);
-
-  /* =========================
-   * 2️⃣ TALLAS (con ID + label) & MAPPING
-   * ========================= */
-  let tallas: { id: string; label: string }[] = [];
-  const variantSizesMap: Record<string, string[]> = {};
-
-  if (variantIds.length > 0) {
-    const { data: variantSizes, error: vsError } = await supabase
-      .from("variant_sizes")
-      .select("variant_id, size_id")
-      .in("variant_id", variantIds)
+  async function fetchVariantsChain() {
+    const { data: variants, error: variantsError } = await supabase
+      .from("product_variants")
+      .select("id, version")
+      .eq("product_id", productId)
       .eq("active", true);
 
-    if (vsError) throw vsError;
+    if (variantsError) throw variantsError;
 
-    // Build the map: variant_id -> [size_id, size_id, ...]
-    (variantSizes || []).forEach(vs => {
-      if (!variantSizesMap[vs.variant_id]) {
-        variantSizesMap[vs.variant_id] = [];
+    const versionesMap: Record<string, string> = {};
+    (variants ?? []).forEach(v => {
+      if (!versionesMap[v.version]) {
+        versionesMap[v.version] = v.id;
       }
-      variantSizesMap[vs.variant_id].push(vs.size_id);
     });
 
-    const sizeIds = [...new Set(variantSizes?.map(vs => vs.size_id))];
+    const versiones = Object.entries(versionesMap).map(([label, id]) => ({ id, label }));
+    const variantIds = (variants ?? []).map(v => v.id);
 
-    if (sizeIds.length > 0) {
-      const { data: sizes, error: sizesError } = await supabase
-        .from("sizes")
-        .select("id, label")
-        .in("id", sizeIds)
-        .eq("active", true)
-        .order("sort_order");
+    let tallas: { id: string; label: string }[] = [];
+    const variantSizesMap: Record<string, string[]> = {};
 
-      if (sizesError) throw sizesError;
+    if (variantIds.length > 0) {
+      const { data: variantSizes, error: vsError } = await supabase
+        .from("variant_sizes")
+        .select("variant_id, size_id")
+        .in("variant_id", variantIds)
+        .eq("active", true);
 
-      tallas = sizes.map(s => ({ id: s.id, label: s.label }));
+      if (vsError) throw vsError;
+
+      (variantSizes || []).forEach(vs => {
+        if (!variantSizesMap[vs.variant_id]) {
+          variantSizesMap[vs.variant_id] = [];
+        }
+        variantSizesMap[vs.variant_id].push(vs.size_id);
+      });
+
+      const sizeIds = [...new Set(variantSizes?.map(vs => vs.size_id))];
+
+      if (sizeIds.length > 0) {
+        const { data: sizes, error: sizesError } = await supabase
+          .from("sizes")
+          .select("id, label")
+          .in("id", sizeIds)
+          .eq("active", true)
+          .order("sort_order");
+
+        if (sizesError) throw sizesError;
+
+        tallas = sizes.map(s => ({ id: s.id, label: s.label }));
+      }
     }
+
+    return { versiones, tallas, variantSizesMap };
   }
 
-  /* =========================
-   * 3️⃣ PARCHES (con ID + label)
-   * ========================= */
-  const { data: productPatches, error: ppError } = await supabase
-    .from("product_patches")
-    .select("patch_id")
-    .eq("product_id", productId);
+  async function fetchPatchesChain() {
+    const { data: productPatches, error: ppError } = await supabase
+      .from("product_patches")
+      .select("patch_id")
+      .eq("product_id", productId);
 
-  if (ppError) throw ppError;
+    if (ppError) throw ppError;
 
-  const patchIds = [...new Set(productPatches.map(pp => pp.patch_id))];
+    const patchIds = [...new Set(productPatches.map(pp => pp.patch_id))];
 
-  let parches: { id: string; label: string }[] = [];
+    if (patchIds.length === 0) return [];
 
-  if (patchIds.length > 0) {
     const { data: patches, error: patchesError } = await supabase
       .from("patches")
       .select("id, name")
@@ -312,18 +307,19 @@ export async function getProductOptionsFromSupabase(productId: string) {
 
     if (patchesError) throw patchesError;
 
-    parches = patches.map(p => ({ id: p.id, label: p.name }));
+    return patches.map(p => ({ id: p.id, label: p.name }));
   }
 
-  /* =========================
-   * ✅ RESULTADO FINAL
-   * Cada opción es { id: uuid, label: string }
-   * ========================= */
+  const [variantsResult, parches] = await Promise.all([
+    fetchVariantsChain(),
+    fetchPatchesChain(),
+  ]);
+
   return {
-    versiones,
-    tallas,
+    versiones: variantsResult.versiones,
+    tallas: variantsResult.tallas,
     parches,
-    variantSizesMap // ✅ New field
+    variantSizesMap: variantsResult.variantSizesMap,
   };
 }
 

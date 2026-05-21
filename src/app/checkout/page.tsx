@@ -124,6 +124,7 @@ export default function CheckoutPage() {
     const [metodoPago, setMetodoPago] = useState("");
     const [aceptoTerminos, setAceptoTerminos] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const submitLock = useRef(false);
     const [errores, setErrores] = useState<FormErrors>({});
     const [orderSuccess, setOrderSuccess] = useState(false);
 
@@ -332,6 +333,8 @@ export default function CheckoutPage() {
     // === SUBMIT ===
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (submitLock.current) return;
+
         if (items.length === 0) {
             toastMsg.warning("Tu carrito está vacío");
             return;
@@ -346,6 +349,7 @@ export default function CheckoutPage() {
             return;
         }
 
+        submitLock.current = true;
         setIsSubmitting(true);
 
         try {
@@ -438,6 +442,7 @@ export default function CheckoutPage() {
             toastMsg.error((error as Error).message || "Error al procesar el pedido. Intenta nuevamente.");
         } finally {
             setIsSubmitting(false);
+            submitLock.current = false;
         }
     };
 
