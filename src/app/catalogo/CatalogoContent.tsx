@@ -306,22 +306,40 @@ export default function CatalogoContent({
     toast.loading("Abriendo personalización...");
   };
 
-  // === Carrusel Dinámico ===
+  // === Carrusel Dinámico (ligas O marcas) ===
   const currentCarrusel = useMemo(() => {
     let ligasDisponibles = ligas;
     if (selectedCategoryObj && selectedCategoryObj.id) {
       ligasDisponibles = ligas.filter(l => l.category_id === selectedCategoryObj.id);
     }
-    if (!ligasDisponibles.length) return null;
 
-    return {
-      title: null,
-      items: ligasDisponibles.map((l) => ({
-        nombre: l.nombre,
-        imagen: l.imagen || "/logos/ligas/placeholder.svg",
-      })),
-    };
-  }, [selectedCategoryObj, ligas]);
+    // Si hay ligas disponibles, mostrar ligas en el carrusel
+    if (ligasDisponibles.length > 0) {
+      return {
+        type: "liga" as const,
+        title: null,
+        items: ligasDisponibles.map((l) => ({
+          nombre: l.nombre,
+          imagen: l.imagen || "/logos/ligas/placeholder.svg",
+        })),
+      };
+    }
+
+    // Si no hay ligas pero sí marcas, mostrar marcas en el carrusel
+    if (categoryBrands.length > 0) {
+      return {
+        type: "brand" as const,
+        title: null,
+        items: categoryBrands.map((b) => ({
+          nombre: b.name,
+          imagen: b.logo_url || "/logos/ligas/placeholder.svg",
+          id: b.id,
+        })),
+      };
+    }
+
+    return null;
+  }, [selectedCategoryObj, ligas, categoryBrands]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e?.preventDefault();
@@ -377,35 +395,44 @@ export default function CatalogoContent({
         }}
       />
 
-      {/* CARRUSEL DE LIGAS */}
+      {/* CARRUSEL DE LIGAS O MARCAS */}
       {currentCarrusel && currentCarrusel.items.length > 0 && (
         <>
           <CarruselDeCategoria
             title={currentCarrusel.title}
             items={currentCarrusel.items}
-            selected={ligaSeleccionada}
+            selected={currentCarrusel.type === "brand"
+              ? categoryBrands.find(b => b.id === marcaSeleccionada)?.name ?? null
+              : ligaSeleccionada
+            }
             onSelect={(nombre: string) => {
-              const nuevaLiga = ligaSeleccionada === nombre ? null : nombre;
-              setLigaSeleccionada(nuevaLiga);
-
-              // 🎯 Activar scroll SOLO al seleccionar liga
-              if (nuevaLiga) {
-                shouldScrollOnFilter.current = true;
-              }
-
-              // Actualizamos URL manualmente para UX perfecto
-              const params = new URLSearchParams(searchParams.toString());
-              if (nuevaLiga) {
-                const lObj = ligas.find(l => normalize(l.nombre) === normalize(nuevaLiga));
-                params.set('liga', lObj?.slug || nuevaLiga);
+              if (currentCarrusel.type === "brand") {
+                // Selección de marca
+                const brand = categoryBrands.find(b => b.name === nombre);
+                const brandId = brand?.id ?? null;
+                const newBrand = marcaSeleccionada === brandId ? null : brandId;
+                setMarcaSeleccionada(newBrand);
+                setEquipoSeleccionado(null);
+                shouldScrollOnFilter.current = false;
               } else {
-                params.delete('liga');
+                // Selección de liga (comportamiento original)
+                const nuevaLiga = ligaSeleccionada === nombre ? null : nombre;
+                setLigaSeleccionada(nuevaLiga);
+
+                if (nuevaLiga) {
+                  shouldScrollOnFilter.current = true;
+                }
+
+                const params = new URLSearchParams(searchParams.toString());
+                if (nuevaLiga) {
+                  const lObj = ligas.find(l => normalize(l.nombre) === normalize(nuevaLiga));
+                  params.set('liga', lObj?.slug || nuevaLiga);
+                } else {
+                  params.delete('liga');
+                }
+
+                router.replace(`/catalogo?${params.toString()}`, { scroll: false });
               }
-
-              // 🎯 Usar replace en lugar de push
-              router.replace(`/catalogo?${params.toString()}`, { scroll: false });
-
-              // El scroll lo manejará fetchProducts automáticamente
             }}
           />
 
@@ -443,8 +470,8 @@ export default function CatalogoContent({
         />
       )}
 
-      {/* FILTRO DE MARCAS — visible si la categoría tiene productos con marca */}
-      {categoryBrands.length >= 2 && !ligaSeleccionada && (
+      {/* FILTRO DE MARCAS — solo como chips si el carrusel muestra ligas (no marcas) */}
+      {categoryBrands.length >= 2 && !ligaSeleccionada && currentCarrusel?.type !== "brand" && (
         <div className="px-4 pb-5 max-w-7xl mx-auto">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-px flex-1 bg-white/5" />
