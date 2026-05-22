@@ -3,10 +3,26 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "@/lib/motion";
-import { Search, Package, MapPin, Calendar, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { Search, Package, MapPin, Calendar, ArrowRight, Loader2, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
 import Button from "@/components/ui/MainButton";
 import ProductImage from "@/components/ProductImage";
 import { formatDate } from "@/lib/utils";
+
+function daysBetween(dateA: string, dateB: string): number {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    return Math.floor((new Date(dateB).getTime() - new Date(dateA).getTime()) / msPerDay);
+}
+
+function daysSince(date: string): number {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    return Math.floor((Date.now() - new Date(date).getTime()) / msPerDay);
+}
+
+function formatDays(days: number): string {
+    if (days === 0) return "Mismo día";
+    if (days === 1) return "1 día";
+    return `${days} días`;
+}
 
 function TrackingContent() {
     const searchParams = useSearchParams();
@@ -131,6 +147,77 @@ function TrackingContent() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Timeline de Estados */}
+                            {orderData.history && orderData.history.length > 0 && (
+                                <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6">
+                                    <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-4 md:mb-5 flex items-center gap-2">
+                                        <Clock className="w-3.5 h-3.5" />
+                                        Historial del Pedido
+                                    </h3>
+
+                                    <div className="relative">
+                                        {[...orderData.history].reverse().map((entry: { status_id: string; label: string; date: string }, i: number, reversed: { status_id: string; label: string; date: string }[]) => {
+                                            const isFirst = i === 0;
+                                            const isCurrent = entry.status_id === orderData.status.code;
+                                            const nextEntry = reversed[i + 1];
+                                            const elapsed = nextEntry ? daysBetween(nextEntry.date, entry.date) : null;
+                                            const sinceLast = isFirst ? daysSince(entry.date) : null;
+
+                                            return (
+                                                <div key={i} className="relative">
+                                                    {/* "Days since last update" indicator — shown first for current state */}
+                                                    {isFirst && isCurrent && sinceLast !== null && sinceLast > 0 && (
+                                                        <div className="flex items-center gap-2 ml-[9px] pb-2">
+                                                            <div className="w-px h-4 bg-white/5" />
+                                                            <span className="text-[10px] text-gray-500 ml-4 bg-white/5 px-2 py-0.5 rounded-full">
+                                                                Hace {formatDays(sinceLast)} en este estado
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Status entry */}
+                                                    <div className="flex items-start gap-3">
+                                                        {/* Dot */}
+                                                        <div className={`mt-1 flex-shrink-0 w-[18px] h-[18px] rounded-full flex items-center justify-center ${
+                                                            isCurrent
+                                                                ? "bg-primary/20 border-2 border-primary"
+                                                                : "bg-white/10 border border-white/20"
+                                                        }`}>
+                                                            {!isCurrent && (
+                                                                <CheckCircle2 className="w-3 h-3 text-gray-500" />
+                                                            )}
+                                                            {isCurrent && (
+                                                                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                                            )}
+                                                        </div>
+
+                                                        {/* Content */}
+                                                        <div className="flex-1 min-w-0 pb-1">
+                                                            <p className={`text-sm font-bold ${isCurrent ? "text-primary" : "text-white"}`}>
+                                                                {entry.label}
+                                                            </p>
+                                                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                                                {formatDate(entry.date)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Connector with days between — after each entry */}
+                                                    {elapsed !== null && (
+                                                        <div className="flex items-center gap-2 ml-[9px] py-1">
+                                                            <div className="w-px h-4 bg-white/10" />
+                                                            <span className="text-[10px] text-gray-600 ml-4 font-mono">
+                                                                +{formatDays(elapsed)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Detalles del Envío */}
                             <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-3 md:space-y-4">
