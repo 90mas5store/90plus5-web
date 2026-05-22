@@ -22,6 +22,7 @@ const CatalogHeroContainer = dynamic(() => import("../../components/catalogo/Cat
   loading: () => <div className="h-[35dvh] md:h-[55dvh] w-full bg-neutral-900 animate-pulse mb-4" />
 });
 
+import CatalogFilterPanel, { CatalogFilters, DEFAULT_FILTERS } from "../../components/catalogo/CatalogFilterPanel";
 import useToastMessage from "../../hooks/useToastMessage";
 import SearchBar from "../../components/ui/SearchBar";
 import ProductCard from "../../components/ui/ProductCard";
@@ -90,6 +91,8 @@ export default function CatalogoContent({
   // === Marcas por categoría ===
   const [categoryBrands, setCategoryBrands] = useState<Brand[]>([]);
   const [marcaSeleccionada, setMarcaSeleccionada] = useState<string | null>(null);
+  // === Filtros avanzados ===
+  const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
   const debouncedSearchTerm = useDebounce(searchTerm, 400); // 400ms delay
   const prefersReducedMotion = usePrefersReducedMotion();
   const toast = useToastMessage();
@@ -174,6 +177,17 @@ export default function CatalogoContent({
     return lObj;
   }, [ligas, ligaSeleccionada, ligaParam]);
 
+  // Categorías que muestran filtro de género
+  // Sin categoría (catálogo general) = mostrar género
+  // Tenis, Streetwear = mostrar género
+  // Futbol, Mundial, Retro = NO mostrar género
+  const showGenderFilter = useMemo(() => {
+    if (!categoriaSeleccionada) return true; // Catálogo general
+    const slug = categoriaSeleccionada.toLowerCase();
+    const genderCategories = ["tenis", "streetwear", "lifestyle", "running"];
+    return genderCategories.some(gc => slug.includes(gc));
+  }, [categoriaSeleccionada]);
+
   // === CARGA DE PRODUCTOS (Server-Side Filtered & Paginated) ===
 
   // Función helper para fetchear
@@ -193,6 +207,15 @@ export default function CatalogoContent({
       if (!isAppend) setLoading(true);
       else setLoadingMore(true);
 
+      // Parsear rango de precio si existe
+      let priceMin: number | undefined;
+      let priceMax: number | undefined;
+      if (catalogFilters.priceRange) {
+        const [min, max] = catalogFilters.priceRange.split("-").map(Number);
+        priceMin = min;
+        priceMax = max;
+      }
+
       const { data, count } = await getCatalogPaginated({
         page: pageNum,
         limit: PRODUCTS_PER_PAGE,
@@ -201,6 +224,11 @@ export default function CatalogoContent({
         leagueId: selectedLeagueObj?.id,
         teamId: equipoSeleccionado ?? undefined,
         brandId: marcaSeleccionada ?? undefined,
+        gender: catalogFilters.gender ?? undefined,
+        sortBy: catalogFilters.sortBy,
+        priceMin,
+        priceMax,
+        topSellerIds,
       });
 
       if (isAppend) {
@@ -225,7 +253,7 @@ export default function CatalogoContent({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada, toast, config, categoriaParam, ligaParam]);
+  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada, catalogFilters, toast, config, categoriaParam, ligaParam]);
 
   // Efecto Principal: Disparar Fetch cuando cambian filtros
   // Siempre fetchea en mount para garantizar datos frescos (evita stale data del Router Cache)
@@ -234,7 +262,7 @@ export default function CatalogoContent({
     fetchProducts(1, false);
   // fetchProducts omitted: its extra deps (config, toast, etc.) would cause unwanted re-runs
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada]);
+  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada, catalogFilters]);
 
   // 2. Función para cargar más (botón)
   const handleLoadMore = () => {
@@ -338,6 +366,16 @@ export default function CatalogoContent({
           placeholder="Buscar por equipo, modelo o estilo..."
         />
       </div>
+
+      {/* FILTROS AVANZADOS (Panel desplegable) */}
+      <CatalogFilterPanel
+        showGender={showGenderFilter}
+        filters={catalogFilters}
+        onFiltersChange={(newFilters) => {
+          setCatalogFilters(newFilters);
+          shouldScrollOnFilter.current = false;
+        }}
+      />
 
       {/* CARRUSEL DE LIGAS */}
       {currentCarrusel && currentCarrusel.items.length > 0 && (
