@@ -1,6 +1,14 @@
 import { Product, Brand, Config, ShippingZone, SupabaseRawProduct } from "./types";
 import { supabase } from "./supabase/client";
 
+export type SortOption =
+  | "relevance"
+  | "price_asc"
+  | "price_desc"
+  | "newest"
+  | "top_sellers"
+  | "alphabetical";
+
 export interface CatalogParams {
   page?: number;
   limit?: number;
@@ -9,6 +17,11 @@ export interface CatalogParams {
   leagueId?: string;
   teamId?: string;
   brandId?: string;
+  gender?: string;
+  sortBy?: SortOption;
+  priceMin?: number;
+  priceMax?: number;
+  topSellerIds?: string[];
 }
 
 // ✅ Cliente Supabase inicializado correctamente
@@ -531,6 +544,11 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     leagueId,
     teamId,
     brandId,
+    gender,
+    sortBy = "relevance",
+    priceMin,
+    priceMax,
+    topSellerIds = [],
   } = params;
 
   // 1️⃣ Revisar Caché (solo en el navegador — el servidor no puede limpiar este cache desde el cliente)
@@ -608,8 +626,43 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   // B) Navegación Normal (Sin búsqueda o Fallback)
   // 🟢 ESTRATEGIA "SORT-IN-MEMORY" V2 (Simplificada y Robusta)
 
+  // 0. Pre-filtrado por género: obtener IDs elegibles
+  let genderFilterIds: Set<string> | null = null;
+
+  // Filtro por género: productos con tallas de ese género
+  if (gender) {
+    const { data: genderSizes } = await supabase
+      .from("sizes")
+      .select("id")
+      .eq("gender", gender)
+      .eq("active", true);
+
+    if (genderSizes && genderSizes.length > 0) {
+      const sizeIds = genderSizes.map((s: { id: string }) => s.id);
+      const { data: variantSizes } = await supabase
+        .from("variant_sizes")
+        .select("variant_id")
+        .in("size_id", sizeIds)
+        .eq("active", true);
+
+      if (variantSizes && variantSizes.length > 0) {
+        const variantIds = [...new Set(variantSizes.map((vs: { variant_id: string }) => vs.variant_id))];
+        const { data: variantProducts } = await supabase
+          .from("product_variants")
+          .select("product_id")
+          .in("id", variantIds)
+          .eq("active", true);
+
+        genderFilterIds = new Set((variantProducts || []).map((v: { product_id: string }) => v.product_id));
+      } else {
+        genderFilterIds = new Set(); // No hay productos con ese género
+      }
+    } else {
+      genderFilterIds = new Set();
+    }
+  }
+
   // 1. Obtener Metadatos para Ordenamiento (ID, Nombre Equipo, Nombre Producto)
-  const leagueJoinType = leagueId ? "!inner" : "left";
 
   let metadataQuery = supabase
     .from("products")
@@ -624,7 +677,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     `)
     .eq("active", true);
 
-  // 2. Aplicar Filtros
+  // 2. Aplicar Filtros básicos
   if (categoryId) metadataQuery = metadataQuery.eq('category_id', categoryId);
   if (leagueId) metadataQuery = metadataQuery.eq('product_leagues.league_id', leagueId);
   if (teamId) metadataQuery = metadataQuery.eq('team_id', teamId);
@@ -638,64 +691,130 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     throw metaError;
   }
 
-  // 4. Ordenamiento Estricto en Memoria
-  const sortedMetadata = (allMetadata || []).sort((a, b) => {
-    const teamsA = Array.isArray(a.teams) ? a.teams[0] : a.teams;
-    const teamsB = Array.isArray(b.teams) ? b.teams[0] : b.teams;
-    const brandsA = Array.isArray(a.brands) ? a.brands[0] : a.brands;
-    const brandsB = Array.isArray(b.brands) ? b.brands[0] : b.brands;
-    const groupA = (teamsA?.name || brandsA?.name || "zzz").toLowerCase().trim();
-    const groupB = (teamsB?.name || brandsB?.name || "zzz").toLowerCase().trim();
+  // 3.5 Aplicar filtro de género en memoria
+  let filteredMetadata = allMetadata || [];
+  if (genderFilterIds) {
+    filteredMetadata = filteredMetadata.filter((item) => genderFilterIds!.has(item.id as string));
+  }
 
-    const groupCompare = groupA.localeCompare(groupB);
-    if (groupCompare !== 0) return groupCompare;
+  // 4. Ordenamiento en Memoria
+  // Para "relevance" y "alphabetical" se ordena aquí.
+  // Para precio/novedad/top_sellers se reordena después del fetch completo.
+  const needsPostSort = ["price_asc", "price_desc", "newest", "top_sellers"].includes(sortBy);
 
-    const nameA = (a.name || "").toLowerCase().trim();
-    const nameB = (b.name || "").toLowerCase().trim();
-    return nameA.localeCompare(nameB);
-  });
+  const sortedMetadata = needsPostSort
+    ? filteredMetadata // Se ordenará después con datos completos
+    : filteredMetadata.sort((a, b) => {
+        const teamsA = Array.isArray(a.teams) ? a.teams[0] : a.teams;
+        const teamsB = Array.isArray(b.teams) ? b.teams[0] : b.teams;
+        const brandsA = Array.isArray(a.brands) ? a.brands[0] : a.brands;
+        const brandsB = Array.isArray(b.brands) ? b.brands[0] : b.brands;
+        const groupA = (teamsA?.name || brandsA?.name || "zzz").toLowerCase().trim();
+        const groupB = (teamsB?.name || brandsB?.name || "zzz").toLowerCase().trim();
 
-  // 5. Paginación sobre IDs ya ordenados
+        const groupCompare = groupA.localeCompare(groupB);
+        if (groupCompare !== 0) return groupCompare;
+
+        const nameA = (a.name || "").toLowerCase().trim();
+        const nameB = (b.name || "").toLowerCase().trim();
+        return nameA.localeCompare(nameB);
+      });
+
+  // 5. Paginación
   const totalCount = sortedMetadata.length;
-  const pageIds = sortedMetadata
-    .slice((page - 1) * limit, page * limit)
-    .map(item => item.id as string);
 
-  // 6. Si la página está vacía
-  if (pageIds.length === 0) {
+  // Para sorts que necesitan datos completos (precio/novedad/top), traemos todos los IDs
+  // y paginamos DESPUÉS de ordenar. Para alfabético/relevancia, paginamos aquí.
+  const fetchIds = needsPostSort
+    ? sortedMetadata.map(item => item.id as string)
+    : sortedMetadata.slice((page - 1) * limit, page * limit).map(item => item.id as string);
+
+  // 6. Si no hay IDs
+  if (fetchIds.length === 0) {
     return { data: [], count: totalCount };
   }
 
-  // 7. Fetch de Datos Completos
-  const { data: productsData, error: productsError } = await supabase
-    .from("products")
-    .select(`
-        id, name, slug, description, image_url, featured,
-        category_id, league_id, team_id, brand_id, trending_until,
-        teams ( name, logo_url ),
-        brands ( name, slug, logo_url ),
-        product_variants ( id, version, price, active, original_price, active_original_price ),
-        product_leagues ( league_id )
-    `)
-    .in('id', pageIds)
-    .eq("active", true);
+  // 7. Fetch de Datos Completos (en batches si es necesario)
+  // Supabase tiene límite en .in(), así que si needsPostSort y hay muchos, fetcheamos por lotes
+  const allProducts: SupabaseRawProduct[] = [];
+  const batchSize = 200;
+  for (let i = 0; i < fetchIds.length; i += batchSize) {
+    const batchIds = fetchIds.slice(i, i + batchSize);
+    const { data: productsData, error: productsError } = await supabase
+      .from("products")
+      .select(`
+          id, name, slug, description, image_url, featured,
+          category_id, league_id, team_id, brand_id, trending_until,
+          teams ( name, logo_url ),
+          brands ( name, slug, logo_url ),
+          product_variants ( id, version, price, active, original_price, active_original_price ),
+          product_leagues ( league_id )
+      `)
+      .in('id', batchIds)
+      .eq("active", true);
 
-  if (productsError) throw productsError;
+    if (productsError) throw productsError;
+    if (productsData) allProducts.push(...(productsData as SupabaseRawProduct[]));
+  }
 
-  // 8. Reconstrucción Estricta del Orden (Mapping)
-  // Usamos un Map para acceso eficiente y respetamos el orden de 'pageIds'
-  const productsMap = new Map(productsData?.map(p => [p.id, p]));
+  // 8. Adaptar y ordenar
+  let adaptedProducts = allProducts.map(adaptSupabaseProductToProduct);
 
-  const finalSortedData = pageIds
-    .map((id: string) => {
-      const p = productsMap.get(id);
-      return p ? adaptSupabaseProductToProduct(p as SupabaseRawProduct) : null;
-    })
-    .filter((p): p is Product => p !== null);
+  // 8.1 Filtro por precio
+  if (priceMin !== undefined || priceMax !== undefined) {
+    adaptedProducts = adaptedProducts.filter((p) => {
+      if (priceMin !== undefined && p.precio < priceMin) return false;
+      if (priceMax !== undefined && p.precio > priceMax) return false;
+      return true;
+    });
+  }
+
+  // 8.2 Ordenamiento post-fetch
+  if (needsPostSort) {
+    switch (sortBy) {
+      case "price_asc":
+        adaptedProducts.sort((a, b) => a.precio - b.precio);
+        break;
+      case "price_desc":
+        adaptedProducts.sort((a, b) => b.precio - a.precio);
+        break;
+      case "newest":
+        // Productos más recientes primero (por sort_order inverso como proxy)
+        adaptedProducts.sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0));
+        break;
+      case "top_sellers":
+        // Ordenar por presencia en topSellerIds primero, luego el resto
+        adaptedProducts.sort((a, b) => {
+          const aIsTop = topSellerIds.includes(a.id) ? 0 : 1;
+          const bIsTop = topSellerIds.includes(b.id) ? 0 : 1;
+          if (aIsTop !== bIsTop) return aIsTop - bIsTop;
+          // Dentro de top sellers, mantener el ranking
+          if (aIsTop === 0 && bIsTop === 0) {
+            return topSellerIds.indexOf(a.id) - topSellerIds.indexOf(b.id);
+          }
+          return 0;
+        });
+        break;
+    }
+  } else {
+    // Para relevance/alphabetical, reconstruir el orden del metadata
+    const orderMap = new Map<string, number>(fetchIds.map((id, idx) => [id, idx]));
+    adaptedProducts.sort((a, b) => {
+      const posA: number = orderMap.get(a.id) ?? 999;
+      const posB: number = orderMap.get(b.id) ?? 999;
+      return posA - posB;
+    });
+  }
+
+  // 8.3 Paginar si fue un post-sort (traímos todo y ahora cortamos)
+  const finalCount = adaptedProducts.length;
+  const finalSortedData = needsPostSort
+    ? adaptedProducts.slice((page - 1) * limit, page * limit)
+    : adaptedProducts;
 
   const result = {
     data: finalSortedData,
-    count: totalCount
+    count: (priceMin || priceMax) ? finalCount : totalCount,
   };
 
   // Cache (solo cliente)

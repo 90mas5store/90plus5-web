@@ -29,7 +29,7 @@ type SupabaseProduct = {
     category_id: string | null;
     brand_id: string | null;
     teams: { name: string; logo_url: string } | null;
-    brands: { name: string; slug: string } | null;
+    brands: { name: string; slug: string; logo_url?: string | null } | null;
     categories: { name: string } | null;
     product_images: { id: string; image_url: string; sort_order: number }[] | null;
     product_variants: Array<{
@@ -83,7 +83,7 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
         .select(`
             id, name, description, image_url, team_id, league_id, category_id, brand_id, allows_customization, trending_until,
             teams (name, logo_url),
-            brands (name, slug),
+            brands (name, slug, logo_url),
             categories (name),
             product_variants (version, price, original_price, active_original_price, active),
             product_images (id, image_url, sort_order)
@@ -109,7 +109,7 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
         category_id: product.category_id ?? null,
         brand_id: product.brand_id ?? null,
         teams: teams ? { name: teams.name, logo_url: teams.logo_url ?? "" } : null,
-        brands: brands ? { name: brands.name, slug: brands.slug ?? "" } : null,
+        brands: brands ? { name: brands.name, slug: brands.slug ?? "", logo_url: (brands as { logo_url?: string }).logo_url ?? null } : null,
         categories: categories ? { name: categories.name } : null,
         product_variants: product.product_variants ?? null,
         variants: product.product_variants ?? null,

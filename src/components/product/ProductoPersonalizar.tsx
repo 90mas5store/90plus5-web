@@ -34,6 +34,12 @@ interface Team {
     logo_url: string;
 }
 
+interface Brand {
+    name: string;
+    slug: string;
+    logo_url?: string | null;
+}
+
 interface Product {
     id: string;
     name: string;
@@ -41,6 +47,8 @@ interface Product {
     image_url: string | null;
     team_id: string | null;
     teams?: Team | null;
+    brand_id?: string | null;
+    brands?: Brand | null;
     product_variants?: ProductVariant[] | null;
     product_images?: { id: string; image_url: string; sort_order: number }[] | null;
     modelo?: string;
@@ -79,10 +87,10 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const mapProduct = (p: Product) => ({
         ...p,
         modelo: p.name,
-        equipo: p.teams?.name || "Equipo Desconocido",
+        equipo: p.teams?.name || p.brands?.name || "Sin equipo",
         liga: "Desconocida",
         imagen: p.image_url,
-        logoEquipo: p.teams?.logo_url,
+        logoEquipo: p.teams?.logo_url || p.brands?.logo_url || undefined,
         precio: p.product_variants?.[0]?.price || 0,
         descripcion: p.description,
     });

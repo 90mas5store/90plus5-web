@@ -1,8 +1,7 @@
 "use client";
-import { useRef } from "react";
-import { motion } from "@/lib/motion";
+import { useRef, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "@/lib/motion";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface CategoryItem {
   nombre?: string;
@@ -20,67 +19,63 @@ interface CarruselDeCategoriaProps {
 }
 
 export default function CarruselDeCategoria({
-  title = "Ligas disponibles",
+  title,
   items = [],
   selected = null,
-  onSelect = () => { },
+  onSelect = () => {},
 }: CarruselDeCategoriaProps) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const scroll = (direction: "left" | "right") => {
-    if (scrollContainerRef.current) {
-      const { current } = scrollContainerRef;
-      const scrollAmount = 300;
-      const maxScroll = current.scrollWidth - current.clientWidth;
-
-      if (direction === "left") {
-        // Si está al inicio, ir al final
-        if (current.scrollLeft <= 5) { // Pequeña tolerancia
-          current.scrollTo({ left: maxScroll, behavior: "smooth" });
-        } else {
-          current.scrollBy({ left: -scrollAmount, behavior: "smooth" });
-        }
-      } else {
-        // Si está al final, volver al inicio
-        if (current.scrollLeft >= maxScroll - 5) {
-          current.scrollTo({ left: 0, behavior: "smooth" });
-        } else {
-          current.scrollBy({ left: scrollAmount, behavior: "smooth" });
-        }
-      }
-    }
+  // Detectar estado de scroll para mostrar/ocultar gradientes
+  const updateScrollState = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    setCanScrollLeft(scrollLeft > 5);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
   };
 
-  if (!items || items.length === 0)
-    return (
-      <p className="text-gray-400 text-center py-8">
-        No hay elementos para mostrar.
-      </p>
-    );
+  useEffect(() => {
+    updateScrollState();
+    const el = scrollRef.current;
+    if (el) {
+      el.addEventListener("scroll", updateScrollState, { passive: true });
+      return () => el.removeEventListener("scroll", updateScrollState);
+    }
+  }, [items]);
+
+  if (!items || items.length === 0) return null;
 
   return (
-    <section className="px-4 pb-6 md:pb-12 max-w-7xl mx-auto text-center relative group">
+    <section className="pb-4 md:pb-8 max-w-7xl mx-auto relative">
       {title && (
-        <h2 className="text-2xl md:text-3xl font-semibold mb-6 md:mb-8 text-[#E50914] drop-shadow-[0_0_15px_rgba(229,9,20,0.35)]">
+        <h2 className="text-center text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4 px-4">
           {title}
         </h2>
       )}
 
-      <div className="relative flex items-center">
-        {/* Left Arrow */}
-        <button
-          onClick={() => scroll("left")}
-          className="absolute left-0 z-10 p-2 bg-black/50 hover:bg-[#E50914] rounded-full text-white backdrop-blur-sm transition-all -ml-4 md:-ml-8 hidden md:flex"
-          aria-label="Scroll left"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
+      <div className="relative">
+        {/* Gradiente fade izquierdo */}
+        <div
+          className={`absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
+            canScrollLeft ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
+        {/* Gradiente fade derecho */}
+        <div
+          className={`absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
+            canScrollRight ? "opacity-100" : "opacity-0"
+          }`}
+        />
 
         {/* Scrollable Container */}
         <div
-          ref={scrollContainerRef}
-          className="flex overflow-x-auto gap-3 md:gap-6 pb-4 scrollbar-hide px-4 w-full snap-x snap-mandatory"
-          style={{ scrollBehavior: "smooth" }}
+          ref={scrollRef}
+          className="flex gap-5 md:gap-7 overflow-x-auto scrollbar-hide px-6 md:px-8 py-2 scroll-smooth"
+          role="tablist"
+          aria-label="Ligas disponibles"
         >
           {items.map((item) => {
             const nombre = item.nombre || item.Liga;
@@ -91,45 +86,78 @@ export default function CarruselDeCategoria({
 
             if (!nombre) return null;
 
+            const isSelected = selected === nombre;
+
             return (
-              <motion.div
+              <motion.button
                 key={nombre}
+                role="tab"
+                aria-selected={isSelected}
                 onClick={() => onSelect(nombre)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={`flex-shrink-0 snap-center cursor-pointer flex flex-col items-center justify-between p-2 md:p-3 rounded-xl transition-all w-24 md:w-32 h-28 md:h-36 ${selected === nombre
-                  ? "bg-[#E50914]/20 border border-[#E50914]/50 shadow-[0_0_20px_rgba(229,9,20,0.4)]"
-                  : "bg-[#111]/60 border border-[#222] hover:border-[#E50914]/30"
-                  }`}
+                whileTap={{ scale: 0.92 }}
+                className="flex-shrink-0 flex flex-col items-center gap-2 group outline-none"
               >
-                <div className="relative w-14 h-14 md:w-16 md:h-16 mb-2">
-                  <Image
-                    src={imagen}
-                    alt={nombre}
-                    fill
-                    unoptimized={imagen.endsWith('.svg')}
-                    className="object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.35)]"
-                    sizes="(max-width: 768px) 56px, 64px"
+                {/* Avatar circular */}
+                <div
+                  className={`relative w-[68px] h-[68px] md:w-20 md:h-20 rounded-full transition-all duration-400 ease-out ${
+                    isSelected
+                      ? "ring-[2.5px] ring-[#E50914] ring-offset-2 ring-offset-black shadow-[0_0_20px_rgba(229,9,20,0.35)]"
+                      : "ring-[1.5px] ring-white/10 ring-offset-1 ring-offset-black group-hover:ring-white/30"
+                  }`}
+                >
+                  {/* Fondo interior */}
+                  <div
+                    className={`absolute inset-0 rounded-full transition-colors duration-300 ${
+                      isSelected
+                        ? "bg-gradient-to-br from-[#1a0505] to-[#0a0a0a]"
+                        : "bg-[#0e0e0e] group-hover:bg-[#141414]"
+                    }`}
                   />
+
+                  {/* Logo */}
+                  <div className="absolute inset-0 flex items-center justify-center p-3.5 md:p-4">
+                    <Image
+                      src={imagen}
+                      alt={nombre}
+                      width={48}
+                      height={48}
+                      unoptimized={imagen.endsWith(".svg")}
+                      className={`object-contain w-full h-full transition-all duration-400 ${
+                        isSelected
+                          ? "brightness-110 drop-shadow-[0_0_8px_rgba(229,9,20,0.3)] scale-105"
+                          : "brightness-75 group-hover:brightness-100 drop-shadow-[0_0_6px_rgba(255,255,255,0.1)]"
+                      }`}
+                      sizes="(max-width: 768px) 68px, 80px"
+                    />
+                  </div>
                 </div>
-                <div className="flex-1 flex items-center justify-center w-full">
-                  <p className="text-[10px] md:text-xs text-gray-300 font-medium text-center leading-tight line-clamp-2">
-                    {nombre}
-                  </p>
-                </div>
-              </motion.div>
+
+                {/* Nombre */}
+                <span
+                  className={`text-[10px] md:text-[11px] font-semibold tracking-wide text-center leading-tight max-w-[76px] md:max-w-[88px] line-clamp-2 transition-colors duration-300 ${
+                    isSelected
+                      ? "text-white"
+                      : "text-gray-500 group-hover:text-gray-300"
+                  }`}
+                >
+                  {nombre}
+                </span>
+
+                {/* Indicador dot activo */}
+                <AnimatePresence>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      className="w-1 h-1 rounded-full bg-[#E50914] shadow-[0_0_6px_rgba(229,9,20,0.6)]"
+                    />
+                  )}
+                </AnimatePresence>
+              </motion.button>
             );
           })}
         </div>
-
-        {/* Right Arrow */}
-        <button
-          onClick={() => scroll("right")}
-          className="absolute right-0 z-10 p-2 bg-black/50 hover:bg-[#E50914] rounded-full text-white backdrop-blur-sm transition-all -mr-4 md:-mr-8 hidden md:flex"
-          aria-label="Scroll right"
-        >
-          <ChevronRight className="w-6 h-6" />
-        </button>
       </div>
     </section>
   );
