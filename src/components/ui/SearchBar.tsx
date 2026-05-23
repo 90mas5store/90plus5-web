@@ -15,6 +15,7 @@ interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
   onSearch?: (e: React.FormEvent) => void;
+  onNavigate?: () => void;
   placeholder?: string;
   className?: string;
   enableLiveResults?: boolean;
@@ -57,7 +58,13 @@ function clearRecentSearches() {
   localStorage.removeItem(RECENT_KEY);
 }
 
-// ─── Normalize for fuzzy matching ───
+// ─── Platform detection ───
+function getShortcutKey(): string {
+  if (typeof navigator === "undefined") return "Ctrl";
+  return navigator.platform?.toLowerCase().includes("mac") ? "⌘" : "Ctrl";
+}
+
+// ─── Normalize for matching ───
 const normalize = (s: string) =>
   (s || "")
     .toString()
@@ -86,21 +93,12 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   );
 }
 
-// ─── Trending suggestions (static) ───
-const TRENDING_SUGGESTIONS = [
-  "Real Madrid",
-  "Barcelona",
-  "Liverpool",
-  "Retro",
-  "PSG",
-  "Jordan",
-];
-
 // ─── Main Component ───
 export default function SearchBar({
   value,
   onChange,
   onSearch,
+  onNavigate,
   placeholder = "Buscar equipos, ligas, productos...",
   className = "",
   enableLiveResults = true,
@@ -113,10 +111,16 @@ export default function SearchBar({
   const [isOpen, setIsOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [shortcutKey, setShortcutKey] = useState("Ctrl");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Detect platform for shortcut display
+  useEffect(() => {
+    setShortcutKey(getShortcutKey());
+  }, []);
 
   // Load catalog + config for live results
   useEffect(() => {
@@ -174,15 +178,37 @@ export default function SearchBar({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Build search results
+  // Dynamic trending: derive from actual catalog teams (top teams by product count)
+  const trendingSuggestions = useMemo(() => {
+    if (catalog.length === 0) return [];
+    const teamCounts = new Map<string, number>();
+    catalog.forEach((p) => {
+      if (p.equipo) {
+        teamCounts.set(p.equipo, (teamCounts.get(p.equipo) || 0) + 1);
+      }
+    });
+    return Array.from(teamCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([name]) => name);
+  }, [catalog]);
+
+  // Build search results — strict matching: query must match start of a word
   const results = useMemo((): SearchResult[] => {
     if (!value || value.length < 2 || !enableLiveResults) return [];
     const q = normalize(value);
     const items: SearchResult[] = [];
 
+    const matchesQuery = (text: string) => {
+      const normalized = normalize(text);
+      if (normalized.startsWith(q)) return true;
+      const words = normalized.split(/\s+/);
+      return words.some((word) => word.startsWith(q));
+    };
+
     // Categories
     categories
-      .filter((c) => normalize(c.nombre).includes(q))
+      .filter((c) => matchesQuery(c.nombre))
       .slice(0, 2)
       .forEach((c) => {
         items.push({
@@ -197,7 +223,7 @@ export default function SearchBar({
 
     // Leagues
     leagues
-      .filter((l) => normalize(l.nombre).includes(q))
+      .filter((l) => matchesQuery(l.nombre))
       .slice(0, 2)
       .forEach((l) => {
         items.push({
@@ -210,11 +236,9 @@ export default function SearchBar({
         });
       });
 
-    // Products
+    // Products — match on team name or model name, word-boundary matching
     catalog
-      .filter(
-        (p) => normalize(p.equipo).includes(q) || normalize(p.modelo).includes(q)
-      )
+      .filter((p) => matchesQuery(p.equipo) || matchesQuery(p.modelo))
       .slice(0, 5)
       .forEach((p) => {
         items.push({
@@ -285,6 +309,7 @@ export default function SearchBar({
     setRecentSearches(getRecentSearches());
     setIsOpen(false);
     onChange("");
+    onNavigate?.();
     router.push(item.href);
   };
 
@@ -294,6 +319,7 @@ export default function SearchBar({
     saveRecentSearch(value.trim());
     setRecentSearches(getRecentSearches());
     setIsOpen(false);
+    onNavigate?.();
     if (onSearch) {
       onSearch(e);
     } else {
@@ -338,11 +364,12 @@ export default function SearchBar({
     }
   };
 
-  const isCatalogPage = pathname?.includes("/catalogo");
+
   const hasQuery = value.length >= 2;
   const hasResults = results.length > 0;
   const hasRecent = recentSearches.length > 0;
-  const showPanel = isOpen && (hasQuery || hasRecent || !isCatalogPage);
+  const hasTrending = trendingSuggestions.length > 0;
+  const showPanel = isOpen && (hasQuery || hasRecent || hasTrending);
 
   return (
     <div ref={containerRef} className={`relative w-full max-w-xl ${className}`}>
@@ -399,7 +426,12 @@ export default function SearchBar({
               </button>
             )}
             <kbd className="hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-gray-500 font-mono">
-              <span className="text-[11px]">⌘</span>K
+              {shortcutKey === "⌘" ? (
+                <span className="text-[11px]">⌘</span>
+              ) : (
+                <span className="text-[10px]">Ctrl</span>
+              )}
+              <span>K</span>
             </kbd>
           </div>
         </div>
@@ -431,7 +463,7 @@ export default function SearchBar({
                       <div className="mt-2 space-y-0.5">
                         {results
                           .filter((r) => r.type === "category" || r.type === "league")
-                          .map((item, i) => {
+                          .map((item) => {
                             const globalIdx = results.indexOf(item);
                             const isActive = activeIndex === globalIdx;
                             return (
@@ -509,7 +541,7 @@ export default function SearchBar({
                                     : "hover:bg-white/5"
                                 }`}
                               >
-                                <div className="w-10 h-13 rounded-lg overflow-hidden flex-shrink-0 border border-white/5 bg-neutral-800">
+                                <div className="w-10 h-[52px] rounded-lg overflow-hidden flex-shrink-0 border border-white/5 bg-neutral-800">
                                   <ProductImage
                                     src={item.image || ""}
                                     alt={item.title}
@@ -542,7 +574,7 @@ export default function SearchBar({
                   )}
 
                   {/* "View all results" footer */}
-                  {!isCatalogPage && (
+                  {(
                     <div className="p-2 mt-1 border-t border-white/5">
                       <button
                         data-search-item
@@ -611,24 +643,26 @@ export default function SearchBar({
                     </div>
                   )}
 
-                  {/* Trending */}
-                  <div className="px-3 pt-3 pb-2">
-                    <span className="px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 flex items-center gap-1.5">
-                      <TrendingUp className="w-3 h-3" />
-                      Populares
-                    </span>
-                    <div className="mt-2 flex flex-wrap gap-1.5 px-1">
-                      {TRENDING_SUGGESTIONS.map((term) => (
-                        <button
-                          key={term}
-                          onClick={() => handleTrendingClick(term)}
-                          className="px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-xs text-gray-400 hover:text-white hover:bg-white/10 hover:border-primary/20 transition-all"
-                        >
-                          {term}
-                        </button>
-                      ))}
+                  {/* Trending — dynamic from catalog */}
+                  {hasTrending && (
+                    <div className="px-3 pt-3 pb-2">
+                      <span className="px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 flex items-center gap-1.5">
+                        <TrendingUp className="w-3 h-3" />
+                        Populares
+                      </span>
+                      <div className="mt-2 flex flex-wrap gap-1.5 px-1">
+                        {trendingSuggestions.map((term) => (
+                          <button
+                            key={term}
+                            onClick={() => handleTrendingClick(term)}
+                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-xs text-gray-400 hover:text-white hover:bg-white/10 hover:border-primary/20 transition-all"
+                          >
+                            {term}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
@@ -657,7 +691,6 @@ export function SearchTrigger({ className = "" }: { className?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [mounted, setMounted] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -698,7 +731,7 @@ export function SearchTrigger({ className = "" }: { className?: string }) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        aria-label="Buscar (⌘K)"
+        aria-label="Buscar"
         className={`relative p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group ${className}`}
       >
         <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -710,32 +743,34 @@ export function SearchTrigger({ className = "" }: { className?: string }) {
         createPortal(
           <AnimatePresence>
             {isOpen && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
-                  onClick={handleClose}
-                />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="fixed inset-0 z-[200]"
+                onClick={handleClose}
+              >
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
                 <motion.div
                   data-search-overlay
-                  initial={{ opacity: 0, y: -20, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.96 }}
+                  initial={{ y: -20, scale: 0.96 }}
+                  animate={{ y: 0, scale: 1 }}
+                  exit={{ y: -20, scale: 0.96 }}
                   transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="fixed top-[10vh] md:top-[15vh] left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-lg z-[201]"
+                  className="relative top-4 md:top-[20%] mx-4 md:mx-auto md:max-w-xl"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <SearchBar
                     value={searchValue}
                     onChange={setSearchValue}
+                    onNavigate={handleClose}
                     placeholder="Buscar equipos, ligas, productos..."
                     enableLiveResults
                     className="w-full"
                   />
                 </motion.div>
-              </>
+              </motion.div>
             )}
           </AnimatePresence>,
           document.body

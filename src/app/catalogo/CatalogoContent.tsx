@@ -24,12 +24,11 @@ const CatalogHeroContainer = dynamic(() => import("../../components/catalogo/Cat
 
 import CatalogFilterPanel, { CatalogFilters, DEFAULT_FILTERS } from "../../components/catalogo/CatalogFilterPanel";
 import useToastMessage from "../../hooks/useToastMessage";
-import SearchBar from "../../components/ui/SearchBar";
 import ProductCard from "../../components/ui/ProductCard";
 import { useLiveMatches } from "../../hooks/useLiveMatches";
 import MainButton from "../../components/ui/MainButton"; // Reutilizamos botón consistente
 import { usePrefetch, useProductPrefetch } from "../../hooks/usePrefetch";
-import { useDebounce, usePrefersReducedMotion } from "../../hooks/useOptimization";
+import { usePrefersReducedMotion } from "../../hooks/useOptimization";
 import { ArrowDown } from "lucide-react";
 
 // 🎞️ Animaciones reutilizables
@@ -83,8 +82,6 @@ export default function CatalogoContent({
   const [loadingMore, setLoadingMore] = useState(false); // Estado para "Cargar más"
 
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(categoriaParam || null);
-  const [searchTerm, setSearchTerm] = useState(queryParam || "");
-
   // === Equipos por liga ===
   const [teams, setTeams] = useState<{ id: string; name: string; logo_url: string | null }[]>([]);
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string | null>(null);
@@ -93,7 +90,6 @@ export default function CatalogoContent({
   const [marcaSeleccionada, setMarcaSeleccionada] = useState<string | null>(null);
   // === Filtros avanzados ===
   const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
-  const debouncedSearchTerm = useDebounce(searchTerm, 400); // 400ms delay
   const prefersReducedMotion = usePrefersReducedMotion();
   const toast = useToastMessage();
 
@@ -101,23 +97,27 @@ export default function CatalogoContent({
   const contentRef = useRef<HTMLDivElement>(null);
   // Flag para saber si debemos hacer scroll (solo al seleccionar liga)
   const shouldScrollOnFilter = useRef(false);
+  // Track previous query to detect changes
+  const prevQueryRef = useRef(queryParam);
 
-  // 🔄 Actualizar URL (Live Search)
+  // 🔄 Reset filtros cuando llega una nueva búsqueda desde el header
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    const currentQuery = searchParams.get("query") || "";
-    const newQuery = debouncedSearchTerm.trim();
-
-    // Skip router.replace if query hasn't actually changed
-    if (currentQuery === newQuery) return;
-
-    if (newQuery) {
-      params.set("query", newQuery);
-    } else {
-      params.delete("query");
+    if (queryParam !== prevQueryRef.current) {
+      prevQueryRef.current = queryParam;
+      if (queryParam) {
+        setLigaSeleccionada(null);
+        setEquipoSeleccionado(null);
+        setMarcaSeleccionada(null);
+        setCatalogFilters(DEFAULT_FILTERS);
+        // Limpiar liga de la URL si existía
+        const params = new URLSearchParams(searchParams.toString());
+        if (params.has("liga")) {
+          params.delete("liga");
+          router.replace(`/catalogo?${params.toString()}`, { scroll: false });
+        }
+      }
     }
-    router.replace(`/catalogo?${params.toString()}`, { scroll: false });
-  }, [debouncedSearchTerm, router, searchParams]);
+  }, [queryParam, searchParams, router]);
 
   // === Funciones de normalización ===
   const normalize = (s: string | null | undefined) =>
@@ -219,7 +219,7 @@ export default function CatalogoContent({
       const { data, count } = await getCatalogPaginated({
         page: pageNum,
         limit: PRODUCTS_PER_PAGE,
-        query: debouncedSearchTerm,
+        query: queryParam || "",
         categoryId: selectedCategoryObj?.id,
         leagueId: selectedLeagueObj?.id,
         teamId: equipoSeleccionado ?? undefined,
@@ -253,7 +253,7 @@ export default function CatalogoContent({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada, catalogFilters, toast, config, categoriaParam, ligaParam]);
+  }, [queryParam, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada, catalogFilters, toast, config, categoriaParam, ligaParam]);
 
   // Efecto Principal: Disparar Fetch cuando cambian filtros
   // Siempre fetchea en mount para garantizar datos frescos (evita stale data del Router Cache)
@@ -262,7 +262,7 @@ export default function CatalogoContent({
     fetchProducts(1, false);
   // fetchProducts omitted: its extra deps (config, toast, etc.) would cause unwanted re-runs
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada, catalogFilters]);
+  }, [queryParam, selectedCategoryObj, selectedLeagueObj, equipoSeleccionado, marcaSeleccionada, catalogFilters]);
 
   // 2. Función para cargar más (botón)
   const handleLoadMore = () => {
@@ -341,11 +341,6 @@ export default function CatalogoContent({
     return null;
   }, [selectedCategoryObj, ligas, categoryBrands]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e?.preventDefault();
-    // El efecto del debounce ya se encarga de fetchear
-  };
-
   return (
     <main className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden">
       {/* SEO: h1 visible para crawlers y screen readers */}
@@ -372,20 +367,8 @@ export default function CatalogoContent({
         }
       />
 
-      {/* BUSCADOR */}
-      <div
-        ref={contentRef}
-        className="flex justify-center mb-6 px-4 relative z-10"
-      >
-        <SearchBar
-          value={searchTerm}
-          onChange={setSearchTerm}
-          onSearch={handleSearchSubmit}
-          placeholder="Buscar por equipo, modelo o estilo..."
-        />
-      </div>
-
       {/* FILTROS AVANZADOS (Panel desplegable) */}
+      <div ref={contentRef}></div>
       <CatalogFilterPanel
         showGender={showGenderFilter}
         filters={catalogFilters}
@@ -522,7 +505,13 @@ export default function CatalogoContent({
           <div className="text-center py-20">
             <p className="text-gray-400 text-lg mb-4">No encontramos productos con esos filtros.</p>
             <button
-              onClick={() => { setSearchTerm(''); setLigaSeleccionada(null); }}
+              onClick={() => {
+                setLigaSeleccionada(null);
+                setEquipoSeleccionado(null);
+                setMarcaSeleccionada(null);
+                setCatalogFilters(DEFAULT_FILTERS);
+                router.replace('/catalogo', { scroll: false });
+              }}
               className="text-[#E50914] hover:underline"
             >
               Borrar filtros

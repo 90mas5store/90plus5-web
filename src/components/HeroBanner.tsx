@@ -542,7 +542,7 @@ export default function HeroBanner({
                 />
 
                 {/* Bottom Fade for seamless transition */}
-                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+                <div className="absolute bottom-0 left-0 right-0 h-32 md:h-44 bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none z-20" />
             </div>
 
 
