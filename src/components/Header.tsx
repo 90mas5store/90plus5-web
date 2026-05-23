@@ -3,13 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ShoppingCart, Home, Grid3x3, Sparkles, X, Package } from "lucide-react";
+import { ShoppingCart, Home, Grid3x3, Sparkles, X, Package, Search } from "lucide-react";
 import { motion, AnimatePresence } from "@/lib/motion";
 import { useCart } from "../context/CartContext";
 import { useCategories } from "../hooks/useCategories";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { usePrefersReducedMotion } from "../hooks/useOptimization";
 import { Category } from "@/lib/types";
+import SearchBar, { SearchTrigger } from "./ui/SearchBar";
 
 // ─────────────────────────────────────────────
 // LinkItem — reutilizado en desktop y tablet
@@ -234,8 +236,13 @@ export default function Header() {
     const [megaMenuPinned, setMegaMenuPinned] = useState(false);
     const [megaMenuHovered, setMegaMenuHovered] = useState(false);
     const [categorySheetOpen, setCategorySheetOpen] = useState(false);
+    const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+    const [mobileSearchValue, setMobileSearchValue] = useState("");
+    const [mounted, setMounted] = useState(false);
 
     const prefersReducedMotion = usePrefersReducedMotion();
+
+    useEffect(() => { setMounted(true); }, []);
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -339,13 +346,24 @@ export default function Header() {
                             </LinkItem>
                         </nav>
 
-                        {/* CARRITO — visible en tablet y desktop */}
+                        {/* BUSCAR MÓVIL (<768px) */}
+                        <button
+                            onClick={() => setMobileSearchOpen(true)}
+                            aria-label="Buscar"
+                            className="md:hidden relative p-2.5 rounded-xl text-gray-400 hover:text-white transition-all"
+                        >
+                            <Search className="w-5 h-5" />
+                        </button>
+
+                        {/* BUSCAR + CARRITO — visible en tablet y desktop */}
+                        <div className="hidden md:flex items-center gap-1">
+                        <SearchTrigger />
                         <motion.button
                             whileHover={{ scale: 1.05, y: -2 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={openCart}
                             aria-label="Carrito de compras"
-                            className="hidden md:flex relative p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group"
+                            className="relative flex p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group"
                         >
                             <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <div className="absolute inset-0 shadow-[0_8px_32px_rgba(229,9,20,0.15)] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -360,6 +378,7 @@ export default function Header() {
                                 </motion.span>
                             )}
                         </motion.button>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -544,6 +563,57 @@ export default function Header() {
                     </>
                 )}
             </AnimatePresence>
+
+            {/* ═══════════════════════════════════════
+                MOBILE SEARCH OVERLAY (portaled to body)
+            ═══════════════════════════════════════ */}
+            {mounted && createPortal(
+                <AnimatePresence>
+                    {mobileSearchOpen && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] md:hidden"
+                                onClick={() => {
+                                    setMobileSearchOpen(false);
+                                    setMobileSearchValue("");
+                                }}
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, y: -20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                className="fixed top-3 left-3 right-3 z-[201] md:hidden"
+                            >
+                                <div className="relative" data-search-overlay>
+                                    <SearchBar
+                                        value={mobileSearchValue}
+                                        onChange={setMobileSearchValue}
+                                        placeholder="Buscar equipos, ligas, productos..."
+                                        enableLiveResults
+                                        className="w-full"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            setMobileSearchOpen(false);
+                                            setMobileSearchValue("");
+                                        }}
+                                        aria-label="Cerrar búsqueda"
+                                        className="absolute -bottom-12 left-1/2 -translate-x-1/2 p-2 rounded-full bg-white/10 text-gray-400 hover:text-white transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </>
     );
 }

@@ -18,14 +18,20 @@ vi.mock("@/lib/motion", () => ({
     AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-// Mock API call
+// Mock API calls
 vi.mock("@/lib/api", () => ({
     getCatalog: vi.fn().mockResolvedValue([]),
+    getConfig: vi.fn().mockResolvedValue({ categorias: [], ligas: [], marcas: [] }),
 }));
 
 // Mock ProductImage
 vi.mock("@/components/ProductImage", () => ({
     default: ({ alt }: { alt: string }) => <img alt={alt} />,
+}));
+
+// Mock next/image
+vi.mock("next/image", () => ({
+    default: ({ alt, ...props }: { alt: string; [key: string]: unknown }) => <img alt={alt} />,
 }));
 
 describe("SearchBar", () => {
