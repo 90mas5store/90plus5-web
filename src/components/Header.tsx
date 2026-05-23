@@ -570,46 +570,40 @@ export default function Header() {
             {mounted && createPortal(
                 <AnimatePresence>
                     {mobileSearchOpen && (
-                        <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="fixed inset-0 z-[200] md:hidden"
+                            onClick={() => {
+                                setMobileSearchOpen(false);
+                                setMobileSearchValue("");
+                            }}
+                        >
+                            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
                             <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
-                                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] md:hidden"
-                                onClick={() => {
-                                    setMobileSearchOpen(false);
-                                    setMobileSearchValue("");
-                                }}
-                            />
-                            <motion.div
-                                initial={{ opacity: 0, y: -20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
+                                initial={{ y: -20 }}
+                                animate={{ y: 0 }}
+                                exit={{ y: -20 }}
                                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                className="fixed top-3 left-3 right-3 z-[201] md:hidden"
+                                className="relative top-3 mx-3"
+                                data-search-overlay
+                                onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="relative" data-search-overlay>
-                                    <SearchBar
-                                        value={mobileSearchValue}
-                                        onChange={setMobileSearchValue}
-                                        placeholder="Buscar equipos, ligas, productos..."
-                                        enableLiveResults
-                                        className="w-full"
-                                    />
-                                    <button
-                                        onClick={() => {
-                                            setMobileSearchOpen(false);
-                                            setMobileSearchValue("");
-                                        }}
-                                        aria-label="Cerrar búsqueda"
-                                        className="absolute -bottom-12 left-1/2 -translate-x-1/2 p-2 rounded-full bg-white/10 text-gray-400 hover:text-white transition-colors"
-                                    >
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
+                                <SearchBar
+                                    value={mobileSearchValue}
+                                    onChange={setMobileSearchValue}
+                                    onNavigate={() => {
+                                        setMobileSearchOpen(false);
+                                        setMobileSearchValue("");
+                                    }}
+                                    placeholder="Buscar equipos, ligas, productos..."
+                                    enableLiveResults
+                                    className="w-full"
+                                />
                             </motion.div>
-                        </>
+                        </motion.div>
                     )}
                 </AnimatePresence>,
                 document.body

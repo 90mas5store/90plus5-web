@@ -11,11 +11,10 @@ import MainButton from "./ui/MainButton";
 import { useCart } from "@/context/CartContext";
 import { Product, Config, Category } from "@/lib/types";
 import useToastMessage from "@/hooks/useToastMessage";
-import SearchBar from "./ui/SearchBar";
 import ProductCard from "./ui/ProductCard";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { usePrefetch, useProductPrefetch } from "@/hooks/usePrefetch";
-import { useDebounce, usePrefersReducedMotion } from "@/hooks/useOptimization";
+import { usePrefersReducedMotion } from "@/hooks/useOptimization";
 import SpecialEventBanner from "./ui/SpecialEventBanner";
 import HomeBannerContainer from "./HomeBannerContainer";
 
@@ -58,8 +57,6 @@ export default function HomeClient({
 
     // State for interactions
     const [ligaSeleccionada, setLigaSeleccionada] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const debouncedSearchTerm = useDebounce(searchTerm, 400); // Kept for consistency if needed, though search is direct
     const prefersReducedMotion = usePrefersReducedMotion();
     const toast = useToastMessage();
 
@@ -101,16 +98,6 @@ export default function HomeClient({
         // ✅ NO aplicamos .sort() aquí - respetamos el orden que viene del servidor
     }, [destacados, ligaSeleccionada, ligas]);
 
-    // 🔎 Buscar
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (searchTerm.trim()) {
-            router.push(`/catalogo?query=${encodeURIComponent(searchTerm.trim())}`);
-        } else {
-            router.push(`/catalogo`);
-        }
-    };
-
     return (
         <main className="bg-background text-textLight min-h-dvh relative overflow-hidden">
 
@@ -118,16 +105,6 @@ export default function HomeClient({
             <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>
             <HomeBannerContainer initialBanners={banners} />
 
-
-            {/* 🔍 BUSCADOR */}
-            <section className="flex justify-center -mt-4 md:-mt-6 mb-6 md:mb-8 px-4 z-20 relative">
-                <SearchBar
-                    value={searchTerm}
-                    onChange={setSearchTerm}
-                    onSearch={handleSearch}
-                    placeholder="Buscar por equipo, modelo o jugador..."
-                />
-            </section>
 
             {/* 🏆 EVENTO ESPECIAL (MUNDIAL) */}
             <SpecialEventBanner />
