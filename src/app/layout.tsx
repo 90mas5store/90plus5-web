@@ -10,6 +10,7 @@ import AnalyticsWrapper from "../components/AnalyticsWrapper";
 import { Metadata, Viewport } from "next";
 import { Partytown } from '@builder.io/partytown/react';
 import { MotionProvider } from "@/lib/motion";
+import { SITE_URL, SITE_CONFIG, CONTACT, SOCIAL_LINKS, SEO } from "@/lib/config/site";
 
 // 🧠 Fuente local Satoshi
 const satoshi = localFont({
@@ -24,14 +25,14 @@ const satoshi = localFont({
 
 // 🧾 Metadata global
 export const metadata: Metadata = {
-    metadataBase: new URL("https://90mas5.store"),
+    metadataBase: new URL(SITE_URL),
     title: {
         default: "90+5 Store | Camisetas de Fútbol y Ropa Deportiva en Honduras",
         template: "%s | 90+5 Store",
     },
     description: "Compra las mejores camisetas de fútbol temporada 25/26 versión jugador y aficionado. Envíos a todo Honduras. Real Madrid, Barcelona, Olimpia, Motagua y más. Calidad Premium Garantizada.",
-    applicationName: "90+5 Store",
-    authors: [{ name: "90+5 Store", url: "https://90mas5.store" }],
+    applicationName: SITE_CONFIG.name,
+    authors: [{ name: SITE_CONFIG.name, url: SITE_URL }],
     keywords: [
         "camisetas de fútbol honduras",
         "tienda deportiva tegucigalpa",
@@ -58,9 +59,9 @@ export const metadata: Metadata = {
     openGraph: {
         title: "90+5 Store | Camisetas de Fútbol Premium en Honduras",
         description: "Encuentra las equipaciones oficiales 25/26 de tus equipos favoritos. Calidad versión jugador, envíos rápidos y seguros en todo Honduras.",
-        url: "https://90mas5.store",
-        siteName: "90+5 Store",
-        locale: "es_HN",
+        url: SITE_URL,
+        siteName: SITE_CONFIG.name,
+        locale: SITE_CONFIG.locale,
         type: "website",
         images: [
             {
@@ -76,16 +77,16 @@ export const metadata: Metadata = {
         title: "90+5 Store | #1 en Camisetas de Fútbol",
         description: "El tiempo se rompe aquí. Las mejores equipaciones del mundo en Honduras. ⚽🔥",
         images: ["/og-image.jpg"],
-        creator: "@90mas5store",
+        creator: SOCIAL_LINKS.twitterHandle,
     },
     verification: {
-        google: "CzTKVzB0AjaAMCpZbKFoVnPrICCmgkyRV70C5sJO8Qo",
+        google: SEO.googleVerification,
     },
     category: "ecommerce",
 };
 
 export const viewport: Viewport = {
-    themeColor: "#E50914",
+    themeColor: SEO.themeColor,
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
@@ -98,8 +99,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <head>
 
                 {/* Preconnect optimizado — crossOrigin para fetch API + imágenes desde mismo origen */}
-                <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" crossOrigin="anonymous" />
-                <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
+                {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+                    <>
+                        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
+                        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
+                    </>
+                )}
 
                 {/* 🧠 JSON-LD: Organization */}
                 <script
@@ -108,32 +113,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         __html: JSON.stringify({
                             "@context": "https://schema.org",
                             "@type": "Organization",
-                            "name": "90+5 Store",
+                            "name": SITE_CONFIG.name,
                             "alternateName": ["90mas5 Store", "90+5", "Noventa más cinco Store"],
-                            "url": "https://90mas5.store",
+                            "url": SITE_URL,
                             "logo": {
                                 "@type": "ImageObject",
-                                "url": "https://90mas5.store/logo-512.png",
+                                "url": `${SITE_URL}/logo-512.png`,
                                 "width": 512,
                                 "height": 512
                             },
                             "description": "La mejor tienda de camisetas de fútbol en Honduras. Equipaciones oficiales temporada 25/26 en versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua, Bayern, y más. Envíos a todo Honduras.",
-                            "foundingDate": "2024",
+                            "foundingDate": SITE_CONFIG.foundingDate,
                             "areaServed": {
                                 "@type": "Country",
-                                "name": "Honduras"
+                                "name": SITE_CONFIG.country
                             },
-                            "priceRange": "HNL 350 - HNL 900",
-                            "telephone": "+50432488860",
+                            "priceRange": SITE_CONFIG.priceRange,
+                            "telephone": CONTACT.phone,
                             "sameAs": [
-                                "https://www.instagram.com/90mas5store",
-                                "https://www.facebook.com/90mas5store",
-                                "https://www.tiktok.com/@90mas5",
-                                "https://wa.me/50432488860"
+                                SOCIAL_LINKS.instagram,
+                                SOCIAL_LINKS.facebook,
+                                SOCIAL_LINKS.tiktok,
+                                SOCIAL_LINKS.whatsapp
                             ],
                             "contactPoint": {
                                 "@type": "ContactPoint",
-                                "telephone": "+50432488860",
+                                "telephone": CONTACT.phone,
                                 "contactType": "customer service",
                                 "contactOption": "TollFree",
                                 "availableLanguage": "Spanish",
@@ -149,14 +154,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         __html: JSON.stringify({
                             "@context": "https://schema.org",
                             "@type": ["LocalBusiness", "SportingGoodsStore", "Store"],
-                            "name": "90+5 Store",
+                            "name": SITE_CONFIG.name,
                             "description": "Tienda online líder en Honduras especializada en camisetas de fútbol premium. Versión jugador y aficionado. Temporada 25/26. Envíos a todo Honduras.",
-                            "url": "https://90mas5.store",
-                            "telephone": "+50432488860",
-                            "image": "https://90mas5.store/og-image.jpg",
-                            "logo": "https://90mas5.store/logo.svg",
-                            "priceRange": "HNL 350 - HNL 900",
-                            "currenciesAccepted": "HNL",
+                            "url": SITE_URL,
+                            "telephone": CONTACT.phone,
+                            "image": `${SITE_URL}/og-image.jpg`,
+                            "logo": `${SITE_URL}/logo.svg`,
+                            "priceRange": SITE_CONFIG.priceRange,
+                            "currenciesAccepted": SITE_CONFIG.currency,
                             "paymentAccepted": "Transferencia bancaria, Pago móvil",
                             "address": {
                                 "@type": "PostalAddress",
@@ -186,9 +191,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 ]
                             },
                             "sameAs": [
-                                "https://www.instagram.com/90mas5store",
-                                "https://www.facebook.com/90mas5store",
-                                "https://www.tiktok.com/@90mas5"
+                                SOCIAL_LINKS.instagram,
+                                SOCIAL_LINKS.facebook,
+                                SOCIAL_LINKS.tiktok
                             ]
                         })
                     }}
@@ -200,14 +205,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         __html: JSON.stringify({
                             "@context": "https://schema.org",
                             "@type": "WebSite",
-                            "url": "https://90mas5.store",
-                            "name": "90+5 Store",
+                            "url": SITE_URL,
+                            "name": SITE_CONFIG.name,
                             "description": "Camisetas de fútbol premium en Honduras",
                             "potentialAction": {
                                 "@type": "SearchAction",
                                 "target": {
                                     "@type": "EntryPoint",
-                                    "urlTemplate": "https://90mas5.store/catalogo?query={search_term_string}"
+                                    "urlTemplate": `${SITE_URL}/catalogo?query={search_term_string}`
                                 },
                                 "query-input": "required name=search_term_string"
                             }
@@ -224,32 +229,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 {
                                     "@type": "SiteNavigationElement",
                                     "name": "Catálogo",
-                                    "url": "https://90mas5.store/catalogo"
+                                    "url": `${SITE_URL}/catalogo`
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
                                     "name": "Mundial 2026",
-                                    "url": "https://90mas5.store/catalogo?categoria=Mundial2026"
+                                    "url": `${SITE_URL}/catalogo?categoria=Mundial2026`
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
                                     "name": "Streetwear",
-                                    "url": "https://90mas5.store/catalogo?categoria=streetwear"
+                                    "url": `${SITE_URL}/catalogo?categoria=streetwear`
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
                                     "name": "Fútbol",
-                                    "url": "https://90mas5.store/catalogo?categoria=Futbol"
+                                    "url": `${SITE_URL}/catalogo?categoria=Futbol`
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
                                     "name": "Liga Hondubet",
-                                    "url": "https://90mas5.store/catalogo?liga=Liga-Hondubet"
+                                    "url": `${SITE_URL}/catalogo?liga=Liga-Hondubet`
                                 },
                                 {
                                     "@type": "SiteNavigationElement",
                                     "name": "Premier League",
-                                    "url": "https://90mas5.store/catalogo?liga=premier-league"
+                                    "url": `${SITE_URL}/catalogo?liga=premier-league`
                                 }
                             ]
                         })

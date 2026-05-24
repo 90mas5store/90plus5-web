@@ -1,5 +1,7 @@
+import { BUSINESS_LOGIC } from '@/lib/constants';
+
 export const getWhatsappLink = ({
-    phone = '50432488860',
+    phone = BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER,
     message = 'Hola, tengo una consulta',
 }: {
     phone?: string;

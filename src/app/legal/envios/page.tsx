@@ -1,10 +1,11 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/lib/config/site";
 
 export const metadata: Metadata = {
   title: "Envíos y Devoluciones",
   description:
     "Información de envíos a todo Honduras: costos, tiempos de entrega y política de devoluciones de 90+5 Store.",
-  alternates: { canonical: "https://90mas5.store/legal/envios" },
+  alternates: { canonical: `${SITE_URL}/legal/envios` },
 };
 
 export default function EnviosPage() {

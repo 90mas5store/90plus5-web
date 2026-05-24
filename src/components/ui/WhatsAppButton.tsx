@@ -2,9 +2,10 @@
 
 import { motion } from "@/lib/motion";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { BUSINESS_LOGIC } from "@/lib/constants";
 
 export default function WhatsAppButton() {
-    const phoneNumber = "50432488860"; // Reemplazar con el número real de 90+5 Store
+    const phoneNumber = BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER;
     const message = "Hola, estoy interesado en una camiseta. ¿Me ayudan?";
 
     const handleClick = () => {

@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/config/site'
 
 export default function robots(): MetadataRoute.Robots {
     return {
@@ -26,6 +27,6 @@ export default function robots(): MetadataRoute.Robots {
                 disallow: ['/api/', '/admin/', '/checkout/', '/rastreo/', '/perfil/', '/comprobante/'],
             },
         ],
-        sitemap: 'https://90mas5.store/sitemap.xml',
+        sitemap: `${SITE_URL}/sitemap.xml`,
     }
 }

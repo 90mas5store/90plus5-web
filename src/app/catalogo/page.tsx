@@ -5,6 +5,7 @@ import { CatalogPageSkeleton } from "../../components/skeletons/ProductSkeletons
 import { Metadata } from "next";
 import { getConfig, getCatalogPaginated } from "../../lib/api";
 import { createAdminClient } from "../../lib/supabase/admin";
+import { SITE_URL, SITE_CONFIG, SOCIAL_LINKS } from "@/lib/config/site";
 
 // Siempre renderizar dinámico: desactiva el Data Cache de Next.js para
 // los fetches de Supabase, garantizando que cada recarga trae datos frescos.
@@ -36,31 +37,31 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   // Canonical dinámico: páginas filtradas tienen su propio canonical para SEO por keyword
   const canonicalUrl = ligaParam
-    ? `https://90mas5.store/catalogo?liga=${encodeURIComponent(ligaParam)}`
+    ? `${SITE_URL}/catalogo?liga=${encodeURIComponent(ligaParam)}`
     : categoriaParam
-    ? `https://90mas5.store/catalogo?categoria=${encodeURIComponent(categoriaParam)}`
-    : 'https://90mas5.store/catalogo';
+    ? `${SITE_URL}/catalogo?categoria=${encodeURIComponent(categoriaParam)}`
+    : `${SITE_URL}/catalogo`;
 
   return {
-    title: `${titleStr} | 90+5 Store Honduras`,
+    title: `${titleStr} | ${SITE_CONFIG.name} Honduras`,
     description: `Explora nuestra colección de ${titleStr}: versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua y más. Envíos a todo Honduras.`,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
       type: 'website',
-      locale: 'es_HN',
-      title: `${titleStr} | 90+5 Store`,
+      locale: SITE_CONFIG.locale,
+      title: `${titleStr} | ${SITE_CONFIG.name}`,
       description: `Más de 100 equipaciones oficiales temporada 25/26. Versión jugador y aficionado. Envíos rápidos a todo Honduras.`,
       url: canonicalUrl,
-      images: [{ url: 'https://90mas5.store/og-image.jpg', width: 1200, height: 630, alt: `${titleStr} - 90+5 Store` }],
+      images: [{ url: `${SITE_URL}/og-image.jpg`, width: 1200, height: 630, alt: `${titleStr} - ${SITE_CONFIG.name}` }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${titleStr} | 90+5 Store`,
+      title: `${titleStr} | ${SITE_CONFIG.name}`,
       description: `Más de 100 equipaciones 25/26. Versión jugador y aficionado. Envíos a todo Honduras.`,
       images: ['/og-image.jpg'],
-      creator: '@90mas5store',
+      creator: SOCIAL_LINKS.twitterHandle,
     },
   };
 }

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { TikTokIcon } from "@/components/icons/TikTokIcon";
 import { getWhatsappLink } from "@/lib/whatsapp";
+import { CONTACT, SOCIAL_LINKS, SITE_CONFIG } from "@/lib/config/site";
 
 export default function Footer() {
   const router = useRouter();
@@ -68,7 +69,7 @@ export default function Footer() {
           <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
             Donde el tiempo se rompe.
             <br />
-            Desde Tegucigalpa, Honduras.
+            Desde {SITE_CONFIG.location}.
           </p>
         </div>
 
@@ -149,10 +150,10 @@ export default function Footer() {
           >
             <div className="space-y-4 text-sm text-gray-400">
               <p className="flex items-center gap-3">
-                <Mail size={16} className="text-[#E50914]" /> contacto@90mas5.store
+                <Mail size={16} className="text-[#E50914]" /> {CONTACT.email}
               </p>
               <p className="flex items-center gap-3">
-                <Phone size={16} className="text-[#E50914]" /> +504 3248-8860
+                <Phone size={16} className="text-[#E50914]" /> {CONTACT.phoneDisplay}
               </p>
               <motion.a
                 whileHover={{ scale: 1.05 }}
@@ -173,9 +174,9 @@ export default function Footer() {
       <div className="relative mt-12 pt-8 border-t border-white/5">
         <div className="flex justify-center gap-8 mb-6">
           {[
-            { href: "https://instagram.com/90mas5.store", label: "Instagram", icon: <Instagram size={22} /> },
-            { href: "https://facebook.com/90mas5.store", label: "Facebook", icon: <Facebook size={22} /> },
-            { href: "https://www.tiktok.com/@90mas5", label: "TikTok", icon: <TikTokIcon size={20} /> },
+            { href: SOCIAL_LINKS.instagram, label: "Instagram", icon: <Instagram size={22} /> },
+            { href: SOCIAL_LINKS.facebook, label: "Facebook", icon: <Facebook size={22} /> },
+            { href: SOCIAL_LINKS.tiktok, label: "TikTok", icon: <TikTokIcon size={20} /> },
           ].map((social, index) => (
             <motion.div
               key={index}
@@ -202,7 +203,7 @@ export default function Footer() {
 
         {/* ⚽ Derechos */}
         <p className="text-center text-xs text-gray-600 font-medium">
-          © {new Date().getFullYear()} 90+5 Store. Todos los derechos reservados.
+          © {new Date().getFullYear()} {SITE_CONFIG.name}. Todos los derechos reservados.
         </p>
       </div>
 

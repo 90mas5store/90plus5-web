@@ -3,12 +3,13 @@ import HomeClient from "../components/HomeClient";
 import { faqJsonLd } from "../components/GeoFAQSection";
 import { getBannersServer, getConfigServer, getFeaturedServer, getSpecialBannersServer } from "../lib/api-server";
 import { Metadata } from "next";
+import { SITE_URL } from "@/lib/config/site";
 
 // 🚀 Optimización: Revalidación cada hora (ISR)
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-    alternates: { canonical: "https://90mas5.store" },
+    alternates: { canonical: SITE_URL },
 };
 
 export default async function Home() {

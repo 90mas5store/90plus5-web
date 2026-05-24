@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { headers } from 'next/headers';
 import { Webhook } from 'svix';
+import { SITE_CONFIG, CONTACT } from '@/lib/config/site';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -61,8 +62,8 @@ export async function POST(req: Request) {
         }
 
         await resend.emails.send({
-            from: '90+5 Store <contacto@90mas5.store>',
-            to: '90mas5.store@gmail.com',
+            from: `${SITE_CONFIG.name} <${CONTACT.email}>`,
+            to: CONTACT.alertEmail,
             subject: `📦 Nuevo correo recibido: ${emailData.subject}`,
             html: `
         <div style="font-family: sans-serif; padding: 20px; color: #333;">
