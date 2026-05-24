@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import MainButton from "./ui/MainButton";
 import { useCart } from "@/context/CartContext";
-import { Product, Config, Category } from "@/lib/types";
+import { Product, Config, Category, SpecialBanner } from "@/lib/types";
 import useToastMessage from "@/hooks/useToastMessage";
 import ProductCard from "./ui/ProductCard";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
@@ -35,6 +35,7 @@ const fadeInItem = (i = 0) => ({
 interface HomeClientProps {
     initialDestacados: Product[];
     initialBanners: Record<string, unknown>[];
+    initialSpecialBanners: SpecialBanner[];
     initialLigas: import('@/lib/types').League[];
     initialCategorias: Category[];
 }
@@ -42,6 +43,7 @@ interface HomeClientProps {
 export default function HomeClient({
     initialDestacados,
     initialBanners,
+    initialSpecialBanners,
     initialLigas,
     initialCategorias
 }: HomeClientProps) {
@@ -107,7 +109,7 @@ export default function HomeClient({
 
 
             {/* 🏆 EVENTO ESPECIAL (MUNDIAL) */}
-            <SpecialEventBanner />
+            <SpecialEventBanner banners={initialSpecialBanners} />
 
             {/* 🏆 LIGAS */}
             <div id="ligas">

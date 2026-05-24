@@ -20,6 +20,7 @@ import {
     Scissors,
     DollarSign,
     Bookmark,
+    Sparkles,
 } from 'lucide-react';
 
 interface AdminBottomNavProps {
@@ -67,6 +68,7 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
             section: 'Configuración',
             items: [
                 { label: 'Banners', href: '/admin/settings/banners', icon: LayoutTemplate },
+                { label: 'Especiales', href: '/admin/settings/special-banners', icon: Sparkles },
                 { label: 'Admins', href: '/admin/settings/admins', icon: Lock },
                 { label: 'Actividad', href: '/admin/settings/activity', icon: Activity },
                 { label: 'Papelera', href: '/admin/settings/trash', icon: Trash2 },
