@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import HomeClient from "../components/HomeClient";
 import { faqJsonLd } from "../components/GeoFAQSection";
-import { getBannersServer, getConfigServer, getFeaturedServer } from "../lib/api-server";
+import { getBannersServer, getConfigServer, getFeaturedServer, getSpecialBannersServer } from "../lib/api-server";
 import { Metadata } from "next";
 
 // 🚀 Optimización: Revalidación cada hora (ISR)
@@ -14,10 +14,11 @@ export const metadata: Metadata = {
 export default async function Home() {
     // 🚀 Cargar datos en PARALELO desde el servidor
     // Esto elimina el tiempo de espera de red en el cliente (Waterfall)
-    const [featuredData, configData, bannersData] = await Promise.all([
+    const [featuredData, configData, bannersData, specialBannersData] = await Promise.all([
         getFeaturedServer(),
         getConfigServer(),
-        getBannersServer()
+        getBannersServer(),
+        getSpecialBannersServer()
     ]);
 
     // 🚀 Preload hero image: el browser descarga antes de que React hidrate
@@ -72,6 +73,7 @@ export default async function Home() {
             <HomeClient
                 initialDestacados={featuredData || []}
                 initialBanners={bannersData || []}
+                initialSpecialBanners={specialBannersData || []}
                 initialLigas={ligasProcesadas}
                 initialCategorias={configData?.categorias || []}
             />

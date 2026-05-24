@@ -172,6 +172,22 @@ export async function getConfigServer(): Promise<Config> {
     } as Config;
 }
 
+/** 🏆 Obtener Special Banners / Eventos (Server Side) */
+export async function getSpecialBannersServer() {
+    const { data, error } = await supabase
+        .from("special_banners")
+        .select("id, title, subtitle, link_url, background_image_url, background_video_url, logo_url, decoration_image_url, badge_primary_text, badge_secondary_text, badge_secondary_icon, button_text")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching special banners:", error);
+        return [];
+    }
+
+    return data;
+}
+
 /** 🖼️ Obtener Banners (Server Side) */
 export async function getBannersServer() {
     const { data, error } = await supabase

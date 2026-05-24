@@ -67,6 +67,21 @@ export interface Config {
   [key: string]: unknown;
 }
 
+export interface SpecialBanner {
+  id: string;
+  title: string;
+  subtitle: string;
+  link_url: string;
+  background_image_url: string;
+  background_video_url: string;
+  logo_url: string;
+  decoration_image_url: string;
+  badge_primary_text: string;
+  badge_secondary_text: string;
+  badge_secondary_icon: string;
+  button_text: string;
+}
+
 export interface ShippingZone {
   id: string;
   department: string;

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut, LayoutDashboard, Package, FileSpreadsheet, Shirt, Users, Tag, Trophy, Shield, LayoutTemplate, Lock, Activity, Trash2, Scissors, DollarSign, Bookmark } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, FileSpreadsheet, Shirt, Users, Tag, Trophy, Shield, LayoutTemplate, Lock, Activity, Trash2, Scissors, DollarSign, Bookmark, Sparkles } from 'lucide-react';
 
 interface AdminSidebarProps {
     userEmail?: string;
@@ -108,6 +108,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
 
                 {[
                     { label: 'Banners Home', href: '/admin/settings/banners', icon: LayoutTemplate },
+                    { label: 'Banners Especiales', href: '/admin/settings/special-banners', icon: Sparkles },
                     { label: 'Administradores', href: '/admin/settings/admins', icon: Lock },
                     { label: 'Registro de Actividad', href: '/admin/settings/activity', icon: Activity },
                     { label: 'Papelera', href: '/admin/settings/trash', icon: Trash2 },
