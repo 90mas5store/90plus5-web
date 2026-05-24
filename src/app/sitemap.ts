@@ -1,7 +1,8 @@
 import { MetadataRoute } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { SITE_URL } from '@/lib/config/site'
 
-const BASE_URL = 'https://90mas5.store'
+const BASE_URL = SITE_URL
 
 export const revalidate = 3600 // Revalidate every hour
 

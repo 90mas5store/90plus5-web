@@ -6,6 +6,8 @@ import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import GeoFAQSection from "@/components/GeoFAQSection";
+import { CONTACT, SITE_CONFIG } from "@/lib/config/site";
+import { getWhatsappLink } from "@/lib/whatsapp";
 
 export default function ContactoPage() {
   const searchParams = useSearchParams();
@@ -55,28 +57,28 @@ export default function ContactoPage() {
           Somos fanáticos del fútbol, la moda retro y los detalles que hacen historia.
           Si querés colaborar, tenés una duda o simplemente querés saludar, escribinos.
           <br />
-          Basados en <span className="text-[#E50914] font-semibold">Tegucigalpa, Honduras</span> ⚽
+          Basados en <span className="text-[#E50914] font-semibold">{SITE_CONFIG.location}</span> ⚽
         </motion.p>
 
         {/* DATOS */}
         <div className="mt-10 flex flex-col sm:flex-row sm:justify-center gap-8 text-gray-300">
           <div className="flex items-center gap-3">
             <Mail className="w-5 h-5 text-[#E50914]" />
-            <span>contacto@90mas5.store</span>
+            <span>{CONTACT.email}</span>
           </div>
           <div className="flex items-center gap-3">
             <Phone className="w-5 h-5 text-[#E50914]" />
-            <span>+504 3248-8860</span>
+            <span>{CONTACT.phoneDisplay}</span>
           </div>
           <div className="flex items-center gap-3">
             <MapPin className="w-5 h-5 text-[#E50914]" />
-            <span>Tegucigalpa, Honduras</span>
+            <span>{SITE_CONFIG.location}</span>
           </div>
         </div>
 
         {/* WHATSAPP */}
         <motion.a
-          href="https://wa.me/50432488860?text=¡Hola!%20Quiero%20hacer%20una%20consulta%20sobre%20un%20producto."
+          href={getWhatsappLink({ message: "¡Hola! Quiero hacer una consulta sobre un producto." })}
           target="_blank"
           rel="noopener noreferrer"
           initial={{ opacity: 0, scale: 0.9 }}

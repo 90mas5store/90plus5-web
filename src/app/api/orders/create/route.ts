@@ -4,6 +4,7 @@ import { sendOrderConfirmationEmail, sendAdminNewOrderEmail } from '@/lib/email'
 import { BUSINESS_LOGIC, calcShippingCost } from '@/lib/constants';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import type { SupabaseRawOrderItem } from '@/lib/types';
+import { SITE_URL } from '@/lib/config/site';
 
 // 📝 Payload esperado del frontend
 interface CreateOrderPayload {
@@ -374,7 +375,7 @@ export async function POST(request: NextRequest) {
 
         const orderId: string = rpcResult.order_id;
         const isDuplicate: boolean = rpcResult.duplicate === true;
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://90mas5.store';
+        const siteUrl = SITE_URL;
 
         if (isDuplicate) {
             return NextResponse.json({

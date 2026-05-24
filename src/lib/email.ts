@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { BANK_ACCOUNTS } from "@/lib/config/banks";
 import { getWhatsappLink } from "@/lib/whatsapp";
+import { SITE_URL, SITE_CONFIG, CONTACT } from "@/lib/config/site";
 
 // 🛡️ C4 FIX: Escapar HTML para prevenir XSS en emails
 function escapeHtml(str: string | number | undefined | null): string {
@@ -58,7 +59,7 @@ export const sendOrderConfirmationEmail = async ({
     (bank) => {
       // Convertir rutas relativas a URLs absolutas para emails
       const logoUrl = bank.logo?.startsWith('/')
-        ? `https://90mas5.store${bank.logo}`
+        ? `${SITE_URL}${bank.logo}`
         : bank.logo;
 
       return `
@@ -90,7 +91,7 @@ export const sendOrderConfirmationEmail = async ({
       (item) => {
         // Fix: Normalizar URL de imagen para que sea absoluta si es relativa
         const rawImageUrl = item.image?.startsWith('/')
-          ? `https://90mas5.store${item.image}`
+          ? `${SITE_URL}${item.image}`
           : item.image;
         // 🛡️ Sanitizar URL de imagen
         const imageUrl = sanitizeUrl(rawImageUrl);
@@ -134,7 +135,7 @@ export const sendOrderConfirmationEmail = async ({
       <td align="center" style="padding:40px 12px;">
 
         <!-- Logo -->
-        <img src="https://90mas5.store/logo.png" width="120" style="margin-bottom:40px;" />
+        <img src="${SITE_URL}/logo.png" width="120" style="margin-bottom:40px;" />
 
         <!-- Card -->
         <table width="100%" style="max-width:600px;background:#0a0a0a;border-radius:24px;border:1px solid #222;">
@@ -172,7 +173,7 @@ export const sendOrderConfirmationEmail = async ({
                 No le perdás la pista a tu fichaje.
               </p>
 
-              <a href="https://90mas5.store/rastreo?order=${escapeHtml(orderId)}"
+              <a href="${SITE_URL}/rastreo?order=${escapeHtml(orderId)}"
                  style="display:block;background:#fff;color:#000;text-decoration:none;
                         padding:18px 0;border-radius:14px;
                         text-align:center;font-weight:900;
@@ -230,7 +231,7 @@ export const sendOrderConfirmationEmail = async ({
         <!-- Footer -->
         <p style="margin-top:40px;color:#444;font-size:12px;text-align:center;">
           <strong>90+5 STORE</strong><br/>
-          Tegucigalpa, Honduras
+          ${SITE_CONFIG.location}
         </p>
 
       </td>
@@ -242,7 +243,7 @@ export const sendOrderConfirmationEmail = async ({
 
   try {
     const data = await resend.emails.send({
-      from: "90+5 Store <contacto@90mas5.store>",
+      from: `${SITE_CONFIG.name} <${CONTACT.email}>`,
       to: [customerEmail],
       subject: `Pedido confirmado #${orderId.slice(0, 8).toUpperCase()} – 90+5 Store`,
       html: htmlContent,
@@ -353,7 +354,7 @@ export const sendOrderStatusUpdateEmail = async ({
   <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
       <td align="center" style="padding:40px 12px;">
-        <img src="https://90mas5.store/logo.png" width="80" style="margin-bottom:40px;" />
+        <img src="${SITE_URL}/logo.png" width="80" style="margin-bottom:40px;" />
         <table width="100%" style="max-width:500px;background:#0a0a0a;border-radius:24px;border:1px solid #222;">
           <tr>
             <td style="padding:40px;text-align:center;">
@@ -365,7 +366,7 @@ export const sendOrderStatusUpdateEmail = async ({
                 ${escapeHtml(statusConfig.message)}
               </p>
               
-              <a href="https://90mas5.store/rastreo?order=${escapeHtml(orderId)}"
+              <a href="${SITE_URL}/rastreo?order=${escapeHtml(orderId)}"
                  style="display:block;background:#fff;color:#000;text-decoration:none;
                         padding:16px 0;border-radius:12px;
                         font-weight:900;text-transform:uppercase;margin-top:30px;">
@@ -386,7 +387,7 @@ export const sendOrderStatusUpdateEmail = async ({
 
   try {
     const data = await resend.emails.send({
-      from: "90+5 Store <contacto@90mas5.store>",
+      from: `${SITE_CONFIG.name} <${CONTACT.email}>`,
       to: [customerEmail],
       subject: statusConfig.subject,
       html: htmlContent,
@@ -419,7 +420,7 @@ export const sendAdminNewOrderEmail = async ({
 }) => {
   const resend = new Resend(process.env.RESEND_API_KEY);
   // 🛡️ A7 FIX: Email configurable via ENV, no hardcodeado
-  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "contacto@90mas5.store";
+  const adminEmail = CONTACT.notificationEmail;
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -437,7 +438,7 @@ export const sendAdminNewOrderEmail = async ({
   </ul>
 
   <p>
-    <a href="https://90mas5.store/admin/orders/${escapeHtml(orderId)}">Ver pedido en Admin</a>
+    <a href="${SITE_URL}/admin/orders/${escapeHtml(orderId)}">Ver pedido en Admin</a>
   </p>
 </body>
 </html>
@@ -445,7 +446,7 @@ export const sendAdminNewOrderEmail = async ({
 
   try {
     await resend.emails.send({
-      from: "90+5 Store System <contacto@90mas5.store>",
+      from: `${SITE_CONFIG.name} System <${CONTACT.email}>`,
       to: [adminEmail],
       subject: `Nuevo Pedido #${orderId.slice(0, 8)} - L ${totalAmount}`,
       html: htmlContent,

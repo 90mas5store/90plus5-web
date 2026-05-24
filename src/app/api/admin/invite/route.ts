@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { SITE_URL } from '@/lib/config/site';
 
 export async function POST(request: Request) {
     try {
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
             } else {
 
                 // Definir URL base dinámica
-                const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+                const siteUrl = SITE_URL;
 
                 const { data: newUser, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
                     redirectTo: `${siteUrl}/admin/update-password`

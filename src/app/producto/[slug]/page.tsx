@@ -6,6 +6,7 @@ import Breadcrumb from "@/components/ui/Breadcrumb";
 import { adaptSupabaseProductToProduct } from "@/lib/api";
 import { SupabaseRawProduct } from "@/lib/types";
 import { Metadata, ResolvingMetadata } from "next";
+import { SITE_URL, SITE_CONFIG, SOCIAL_LINKS } from "@/lib/config/site";
 
 // ISR: revalidate every hour, unknown slugs served on-demand and cached
 export const revalidate = 3600;
@@ -134,22 +135,22 @@ export async function generateMetadata(
     const displayName = data.teams?.name || data.brands?.name || "Fútbol";
 
     const title = `${displayName} - ${data.name}`;
-    const fullTitle = `${title} | 90+5 Store`;
+    const fullTitle = `${title} | ${SITE_CONFIG.name}`;
 
     const description = data.description || `Compra ${data.name} de ${displayName} al mejor precio. Envíos a todo Honduras.`;
 
     return {
-        title, // Se aplicará el template: "%s | 90+5 Store"
+        title,
         description,
         alternates: {
-            canonical: `https://90mas5.store/producto/${params.slug}`,
+            canonical: `${SITE_URL}/producto/${params.slug}`,
         },
         openGraph: {
             type: 'website',
-            locale: 'es_HN',
+            locale: SITE_CONFIG.locale,
             title: fullTitle,
             description,
-            url: `https://90mas5.store/producto/${params.slug}`,
+            url: `${SITE_URL}/producto/${params.slug}`,
             images: [{ url: mainImage, alt: data.name }, ...previousImages],
         },
         twitter: {
@@ -157,7 +158,7 @@ export async function generateMetadata(
             title: fullTitle,
             description,
             images: [mainImage],
-            creator: "@90mas5store",
+            creator: SOCIAL_LINKS.twitterHandle,
         },
     };
 }
@@ -211,7 +212,7 @@ export default async function ProductoPage({ params }: Props) {
     // Usa el precio de la primera variante activa; fallback a la primera variante si ninguna activa
     const activeVariants = productData.variants?.filter(v => v.active) ?? [];
     const price = activeVariants[0]?.price ?? productData.variants?.[0]?.price ?? 0;
-    const productUrl = `https://90mas5.store/producto/${params.slug}`;
+    const productUrl = `${SITE_URL}/producto/${params.slug}`;
 
     // Galería: imagen principal + product_images ordenadas
     const galleryImages = [
@@ -234,13 +235,13 @@ export default async function ProductoPage({ params }: Props) {
             `${productData.brands!.name} ${productData.name}.`,
             categoryName ? `Categoría: ${categoryName}.` : "",
             "Envíos a todo Honduras.",
-            "Compra en 90+5 Store.",
+            `Compra en ${SITE_CONFIG.name}.`,
         ].filter(Boolean).join(" ")
         : [
             `Camiseta ${teamName} ${productData.name} temporada 25/26.`,
             versionStr ? `Disponible en ${versionStr}.` : "",
             "Envíos a todo Honduras.",
-            "Compra en 90+5 Store, la tienda de fútbol #1 en Honduras.",
+            `Compra en ${SITE_CONFIG.name}, la tienda de fútbol #1 en Honduras.`,
         ].filter(Boolean).join(" ");
     const enrichedDescription = productData.description || autoDescription;
 
@@ -266,8 +267,8 @@ export default async function ProductoPage({ params }: Props) {
                 "areaServed": { "@type": "Country", "name": "Honduras" },
                 "seller": {
                     "@type": "Organization",
-                    "name": "90+5 Store",
-                    "url": "https://90mas5.store"
+                    "name": SITE_CONFIG.name,
+                    "url": SITE_URL
                 }
             };
         })
@@ -281,8 +282,8 @@ export default async function ProductoPage({ params }: Props) {
             "areaServed": { "@type": "Country", "name": "Honduras" },
             "seller": {
                 "@type": "Organization",
-                "name": "90+5 Store",
-                "url": "https://90mas5.store"
+                "name": SITE_CONFIG.name,
+                "url": SITE_URL
             }
         }];
 
@@ -295,7 +296,7 @@ export default async function ProductoPage({ params }: Props) {
         "sku": productData.id,
         "brand": {
             "@type": "Brand",
-            "name": productData.brands?.name || productData.teams?.name || "90+5 Store"
+            "name": productData.brands?.name || productData.teams?.name || SITE_CONFIG.name
         },
         "category": categoryName || "Deportes",
         "keywords": [
@@ -307,8 +308,8 @@ export default async function ProductoPage({ params }: Props) {
         "offers": offers.length === 1 ? offers[0] : offers,
         "seller": {
             "@type": "Organization",
-            "name": "90+5 Store",
-            "url": "https://90mas5.store"
+            "name": SITE_CONFIG.name,
+            "url": SITE_URL
         }
     };
 
@@ -320,13 +321,13 @@ export default async function ProductoPage({ params }: Props) {
                 "@type": "ListItem",
                 "position": 1,
                 "name": "Inicio",
-                "item": "https://90mas5.store"
+                "item": SITE_URL
             },
             {
                 "@type": "ListItem",
                 "position": 2,
                 "name": "Catálogo",
-                "item": "https://90mas5.store/catalogo"
+                "item": `${SITE_URL}/catalogo`
             },
             {
                 "@type": "ListItem",

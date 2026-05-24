@@ -1,10 +1,11 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/lib/config/site";
 
 export const metadata: Metadata = {
   title: "Términos y Condiciones",
   description:
     "Términos y condiciones de compra en 90+5 Store Honduras. Productos, personalización, envíos y garantías.",
-  alternates: { canonical: "https://90mas5.store/legal/terminos" },
+  alternates: { canonical: `${SITE_URL}/legal/terminos` },
 };
 
 export default function TerminosPage() {

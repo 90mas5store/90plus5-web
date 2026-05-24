@@ -1,10 +1,11 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/lib/config/site";
 
 export const metadata: Metadata = {
   title: "Política de Privacidad",
   description:
     "Conoce cómo 90+5 Store recopila, usa y protege tu información personal. Política de privacidad actualizada.",
-  alternates: { canonical: "https://90mas5.store/legal/privacidad" },
+  alternates: { canonical: `${SITE_URL}/legal/privacidad` },
 };
 
 export default function PrivacidadPage() {

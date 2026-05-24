@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import ConectarContent from "./ConectarContent";
 import { faqJsonLd } from "@/components/GeoFAQSection";
 import { Metadata } from "next";
+import { SITE_URL, SITE_CONFIG } from "@/lib/config/site";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -11,13 +12,13 @@ export const metadata: Metadata = {
   description:
     "Contáctanos por WhatsApp, correo o redes sociales. Atención personalizada para tu pedido de camisetas de fútbol en Honduras.",
   alternates: {
-    canonical: "https://90mas5.store/conectar",
+    canonical: `${SITE_URL}/conectar`,
   },
   openGraph: {
-    title: "Contacto | 90+5 Store",
+    title: `Contacto | ${SITE_CONFIG.name}`,
     description:
       "Contáctanos por WhatsApp, correo o redes sociales. Atención personalizada para tu pedido de camisetas de fútbol en Honduras.",
-    url: "https://90mas5.store/conectar",
+    url: `${SITE_URL}/conectar`,
   },
 };
 
