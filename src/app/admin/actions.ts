@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { checkRateLimit } from '@/lib/rateLimit'
 
@@ -36,13 +37,15 @@ function normalizeStatus(status: string): string {
 }
 
 export async function updateOrderStatus(orderId: string, newStatus: string, notes?: string, skipRateLimit = false) {
-    const supabase = await createClient()
-
-    // 🔐 Validar usuario con getUser() (más seguro que getSession)
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // 🔐 Validar sesión con cliente anon (respeta cookies de sesión)
+    const authClient = await createClient()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) {
         throw new Error('Unauthorized')
     }
+
+    // Cliente admin para todas las operaciones DB (bypasa RLS)
+    const supabase = createAdminClient()
 
     // 🛡️ Rate limit — máximo 20 cambios de estado por orden por minuto
     // Se puede omitir cuando se llama desde registerPaymentAction (flujo de pago)
@@ -125,12 +128,13 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
 }
 
 export async function updatePaymentStatus(paymentId: string, newStatus: 'pending' | 'verified' | 'rejected') {
-    const supabase = await createClient()
-
-    // 🔐 Validar usuario con getUser() (más seguro que getSession)
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // 🔐 Validar sesión con cliente anon
+    const authClient = await createClient()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
+    // Cliente admin para operaciones DB
+    const supabase = createAdminClient()
     // 1. Get payment info first to know order_id and type
     const { data: payment, error: fetchError } = await supabase
         .from('payments')
@@ -206,11 +210,13 @@ export async function revalidateProduct(slug: string) {
 }
 
 export async function registerPaymentAction(orderId: string, statusConfig: { newStatus: string, payment: { amount: number, method: string, bank: string, reference: string, date: string } }) {
-    const supabase = await createClient()
-
-    // Validar Admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // 🔐 Validar sesión con cliente anon
+    const authClient = await createClient()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
+
+    // Cliente admin para operaciones DB (bypasa RLS)
+    const supabase = createAdminClient()
 
     const type = statusConfig.newStatus === 'deposit_paid' ? 'deposit' : 'remaining';
     
