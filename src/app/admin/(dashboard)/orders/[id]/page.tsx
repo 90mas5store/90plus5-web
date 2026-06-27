@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MapPin, Phone, Mail, User, CreditCard, ShoppingBag, Truck, History } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, Mail, User, CreditCard, ShoppingBag, Truck, History, ArrowRight } from 'lucide-react'
 import OrderStatusSelector from './OrderStatusSelector'
 import PaymentItem from './PaymentItem'
 import CopyButton from '@/components/admin/CopyButton'
 import OrderNotes from '@/components/admin/OrderNotes'
+import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
 import { formatDate, HONDURAS_TIMEZONE } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic';
@@ -300,14 +301,17 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                 <History className="w-4 h-4" />
                                 Historial de Estados
                             </h2>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {statusHistory.map((h: any) => (
-                                    <div key={h.id} className="flex items-center gap-3 text-xs py-2 border-b border-white/5 last:border-0">
-                                        <div className="flex-1">
+                                    <div key={h.id} className="flex flex-col gap-2 py-3 border-b border-white/5 last:border-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             {h.old_status && (
-                                                <span className="text-gray-600">{h.old_status.replace(/_/g, ' ')} → </span>
+                                                <>
+                                                    <OrderStatusBadge status={h.old_status} />
+                                                    <ArrowRight className="w-3 h-3 text-gray-600 flex-shrink-0" />
+                                                </>
                                             )}
-                                            <span className="text-white font-medium">{h.new_status.replace(/_/g, ' ')}</span>
+                                            <OrderStatusBadge status={h.new_status} />
                                         </div>
                                         <span className="text-gray-600 text-[10px]">
                                             {new Date(h.created_at).toLocaleString('es-HN', { dateStyle: 'short', timeStyle: 'short' })}

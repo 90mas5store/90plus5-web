@@ -4,6 +4,37 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { checkRateLimit } from '@/lib/rateLimit'
 
+// Estados válidos en el sistema (incluyendo legacy para compatibilidad)
+const ALLOWED_STATUSES = [
+    'pending_payment_50', 'deposit_paid',
+    'processing', 'in_transit',
+    'ready_for_delivery', 'pending_second_payment', 'shipped_to_costumer',
+    'completed', 'cancelled',
+    // Legacy (soporte hacia atrás)
+    'shipped_to_hn', 'paid_full', 'payment_verified', 'in_customs',
+    // Mantener compatibilidad con el casing anterior por si hay datos existentes
+    'Cancelled'
+];
+
+const SEQUENCE = [
+    'pending_payment_50',
+    'deposit_paid',
+    'processing',
+    'in_transit',
+    'ready_for_delivery',
+    'pending_second_payment',
+    'shipped_to_costumer',
+    'completed'
+];
+
+/** Normaliza estados legacy al equivalente actual */
+function normalizeStatus(status: string): string {
+    if (status === 'shipped_to_hn') return 'in_transit';
+    if (status === 'paid_full') return 'completed';
+    if (status === 'payment_verified') return 'deposit_paid';
+    return status;
+}
+
 export async function updateOrderStatus(orderId: string, newStatus: string, notes?: string) {
     const supabase = await createClient()
 
@@ -13,19 +44,13 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
         throw new Error('Unauthorized')
     }
 
-    // 🛡️ A3 FIX: Rate limit — máximo 5 cambios de estado por orden por minuto
+    // 🛡️ Rate limit — máximo 5 cambios de estado por orden por minuto
     const { allowed } = await checkRateLimit(`order-status:${orderId}`, 5, 60_000);
     if (!allowed) {
         throw new Error('Demasiados cambios de estado para esta orden. Espera un momento.');
     }
 
     // 🛡️ Validar que el nuevo estado sea un valor permitido
-    const ALLOWED_STATUSES = [
-        'pending_payment_50', 'deposit_paid', 'payment_verified',
-        'processing', 'shipped_to_hn', 'in_customs', 'in_transit',
-        'ready_for_delivery', 'pending_second_payment', 'shipped_to_costumer',
-        'paid_full', 'completed', 'Cancelled'
-    ];
     if (!ALLOWED_STATUSES.includes(newStatus)) {
         throw new Error('Estado inválido');
     }
@@ -33,41 +58,23 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
     // Validar orden estricto de pasos
     const { data: currentOrder } = await supabase.from('orders').select('status').eq('id', orderId).single();
     if (currentOrder) {
-        let activeMatch = currentOrder.status;
-        if (activeMatch === 'shipped_to_hn') activeMatch = 'in_transit';
-        if (activeMatch === 'paid_full') activeMatch = 'completed';
+        const normalizedCurrent = normalizeStatus(currentOrder.status);
+        const normalizedNew = normalizeStatus(newStatus);
 
-        const SEQUENCE = [
-            'pending_payment_50',
-            'deposit_paid',
-            'processing',
-            'in_transit',
-            'ready_for_delivery',
-            'pending_second_payment',
-            'shipped_to_costumer',
-            'completed'
-        ];
-        
-        const currentIndex = SEQUENCE.indexOf(activeMatch);
-        let targetMatch = newStatus;
-        if (targetMatch === 'shipped_to_hn') targetMatch = 'in_transit';
-        if (targetMatch === 'paid_full') targetMatch = 'completed';
-        const newIndex = SEQUENCE.indexOf(targetMatch);
-        
-        if (newStatus !== 'Cancelled' && currentIndex !== -1 && newIndex !== -1) {
+        const currentIndex = SEQUENCE.indexOf(normalizedCurrent);
+        const newIndex = SEQUENCE.indexOf(normalizedNew);
+
+        // Solo bloquear si ambos están en la secuencia y se salta más de 1 paso adelante
+        if (newStatus !== 'Cancelled' && newStatus !== 'cancelled' && currentIndex !== -1 && newIndex !== -1) {
             if (newIndex > currentIndex + 1) {
-                throw new Error("No puedes saltarte estados. Debes seguir la secuencia uno a uno.");
+                throw new Error('No puedes saltarte estados. Debes seguir la secuencia uno a uno.');
             }
         }
     }
 
-    const updateData = { status: newStatus }
-    // Si quisieras guardar notas o tracking, podrías agregarlo a una columna 'admin_notes' o similar
-    // Por ahora solo status.
-
     const { error } = await supabase
         .from('orders')
-        .update(updateData)
+        .update({ status: newStatus })
         .eq('id', orderId)
 
     if (error) {
@@ -86,24 +93,26 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
         console.warn('Error registrando historial de estado:', historyError);
     }
 
-    // 📧 Enviar correo de notificación (Nuevo)
-    // Primero obtenemos los datos del cliente que quizás no venían en el updateData
-    const { data: orderData } = await supabase
-        .from('orders')
-        .select('customer_email, customer_name')
-        .eq('id', orderId)
-        .single();
+    // 📧 Enviar correo de notificación (no crítico — un fallo aquí no debe romper la acción)
+    try {
+        const { data: orderData } = await supabase
+            .from('orders')
+            .select('customer_email, customer_name')
+            .eq('id', orderId)
+            .single();
 
-    if (orderData?.customer_email) {
-        // Importación dinámica o directa, asumiendo que está en lib/email
-        // Nota: Asegúrate de importar la función arriba si no usas dynamic import
-        const { sendOrderStatusUpdateEmail } = await import('@/lib/email');
-        await sendOrderStatusUpdateEmail({
-            customerName: orderData.customer_name,
-            customerEmail: orderData.customer_email,
-            orderId,
-            status: newStatus
-        });
+        if (orderData?.customer_email) {
+            const { sendOrderStatusUpdateEmail } = await import('@/lib/email');
+            await sendOrderStatusUpdateEmail({
+                customerName: orderData.customer_name,
+                customerEmail: orderData.customer_email,
+                orderId,
+                status: newStatus
+            });
+        }
+    } catch (emailError) {
+        // No crítico: loguear pero no propagar el error
+        console.warn('Error enviando email de actualización de estado:', emailError);
     }
 
     revalidatePath('/admin/orders')
@@ -151,23 +160,27 @@ export async function updatePaymentStatus(paymentId: string, newStatus: 'pending
             .eq('id', payment.order_id)
             .eq('status', 'pending_payment_50')
 
-        if (orderError) console.error("Could not auto-update order status", orderError)
+        if (orderError) console.error('Could not auto-update order status', orderError)
 
-        // 📧 Enviar correo de notificación de Anticipo
-        const { data: orderData } = await supabase
-            .from('orders')
-            .select('customer_email, customer_name')
-            .eq('id', payment.order_id)
-            .single();
+        // 📧 Enviar correo de notificación de Anticipo (no crítico)
+        try {
+            const { data: orderData } = await supabase
+                .from('orders')
+                .select('customer_email, customer_name')
+                .eq('id', payment.order_id)
+                .single();
 
-        if (orderData?.customer_email) {
-            const { sendOrderStatusUpdateEmail } = await import('@/lib/email');
-            await sendOrderStatusUpdateEmail({
-                customerName: orderData.customer_name,
-                customerEmail: orderData.customer_email,
-                orderId: payment.order_id,
-                status: 'deposit_paid'
-            });
+            if (orderData?.customer_email) {
+                const { sendOrderStatusUpdateEmail } = await import('@/lib/email');
+                await sendOrderStatusUpdateEmail({
+                    customerName: orderData.customer_name,
+                    customerEmail: orderData.customer_email,
+                    orderId: payment.order_id,
+                    status: 'deposit_paid'
+                });
+            }
+        } catch (emailError) {
+            console.warn('Error enviando email de anticipo:', emailError);
         }
     }
 
