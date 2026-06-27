@@ -35,7 +35,7 @@ function normalizeStatus(status: string): string {
     return status;
 }
 
-export async function updateOrderStatus(orderId: string, newStatus: string, notes?: string) {
+export async function updateOrderStatus(orderId: string, newStatus: string, notes?: string, skipRateLimit = false) {
     const supabase = await createClient()
 
     // 🔐 Validar usuario con getUser() (más seguro que getSession)
@@ -44,10 +44,13 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
         throw new Error('Unauthorized')
     }
 
-    // 🛡️ Rate limit — máximo 5 cambios de estado por orden por minuto
-    const { allowed } = await checkRateLimit(`order-status:${orderId}`, 5, 60_000);
-    if (!allowed) {
-        throw new Error('Demasiados cambios de estado para esta orden. Espera un momento.');
+    // 🛡️ Rate limit — máximo 20 cambios de estado por orden por minuto
+    // Se puede omitir cuando se llama desde registerPaymentAction (flujo de pago)
+    if (!skipRateLimit) {
+        const { allowed } = await checkRateLimit(`order-status:${orderId}`, 20, 60_000);
+        if (!allowed) {
+            throw new Error('Demasiados cambios de estado para esta orden. Espera un momento.');
+        }
     }
 
     // 🛡️ Validar que el nuevo estado sea un valor permitido
@@ -254,7 +257,8 @@ export async function registerPaymentAction(orderId: string, statusConfig: { new
     }
 
     // 2. Actualizar estado del pedido (deposit_paid o shipped_to_costumer)
-    return updateOrderStatus(orderId, statusConfig.newStatus)
+    // skipRateLimit=true porque registerPaymentAction ya validó auth y el pago fue insertado
+    return updateOrderStatus(orderId, statusConfig.newStatus, undefined, true)
 }
 
 /**
