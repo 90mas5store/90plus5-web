@@ -224,7 +224,7 @@ export async function registerPaymentAction(orderId: string, statusConfig: { new
         // Cliente admin para operaciones DB (bypasa RLS)
         const supabase = createAdminClient()
 
-        const type = statusConfig.newStatus === 'deposit_paid' ? 'deposit' : 'remaining';
+        const type: 'deposit' | 'final' = statusConfig.newStatus === 'deposit_paid' ? 'deposit' : 'final';
         
         const notesStr = `Banco: ${statusConfig.payment.bank} | Ref: ${statusConfig.payment.reference} | Fecha: ${statusConfig.payment.date}`
 

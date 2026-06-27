@@ -33,7 +33,7 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
                 <div className="space-y-2 max-w-[65%]">
                     <div className="flex items-center gap-2">
                         <span className="font-black text-white text-lg tracking-tight capitalize">
-                            {payment.type === 'deposit' ? 'Anticipo 50%' : payment.type}
+                            {payment.type === 'deposit' ? 'Anticipo 50%' : (payment.type === 'final' || payment.type === 'remaining') ? 'Pago Final' : payment.type}
                         </span>
                         {isCompleted && <ShieldCheck className="w-4 h-4 text-green-500 shrink-0" />}
                     </div>

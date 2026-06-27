@@ -163,7 +163,7 @@ export interface SupabaseRawOrderItem {
 export interface SupabaseRawPayment {
   id: string;
   amount: number;
-  type: 'deposit' | 'remaining';
+  type: 'deposit' | 'final' | 'remaining';
   status: 'pending' | 'succeeded' | 'failed' | 'verified' | 'rejected';
   provider: string;
   method: string;
