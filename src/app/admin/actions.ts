@@ -37,94 +37,99 @@ function normalizeStatus(status: string): string {
 }
 
 export async function updateOrderStatus(orderId: string, newStatus: string, notes?: string, skipRateLimit = false) {
-    // 🔐 Validar sesión con cliente anon (respeta cookies de sesión)
-    const authClient = await createClient()
-    const { data: { user }, error: authError } = await authClient.auth.getUser()
-    if (authError || !user) {
-        throw new Error('Unauthorized')
-    }
-
-    // Cliente admin para todas las operaciones DB (bypasa RLS)
-    const supabase = createAdminClient()
-
-    // 🛡️ Rate limit — máximo 20 cambios de estado por orden por minuto
-    // Se puede omitir cuando se llama desde registerPaymentAction (flujo de pago)
-    if (!skipRateLimit) {
-        const { allowed } = await checkRateLimit(`order-status:${orderId}`, 20, 60_000);
-        if (!allowed) {
-            throw new Error('Demasiados cambios de estado para esta orden. Espera un momento.');
+    try {
+        // 🔐 Validar sesión con cliente anon (respeta cookies de sesión)
+        const authClient = await createClient()
+        const { data: { user }, error: authError } = await authClient.auth.getUser()
+        if (authError || !user) {
+            return { success: false, error: 'Unauthorized' }
         }
-    }
 
-    // 🛡️ Validar que el nuevo estado sea un valor permitido
-    if (!ALLOWED_STATUSES.includes(newStatus)) {
-        throw new Error('Estado inválido');
-    }
+        // Cliente admin para todas las operaciones DB (bypasa RLS)
+        const supabase = createAdminClient()
 
-    // Validar orden estricto de pasos
-    const { data: currentOrder } = await supabase.from('orders').select('status').eq('id', orderId).single();
-    if (currentOrder) {
-        const normalizedCurrent = normalizeStatus(currentOrder.status);
-        const normalizedNew = normalizeStatus(newStatus);
-
-        const currentIndex = SEQUENCE.indexOf(normalizedCurrent);
-        const newIndex = SEQUENCE.indexOf(normalizedNew);
-
-        // Solo bloquear si ambos están en la secuencia y se salta más de 1 paso adelante
-        if (newStatus !== 'Cancelled' && newStatus !== 'cancelled' && currentIndex !== -1 && newIndex !== -1) {
-            if (newIndex > currentIndex + 1) {
-                throw new Error('No puedes saltarte estados. Debes seguir la secuencia uno a uno.');
+        // 🛡️ Rate limit — máximo 20 cambios de estado por orden por minuto
+        // Se puede omitir cuando se llama desde registerPaymentAction (flujo de pago)
+        if (!skipRateLimit) {
+            const { allowed } = await checkRateLimit(`order-status:${orderId}`, 20, 60_000);
+            if (!allowed) {
+                return { success: false, error: 'Demasiados cambios de estado para esta orden. Espera un momento.' }
             }
         }
-    }
 
-    const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus })
-        .eq('id', orderId)
-
-    if (error) {
-        throw new Error(error.message)
-    }
-
-    // Registrar historial de estado
-    try {
-        await supabase.from('order_status_history').insert({
-            order_id: orderId,
-            old_status: currentOrder?.status ?? null,
-            new_status: newStatus,
-            changed_by: user.id,
-        });
-    } catch (historyError) {
-        console.warn('Error registrando historial de estado:', historyError);
-    }
-
-    // 📧 Enviar correo de notificación (no crítico — un fallo aquí no debe romper la acción)
-    try {
-        const { data: orderData } = await supabase
-            .from('orders')
-            .select('customer_email, customer_name')
-            .eq('id', orderId)
-            .single();
-
-        if (orderData?.customer_email) {
-            const { sendOrderStatusUpdateEmail } = await import('@/lib/email');
-            await sendOrderStatusUpdateEmail({
-                customerName: orderData.customer_name,
-                customerEmail: orderData.customer_email,
-                orderId,
-                status: newStatus
-            });
+        // 🛡️ Validar que el nuevo estado sea un valor permitido
+        if (!ALLOWED_STATUSES.includes(newStatus)) {
+            return { success: false, error: 'Estado inválido' }
         }
-    } catch (emailError) {
-        // No crítico: loguear pero no propagar el error
-        console.warn('Error enviando email de actualización de estado:', emailError);
+
+        // Validar orden estricto de pasos
+        const { data: currentOrder } = await supabase.from('orders').select('status').eq('id', orderId).single();
+        if (currentOrder) {
+            const normalizedCurrent = normalizeStatus(currentOrder.status);
+            const normalizedNew = normalizeStatus(newStatus);
+
+            const currentIndex = SEQUENCE.indexOf(normalizedCurrent);
+            const newIndex = SEQUENCE.indexOf(normalizedNew);
+
+            // Solo bloquear si ambos están en la secuencia y se salta más de 1 paso adelante
+            if (newStatus !== 'Cancelled' && newStatus !== 'cancelled' && currentIndex !== -1 && newIndex !== -1) {
+                if (newIndex > currentIndex + 1) {
+                    return { success: false, error: 'No puedes saltarte estados. Debes seguir la secuencia uno a uno.' }
+                }
+            }
+        }
+
+        const { error } = await supabase
+            .from('orders')
+            .update({ status: newStatus })
+            .eq('id', orderId)
+
+        if (error) {
+            return { success: false, error: error.message }
+        }
+
+        // Registrar historial de estado
+        try {
+            await supabase.from('order_status_history').insert({
+                order_id: orderId,
+                old_status: currentOrder?.status ?? null,
+                new_status: newStatus,
+                changed_by: user.id,
+            });
+        } catch (historyError) {
+            console.warn('Error registrando historial de estado:', historyError);
+        }
+
+        // 📧 Enviar correo de notificación (no crítico — un fallo aquí no debe romper la acción)
+        try {
+            const { data: orderData } = await supabase
+                .from('orders')
+                .select('customer_email, customer_name')
+                .eq('id', orderId)
+                .single();
+
+            if (orderData?.customer_email) {
+                const { sendOrderStatusUpdateEmail } = await import('@/lib/email');
+                await sendOrderStatusUpdateEmail({
+                    customerName: orderData.customer_name,
+                    customerEmail: orderData.customer_email,
+                    orderId,
+                    status: newStatus
+                });
+            }
+        } catch (emailError) {
+            // No crítico: loguear pero no propagar el error
+            console.warn('Error enviando email de actualización de estado:', emailError);
+        }
+
+        revalidatePath('/admin/orders')
+        revalidatePath(`/admin/orders/${orderId}`)
+
+        return { success: true }
+    } catch (err: any) {
+        console.error('Error in updateOrderStatus:', err);
+        return { success: false, error: err.message || String(err) }
     }
-
-    revalidatePath('/admin/orders')
-    revalidatePath(`/admin/orders/${orderId}`)
-
-    return { success: true }
 }
 
 export async function updatePaymentStatus(paymentId: string, newStatus: 'pending' | 'verified' | 'rejected') {
@@ -210,61 +215,66 @@ export async function revalidateProduct(slug: string) {
 }
 
 export async function registerPaymentAction(orderId: string, statusConfig: { newStatus: string, payment: { amount: number, method: string, bank: string, reference: string, date: string } }) {
-    // 🔐 Validar sesión con cliente anon
-    const authClient = await createClient()
-    const { data: { user }, error: authError } = await authClient.auth.getUser()
-    if (authError || !user) throw new Error('Unauthorized')
+    try {
+        // 🔐 Validar sesión con cliente anon
+        const authClient = await createClient()
+        const { data: { user }, error: authError } = await authClient.auth.getUser()
+        if (authError || !user) return { success: false, error: 'Unauthorized' }
 
-    // Cliente admin para operaciones DB (bypasa RLS)
-    const supabase = createAdminClient()
+        // Cliente admin para operaciones DB (bypasa RLS)
+        const supabase = createAdminClient()
 
-    const type = statusConfig.newStatus === 'deposit_paid' ? 'deposit' : 'remaining';
-    
-    const notesStr = `Banco: ${statusConfig.payment.bank} | Ref: ${statusConfig.payment.reference} | Fecha: ${statusConfig.payment.date}`
+        const type = statusConfig.newStatus === 'deposit_paid' ? 'deposit' : 'remaining';
+        
+        const notesStr = `Banco: ${statusConfig.payment.bank} | Ref: ${statusConfig.payment.reference} | Fecha: ${statusConfig.payment.date}`
 
-    const paymentData = {
-        order_id: orderId,
-        amount: statusConfig.payment.amount,
-        type: type,
-        status: 'verified',
-        provider: 'Transferencia Manual',
-        method: statusConfig.payment.method,
-        notes: notesStr,
-        verified_at: new Date().toISOString(),
-        verified_by: user.id
-    };
+        const paymentData = {
+            order_id: orderId,
+            amount: statusConfig.payment.amount,
+            type: type,
+            status: 'verified',
+            provider: 'Transferencia Manual',
+            method: statusConfig.payment.method,
+            notes: notesStr,
+            verified_at: new Date().toISOString(),
+            verified_by: user.id
+        };
 
-    // 1. Verify if pending checkout payment already exists to update it
-    const { data: existingPending } = await supabase
-        .from('payments')
-        .select('id')
-        .eq('order_id', orderId)
-        .eq('type', type)
-        .eq('status', 'pending')
-        .maybeSingle();
-
-    let paymentError;
-
-    if (existingPending) {
-        const { error } = await supabase
+        // 1. Verify if pending checkout payment already exists to update it
+        const { data: existingPending } = await supabase
             .from('payments')
-            .update(paymentData)
-            .eq('id', existingPending.id);
-        paymentError = error;
-    } else {
-        const { error } = await supabase
-            .from('payments')
-            .insert(paymentData);
-        paymentError = error;
-    }
+            .select('id')
+            .eq('order_id', orderId)
+            .eq('type', type)
+            .eq('status', 'pending')
+            .maybeSingle();
 
-    if (paymentError) {
-        throw new Error('Error al registrar pago: ' + paymentError.message)
-    }
+        let paymentError;
 
-    // 2. Actualizar estado del pedido (deposit_paid o shipped_to_costumer)
-    // skipRateLimit=true porque registerPaymentAction ya validó auth y el pago fue insertado
-    return updateOrderStatus(orderId, statusConfig.newStatus, undefined, true)
+        if (existingPending) {
+            const { error } = await supabase
+                .from('payments')
+                .update(paymentData)
+                .eq('id', existingPending.id);
+            paymentError = error;
+        } else {
+            const { error } = await supabase
+                .from('payments')
+                .insert(paymentData);
+            paymentError = error;
+        }
+
+        if (paymentError) {
+            return { success: false, error: 'Error al registrar pago: ' + paymentError.message }
+        }
+
+        // 2. Actualizar estado del pedido (deposit_paid o shipped_to_costumer)
+        // skipRateLimit=true porque registerPaymentAction ya validó auth y el pago fue insertado
+        return updateOrderStatus(orderId, statusConfig.newStatus, undefined, true)
+    } catch (err: any) {
+        console.error('Error in registerPaymentAction:', err);
+        return { success: false, error: err.message || String(err) }
+    }
 }
 
 /**

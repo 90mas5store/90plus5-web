@@ -46,10 +46,14 @@ export default function OrderStatusSelector({ orderId, currentStatus }: { orderI
     const executeStatusUpdate = async (newStatus: string) => {
         setLoading(true);
         try {
-            await updateOrderStatus(orderId, newStatus)
-            setStatus(newStatus)
-            toast.success('Estado actualizado correctamente')
-        } catch (error) {
+            const res = await updateOrderStatus(orderId, newStatus)
+            if (res && !res.success) {
+                toast.error(`Error: ${res.error}`)
+            } else {
+                setStatus(newStatus)
+                toast.success('Estado actualizado correctamente')
+            }
+        } catch (error: any) {
             toast.error('Error al actualizar estado')
             console.error(error)
         } finally {
@@ -63,7 +67,7 @@ export default function OrderStatusSelector({ orderId, currentStatus }: { orderI
 
         setLoading(true);
         try {
-            await registerPaymentAction(orderId, {
+            const res = await registerPaymentAction(orderId, {
                 newStatus: paymentModalData.targetStatus,
                 payment: {
                     amount: parseFloat(paymentForm.amount),
@@ -73,10 +77,14 @@ export default function OrderStatusSelector({ orderId, currentStatus }: { orderI
                     date: paymentForm.date
                 }
             })
-            setStatus(paymentModalData.targetStatus)
-            setPaymentModalData(null)
-            toast.success('Pago registrado y estado actualizado')
-        } catch (error) {
+            if (res && !res.success) {
+                toast.error(`Error: ${res.error}`)
+            } else {
+                setStatus(paymentModalData.targetStatus)
+                setPaymentModalData(null)
+                toast.success('Pago registrado y estado actualizado')
+            }
+        } catch (error: any) {
             toast.error('Error al procesar el pago')
             console.error(error)
         } finally {
