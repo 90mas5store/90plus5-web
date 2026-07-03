@@ -14,7 +14,7 @@ import {
   Upload
 } from "lucide-react";
 import Button from "../../../components/ui/MainButton";
-import { BANK_ACCOUNTS } from "../../../lib/config/banks";
+import type { BankAccount } from "../../../lib/config/banks";
 import { getWhatsappLink } from "@/lib/whatsapp";
 
 interface CartItem {
@@ -45,12 +45,29 @@ function CheckoutDoneContent() {
   const [productos, setProductos] = useState<CartItem[]>([]);
   const [copied, setCopied] = useState("");
   const [expandedBank, setExpandedBank] = useState<number | null>(null); // null = todas colapsadas
+  const [bancosDisponibles, setBancosDisponibles] = useState<BankAccount[]>([]);
+  const [bancosLoading, setBancosLoading] = useState(true);
 
   useEffect(() => {
     const savedCart = localStorage.getItem("cartItems");
     if (savedCart) {
       setProductos(JSON.parse(savedCart));
     }
+
+    // 🏦 Cargar cuentas bancarias desde Supabase vía API
+    fetch("/api/bank-accounts")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.accounts && data.accounts.length > 0) {
+          setBancosDisponibles(data.accounts);
+        }
+      })
+      .catch((err) => {
+        console.error("Error al cargar cuentas bancarias:", err);
+      })
+      .finally(() => {
+        setBancosLoading(false);
+      });
 
     // 🎊 Confetti — carga dinámica para no incluirlo en el bundle inicial
     import("canvas-confetti").then(({ default: confetti }) => {
@@ -76,8 +93,7 @@ function CheckoutDoneContent() {
     window.open(whatsappURL, "_blank");
   };
 
-  // 🏦 DATOS BANCARIOS (Desde Config Central)
-  const bancosDisponibles = BANK_ACCOUNTS;
+  // 🏦 DATOS BANCARIOS — cargados dinámicamente desde Supabase
 
   return (
     <main className="min-h-dvh bg-[#0a0a0a] text-white pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
@@ -234,7 +250,24 @@ function CheckoutDoneContent() {
                     💳 Selecciona una cuenta para transferir
                   </h3>
 
-                  {bancosDisponibles.map((banco, idx) => {
+                  {/* Skeleton mientras cargan las cuentas */}
+                  {bancosLoading && (
+                    <div className="space-y-3">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="bg-white/5 border border-white/10 rounded-[1.5rem] p-5 animate-pulse">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-white/10 rounded-xl shrink-0" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-4 bg-white/10 rounded w-32" />
+                              <div className="h-3 bg-white/5 rounded w-20" />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!bancosLoading && bancosDisponibles.map((banco, idx) => {
                     const isExpanded = expandedBank === idx;
 
                     return (
@@ -337,6 +370,12 @@ function CheckoutDoneContent() {
                       </motion.div>
                     );
                   })}
+
+                  {!bancosLoading && bancosDisponibles.length === 0 && (
+                    <div className="bg-white/5 border border-white/10 rounded-[1.5rem] p-5 text-center text-gray-400 text-sm">
+                      No hay cuentas disponibles en este momento. Contáctanos por WhatsApp.
+                    </div>
+                  )}
                 </div>
 
 

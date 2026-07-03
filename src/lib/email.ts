@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { BANK_ACCOUNTS } from "@/lib/config/banks";
+import { fetchBankAccounts } from "@/lib/config/banks";
 import { getWhatsappLink } from "@/lib/whatsapp";
 import { SITE_URL, SITE_CONFIG, CONTACT } from "@/lib/config/site";
 
@@ -54,8 +54,9 @@ export const sendOrderConfirmationEmail = async ({
   // Inicializar cliente aquí para evitar crash si falta la ENV al cargar el módulo
   const resend = new Resend(process.env.RESEND_API_KEY);
 
-  // 🏦 Cuentas bancarias
-  const banksHtml = BANK_ACCOUNTS.map(
+  // 🏦 Cuentas bancarias — obtenidas dinámicamente desde Supabase
+  const bankAccounts = await fetchBankAccounts();
+  const banksHtml = bankAccounts.map(
     (bank) => {
       // Convertir rutas relativas a URLs absolutas para emails
       const logoUrl = bank.logo?.startsWith('/')

@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MapPin, Phone, Mail, User, CreditCard, ShoppingBag, Truck, History, ArrowRight } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, Mail, User, CreditCard, ShoppingBag, Truck, History, ArrowRight, Trash2 } from 'lucide-react'
 import OrderStatusSelector from './OrderStatusSelector'
 import PaymentItem from './PaymentItem'
 import CopyButton from '@/components/admin/CopyButton'
 import OrderNotes from '@/components/admin/OrderNotes'
 import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
+import DeleteOrderButton from '@/components/admin/DeleteOrderButton'
 import { formatDate, HONDURAS_TIMEZONE } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic';
@@ -322,7 +323,23 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                 </div>
                             </div>
                         )}
-    
+
+                        {/* ⚠️ ZONA DE PELIGRO */}
+                        <div id="danger-zone" className="bg-neutral-900 border border-red-500/20 rounded-2xl p-6">
+                            <h2 className="flex items-center gap-3 text-sm font-bold uppercase tracking-widest text-red-400/70 mb-4">
+                                <Trash2 className="w-4 h-4" />
+                                Zona de Peligro
+                            </h2>
+                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                Elimina este pedido de forma permanente. Útil para borrar pedidos de prueba sin afectar las estadísticas de venta.
+                                Esta acción <strong className="text-red-400">no se puede deshacer</strong>.
+                            </p>
+                            <DeleteOrderButton
+                                orderId={order.id}
+                                orderRef={order.id.slice(0, 8).toUpperCase()}
+                            />
+                        </div>
+
                     </div>
                 </div>
             </div>

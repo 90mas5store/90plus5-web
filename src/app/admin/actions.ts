@@ -310,3 +310,100 @@ export async function revalidateBannersAction() {
     revalidatePath('/')
     revalidatePath('/catalogo')
 }
+
+/**
+ * Elimina permanentemente un pedido y todos sus registros relacionados.
+ * ⚠️ Esta acción es irreversible.
+ *
+ * Elimina en orden para respetar FK constraints:
+ * order_status_history → order_notes → payments → order_items → orders
+ *
+ * Nota: Si las FKs tienen ON DELETE CASCADE en Supabase, los DELETE
+ * de tablas hijas son redundantes pero inofensivos — garantizan
+ * compatibilidad sin importar la configuración de la BD.
+ */
+export async function deleteOrderAction(orderId: string) {
+    try {
+        // 🔐 Validar sesión
+        const authClient = await createClient()
+        const { data: { user }, error: authError } = await authClient.auth.getUser()
+        if (authError || !user) {
+            return { success: false, error: 'No autorizado' }
+        }
+
+        // 🛡️ Validar que el orderId es un UUID válido
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!uuidRegex.test(orderId)) {
+            return { success: false, error: 'ID de pedido inválido' }
+        }
+
+        // Cliente admin para bypasear RLS
+        const supabase = createAdminClient()
+
+        // Verificar que el pedido existe
+        const { data: order, error: fetchError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('id', orderId)
+            .single()
+
+        if (fetchError || !order) {
+            return { success: false, error: 'Pedido no encontrado' }
+        }
+
+        // 1. Eliminar historial de estados
+        const { error: historyError } = await supabase
+            .from('order_status_history')
+            .delete()
+            .eq('order_id', orderId)
+        if (historyError) console.warn('Error borrando historial:', historyError.message)
+
+        // 2. Eliminar notas internas
+        const { error: notesError } = await supabase
+            .from('order_notes')
+            .delete()
+            .eq('order_id', orderId)
+        if (notesError) console.warn('Error borrando notas:', notesError.message)
+
+        // 3. Eliminar uso de códigos de descuento
+        const { error: discountError } = await supabase
+            .from('discount_code_usage')
+            .delete()
+            .eq('order_id', orderId)
+        if (discountError) console.warn('Error borrando discount_code_usage:', discountError.message)
+
+        // 4. Eliminar pagos
+        const { error: paymentsError } = await supabase
+            .from('payments')
+            .delete()
+            .eq('order_id', orderId)
+        if (paymentsError) console.warn('Error borrando pagos:', paymentsError.message)
+
+        // 5. Eliminar items del pedido
+        const { error: itemsError } = await supabase
+            .from('order_items')
+            .delete()
+            .eq('order_id', orderId)
+        if (itemsError) {
+            return { success: false, error: 'Error al eliminar items: ' + itemsError.message }
+        }
+
+        // 6. Eliminar el pedido
+        const { error: orderError } = await supabase
+            .from('orders')
+            .delete()
+            .eq('id', orderId)
+        if (orderError) {
+            return { success: false, error: 'Error al eliminar el pedido: ' + orderError.message }
+        }
+
+        revalidatePath('/admin/orders')
+        revalidatePath('/admin')
+
+        return { success: true }
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error('Error en deleteOrderAction:', message)
+        return { success: false, error: message }
+    }
+}
