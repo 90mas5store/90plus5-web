@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
         // Extraer IDs únicos para batch fetching
         const productIds = [...new Set(payload.items.map(i => i.product_id))];
         const variantIds = [...new Set(payload.items.map(i => i.variant_id).filter(Boolean))] as string[];
+        const sizeIds = [...new Set(payload.items.map(i => i.size_id).filter(Boolean))] as string[];
 
         // Fetch basic product info (category/team for discount scope evaluation)
         const { data: dbProducts, error: prodError } = await supabase
@@ -179,14 +180,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Fetch variants prices (CRITICAL: Price comes from here)
-        // We MUST fetch variants for ALL items, because price is in variants table.
-        // If an item has no variant_id payload, we have a problem unless we default to a main variant.
-        // Current logic assumes frontend sends variant_id.
         let dbVariants: { id: string; price: number }[] = [];
         const allVariantIdsToCheck = [...variantIds];
 
-        // If there are items without variant_id, we can't price them with current schema.
-        // Assuming every purchasable item corresponds to a variant.
         const itemsMissingVariant = payload.items.filter(i => !i.variant_id);
         if (itemsMissingVariant.length > 0) {
             throw new Error("Error de validación: Se detectaron productos sin variante (versión) seleccionada.");
@@ -202,31 +198,45 @@ export async function POST(request: NextRequest) {
             dbVariants = variants || [];
         }
 
+        // Fetch size surcharges (additional_cost for sizes like 3XL, 4XL)
+        let sizeMap = new Map<string, number>();
+        if (sizeIds.length > 0) {
+            const { data: dbSizes, error: sizeError } = await supabase
+                .from('sizes')
+                .select('id, additional_cost')
+                .in('id', sizeIds);
+
+            if (!sizeError && dbSizes) {
+                sizeMap = new Map(dbSizes.map(s => [s.id, Number(s.additional_cost || 0)]));
+            }
+        }
+
         // Create Maps for O(1) lookup
-        // const productMap = new Map(dbProducts.map(p => [p.id, p])); // Not needed for price anymore
         const variantMap = new Map(dbVariants.map(v => [v.id, v]));
 
         // 2️⃣ CALCULAR TOTALES (SERVER SIDE)
         let calculatedSubtotal = 0;
 
-        // Re-map items with REAL prices
+        // Re-map items with REAL prices (Variant price + Size surcharge)
         const secureItems = payload.items.map(item => {
-            let realPrice = 0;
+            let basePrice = 0;
 
             if (item.variant_id) {
                 const variant = variantMap.get(item.variant_id);
                 if (!variant) throw new Error(`Variante no encontrada o no válida: ${item.variant_id}`);
-                realPrice = variant.price as number;
+                basePrice = variant.price as number;
             } else {
-                // Fallback impossible if we strictly require variants as above
                 throw new Error(`Producto sin variante definida: ${item.product_id}`);
             }
 
-            calculatedSubtotal += (realPrice * item.quantity);
+            const sizeSurcharge = item.size_id ? (sizeMap.get(item.size_id) || 0) : 0;
+            const finalUnitPrice = basePrice + sizeSurcharge;
+
+            calculatedSubtotal += (finalUnitPrice * item.quantity);
 
             return {
                 ...item,
-                unit_price: realPrice // Overwrite with secure price
+                unit_price: finalUnitPrice // Overwrite with secure price including size surcharge
             };
         });
 

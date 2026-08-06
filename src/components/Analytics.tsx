@@ -1,7 +1,8 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { getConsentLevel } from './CookieConsent';
 
 declare global {
     interface Window {
@@ -12,8 +13,21 @@ declare global {
 
 export default function Analytics() {
     const pathname = usePathname();
+    const [consent, setConsent] = useState<'all' | 'essential' | null>(null);
 
     useEffect(() => {
+        setConsent(getConsentLevel());
+
+        const handleConsentChange = () => {
+            setConsent(getConsentLevel());
+        };
+        window.addEventListener('cookie_consent_changed', handleConsentChange);
+        return () => window.removeEventListener('cookie_consent_changed', handleConsentChange);
+    }, []);
+
+    useEffect(() => {
+        if (consent !== 'all') return;
+
         if (pathname && window.gtag) {
             window.gtag('config', process.env.NEXT_PUBLIC_GA_ID!, {
                 page_path: pathname,
@@ -22,7 +36,9 @@ export default function Analytics() {
         if (pathname && window.fbq) {
             window.fbq('track', 'PageView');
         }
-    }, [pathname]);
+    }, [pathname, consent]);
+
+    if (consent !== 'all') return null;
 
     return (
         <>

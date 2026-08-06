@@ -15,12 +15,14 @@ export type SortOption =
 export interface CatalogFilters {
   gender: string | null;
   priceRange: string | null;
+  season: string | null;
   sortBy: SortOption;
 }
 
 export const DEFAULT_FILTERS: CatalogFilters = {
   gender: null,
   priceRange: null,
+  season: null,
   sortBy: "relevance",
 };
 
@@ -36,6 +38,7 @@ interface CatalogFilterPanelProps {
   filters: CatalogFilters;
   /** Callback cuando cambian los filtros */
   onFiltersChange: (filters: CatalogFilters) => void;
+  availableSeasons?: string[];
 }
 
 const GENDER_OPTIONS: FilterOption[] = [
@@ -63,6 +66,7 @@ export default function CatalogFilterPanel({
   showGender,
   filters,
   onFiltersChange,
+  availableSeasons,
 }: CatalogFilterPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [localFilters, setLocalFilters] = useState<CatalogFilters>(filters);
@@ -73,10 +77,10 @@ export default function CatalogFilterPanel({
   }, [filters]);
 
   // Contar filtros activos (sort no cuenta como filtro)
-  const activeFilterCount = [filters.gender, filters.priceRange].filter(Boolean).length;
+  const activeFilterCount = [filters.gender, filters.priceRange, filters.season].filter(Boolean).length;
   const hasNonDefaultSort = filters.sortBy !== "relevance";
 
-  const handleToggle = (key: "gender" | "priceRange", value: string) => {
+  const handleToggle = (key: "gender" | "priceRange" | "season", value: string) => {
     setLocalFilters((prev) => ({
       ...prev,
       [key]: prev[key] === value ? null : value,
@@ -246,6 +250,22 @@ export default function CatalogFilterPanel({
                       ))}
                     </div>
                   </FilterGroup>
+
+                  {/* Temporada */}
+                  {availableSeasons && availableSeasons.length > 0 && (
+                    <FilterGroup label="Temporada">
+                      <div className="flex flex-wrap gap-2">
+                        {availableSeasons.map((s) => (
+                          <FilterChip
+                            key={s}
+                            label={s}
+                            isActive={localFilters.season === s}
+                            onClick={() => handleToggle("season", s)}
+                          />
+                        ))}
+                      </div>
+                    </FilterGroup>
+                  )}
                 </div>
 
                 {/* Apply Button */}

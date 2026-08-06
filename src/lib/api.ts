@@ -22,6 +22,7 @@ export interface CatalogParams {
   priceMin?: number;
   priceMax?: number;
   topSellerIds?: string[];
+  season?: string;
 }
 
 // ✅ Cliente Supabase inicializado correctamente
@@ -58,7 +59,8 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
             ),
             product_leagues (
                 league_id
-            )
+            ),
+            season
         `)
 
     .eq("active", true)
@@ -103,6 +105,7 @@ export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product 
     brand_logo: brand?.logo_url ?? null,
     sort_order: raw.sort_order || 0,
     trending_until: raw.trending_until ?? null,
+    season: raw.season,
     product_variants: variants.map(v => ({
       id: v.id,
       version: v.version,
@@ -131,6 +134,7 @@ async function fetchFeaturedFromSupabase(): Promise<Product[]> {
     league_id,
     brand_id,
     trending_until,
+    season,
     teams(
       id,
       name,
@@ -300,7 +304,7 @@ export async function getProductOptionsFromSupabase(productId: string) {
     const versiones = Object.entries(versionesMap).map(([label, id]) => ({ id, label }));
     const variantIds = (variants ?? []).map(v => v.id);
 
-    let tallas: { id: string; label: string }[] = [];
+    let tallas: { id: string; label: string; additional_cost: number }[] = [];
     const variantSizesMap: Record<string, string[]> = {};
 
     if (variantIds.length > 0) {
@@ -324,14 +328,14 @@ export async function getProductOptionsFromSupabase(productId: string) {
       if (sizeIds.length > 0) {
         const { data: sizes, error: sizesError } = await supabase
           .from("sizes")
-          .select("id, label")
+          .select("id, label, additional_cost")
           .in("id", sizeIds)
           .eq("active", true)
           .order("sort_order");
 
         if (sizesError) throw sizesError;
 
-        tallas = sizes.map(s => ({ id: s.id, label: s.label }));
+        tallas = sizes.map(s => ({ id: s.id, label: s.label, additional_cost: s.additional_cost || 0 }));
       }
     }
 
@@ -529,6 +533,50 @@ export async function getCatalog(): Promise<Product[]> {
   );
 }
 
+/* 🗓️ Helper para parsear año exclusivamente desde la columna de base de datos `season` */
+function parseSeasonYear(season?: string | null): number | null {
+  if (!season) return null;
+  const str = String(season).trim();
+  if (!str) return null;
+
+  // 1️⃣ Buscar año de 4 dígitos (ej: 2026, 2025/26, 2017/18)
+  const match4 = str.match(/\b(20\d{2}|19\d{2})\b/);
+  if (match4) return parseInt(match4[1], 10);
+
+  // 2️⃣ Buscar temporada de 2 dígitos (ej: 26/27, 25/26, 17/18)
+  const match2Slash = str.match(/\b(\d{2})\/(\d{2})\b/);
+  if (match2Slash) {
+    const y2 = parseInt(match2Slash[1], 10);
+    return y2 < 50 ? 2000 + y2 : 1900 + y2;
+  }
+
+  return null;
+}
+
+/* 🔄 Comparador de temporadas: Nuevo a Viejo (Descendente), en blanco/null AL FINAL */
+function compareSeasonsNewestFirst(seasonA?: string | null, seasonB?: string | null): number {
+  const strA = seasonA ? String(seasonA).trim() : "";
+  const strB = seasonB ? String(seasonB).trim() : "";
+
+  const hasA = strA.length > 0;
+  const hasB = strB.length > 0;
+
+  // 1️⃣ Producto CON columna season llena va ANTES que producto SIN columna season (sin temporada al final)
+  if (hasA && !hasB) return -1;
+  if (!hasA && hasB) return 1;
+  if (!hasA && !hasB) return 0;
+
+  // 2️⃣ Si ambos tienen columna season, comparar por año (más reciente primero)
+  const yearA = parseSeasonYear(strA);
+  const yearB = parseSeasonYear(strB);
+
+  if (yearA !== null && yearB !== null && yearA !== yearB) {
+    return yearB - yearA; // 2026/27 antes que 2025/26
+  }
+
+  return strB.localeCompare(strA);
+}
+
 // Cache LRU simple para paginación
 const paginatedCache = new Map<string, { data: { data: Product[]; count: number }, timestamp: number }>();
 
@@ -553,7 +601,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
 
   // 1️⃣ Revisar Caché (solo en el navegador — el servidor no puede limpiar este cache desde el cliente)
   const isClient = typeof window !== 'undefined';
-  const cacheKey = JSON.stringify(params) + "_v10_sorted"; // 🔥 v10: Force cache refresh
+  const cacheKey = JSON.stringify(params) + "_v15_strict_4tier_sort"; // 🔥 v15: Strict 4-tier sorting
   const now = Date.now();
 
   if (isClient) {
@@ -589,7 +637,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         .from("products")
         .select(`
             id, name, slug, description, image_url, featured,
-            category_id, league_id, team_id, brand_id, trending_until,
+            category_id, league_id, team_id, brand_id, trending_until, season,
             teams ( name, logo_url ),
             brands ( name, slug, logo_url ),
             product_variants ( id, version, price, active, original_price, active_original_price ),
@@ -605,13 +653,31 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
 
       if (productsError) throw productsError;
 
-      // 3. Reordenar en JS para respetar la relevancia del Fuzzy (SQL 'IN' no garantiza orden)
+      // 3. Reordenar en JS aplicando la jerarquía estricta (1. Equipo/Marca, 2. Temporada, 3. Nombre, 4. Precio)
       const productsMap = new Map(productsData?.map(p => [p.id, p]));
-      const sortedProducts = ids.map((id: string) => productsMap.get(id)).filter(Boolean);
+      const rawSorted = ids.map((id: string) => productsMap.get(id)).filter(Boolean) as SupabaseRawProduct[];
+      const adapted = rawSorted.map(adaptSupabaseProductToProduct);
+
+      adapted.sort((a, b) => {
+        // 1️⃣ Equipo / Marca (A-Z)
+        const teamCompare = (a.equipo || '').toLowerCase().trim().localeCompare((b.equipo || '').toLowerCase().trim());
+        if (teamCompare !== 0) return teamCompare;
+
+        // 2️⃣ Temporada (Nuevo-Viejo, vacíos al final)
+        const seasonCompare = compareSeasonsNewestFirst(a.season, b.season);
+        if (seasonCompare !== 0) return seasonCompare;
+
+        // 3️⃣ Nombre del Producto / Modelo (A-Z)
+        const nameCompare = (a.modelo || '').toLowerCase().trim().localeCompare((b.modelo || '').toLowerCase().trim());
+        if (nameCompare !== 0) return nameCompare;
+
+        // 4️⃣ Precio (Ascendente)
+        return (a.precio || 0) - (b.precio || 0);
+      });
 
       const result = {
-        data: sortedProducts.map(adaptSupabaseProductToProduct),
-        count: 100 // Estimado
+        data: adapted,
+        count: adapted.length
       };
 
       // Cache y retorno (solo cliente)
@@ -671,6 +737,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         name,
         team_id,
         brand_id,
+        season,
         teams ( name ),
         brands ( name ),
         product_leagues${leagueId ? "!inner" : ""} ( league_id )
@@ -696,9 +763,12 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   if (genderFilterIds) {
     filteredMetadata = filteredMetadata.filter((item) => genderFilterIds!.has(item.id as string));
   }
+  if (params.season) {
+    filteredMetadata = filteredMetadata.filter((item) => (item.season as string) === params.season);
+  }
 
   // 4. Ordenamiento en Memoria
-  // Para "relevance" y "alphabetical" se ordena aquí.
+  // Para "relevance" y "alphabetical" se ordena aquí por Equipo/Nombre (A-Z) y Temporada (Nuevo-Viejo, vacíos al final).
   // Para precio/novedad/top_sellers se reordena después del fetch completo.
   const needsPostSort = ["price_asc", "price_desc", "newest", "top_sellers"].includes(sortBy);
 
@@ -712,9 +782,15 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         const groupA = (teamsA?.name || brandsA?.name || "zzz").toLowerCase().trim();
         const groupB = (teamsB?.name || brandsB?.name || "zzz").toLowerCase().trim();
 
+        // 1️⃣ Nombre del Equipo / Marca (A-Z)
         const groupCompare = groupA.localeCompare(groupB);
         if (groupCompare !== 0) return groupCompare;
 
+        // 2️⃣ Temporada / Año (Nuevo-Viejo, en blanco/null al final)
+        const seasonCompare = compareSeasonsNewestFirst(a.season as string | undefined, b.season as string | undefined);
+        if (seasonCompare !== 0) return seasonCompare;
+
+        // 3️⃣ Nombre del Modelo / Producto (A-Z)
         const nameA = (a.name || "").toLowerCase().trim();
         const nameB = (b.name || "").toLowerCase().trim();
         return nameA.localeCompare(nameB);
@@ -744,7 +820,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
       .from("products")
       .select(`
           id, name, slug, description, image_url, featured,
-          category_id, league_id, team_id, brand_id, trending_until,
+          category_id, league_id, team_id, brand_id, trending_until, season,
           teams ( name, logo_url ),
           brands ( name, slug, logo_url ),
           product_variants ( id, version, price, active, original_price, active_original_price ),
@@ -773,14 +849,14 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   if (needsPostSort) {
     switch (sortBy) {
       case "price_asc":
-        adaptedProducts.sort((a, b) => a.precio - b.precio);
+        adaptedProducts.sort((a, b) => (a.precio - b.precio) || compareSeasonsNewestFirst(a.season, b.season));
         break;
       case "price_desc":
-        adaptedProducts.sort((a, b) => b.precio - a.precio);
+        adaptedProducts.sort((a, b) => (b.precio - a.precio) || compareSeasonsNewestFirst(a.season, b.season));
         break;
       case "newest":
-        // Productos más recientes primero (por sort_order inverso como proxy)
-        adaptedProducts.sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0));
+        // Productos con temporada reciente primero, luego sort_order
+        adaptedProducts.sort((a, b) => compareSeasonsNewestFirst(a.season, b.season) || ((b.sort_order || 0) - (a.sort_order || 0)));
         break;
       case "top_sellers":
         // Ordenar por presencia en topSellerIds primero, luego el resto
@@ -792,7 +868,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
           if (aIsTop === 0 && bIsTop === 0) {
             return topSellerIds.indexOf(a.id) - topSellerIds.indexOf(b.id);
           }
-          return 0;
+          return compareSeasonsNewestFirst(a.season, b.season);
         });
         break;
     }

@@ -12,7 +12,7 @@ export default function PrivacidadPage() {
     return (
         <article className="prose prose-invert prose-red max-w-none">
             <h1 className="text-3xl md:text-4xl font-bold mb-8 text-[#E50914]">Política de Privacidad</h1>
-            <p className="text-gray-400 text-sm mb-8">Última actualización: Enero 2026</p>
+            <p className="text-gray-400 text-sm mb-8">Última actualización: Agosto 2026</p>
 
             <h2>1. Información que Recopilamos</h2>
             <p>
@@ -57,7 +57,19 @@ export default function PrivacidadPage() {
 
             <h2>6. Cookies</h2>
             <p>
-                Utilizamos cookies esenciales para el funcionamiento del carrito de compras y la sesión de usuario. Al usar nuestro sitio, aceptas el uso de estas cookies básicas.
+                Utilizamos diferentes tipos de cookies para mejorar tu experiencia en nuestra tienda:
+            </p>
+            <ul>
+                <li><strong>Cookies de sesión (Supabase Auth):</strong> Estrictamente necesarias y funcionales para mantener tu sesión activa y gestionar el carrito de compras de forma segura.</li>
+                <li><strong>Google Analytics:</strong> Herramienta de análisis que nos permite medir el tráfico y entender cómo interactúas con nuestra tienda, para mejorar continuamente. (Opcional)</li>
+                <li><strong>Facebook Pixel:</strong> Utilizado para campañas de marketing y mostrarte anuncios relevantes sobre nuestros productos. (Opcional)</li>
+                <li><strong>Sentry:</strong> Utilizado para el monitoreo de errores y rendimiento, permitiéndonos identificar y corregir fallos técnicos rápidamente.</li>
+                <li><strong>Almacenamiento Local (localStorage):</strong> Utilizado para guardar tus preferencias de cookies y el estado local de tu carrito de compras.</li>
+            </ul>
+
+            <h2>7. Gestión de Preferencias de Cookies</h2>
+            <p>
+                Puedes gestionar tus preferencias y decidir qué cookies no esenciales permites directamente desde nuestro banner de cookies. Tienes la opción de "Aceptar todas" para la mejor experiencia posible o "Solo necesarias" para bloquear los scripts de marketing y análisis.
             </p>
         </article>
     );

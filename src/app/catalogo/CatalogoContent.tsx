@@ -38,6 +38,12 @@ const fadeInItem = (i = 0) => ({
   transition: { delay: i * 0.05, duration: 0.6, ease: "easeOut" as const },
 });
 
+function extractSeasonYear(season: string): number {
+    // Handle '2024/25' format - extract first year
+    const match = season.match(/^(\d{4})/);
+    return match ? parseInt(match[1]) : 0;
+}
+
 // Tipo extendido para manejar ligas legacy
 interface ExtendedLeague {
   nombre: string;
@@ -188,6 +194,14 @@ export default function CatalogoContent({
     return genderCategories.some(gc => slug.includes(gc));
   }, [categoriaSeleccionada]);
 
+  const availableSeasons = useMemo(() => {
+    const seasons = new Set<string>();
+    productos.forEach(p => {
+      if (p.season) seasons.add(p.season);
+    });
+    return Array.from(seasons).sort((a, b) => extractSeasonYear(b) - extractSeasonYear(a));
+  }, [productos]);
+
   // === CARGA DE PRODUCTOS (Server-Side Filtered & Paginated) ===
 
   // Función helper para fetchear
@@ -225,6 +239,7 @@ export default function CatalogoContent({
         teamId: equipoSeleccionado ?? undefined,
         brandId: marcaSeleccionada ?? undefined,
         gender: catalogFilters.gender ?? undefined,
+        season: catalogFilters.season ?? undefined,
         sortBy: catalogFilters.sortBy,
         priceMin,
         priceMax,
@@ -372,6 +387,7 @@ export default function CatalogoContent({
       <CatalogFilterPanel
         showGender={showGenderFilter}
         filters={catalogFilters}
+        availableSeasons={availableSeasons}
         onFiltersChange={(newFilters) => {
           setCatalogFilters(newFilters);
           shouldScrollOnFilter.current = false;

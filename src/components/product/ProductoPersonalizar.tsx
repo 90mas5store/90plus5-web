@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -63,6 +63,7 @@ interface Product {
     category_id?: string | null;
     allows_customization?: boolean;
     trending_until?: string | null;
+    season?: string | null;
 }
 
 interface ProductoPersonalizarProps {
@@ -93,6 +94,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         logoEquipo: p.teams?.logo_url || p.brands?.logo_url || undefined,
         precio: p.product_variants?.[0]?.price || 0,
         descripcion: p.description,
+        season: p.season || null,
     });
 
     const [producto, setProducto] = useState(mapProduct(product));
@@ -101,7 +103,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         preciosPorVersion: Record<string, number>;
         originalesPorVersion: Record<string, { price: number, active: boolean }>;
         versiones?: { id: string; label: string }[];
-        tallas?: { id: string; label: string }[];
+        tallas?: { id: string; label: string; additional_cost?: number }[];
         parches?: { id: string; label: string }[];
         variantSizesMap?: Record<string, string[]>;
     }>({ dorsales: [], preciosPorVersion: {}, originalesPorVersion: {}, variantSizesMap: {} });
@@ -112,8 +114,10 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const [precioActual, setPrecioActual] = useState(0);
     const [precioOriginalActual, setPrecioOriginalActual] = useState<{ price: number, active: boolean } | null>(null);
     const [versionSeleccionada, setVersionSeleccionada] = useState<{ id: string; label: string } | null>(null);
-    const [tallaSeleccionada, setTallaSeleccionada] = useState<{ id: string; label: string } | null>(null);
+    const [tallaSeleccionada, setTallaSeleccionada] = useState<{ id: string; label: string; additional_cost?: number } | null>(null);
     const [parcheSeleccionado, setParcheSeleccionado] = useState<{ id: string; label: string } | null>(null);
+
+    const precioConRecargo = precioActual + (tallaSeleccionada?.additional_cost || 0);
 
     // Dorsal
     const [quiereDorsal, setQuiereDorsal] = useState(false);
@@ -549,7 +553,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                 dorsalNumero,
                 dorsalNombre,
                 imagen: producto.imagen,
-                precio: precioActual,
+                precio: precioConRecargo,
                 cantidad: 1,
             });
 
@@ -617,6 +621,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
 
     const handleShare = async () => {
         const shareUrl = buildShareUrl();
+        trackShare();
 
         if (typeof navigator !== 'undefined' && navigator.share) {
             try {
@@ -625,7 +630,6 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                     text: `Encontré esto en 90+5, está brutal 👀`,
                     url: shareUrl,
                 });
-                trackShare();
                 return;
             } catch {
                 return;
@@ -645,8 +649,9 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     };
 
     const handleShareWhatsApp = () => {
+        trackShare();
         const shareUrl = buildShareUrl();
-        const precio = precioActual || producto.precio || 0;
+        const precio = precioConRecargo || producto.precio || 0;
 
                 const E = {
             fire: '\u{1F525}',
@@ -869,15 +874,22 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
 
                         {/* Título del producto — solo mobile */}
                         <div className="flex lg:hidden flex-col gap-2 pt-1">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-start gap-3">
                                 <TeamLogo src={producto.logoEquipo} alt={producto.equipo} size={52} />
                                 <div className="min-w-0 flex-1">
                                     <p className="text-2xl font-black tracking-tight text-white leading-none truncate">
                                         {producto.equipo}
                                     </p>
-                                    <p className="text-primary font-bold text-xs uppercase tracking-widest mt-1.5 truncate">
-                                        {producto.modelo}
-                                    </p>
+                                    <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                                        <p className="text-primary font-bold text-xs uppercase tracking-widest truncate">
+                                            {producto.modelo}
+                                        </p>
+                                        {producto.season && (
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-gray-300 border border-white/10">
+                                                {producto.season}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 {showLiveBanner && (
                                     <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-primary text-white shrink-0 animate-pulse shadow-[0_0_12px_rgba(229,9,20,0.6)]">
@@ -886,21 +898,27 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                 )}
                             </div>
                             <div className="flex items-baseline gap-2.5">
-                                {precioActual > 0 ? (
+                                {precioConRecargo > 0 ? (
                                     <>
                                         <span className="text-3xl font-black text-white tracking-tight">
-                                            L {precioActual.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            L {precioConRecargo.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
                                         {precioOriginalActual?.active && precioOriginalActual.price > 0 && (
                                             <span className="text-gray-500 line-through text-base opacity-50">
                                                 L {precioOriginalActual.price.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         )}
+                                        {tallaSeleccionada?.additional_cost ? (
+                                            <span className="text-xs text-amber-400 font-medium ml-1">(incluye +L{tallaSeleccionada.additional_cost} por talla)</span>
+                                        ) : null}
                                     </>
                                 ) : (
                                     <span className="text-2xl font-bold text-white">Consultar precio</span>
                                 )}
                             </div>
+                            <p className="text-gray-400 leading-relaxed text-xs border-l-2 border-primary/30 pl-3 italic mt-1">
+                                {producto.descripcion || "Diseño exclusivo con materiales de alta calidad para el máximo rendimiento y estilo."}
+                            </p>
                         </div>
 
                         {/* Thumbnails — solo desktop, múltiples imágenes */}
@@ -957,21 +975,31 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                             )}
                                         </div>
                                     )}
-                                    <p className="text-primary font-semibold text-sm tracking-wide mt-2">
-                                        {producto.modelo}
-                                    </p>
+                                    <div className="flex items-center gap-2.5 flex-wrap mt-2">
+                                        <p className="text-primary font-semibold text-sm tracking-wide">
+                                            {producto.modelo}
+                                        </p>
+                                        {producto.season && (
+                                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/10 text-gray-300 border border-white/10">
+                                                {producto.season}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="flex items-baseline gap-3 mt-2">
-                                {precioActual > 0 ? (
+                                {precioConRecargo > 0 ? (
                                     <>
-                                        <span className="text-4xl font-bold text-white tracking-tight">L {precioActual.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <span className="text-4xl font-bold text-white tracking-tight">L {precioConRecargo.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         {precioOriginalActual?.active && precioOriginalActual.price > 0 && (
                                             <span className="text-gray-500 line-through text-lg opacity-50">
                                                 L {precioOriginalActual.price.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         )}
+                                        {tallaSeleccionada?.additional_cost ? (
+                                            <span className="text-xs text-amber-400 font-medium ml-1">(incluye +L{tallaSeleccionada.additional_cost} por talla)</span>
+                                        ) : null}
                                     </>
                                 ) : (
                                     <span className="text-3xl font-bold text-white tracking-wide">Consultar</span>
@@ -1031,12 +1059,17 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                             <button
                                                 key={t.id}
                                                 onClick={() => setTallaSeleccionada(t)}
-                                                className={`w-12 h-12 md:w-14 md:h-14 rounded-xl border flex items-center justify-center font-bold transition-all duration-300 ${tallaSeleccionada?.id === t.id
+                                                className={`min-w-[48px] h-12 md:min-w-[56px] md:h-14 px-2 rounded-xl border flex flex-col items-center justify-center font-bold transition-all duration-300 ${tallaSeleccionada?.id === t.id
                                                     ? "border-primary bg-primary text-white shadow-[0_0_15px_rgba(229,9,20,0.4)]"
                                                     : "border-white/10 bg-white/5 hover:border-white/30 text-gray-400"
                                                     }`}
                                             >
-                                                {t.label}
+                                                <span className="text-sm md:text-base leading-none">{t.label}</span>
+                                                {t.additional_cost && t.additional_cost > 0 ? (
+                                                    <span className={`text-[8px] md:text-[9px] leading-none mt-0.5 font-medium ${tallaSeleccionada?.id === t.id ? 'text-white/80' : 'text-amber-400/70'}`}>
+                                                        +L{t.additional_cost}
+                                                    </span>
+                                                ) : null}
                                             </button>
                                         ))}
                                     {versionSeleccionada && opciones.variantSizesMap && (!opciones.variantSizesMap[versionSeleccionada.id] || opciones.variantSizesMap[versionSeleccionada.id].length === 0) && (
@@ -1214,7 +1247,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                             </p>
                             <Button
                                 onClick={handleAddToCart}
-                                disabled={isAdding || precioActual <= 0}
+                                disabled={isAdding || precioConRecargo <= 0}
                                 className="w-full py-4 bg-primary hover:bg-primary-dark disabled:bg-gray-800 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-[0_10px_30px_rgba(229,9,20,0.2)] flex items-center justify-center gap-2 text-base group relative overflow-hidden transition-all"
                             >
                                 <AnimatePresence mode="wait">
@@ -1237,7 +1270,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                             exit={{ opacity: 0, y: -10 }}
                                             className="flex items-center gap-2"
                                         >
-                                            {precioActual > 0 ? (
+                                            {precioConRecargo > 0 ? (
                                                 <>
                                                     <Shirt className="w-5 h-5 group-hover:rotate-12 transition-transform hidden md:block" />
                                                     <span className="font-bold tracking-wide">AÑADIR AL CARRITO</span>

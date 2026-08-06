@@ -88,7 +88,8 @@ export default function EditProductPage() {
         active: true,
         featured: false,
         allows_customization: true,
-        sort_order: 0
+        sort_order: 0,
+        season: ''
     })
 
     // Tallas y parches filtrados por categoría y género del producto
@@ -216,7 +217,8 @@ export default function EditProductPage() {
                     active: product.active ?? true,
                     featured: product.featured ?? false,
                     allows_customization: product.allows_customization ?? true,
-                    sort_order: product.sort_order || 0
+                    sort_order: product.sort_order || 0,
+                    season: product.season || ''
                 })
 
                 // Map Variants
@@ -433,7 +435,8 @@ export default function EditProductPage() {
                     active: formData.active,
                     featured: formData.featured,
                     allows_customization: formData.allows_customization,
-                    sort_order: formData.sort_order
+                    sort_order: formData.sort_order,
+                    season: formData.season || null
                 })
                 .eq('id', id)
 
@@ -716,6 +719,19 @@ export default function EditProductPage() {
                                         placeholder="camiseta-local-madrid-24"
                                     />
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">Temporada</label>
+                                <input
+                                    type="text"
+                                    name="season"
+                                    value={formData.season}
+                                    onChange={handleChange}
+                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium placeholder:text-gray-700"
+                                    placeholder="Ej: 2024/25 o 2026"
+                                />
+                                <p className="text-[10px] text-gray-600 mt-1.5 ml-1">Formato: 2024/25 (temporada) o 2026 (año). Déjalo vacío si no aplica.</p>
                             </div>
                         </div>
                     </section>

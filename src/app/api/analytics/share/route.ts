@@ -28,20 +28,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const { product_slug, product_name, team_name } = body ?? {};
 
-    if (!product_slug || !product_name) {
-        return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+    const name = product_name || product_slug;
+    const slug = product_slug || product_name || 'desconocido';
+
+    if (!name) {
+        return NextResponse.json({ error: 'Missing product name or slug' }, { status: 400 });
     }
 
     const supabase = createAdminClient();
     const { error } = await supabase.from('product_share_events').insert({
-        product_slug: String(product_slug).slice(0, 200),
-        product_name: String(product_name).slice(0, 200),
+        product_slug: String(slug).slice(0, 200),
+        product_name: String(name).slice(0, 200),
         team_name: team_name ? String(team_name).slice(0, 200) : null,
     });
 
     if (error) {
         console.error('[share/route] insert error:', error);
-        return NextResponse.json({ error: 'DB error' }, { status: 500 });
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });

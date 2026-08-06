@@ -27,6 +27,7 @@ export interface Product {
   slug?: string;
   sort_order?: number;
   trending_until?: string | null;
+  season?: string;
 }
 
 
@@ -132,6 +133,7 @@ export interface SupabaseRawProduct {
   product_leagues?: { league_id: string }[];
   product_images?: { id: string; image_url: string; sort_order: number }[];
   trending_until?: string | null;
+  season?: string;
 }
 
 export interface SupabaseRawVariant {

@@ -25,6 +25,7 @@ type ProductView = {
     league?: { name: string; id: string }
     category?: { name: string; id: string }
     active: boolean
+    season?: string | null
     trending_until?: string | null
 }
 
@@ -78,6 +79,7 @@ export default function ProductsPage() {
                     category_id,
                     league_id,
                     brand_id,
+                    season,
                     trending_until,
                     teams (name),
                     brands (name),
@@ -111,6 +113,7 @@ export default function ProductsPage() {
                     league: { id: p.league_id || '', name: leaguesMap.get(p.league_id) || 'General' },
                     category: { id: p.category_id || '', name: categoriesMap.get(p.category_id) || 'Sin categoría' },
                     active: p.active !== false,
+                    season: p.season || null,
                     trending_until: p.trending_until ?? null,
                 }
             })
@@ -410,10 +413,15 @@ export default function ProductsPage() {
                                     {/* Info */}
                                     <div className="p-5 flex-1 flex flex-col relative">
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
+                                            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                                                 <span className="text-xs font-bold text-primary tracking-wider uppercase">
                                                     {product.team?.name || product.brand?.name || 'Sin equipo'}
                                                 </span>
+                                                {product.season && (
+                                                    <span className="text-[10px] font-bold text-gray-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
+                                                        {product.season}
+                                                    </span>
+                                                )}
                                             </div>
                                             <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-primary transition-colors">
                                                 {product.name}
@@ -454,7 +462,14 @@ export default function ProductsPage() {
                                                 />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-white truncate text-sm">{product.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-white truncate text-sm">{product.name}</p>
+                                                    {product.season && (
+                                                        <span className="text-[9px] font-bold text-gray-300 bg-white/10 px-1.5 py-0.2 rounded-full border border-white/10 shrink-0">
+                                                            {product.season}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <p className="text-xs text-primary truncate">{product.team?.name || product.brand?.name || 'Sin equipo'}</p>
                                                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                                     <span className="text-[10px] text-gray-500">{product.category?.name || 'N/A'}</span>
@@ -517,7 +532,14 @@ export default function ProductsPage() {
                                                             />
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-white group-hover:text-primary transition-colors">{product.name}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-bold text-white group-hover:text-primary transition-colors">{product.name}</p>
+                                                                {product.season && (
+                                                                    <span className="text-[10px] font-bold text-gray-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
+                                                                        {product.season}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <p className="text-xs text-gray-500">ID: {product.id.slice(0, 8)}</p>
                                                         </div>
                                                     </div>

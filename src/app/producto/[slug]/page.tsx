@@ -23,12 +23,14 @@ type Props = {
 type SupabaseProduct = {
     id: string;
     name: string;
+    slug: string;
     description: string | null;
     image_url: string | null;
     team_id: string | null;
     league_id: string | null;
     category_id: string | null;
     brand_id: string | null;
+    season?: string | null;
     teams: { name: string; logo_url: string } | null;
     brands: { name: string; slug: string; logo_url?: string | null } | null;
     categories: { name: string } | null;
@@ -82,7 +84,7 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
     const { data: product } = await supabase
         .from("products")
         .select(`
-            id, name, description, image_url, team_id, league_id, category_id, brand_id, allows_customization, trending_until,
+            id, name, slug, description, image_url, team_id, league_id, category_id, brand_id, season, allows_customization, trending_until,
             teams (name, logo_url),
             brands (name, slug, logo_url),
             categories (name),
@@ -103,12 +105,14 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
     return {
         id: product.id,
         name: product.name,
+        slug: product.slug || slug,
         description: product.description ?? null,
         image_url: product.image_url ?? null,
         team_id: product.team_id ?? null,
         league_id: product.league_id ?? null,
         category_id: product.category_id ?? null,
         brand_id: product.brand_id ?? null,
+        season: (product as { season?: string | null }).season ?? null,
         teams: teams ? { name: teams.name, logo_url: teams.logo_url ?? "" } : null,
         brands: brands ? { name: brands.name, slug: brands.slug ?? "", logo_url: (brands as { logo_url?: string }).logo_url ?? null } : null,
         categories: categories ? { name: categories.name } : null,

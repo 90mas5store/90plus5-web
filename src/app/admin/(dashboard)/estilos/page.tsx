@@ -25,6 +25,7 @@ interface Size {
     category_id: string | null
     gender: string | null
     active: boolean
+    additional_cost: number
 }
 
 interface Team {
@@ -57,7 +58,7 @@ const GENDER_LABELS: Record<string, string> = {
 }
 
 const EMPTY_PATCH = { name: '', competition_id: '', category_id: '', active: true }
-const EMPTY_SIZE = { label: '', sort_order: '', category_id: '', gender: '', active: true }
+const EMPTY_SIZE = { label: '', sort_order: '', category_id: '', gender: '', active: true, additional_cost: '' }
 
 const TABS = [
     { key: 'parches' as const, label: 'Parches' },
@@ -237,7 +238,7 @@ export default function EstilosPage() {
     // ── Sizes CRUD ────────────────────────────────────────
     const openEditSize = (s: Size) => {
         setEditingSize(s)
-        setSizeForm({ label: s.label, sort_order: s.sort_order?.toString() ?? '', category_id: s.category_id || '', gender: s.gender || '', active: s.active })
+        setSizeForm({ label: s.label, sort_order: s.sort_order?.toString() ?? '', category_id: s.category_id || '', gender: s.gender || '', active: s.active, additional_cost: s.additional_cost?.toString() ?? '' })
     }
 
     const openNewSize = () => {
@@ -255,6 +256,7 @@ export default function EstilosPage() {
                 category_id: sizeForm.category_id || null,
                 gender: sizeForm.gender || null,
                 active: sizeForm.active,
+                additional_cost: sizeForm.additional_cost !== '' ? parseFloat(sizeForm.additional_cost) : 0,
             }
             if (editingSize) {
                 const { error } = await supabase
@@ -651,6 +653,11 @@ export default function EstilosPage() {
                                             {s.sort_order !== null && (
                                                 <span className="text-[10px] text-gray-600">Orden: {s.sort_order}</span>
                                             )}
+                                            {s.additional_cost > 0 && (
+                                                <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full font-bold">
+                                                    +L {s.additional_cost}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                     {!s.active && (
@@ -766,6 +773,25 @@ export default function EstilosPage() {
                                     className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-violet-500/50 outline-none font-medium"
                                 />
                                 <p className="text-[10px] text-gray-600 mt-1.5 ml-1">Número menor aparece primero. Deja vacío para orden automático.</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">
+                                    Costo Adicional (L)
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500 font-bold text-sm">+L</span>
+                                    <input
+                                        type="number"
+                                        value={sizeForm.additional_cost}
+                                        onChange={e => setSizeForm(s => ({ ...s, additional_cost: e.target.value }))}
+                                        placeholder="0"
+                                        min={0}
+                                        step={0.01}
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl pl-10 pr-4 p-3 text-white focus:border-amber-500/50 outline-none font-medium"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-gray-600 mt-1.5 ml-1">Ej: L 100 extra para tallas 3XL, 4XL. Dejar en 0 si no aplica.</p>
                             </div>
 
                             <label className="flex items-center justify-between p-3 bg-black/40 border border-white/5 rounded-xl cursor-pointer hover:bg-black/60 transition-colors">

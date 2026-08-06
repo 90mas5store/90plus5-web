@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
                     personalization_type,
                     custom_name,
                     custom_number,
-                    products (name, teams (name)),
+                    products (name, season, teams (name), brands (name)),
                     product_variants (version),
                     sizes (label),
                     patches (name),

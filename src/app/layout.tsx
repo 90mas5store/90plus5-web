@@ -11,6 +11,7 @@ import { Metadata, Viewport } from "next";
 import { Partytown } from '@builder.io/partytown/react';
 import { MotionProvider } from "@/lib/motion";
 import { SITE_URL, SITE_CONFIG, CONTACT, SOCIAL_LINKS, SEO } from "@/lib/config/site";
+import CookieConsent from "@/components/CookieConsent";
 
 // 🧠 Fuente local Satoshi
 const satoshi = localFont({
@@ -333,6 +334,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         },
                     }}
                 />
+                <CookieConsent />
             </body>
         </html>
     );

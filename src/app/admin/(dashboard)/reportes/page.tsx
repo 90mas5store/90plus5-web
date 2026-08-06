@@ -12,9 +12,9 @@ export default function ReportesPage() {
     // Estado múltiple: array de strings
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['all'])
     const [loading, setLoading] = useState(false)
-    const [bestSellers, setBestSellers] = useState<{ name: string; units: number; revenue: number }[]>([])
+    const [bestSellers, setBestSellers] = useState<{ name: string; team_name: string | null; season: string | null; units: number; revenue: number }[]>([])
     const [loadingBest, setLoadingBest] = useState(false)
-    const [shareStats, setShareStats] = useState<{ product_name: string; team_name: string | null; count: number }[]>([])
+    const [shareStats, setShareStats] = useState<{ product_name: string; team_name: string | null; season: string | null; count: number }[]>([])
     const [loadingShares, setLoadingShares] = useState(false)
 
     // Opciones de estado
@@ -78,19 +78,25 @@ export default function ReportesPage() {
             if (!res.ok) throw new Error('Error al obtener datos')
             const orders = await res.json()
 
-            const map = new Map<string, { units: number; revenue: number }>()
+            const map = new Map<string, { name: string; team_name: string | null; season: string | null; units: number; revenue: number }>()
             for (const order of (orders || [])) {
                 for (const item of (order.order_items || [])) {
-                    const name = Array.isArray(item.products) ? item.products[0]?.name : item.products?.name
-                    if (!name) continue
-                    const existing = map.get(name) || { units: 0, revenue: 0 }
+                    const prod = Array.isArray(item.products) ? item.products[0] : item.products
+                    if (!prod) continue
+                    const name = prod.name || 'Sin nombre'
+                    const teamObj = Array.isArray(prod.teams) ? prod.teams[0] : prod.teams
+                    const brandObj = Array.isArray(prod.brands) ? prod.brands[0] : prod.brands
+                    const team_name = teamObj?.name || brandObj?.name || null
+                    const season = prod.season || null
+                    const key = `${team_name || ''}::${name}::${season || ''}`
+
+                    const existing = map.get(key) || { name, team_name, season, units: 0, revenue: 0 }
                     existing.units += item.quantity || 0
                     existing.revenue += (item.unit_price || 0) * (item.quantity || 0)
-                    map.set(name, existing)
+                    map.set(key, existing)
                 }
             }
-            const sorted = Array.from(map.entries())
-                .map(([name, v]) => ({ name, ...v }))
+            const sorted = Array.from(map.values())
                 .sort((a, b) => b.revenue - a.revenue)
                 .slice(0, 15)
             setBestSellers(sorted)
@@ -106,23 +112,19 @@ export default function ReportesPage() {
         if (!startDate || !endDate) { toast.error('Por favor selecciona ambas fechas'); return }
         setLoadingShares(true)
         try {
-            const supabase = createClient()
-            const { data, error } = await supabase
-                .from('product_share_events')
-                .select('product_name, team_name')
-                .gte('created_at', startDate)
-                .lte('created_at', endDate + 'T23:59:59Z')
+            const params = new URLSearchParams({ startDate, endDate })
+            const res = await fetch(`/api/admin/reports/shares?${params}`)
+            if (!res.ok) throw new Error('Error al cargar presumes')
+            const data = await res.json()
 
-            if (error) throw error
-
-            const map = new Map<string, { team_name: string | null; count: number }>()
+            const map = new Map<string, { product_name: string; team_name: string | null; season: string | null; count: number }>()
             for (const row of (data || [])) {
-                const existing = map.get(row.product_name) || { team_name: row.team_name, count: 0 }
+                const key = `${row.team_name || ''}::${row.product_name}::${row.season || ''}`
+                const existing = map.get(key) || { product_name: row.product_name, team_name: row.team_name, season: row.season, count: 0 }
                 existing.count++
-                map.set(row.product_name, existing)
+                map.set(key, existing)
             }
-            const sorted = Array.from(map.entries())
-                .map(([product_name, v]) => ({ product_name, ...v }))
+            const sorted = Array.from(map.values())
                 .sort((a, b) => b.count - a.count)
                 .slice(0, 15)
             setShareStats(sorted)
@@ -198,8 +200,9 @@ export default function ReportesPage() {
                         'Email': order.customer_email || '',
                         'Teléfono': order.customer_phone || '',
                         'Estado': formatStatus(order.status),
-                        'Equipo': getVal(item.products?.teams, 'name') || 'N/A',
+                        'Equipo': getVal(item.products?.teams, 'name') || getVal(item.products?.brands, 'name') || 'N/A',
                         'Producto': getVal(item.products, 'name') || 'Producto Desconocido',
+                        'Temporada': getVal(item.products, 'season') || '',
                         'Equipo/Versión': getVal(item.product_variants, 'version') || 'Estándar',
                         'Talla': getVal(item.sizes, 'label') || 'N/A',
                         'Parches': getVal(item.patches, 'name') || 'Sin parches',
@@ -411,11 +414,23 @@ export default function ReportesPage() {
                             const maxRevenue = bestSellers[0]?.revenue || 1
                             const barWidth = Math.round((item.revenue / maxRevenue) * 100)
                             return (
-                                <div key={item.name} className="flex items-center gap-3">
+                                <div key={`${item.team_name}-${item.name}-${item.season}-${idx}`} className="flex items-center gap-3">
                                     <span className="text-xs font-bold text-gray-600 w-5 text-right shrink-0">{idx + 1}</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-0.5">
-                                            <span className="text-sm text-white font-medium truncate">{item.name}</span>
+                                            <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                                                {item.team_name && (
+                                                    <span className="text-xs font-bold text-primary tracking-wider uppercase shrink-0">
+                                                        {item.team_name}
+                                                    </span>
+                                                )}
+                                                <span className="text-sm text-white font-medium truncate">{item.name}</span>
+                                                {item.season && (
+                                                    <span className="text-[10px] font-bold text-gray-300 bg-white/10 px-1.5 py-0.5 rounded-full border border-white/10 shrink-0">
+                                                        {item.season}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-3 shrink-0 ml-2">
                                                 <span className="text-xs text-gray-500">{item.units} uds.</span>
                                                 <span className="text-xs font-bold text-white">L {item.revenue.toLocaleString('es-HN')}</span>
@@ -461,14 +476,21 @@ export default function ReportesPage() {
                             const maxCount = shareStats[0]?.count || 1
                             const barWidth = Math.round((item.count / maxCount) * 100)
                             return (
-                                <div key={item.product_name} className="flex items-center gap-3">
+                                <div key={`${item.team_name}-${item.product_name}-${item.season}-${idx}`} className="flex items-center gap-3">
                                     <span className="text-xs font-bold text-gray-600 w-5 text-right shrink-0">{idx + 1}</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-0.5">
-                                            <div className="min-w-0">
-                                                <span className="text-sm text-white font-medium truncate block">{item.product_name}</span>
+                                            <div className="min-w-0 flex items-center gap-2 flex-wrap">
                                                 {item.team_name && (
-                                                    <span className="text-xs text-gray-500">{item.team_name}</span>
+                                                    <span className="text-xs font-bold text-primary tracking-wider uppercase shrink-0">
+                                                        {item.team_name}
+                                                    </span>
+                                                )}
+                                                <span className="text-sm text-white font-medium truncate">{item.product_name}</span>
+                                                {item.season && (
+                                                    <span className="text-[10px] font-bold text-gray-300 bg-white/10 px-1.5 py-0.5 rounded-full border border-white/10 shrink-0">
+                                                        {item.season}
+                                                    </span>
                                                 )}
                                             </div>
                                             <span className="text-xs font-bold text-white shrink-0 ml-2">
