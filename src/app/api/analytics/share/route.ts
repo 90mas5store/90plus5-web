@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     });
 }
 
+import { shareAnalyticsSchema } from '@/lib/validations';
+
 export async function POST(request: NextRequest) {
     const ip = getClientIp(request);
     const rl = await checkRateLimit(`share:${ip}`, 30, 10 * 60 * 1000);
@@ -26,14 +28,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    const { product_slug, product_name, team_name } = body ?? {};
-
-    const name = product_name || product_slug;
-    const slug = product_slug || product_name || 'desconocido';
-
-    if (!name) {
+    const parseResult = shareAnalyticsSchema.safeParse(body);
+    if (!parseResult.success) {
         return NextResponse.json({ error: 'Missing product name or slug' }, { status: 400 });
     }
+
+    const { product_slug, product_name, team_name } = parseResult.data;
+    const name = product_name || product_slug || '';
+    const slug = product_slug || product_name || 'desconocido';
 
     const supabase = createAdminClient();
     const { error } = await supabase.from('product_share_events').insert({

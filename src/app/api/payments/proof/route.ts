@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
+import { paymentProofSchema } from '@/lib/validations';
+
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export async function POST(request: NextRequest) {
@@ -23,20 +26,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Formato de solicitud inválido' }, { status: 400 });
     }
 
-    const orderId = (formData.get('orderId') as string | null)?.trim();
+    const rawOrderId = (formData.get('orderId') as string | null)?.trim();
     const file = formData.get('file') as File | null;
 
-    if (!orderId || !file) {
-        return NextResponse.json({ error: 'Faltan datos requeridos (orderId, file)' }, { status: 400 });
+    const parseResult = paymentProofSchema.safeParse({ orderId: rawOrderId });
+    if (!parseResult.success || !file) {
+        const errorMsg = !file ? 'Archivo requerido' : parseResult.error.issues[0].message;
+        return NextResponse.json({ error: errorMsg }, { status: 400 });
     }
 
-    // Validar UUID básico
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(orderId)) {
-        return NextResponse.json({ error: 'ID de pedido inválido' }, { status: 400 });
-    }
+    const { orderId } = parseResult.data;
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!ALLOWED_TYPES.includes(file.type) || !ALLOWED_EXTENSIONS.includes(ext)) {
         return NextResponse.json({ error: 'Formato no permitido. Usa JPG, PNG o WEBP.' }, { status: 400 });
     }
 
@@ -62,7 +64,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Subir a Supabase Storage
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
     const filePath = `payment-proofs/${orderId}/${Date.now()}.${ext}`;
     const fileBuffer = await file.arrayBuffer();
 

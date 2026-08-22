@@ -41,7 +41,6 @@ const nextConfig = {
    * - Usamos remotePatterns en lugar de domains (deprecated en Next.js 14+)
    * - Más seguro: permite especificar protocolo y rutas
    */
-  transpilePackages: ['lucide-react', 'framer-motion'],
   images: {
     remotePatterns: [
       {
@@ -119,7 +118,23 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; script-src 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://www.google-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://i.imgur.com https://res.cloudinary.com https://upload.wikimedia.org https://90mas5.store https://fhvxolslqrrkefsvbcrq.supabase.co https://*.facebook.com; media-src 'self' blob: data: https://fhvxolslqrrkefsvbcrq.supabase.co https://res.cloudinary.com https://i.imgur.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; connect-src 'self' https://*.facebook.com https://fhvxolslqrrkefsvbcrq.supabase.co;`,
+            value: [
+              "default-src 'self'",
+              `script-src 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com`,
+              `script-src-elem 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com`,
+              "script-src-attr 'none'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' blob: data: https://i.imgur.com https://res.cloudinary.com https://upload.wikimedia.org https://90mas5.store https://fhvxolslqrrkefsvbcrq.supabase.co https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com",
+              "media-src 'self' blob: data: https://fhvxolslqrrkefsvbcrq.supabase.co https://res.cloudinary.com https://i.imgur.com",
+              "font-src 'self' data:",
+              "worker-src 'self' blob:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+              "connect-src 'self' https://*.facebook.com https://connect.facebook.net https://www.google-analytics.com https://www.googletagmanager.com https://fhvxolslqrrkefsvbcrq.supabase.co wss://fhvxolslqrrkefsvbcrq.supabase.co",
+              "upgrade-insecure-requests",
+            ].join('; '),
           },
         ],
       },
@@ -236,46 +251,6 @@ const nextConfig = {
    * 📊 Configuración de webpack para optimizaciones adicionales
    */
   webpack: (config, { isServer }) => {
-    // Optimizaciones de code splitting solo en cliente
-    if (!isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        minSize: 10000,
-        maxSize: 150000,
-        minChunks: 1,
-        maxAsyncRequests: 30,
-        maxInitialRequests: 25,
-        cacheGroups: {
-          // Separar react-icons
-          reactIcons: {
-            test: /[\\/]node_modules[\\/]react-icons[\\/]/,
-            name: 'react-icons',
-            priority: 30,
-            reuseExistingChunk: true,
-          },
-          // Separar framer-motion
-          framerMotion: {
-            test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
-            name: 'framer-motion',
-            priority: 25,
-            reuseExistingChunk: true,
-          },
-          // Vendors
-          defaultVendors: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            priority: -10,
-            reuseExistingChunk: true,
-          },
-          default: {
-            minChunks: 2,
-            priority: -20,
-            reuseExistingChunk: true,
-          },
-        },
-      };
-    }
-
     return config;
   },
 };

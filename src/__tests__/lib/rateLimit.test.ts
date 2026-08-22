@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { describe, it, expect } from "vitest";
+import {
+    checkRateLimit,
+    getClientIp,
+    getRateLimitTierForPath,
+    getRateLimitHeaders,
+    RATE_LIMIT_TIERS
+} from "@/lib/rateLimit";
 
 // Note: checkRateLimit is async. In test env, no UPSTASH vars are set,
 // so it falls back to the in-memory implementation.
@@ -67,3 +73,60 @@ describe("getClientIp", () => {
         expect(getClientIp(req)).toBe("unknown");
     });
 });
+
+describe("getRateLimitTierForPath", () => {
+    it("retorna null para webhooks", () => {
+        expect(getRateLimitTierForPath("/api/webhooks/resend")).toBeNull();
+    });
+
+    it("retorna tier STRICT para endpoints sensibles", () => {
+        expect(getRateLimitTierForPath("/api/orders/create")).toEqual({
+            tier: "STRICT",
+            config: RATE_LIMIT_TIERS.STRICT,
+        });
+        expect(getRateLimitTierForPath("/api/payments/proof")).toEqual({
+            tier: "STRICT",
+            config: RATE_LIMIT_TIERS.STRICT,
+        });
+        expect(getRateLimitTierForPath("/api/discount/validate")).toEqual({
+            tier: "STRICT",
+            config: RATE_LIMIT_TIERS.STRICT,
+        });
+    });
+
+    it("retorna tier ADMIN para rutas de administración", () => {
+        expect(getRateLimitTierForPath("/api/admin/reports/orders")).toEqual({
+            tier: "ADMIN",
+            config: RATE_LIMIT_TIERS.ADMIN,
+        });
+    });
+
+    it("retorna tier GENERAL por defecto para otras rutas de la API", () => {
+        expect(getRateLimitTierForPath("/api/live-matches")).toEqual({
+            tier: "GENERAL",
+            config: RATE_LIMIT_TIERS.GENERAL,
+        });
+    });
+});
+
+describe("getRateLimitHeaders", () => {
+    it("genera headers correctos cuando la solicitud es permitida", () => {
+        const result = { allowed: true, remaining: 4, retryAfterMs: 0 };
+        const headers = getRateLimitHeaders(result, 5);
+
+        expect(headers["X-RateLimit-Limit"]).toBe("5");
+        expect(headers["X-RateLimit-Remaining"]).toBe("4");
+        expect(headers["Retry-After"]).toBeUndefined();
+    });
+
+    it("incluye Retry-After cuando la solicitud es bloqueada", () => {
+        const result = { allowed: false, remaining: 0, retryAfterMs: 5000 };
+        const headers = getRateLimitHeaders(result, 5);
+
+        expect(headers["X-RateLimit-Limit"]).toBe("5");
+        expect(headers["X-RateLimit-Remaining"]).toBe("0");
+        expect(headers["Retry-After"]).toBe("5");
+        expect(headers["X-RateLimit-Reset"]).toBeDefined();
+    });
+});
+

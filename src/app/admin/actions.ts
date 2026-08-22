@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { checkRateLimit } from '@/lib/rateLimit'
+import { registerPaymentSchema } from '@/lib/validations'
 
 // Estados válidos en el sistema (incluyendo legacy para compatibilidad)
 const ALLOWED_STATUSES = [
@@ -38,6 +39,11 @@ function normalizeStatus(status: string): string {
 
 export async function updateOrderStatus(orderId: string, newStatus: string, notes?: string, skipRateLimit = false) {
     try {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(orderId)) {
+            return { success: false, error: 'ID de pedido inválido' };
+        }
+
         // 🔐 Validar sesión con cliente anon (respeta cookies de sesión)
         const authClient = await createClient()
         const { data: { user }, error: authError } = await authClient.auth.getUser()
@@ -216,6 +222,22 @@ export async function revalidateProduct(slug: string) {
 
 export async function registerPaymentAction(orderId: string, statusConfig: { newStatus: string, payment: { amount: number, method: string, bank: string, reference: string, date: string } }) {
     try {
+        const parseResult = registerPaymentSchema.safeParse({
+            orderId,
+            amount: statusConfig?.payment?.amount,
+            method: statusConfig?.payment?.method,
+            bank: statusConfig?.payment?.bank,
+            reference: statusConfig?.payment?.reference,
+            date: statusConfig?.payment?.date,
+        });
+
+        if (!parseResult.success) {
+            const errorMsg = parseResult.error.issues.map(i => i.message).join(' | ');
+            return { success: false, error: `Datos de pago inválidos: ${errorMsg}` };
+        }
+
+        const validPayment = parseResult.data;
+
         // 🔐 Validar sesión con cliente anon
         const authClient = await createClient()
         const { data: { user }, error: authError } = await authClient.auth.getUser()
@@ -226,15 +248,15 @@ export async function registerPaymentAction(orderId: string, statusConfig: { new
 
         const type: 'deposit' | 'final' = statusConfig.newStatus === 'deposit_paid' ? 'deposit' : 'final';
         
-        const notesStr = `Banco: ${statusConfig.payment.bank} | Ref: ${statusConfig.payment.reference} | Fecha: ${statusConfig.payment.date}`
+        const notesStr = `Banco: ${validPayment.bank} | Ref: ${validPayment.reference} | Fecha: ${validPayment.date}`
 
         const paymentData = {
-            order_id: orderId,
-            amount: statusConfig.payment.amount,
+            order_id: validPayment.orderId,
+            amount: validPayment.amount,
             type: type,
             status: 'verified',
             provider: 'Transferencia Manual',
-            method: statusConfig.payment.method,
+            method: validPayment.method,
             notes: notesStr,
             verified_at: new Date().toISOString(),
             verified_by: user.id

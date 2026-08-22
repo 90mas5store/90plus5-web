@@ -2,13 +2,12 @@ import { createClient } from '@/lib/supabase/middleware'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-
-// 🛡️ CONFIGURACIÓN DE RATE LIMIT
-const RATELIMIT_WINDOW = 60 * 1000; // 1 minuto
-const MAX_REQUESTS = 3; // Máximo 3 intentos de creación por minuto por IP
-
-// Almacén en memoria
-const ipCache = new Map<string, { count: number; expires: number }>();
+import {
+    checkRateLimit,
+    getClientIp,
+    getRateLimitHeaders,
+    getRateLimitTierForPath
+} from '@/lib/rateLimit'
 
 /**
  * 🔐 Verifica si un usuario está en la whitelist de admins usando Service Role.
@@ -40,8 +39,121 @@ async function isUserInAdminWhitelist(userId: string): Promise<boolean> {
     return true;
 }
 
+// 🌐 CONFIGURACIÓN DE CORS
+function isOriginAllowed(origin: string | null): boolean {
+    if (!origin) return true; // Permite llamadas server-to-server o same-origin sin header Origin
+
+    // Normalizar la URL de origen eliminando barras finales
+    const normalizedOrigin = origin.replace(/\/$/, '');
+
+    // Orígenes explícitamente permitidos por env o defecto
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://90mas5.store').replace(/\/$/, '');
+    const allowedFromEnv = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim().replace(/\/$/, ''))
+        : [];
+
+    const defaultAllowedOrigins = [
+        siteUrl,
+        'https://90mas5.store',
+        'https://www.90mas5.store',
+        ...allowedFromEnv,
+    ];
+
+    if (defaultAllowedOrigins.includes(normalizedOrigin)) {
+        return true;
+    }
+
+    // Permitir orígenes de desarrollo/pruebas locales
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+        if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+    const allowedOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL || 'https://90mas5.store';
+    return {
+        'Access-Control-Allow-Origin': allowedOrigin,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+    };
+}
+
 export async function middleware(req: NextRequest) {
     let res = NextResponse.next()
+    const origin = req.headers.get('origin');
+
+    // 0️⃣ PROTECCIÓN CORS PARA API (/api/*)
+    if (req.nextUrl.pathname.startsWith('/api')) {
+        // Excepción para webhooks (solicitudes server-to-server sin navegador)
+        const isWebhook = req.nextUrl.pathname.startsWith('/api/webhooks');
+
+        if (!isWebhook) {
+            if (!isOriginAllowed(origin)) {
+                console.warn(`🚫 Petición CORS bloqueada para el origen no autorizado: ${origin}`);
+                return new NextResponse(
+                    JSON.stringify({ success: false, error: 'CORS policy: Access denied for this origin' }),
+                    { status: 403, headers: { 'Content-Type': 'application/json' } }
+                );
+            }
+
+            // Manejo de Preflight request (OPTIONS) - No consume rate limit
+            if (req.method === 'OPTIONS') {
+                return new NextResponse(null, { status: 204, headers: getCorsHeaders(origin) });
+            }
+
+            // Adjuntar headers CORS a la respuesta permitida
+            if (origin) {
+                const corsHeaders = getCorsHeaders(origin);
+                Object.entries(corsHeaders).forEach(([key, value]) => res.headers.set(key, value));
+            }
+        }
+
+        // 🛡️ RATE LIMITING GLOBAL PARA /api/*
+        const tierInfo = getRateLimitTierForPath(req.nextUrl.pathname);
+        if (tierInfo) {
+            const ip = getClientIp(req);
+            const identifier = `api:${tierInfo.tier}:${ip}`;
+            const result = await checkRateLimit(
+                identifier,
+                tierInfo.config.maxRequests,
+                tierInfo.config.windowMs
+            );
+
+            const rateLimitHeaders = getRateLimitHeaders(result, tierInfo.config.maxRequests);
+
+            // Adjuntar encabezados X-RateLimit-* a la respuesta
+            Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+                res.headers.set(key, value);
+            });
+
+            if (!result.allowed) {
+                console.warn(`🚫 Rate limit de API excedido para IP (${ip}) en ruta [${req.nextUrl.pathname}] - Tier: ${tierInfo.tier}`);
+
+                const responseHeaders: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                    ...rateLimitHeaders,
+                };
+
+                if (origin && isOriginAllowed(origin)) {
+                    Object.assign(responseHeaders, getCorsHeaders(origin));
+                }
+
+                return new NextResponse(
+                    JSON.stringify({
+                        success: false,
+                        error: 'Has realizado demasiadas solicitudes. Por favor espera un momento e intenta de nuevo.'
+                    }),
+                    { status: 429, headers: responseHeaders }
+                );
+            }
+        }
+    }
 
     // 1️⃣ PROTECCIÓN DE RUTA /admin
     if (req.nextUrl.pathname.startsWith('/admin')) {
@@ -80,47 +192,15 @@ export async function middleware(req: NextRequest) {
         }
     }
 
-
-    // 2️⃣ RATE LIMITING PARA API (/api/orders/create)
-    if (req.nextUrl.pathname === '/api/orders/create') {
-        const ip = req.ip || req.headers.get('x-forwarded-for') || '127.0.0.1';
-        const now = Date.now();
-        const record = ipCache.get(ip);
-
-        if (record) {
-            if (now > record.expires) {
-                // Expiró, reset
-                ipCache.set(ip, { count: 1, expires: now + RATELIMIT_WINDOW });
-            } else {
-                if (record.count >= MAX_REQUESTS) {
-                    console.warn(`🚫 Rate limit exceeded for IP: ${ip}`);
-                    return new NextResponse(
-                        JSON.stringify({
-                            success: false,
-                            error: 'Has realizado demasiados intentos. Por favor espera un momento.'
-                        }),
-                        { status: 429, headers: { 'Content-Type': 'application/json' } }
-                    );
-                }
-                record.count++;
-            }
-        } else {
-            // Nuevo
-            ipCache.set(ip, { count: 1, expires: now + RATELIMIT_WINDOW });
-        }
-
-        // Limpieza básica
-        if (ipCache.size > 5000) ipCache.clear();
-    }
-
     return res
 }
 
 // ⚡ Configuración del Matcher
 export const config = {
     matcher: [
-        // Matcher combinado: Rutas Admin + API Orders
+        // Matcher combinado: Rutas Admin + API
         '/admin/:path*',
-        '/api/orders/create'
+        '/api/:path*'
     ],
 }
+

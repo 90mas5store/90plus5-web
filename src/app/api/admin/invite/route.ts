@@ -3,6 +3,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { SITE_URL } from '@/lib/config/site';
+import { adminInviteSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
     try {
@@ -44,12 +45,15 @@ export async function POST(request: Request) {
             );
         }
 
-        const { email, password, role } = await request.json();
-        const assignedRole = role === 'super_admin' ? 'super_admin' : 'admin';
-
-        if (!email) {
-            return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
+        const rawBody = await request.json().catch(() => null);
+        const parseResult = adminInviteSchema.safeParse(rawBody);
+        if (!parseResult.success) {
+            const msg = parseResult.error.issues.map(i => i.message).join(' | ');
+            return NextResponse.json({ error: msg }, { status: 400 });
         }
+
+        const { email, password, role } = parseResult.data;
+        const assignedRole = role === 'super_admin' ? 'super_admin' : 'admin';
 
         // 1. Crear cliente con permisos de SUPER ADMIN (Service Role)
         const supabaseAdmin = createAdminClient();

@@ -32,6 +32,8 @@ interface CreateOrderPayload {
     idempotency_key?: string;
 }
 
+import { createOrderSchema } from '@/lib/validations';
+
 export async function POST(request: NextRequest) {
     try {
         // Order creation started
@@ -56,11 +58,8 @@ export async function POST(request: NextRequest) {
         }
 
         // 🛡️ CSRF — verificar que el request viene del mismo dominio
-        // Comparamos el hostname del Origin contra el Host del propio request
-        // (robusto: funciona en cualquier dominio/preview sin vars de entorno)
         const origin = request.headers.get('origin') ?? '';
         const referer = request.headers.get('referer') ?? '';
-        // Host puede venir como "90mas5.store" o "localhost:3000" — quitamos el puerto
         const currentHost = (request.headers.get('host') ?? '').split(':')[0];
 
         const isSameHost = (headerValue: string): boolean => {
@@ -88,7 +87,6 @@ export async function POST(request: NextRequest) {
                 );
             }
         }
-        // Sin Origin ni Referer → dejamos pasar (API call server-side legítimo)
 
         // 0️⃣ DEBUG CHECK
         if (!BUSINESS_LOGIC || !BUSINESS_LOGIC.ORDER) {
@@ -100,68 +98,37 @@ export async function POST(request: NextRequest) {
         const supabase = createAdminClient();
         if (!supabase) throw new Error("Failed to initialize Supabase Admin Client");
 
-        const payload: CreateOrderPayload = await request.json();
+        const rawBody = await request.json().catch(() => null);
+        if (!rawBody) {
+            return NextResponse.json({ success: false, error: 'Payload JSON inválido' }, { status: 400 });
+        }
 
         // 🐝 HONEYPOT CHECK
-        if (payload._honey) {
+        if (rawBody._honey) {
             console.warn('🤖 Bot detected via honeypot');
             return NextResponse.json({ success: true, fake: true }, { status: 200 });
         }
 
-        // 🔑 IDEMPOTENCY — requerir key para prevenir duplicados
-        if (!payload.idempotency_key || typeof payload.idempotency_key !== 'string' || payload.idempotency_key.length < 5) {
-            return NextResponse.json(
-                { success: false, error: 'Falta clave de idempotencia' },
-                { status: 400 }
-            );
-        }
-
-        // 1️⃣ VALIDACIÓN BÁSICA
-        if (!payload.customer_name || !payload.customer_email || !payload.items?.length) {
-            return NextResponse.json(
-                { success: false, error: 'Datos incompletos', details: 'Faltan campos requeridos' },
-                { status: 400 }
-            );
-        }
-
-        // 🛡️ VALIDACIÓN DE LONGITUD Y FORMATO
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (payload.customer_name.length > 100) {
-            return NextResponse.json({ success: false, error: 'Nombre demasiado largo (máx. 100 caracteres)' }, { status: 400 });
-        }
-        if (payload.customer_email.length > 254 || !emailRegex.test(payload.customer_email)) {
-            return NextResponse.json({ success: false, error: 'Email inválido' }, { status: 400 });
-        }
-        if (payload.customer_phone && payload.customer_phone.length > 20) {
-            return NextResponse.json({ success: false, error: 'Teléfono demasiado largo (máx. 20 caracteres)' }, { status: 400 });
-        }
-        // 🛡️ M1 FIX: Normalizar teléfono antes de validar (strip espacios, guiones, paréntesis)
-        if (payload.customer_phone) {
-            payload.customer_phone = payload.customer_phone.replace(/[\s\-\(\)]/g, '');
-        }
-        const phoneRegex = /^\+504[0-9]{8}$/;
-        if (payload.customer_phone && !phoneRegex.test(payload.customer_phone)) {
-            return NextResponse.json({ success: false, error: 'Formato de teléfono inválido. Usa el formato +504XXXXXXXX' }, { status: 400 });
-        }
-        if (payload.shipping_address && payload.shipping_address.length > 300) {
-            return NextResponse.json({ success: false, error: 'Dirección demasiado larga (máx. 300 caracteres)' }, { status: 400 });
-        }
-        if (!Array.isArray(payload.items) || payload.items.length > 50) {
-            return NextResponse.json({ success: false, error: 'Número de artículos inválido' }, { status: 400 });
-        }
-
-        // 🛡️ VALIDAR CANTIDAD POR ITEM
-        for (const item of payload.items) {
-            if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
-                return NextResponse.json({ success: false, error: 'Cantidad de artículo inválida (1–99)' }, { status: 400 });
+        // 🛡️ VALIDACIÓN DE DATOS CON ZOD SCHEMA (BACKEND VALIDATION)
+        // Normalizar número de teléfono si viene como 8 dígitos sin prefijo
+        if (rawBody.customer_phone && typeof rawBody.customer_phone === 'string') {
+            const stripped = rawBody.customer_phone.replace(/[\s\-\(\)]/g, '');
+            if (/^[0-9]{8}$/.test(stripped)) {
+                rawBody.customer_phone = `+504${stripped}`;
             }
         }
 
-        // 🛡️ VALIDAR MÉTODO DE PAGO — solo métodos permitidos
-        const ALLOWED_PAYMENT_METHODS = ['transferencia'];
-        if (!payload.payment_method || !ALLOWED_PAYMENT_METHODS.includes(payload.payment_method)) {
-            return NextResponse.json({ success: false, error: 'Método de pago no permitido' }, { status: 400 });
+        const parseResult = createOrderSchema.safeParse(rawBody);
+        if (!parseResult.success) {
+            const errorMessages = parseResult.error.issues.map(issue => issue.message).join(' | ');
+            console.warn('⚠️ Order payload validation failed:', errorMessages);
+            return NextResponse.json(
+                { success: false, error: 'Datos de pedido inválidos', details: errorMessages },
+                { status: 400 }
+            );
         }
+
+        const payload = parseResult.data;
 
         // 🛡️ SECURITY: FETCH REAL PRICES
         // Extraer IDs únicos para batch fetching

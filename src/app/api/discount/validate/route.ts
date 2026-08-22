@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
+import { discountValidateSchema } from '@/lib/validations';
+
 interface ValidatePayload {
     code: string;
     email: string;
@@ -24,12 +26,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const payload: ValidatePayload = await request.json();
-        const { code, email, items } = payload;
+        const rawBody = await request.json().catch(() => null);
+        const parseResult = discountValidateSchema.safeParse(rawBody);
 
-        if (!code || !email || !items?.length) {
-            return NextResponse.json({ valid: false, message: 'Datos incompletos' }, { status: 400 });
+        if (!parseResult.success) {
+            const message = parseResult.error.issues.map(i => i.message).join(' | ');
+            return NextResponse.json({ valid: false, message: `Datos incompletos o inválidos: ${message}` }, { status: 400 });
         }
+
+        const { code, email, items } = parseResult.data;
 
         const supabase = createAdminClient();
 
