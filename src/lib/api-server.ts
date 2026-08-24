@@ -105,25 +105,23 @@ export async function getConfigServer(): Promise<Config> {
     ] = await Promise.all([
         supabase
             .from("categories")
-            .select("id,name,slug,order_index,icon_url,hero_image_position_desktop,hero_image_position_mobile")
+            .select("id,name,slug,order_index,icon_url")
             .eq("active", true)
             .order("order_index", { ascending: true }),
 
         supabase
             .from("leagues")
-            .select("id,name,slug,image_url,category_id,hero_image_position_desktop,hero_image_position_mobile")
+            .select("id,name,slug,image_url,category_id,active")
             .eq("active", true)
             .order("sort_order", { ascending: true }),
     ]);
 
     if (catError) {
         console.error("Error fetching categories:", catError);
-        throw catError;
     }
 
     if (leagueError) {
-        console.error("Error fetching leagues:", leagueError);
-        throw leagueError;
+        console.warn("Error fetching leagues (using fallback):", leagueError);
     }
 
     const adaptedCategorias = (categories ?? []).map((cat: Record<string, unknown>) => ({
@@ -132,8 +130,8 @@ export async function getConfigServer(): Promise<Config> {
         slug: cat.slug,
         order: cat.order_index,
         icon_url: cat.icon_url,
-        hero_image_position_desktop: cat.hero_image_position_desktop,
-        hero_image_position_mobile: cat.hero_image_position_mobile,
+        hero_image_position_desktop: (cat.hero_image_position_desktop as string) || "50% 40%",
+        hero_image_position_mobile: (cat.hero_image_position_mobile as string) || "50% 50%",
     }));
 
     const adaptedLigas = (leagues ?? []).map((league: Record<string, unknown>) => ({
@@ -142,8 +140,11 @@ export async function getConfigServer(): Promise<Config> {
         slug: league.slug,
         imagen: league.image_url ?? "",
         category_id: league.category_id,
-        hero_image_position_desktop: league.hero_image_position_desktop,
-        hero_image_position_mobile: league.hero_image_position_mobile,
+        active: (league.active as boolean) ?? true,
+        show_in_home: true,
+        show_on_home: true,
+        hero_image_position_desktop: (league.hero_image_position_desktop as string) || "50% 40%",
+        hero_image_position_mobile: (league.hero_image_position_mobile as string) || "50% 50%",
     }));
 
     const { data: brands, error: brandError } = await supabase

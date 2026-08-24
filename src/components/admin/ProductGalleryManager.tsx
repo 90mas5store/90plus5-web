@@ -99,7 +99,7 @@ export default function ProductGalleryManager({ images, onChange, disabled }: Pr
                             </div>
 
                             {/* Actions overlay */}
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                            <div className="absolute inset-0 bg-black/70 sm:bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
                                 <button
                                     type="button"
                                     onClick={() => moveUp(index)}

@@ -47,6 +47,9 @@ export interface League {
   slug: string;
   imagen: string;
   category_id?: string;
+  active?: boolean;
+  show_in_home?: boolean;
+  show_on_home?: boolean;
   hero_image_position_desktop?: string;
   hero_image_position_mobile?: string;
 }

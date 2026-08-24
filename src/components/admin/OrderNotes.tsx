@@ -61,14 +61,14 @@ export default function OrderNotes({ orderId, initialNotes, adminEmail }: Props)
     }
 
     return (
-        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6 space-y-4">
+        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 sm:p-6 space-y-4">
             <h2 className="flex items-center gap-3 text-sm font-bold uppercase tracking-widest text-gray-400">
                 <MessageSquare className="w-4 h-4" />
                 Notas Internas
             </h2>
 
             {/* Formulario nueva nota */}
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
                 <textarea
                     value={newNote}
                     onChange={e => setNewNote(e.target.value)}
@@ -80,10 +80,11 @@ export default function OrderNotes({ orderId, initialNotes, adminEmail }: Props)
                 <button
                     onClick={handleAdd}
                     disabled={saving || !newNote.trim()}
-                    className="px-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white transition-all disabled:opacity-40 self-end py-3"
+                    className="w-full sm:w-auto px-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white transition-all disabled:opacity-40 sm:self-end py-2.5 sm:py-3 flex items-center justify-center gap-2 text-xs sm:text-sm font-bold shrink-0"
                     title="Agregar (Ctrl+Enter)"
                 >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    <span className="sm:hidden">Guardar Nota</span>
                 </button>
             </div>
 
@@ -95,7 +96,7 @@ export default function OrderNotes({ orderId, initialNotes, adminEmail }: Props)
                     {notes.map(note => (
                         <div key={note.id} className="group flex gap-3 p-3 rounded-xl bg-black/30 border border-white/5">
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm text-white whitespace-pre-wrap break-words">{note.note}</p>
+                                <p className="text-xs sm:text-sm text-white whitespace-pre-wrap break-words">{note.note}</p>
                                 <p className="text-[10px] text-gray-600 mt-1.5">
                                     {note.admin_email} · {new Date(note.created_at).toLocaleString('es-HN', { dateStyle: 'short', timeStyle: 'short' })}
                                 </p>
@@ -103,7 +104,7 @@ export default function OrderNotes({ orderId, initialNotes, adminEmail }: Props)
                             <button
                                 onClick={() => handleDelete(note.id)}
                                 disabled={deletingId === note.id}
-                                className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all self-start"
+                                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all self-start shrink-0"
                             >
                                 {deletingId === note.id
                                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />

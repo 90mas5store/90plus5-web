@@ -69,7 +69,12 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
         }
 
         // Validar orden estricto de pasos
-        const { data: currentOrder } = await supabase.from('orders').select('status').eq('id', orderId).single();
+        const { data: currentOrder } = await supabase
+            .from('orders')
+            .select('status, total_amount, payments(amount, status)')
+            .eq('id', orderId)
+            .single();
+
         if (currentOrder) {
             const normalizedCurrent = normalizeStatus(currentOrder.status);
             const normalizedNew = normalizeStatus(newStatus);
@@ -77,9 +82,24 @@ export async function updateOrderStatus(orderId: string, newStatus: string, note
             const currentIndex = SEQUENCE.indexOf(normalizedCurrent);
             const newIndex = SEQUENCE.indexOf(normalizedNew);
 
+            // Calcular total pagado y verificado
+            const payments = Array.isArray(currentOrder.payments) ? currentOrder.payments : [];
+            const verifiedPaidSum = payments
+                .filter((p: any) => p.status === 'verified' || p.status === 'succeeded' || p.status === 'completed')
+                .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+            const totalAmount = Number(currentOrder.total_amount) || 0;
+            const remainingBalance = Math.max(0, totalAmount - verifiedPaidSum);
+            const isFullyPaid = remainingBalance <= 0.01;
+
+            // Exención: Si la orden está 100% pagada, se permite saltar 'pending_second_payment'
+            // (avanzar de 'ready_for_delivery' directamente a 'shipped_to_costumer')
+            const isSecondPaymentExemptJump = isFullyPaid &&
+                normalizedCurrent === 'ready_for_delivery' &&
+                normalizedNew === 'shipped_to_costumer';
+
             // Solo bloquear si ambos están en la secuencia y se salta más de 1 paso adelante
             if (newStatus !== 'Cancelled' && newStatus !== 'cancelled' && currentIndex !== -1 && newIndex !== -1) {
-                if (newIndex > currentIndex + 1) {
+                if (newIndex > currentIndex + 1 && !isSecondPaymentExemptJump) {
                     return { success: false, error: 'No puedes saltarte estados. Debes seguir la secuencia uno a uno.' }
                 }
             }

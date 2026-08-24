@@ -60,8 +60,8 @@ export default function OrderFilters() {
 
             {open && (
                 <>
-                    <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-                    <div className="absolute right-0 top-12 z-20 w-72 bg-neutral-900 border border-white/10 rounded-2xl p-4 shadow-2xl space-y-4">
+                    <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs" onClick={() => setOpen(false)} />
+                    <div className="absolute right-0 top-12 z-50 w-[calc(100vw-2rem)] max-w-xs sm:w-72 bg-neutral-900 border border-white/10 rounded-2xl p-4 shadow-2xl space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-bold text-white">Filtros</span>
                             {hasFilters && (

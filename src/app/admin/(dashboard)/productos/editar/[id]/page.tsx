@@ -263,13 +263,28 @@ export default function EditProductPage() {
     }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
+    const sanitizeSlug = (text: string) => {
+        return (text || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .replace(/ñ/g, 'n')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '')
+    }
+
     // Handlers Generales
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-        }))
+        const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+
+        setFormData(prev => {
+            const next = { ...prev, [name]: val }
+            if (name === 'slug') {
+                next.slug = sanitizeSlug(String(val))
+            }
+            return next
+        })
     }
 
     // --- Variants Handlers ---
@@ -412,23 +427,28 @@ export default function EditProductPage() {
 
     // --- SAVE LOGIC ---
     const handleSave = async () => {
-        if (!formData.name || !formData.slug) {
+        const cleanSlug = sanitizeSlug(formData.slug || formData.name)
+        if (!formData.name || !cleanSlug) {
             toast.error('Nombre y Slug son obligatorios')
             return
         }
 
         setSaving(true)
         try {
+            const allLeagueIds = new Set<string>(selectedLeagues)
+            if (formData.league_id) allLeagueIds.add(formData.league_id)
+            const primaryLeagueId = formData.league_id || (allLeagueIds.size > 0 ? Array.from(allLeagueIds)[0] : null)
+
             // 1. Update Product Basic Info
             const { error: prodError } = await supabase
                 .from('products')
                 .update({
                     name: formData.name,
                     description: formData.description,
-                    slug: formData.slug,
+                    slug: cleanSlug,
                     image_url: formData.image_url,
                     team_id: formData.team_id || null,
-                    league_id: selectedLeagues.size > 0 ? Array.from(selectedLeagues)[0] : null,
+                    league_id: primaryLeagueId,
                     category_id: formData.category_id || null,
                     brand_id: (formData.brand_id && formData.brand_id !== 'pending') ? formData.brand_id : null,
                     gender: formData.gender || null,
@@ -476,14 +496,14 @@ export default function EditProductPage() {
             }
 
             /* -----------------------------------------------------------------
-             * 2.1 GESTIÓN AVANZADA: Product Leagues (Multi-League)
+             * 2.1 GESTIÓN AVANZADA: Product Leagues (Multi-League & Single Sync)
              * ----------------------------------------------------------------- */
             // Borrar existentes
             await supabase.from('product_leagues').delete().eq('product_id', id)
 
             // Insertar seleccionados
-            if (selectedLeagues.size > 0) {
-                const leaguesPayload = Array.from(selectedLeagues).map(lid => ({
+            if (allLeagueIds.size > 0) {
+                const leaguesPayload = Array.from(allLeagueIds).map(lid => ({
                     product_id: id,
                     league_id: lid
                 }))
@@ -633,47 +653,47 @@ export default function EditProductPage() {
             </AnimatePresence>
 
             {/* HEADER */}
-            <div className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur-xl border-b border-white/5 pb-4 mb-8 pt-6 -mx-4 px-4 md:mx-0 md:px-0 md:pt-8 md:pb-6">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link href="/admin/productos" className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
-                            <ArrowLeft className="w-6 h-6" />
+            <div className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur-xl border-b border-white/5 pb-4 mb-6 pt-4 -mx-3 px-3 sm:-mx-4 sm:px-4 md:mx-0 md:px-0 md:pt-8 md:pb-6">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                        <Link href="/admin/productos" className="p-2 hover:bg-white/10 rounded-full transition-colors text-white shrink-0">
+                            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                         </Link>
-                        <div>
-                            <h1 className="text-2xl font-black text-white tracking-tight">Editar Producto</h1>
-                            <p className="text-gray-400 text-xs font-mono opacity-60">ID: {id}</p>
+                        <div className="min-w-0">
+                            <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight truncate">Editar Producto</h1>
+                            <p className="text-gray-400 text-[10px] sm:text-xs font-mono opacity-60 truncate">ID: {id}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <button
                             type="button"
                             onClick={() => setConfirmDeleteProduct(true)}
                             disabled={!isSuperAdmin || saving}
                             title={!isSuperAdmin ? 'Solo los super admins pueden eliminar' : 'Mover a papelera'}
-                            className="p-3 rounded-xl border border-white/10 text-gray-400 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="p-2.5 sm:p-3 rounded-xl border border-white/10 text-gray-400 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                         >
-                            <Trash2 className="w-5 h-5" />
+                            <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                         <button
                             type="button"
                             onClick={handleSave}
                             disabled={saving}
-                            className="bg-primary hover:bg-primary/90 text-black px-8 py-3 rounded-xl font-black text-sm uppercase tracking-wider flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] transform hover:-translate-y-1 active:translate-y-0"
+                            className="bg-primary hover:bg-primary/90 text-black px-4 py-2.5 sm:px-8 sm:py-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)]"
                         >
-                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                            {saving ? 'Guardando...' : 'Guardar Cambios'}
+                            {saving ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Save className="w-4 h-4 sm:w-5 sm:h-5" />}
+                            <span>{saving ? 'Guardando...' : 'Guardar Cambios'}</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 pb-24">
 
                 {/* COLUMNA IZQUIERDA: Info Principal */}
-                <div className="lg:col-span-8 space-y-8">
+                <div className="lg:col-span-8 space-y-6 sm:space-y-8">
 
                     {/* 1. INFORMACIÓN BÁSICA */}
-                    <section className="bg-neutral-900/50 border border-white/5 rounded-3xl p-8 md:p-10 space-y-8">
+                    <section className="bg-neutral-900/50 border border-white/5 rounded-3xl p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-8">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
                                 <Tag className="w-5 h-5 text-blue-500" />
@@ -804,24 +824,24 @@ export default function EditProductPage() {
                     )}
 
                     {/* 2. VARIANTES Y PRECIOS (GESTIÓN AVANZADA) */}
-                    <section className="bg-neutral-900/50 border border-white/5 rounded-3xl p-8 md:p-10 space-y-8 relative overflow-hidden">
+                    <section className="bg-neutral-900/50 border border-white/5 rounded-3xl p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-8 relative overflow-hidden">
                         {/* Decorative blob */}
                         <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/20">
+                                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/20 shrink-0">
                                     <DollarSign className="w-5 h-5 text-green-500" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-white">Variantes y Precios</h2>
-                                    <p className="text-gray-500 text-xs">Administra versiones (Jugador, Fan) y sus tallas/precios.</p>
+                                    <h2 className="text-lg sm:text-xl font-bold text-white">Variantes y Precios</h2>
+                                    <p className="text-gray-500 text-[10px] sm:text-xs">Administra versiones (Jugador, Fan) y sus tallas/precios.</p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={addVariant}
-                                className="bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 border border-white/10 transition-all"
+                                className="w-full sm:w-auto bg-white/5 hover:bg-white/10 text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 border border-white/10 transition-all shrink-0"
                             >
                                 <Plus className="w-4 h-4" /> Agregar Variante
                             </button>
@@ -835,13 +855,13 @@ export default function EditProductPage() {
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, scale: 0.95 }}
-                                        className={`bg-[#0A0A0A] border ${variant.active ? 'border-white/10' : 'border-red-900/30 bg-red-950/10'} rounded-3xl p-8 transition-all hover:border-white/20`}
+                                        className={`bg-[#0A0A0A] border ${variant.active ? 'border-white/10' : 'border-red-900/30 bg-red-950/10'} rounded-2xl sm:rounded-3xl p-4 sm:p-6 transition-all hover:border-white/20`}
                                     >
-                                        <div className="flex flex-col gap-6">
+                                        <div className="flex flex-col gap-4 sm:gap-6">
                                             {/* ROW 1: Header & Actions */}
-                                            <div className="flex items-start justify-between gap-4">
+                                            <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
                                                 {/* Version Selector */}
-                                                <div className="flex-1 max-w-sm">
+                                                <div className="w-full sm:flex-1 sm:max-w-sm">
                                                     <label className="text-xs font-bold uppercase text-gray-500 mb-2 block">
                                                         Nombre Versión
                                                     </label>

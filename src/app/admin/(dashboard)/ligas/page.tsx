@@ -22,6 +22,8 @@ interface League {
     image_url: string
     category_id?: string
     active: boolean
+    show_in_home?: boolean
+    show_on_home?: boolean
     sort_order: number
     season: string
     hero_image_position_desktop?: string
@@ -60,6 +62,7 @@ export default function LeaguesPage() {
         image_url: '',
         category_id: '',
         active: true,
+        show_in_home: true,
         sort_order: 0,
         season: '',
         hero_image_position_desktop: '50% 40%',
@@ -107,6 +110,7 @@ export default function LeaguesPage() {
                 image_url: editingLeague.image_url || '',
                 category_id: editingLeague.category_id || '',
                 active: editingLeague.active,
+                show_in_home: editingLeague.show_in_home ?? editingLeague.show_on_home ?? true,
                 sort_order: editingLeague.sort_order || 0,
                 season: editingLeague.season || '',
                 hero_image_position_desktop: editingLeague.hero_image_position_desktop || '50% 40%',
@@ -119,6 +123,7 @@ export default function LeaguesPage() {
                 image_url: '',
                 category_id: '',
                 active: true,
+                show_in_home: true,
                 sort_order: leagues.length + 1,
                 season: '',
                 hero_image_position_desktop: '50% 40%',
@@ -141,6 +146,8 @@ export default function LeaguesPage() {
                 image_url: formData.image_url,
                 category_id: formData.category_id || null,
                 active: formData.active,
+                show_in_home: formData.show_in_home,
+                show_on_home: formData.show_in_home,
                 sort_order: formData.sort_order,
                 season: formData.season,
                 hero_image_position_desktop: formData.hero_image_position_desktop,
@@ -271,6 +278,7 @@ export default function LeaguesPage() {
                                     <th className="py-4 font-bold min-w-[150px]">Slug</th>
                                     <th className="py-4 font-bold min-w-[150px]">Categoría</th>
                                     <th className="py-4 font-bold text-center whitespace-nowrap">Estado</th>
+                                    <th className="py-4 font-bold text-center whitespace-nowrap">Home</th>
                                     <th className="py-4 font-bold text-right whitespace-nowrap">Acciones</th>
                                 </tr>
                             </thead>
@@ -320,6 +328,15 @@ export default function LeaguesPage() {
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${league.active ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
                                                 }`}>
                                                 {league.active ? 'Activo' : 'Inactivo'}
+                                            </span>
+                                        </td>
+                                        <td className="py-4 text-center whitespace-nowrap">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                (league.show_in_home ?? league.show_on_home ?? true)
+                                                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                                    : 'bg-gray-500/10 text-gray-400 border border-white/5'
+                                                }`}>
+                                                {(league.show_in_home ?? league.show_on_home ?? true) ? 'Visible' : 'Oculto'}
                                             </span>
                                         </td>
                                         <td className="py-4 text-right">
@@ -419,7 +436,7 @@ export default function LeaguesPage() {
                                 </div>
 
                                 <div className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div>
                                             <label className="text-xs font-bold uppercase text-gray-400 mb-2 block tracking-wider">Orden</label>
                                             <input
@@ -438,6 +455,17 @@ export default function LeaguesPage() {
                                             >
                                                 <option value="true">Activo</option>
                                                 <option value="false">Inactivo</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold uppercase text-gray-400 mb-2 block tracking-wider">Mostrar en Home</label>
+                                            <select
+                                                value={formData.show_in_home ? 'true' : 'false'}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, show_in_home: e.target.value === 'true' }))}
+                                                className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none"
+                                            >
+                                                <option value="true">Sí (Visible)</option>
+                                                <option value="false">No (Oculto)</option>
                                             </select>
                                         </div>
                                     </div>

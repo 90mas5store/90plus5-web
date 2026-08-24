@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
     Search, Plus, Shirt, LayoutGrid, List as ListIcon,
-    Edit, Trash2, Tag, Trophy, Loader2, Copy, ChevronDown, Zap
+    Edit, Trash2, Tag, Trophy, Loader2, Copy, ChevronDown, Zap, SlidersHorizontal, X
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -26,6 +26,7 @@ type ProductView = {
     category?: { name: string; id: string }
     active: boolean
     season?: string | null
+    gender?: string | null
     trending_until?: string | null
 }
 
@@ -44,7 +45,10 @@ export default function ProductsPage() {
     const [search, setSearch] = useState('')
     const [filterCategory, setFilterCategory] = useState('all')
     const [filterLeague, setFilterLeague] = useState('all')
+    const [filterGender, setFilterGender] = useState('all')
+    const [filterSeason, setFilterSeason] = useState('all')
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+    const [showFiltersModal, setShowFiltersModal] = useState(false)
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
     const [duplicating, setDuplicating] = useState<string | null>(null)
     const [trendingProduct, setTrendingProduct] = useState<string | null>(null)
@@ -74,12 +78,14 @@ export default function ProductsPage() {
                 .select(`
                     id,
                     name,
+                    slug,
                     image_url,
                     active,
                     category_id,
                     league_id,
                     brand_id,
                     season,
+                    gender,
                     trending_until,
                     teams (name),
                     brands (name),
@@ -114,7 +120,8 @@ export default function ProductsPage() {
                     category: { id: p.category_id || '', name: categoriesMap.get(p.category_id) || 'Sin categoría' },
                     active: p.active !== false,
                     season: p.season || null,
-                    trending_until: p.trending_until ?? null,
+                    gender: p.gender || null,
+                    trending_until: p.trending_until || null,
                 }
             })
             setProducts(mapped)
@@ -132,26 +139,39 @@ export default function ProductsPage() {
         fetchProducts()
     }, [fetchProducts])
 
+    // Lista única de temporadas disponibles dinámicamente
+    const allSeasons = Array.from(
+        new Set(products.map(p => p.season).filter(Boolean))
+    ).sort() as string[]
+
+    const activeFiltersCount = (filterStatus !== 'all' ? 1 : 0) +
+        (filterCategory !== 'all' ? 1 : 0) +
+        (filterLeague !== 'all' ? 1 : 0) +
+        (filterGender !== 'all' ? 1 : 0) +
+        (filterSeason !== 'all' ? 1 : 0)
+
+    const handleClearFilters = () => {
+        setFilterStatus('all')
+        setFilterCategory('all')
+        setFilterLeague('all')
+        setFilterGender('all')
+        setFilterSeason('all')
+        setSearch('')
+    }
+
     const handleDelete = (id: string) => setDeleteTarget(id)
 
     const executeDelete = async (id: string) => {
-        // 🚀 Optimistic: quitar de la lista inmediatamente
-        const snapshot = products
-        setProducts(prev => prev.filter(p => p.id !== id))
-        toast.success('Producto movido a la papelera')
-
+        if (!id) return
         try {
-            const { error } = await supabase
-                .from('products')
-                .update({ deleted_at: new Date().toISOString() })
-                .eq('id', id)
-
+            const { error } = await supabase.from('products').update({ deleted_at: new Date().toISOString() }).eq('id', id)
             if (error) throw error
-        } catch (error: unknown) {
-            // Revertir si el servidor falla
-            setProducts(snapshot)
-            toast.error('Error al eliminar, el producto fue restaurado')
-            console.error(error)
+            setProducts(prev => prev.filter(p => p.id !== id))
+            toast.success('Producto movido a la papelera')
+        } catch (err: unknown) {
+            toast.error(`Error al eliminar: ${(err as Error).message}`)
+        } finally {
+            setDeleteTarget(null)
         }
     }
 
@@ -184,11 +204,9 @@ export default function ProductsPage() {
         setTrendingProduct(productId)
         try {
             await setProductTrending(productId, hours)
-            const trendingUntil = hours
-                ? new Date(Date.now() + hours * 60 * 60 * 1000).toISOString()
-                : null
-            setProducts(prev => prev.map(p => p.id === productId ? { ...p, trending_until: trendingUntil } : p))
-            toast.success(hours ? `⚡ EN VIVO activado por ${hours}h` : 'EN VIVO desactivado')
+            const until = hours ? new Date(Date.now() + hours * 3600000).toISOString() : null
+            setProducts(prev => prev.map(p => p.id === productId ? { ...p, trending_until: until } : p))
+            toast.success(hours ? `Modo EN VIVO activado por ${hours}h` : 'Modo EN VIVO desactivado')
         } catch (err: unknown) {
             toast.error(`Error: ${(err as Error).message}`)
         } finally {
@@ -199,34 +217,68 @@ export default function ProductsPage() {
     const handleDuplicate = async (product: ProductView) => {
         setDuplicating(product.id)
         try {
-            const newSlug = `${product.slug}-copia-${Date.now().toString(36)}`
-            const { data: original } = await supabase
+            const { data: fullProduct, error: fetchErr } = await supabase
                 .from('products')
-                .select('*')
+                .select('*, product_variants(*), product_audience(*), product_patches(*)')
                 .eq('id', product.id)
                 .single()
-            if (!original) throw new Error('Producto no encontrado')
+            if (fetchErr || !fullProduct) throw fetchErr || new Error('No se encontró el producto')
 
-            const { error } = await supabase
+            const newSlug = `${fullProduct.slug || 'producto'}-copia-${Date.now().toString().slice(-4)}`
+            const { data: newProd, error: insertErr } = await supabase
                 .from('products')
                 .insert({
-                    ...original,
-                    id: undefined,
-                    name: `${original.name} (Copia)`,
+                    name: `${fullProduct.name} (Copia)`,
                     slug: newSlug,
+                    description: fullProduct.description,
+                    team_id: fullProduct.team_id,
+                    brand_id: fullProduct.brand_id,
+                    league_id: fullProduct.league_id,
+                    category_id: fullProduct.category_id,
+                    season: fullProduct.season,
+                    gender: fullProduct.gender,
+                    image_url: fullProduct.image_url,
+                    gallery_urls: fullProduct.gallery_urls,
+                    size_guide_type: fullProduct.size_guide_type,
                     active: false,
-                    featured: false,
-                    created_at: undefined,
-                    deleted_at: null,
                 })
-            if (error) throw error
-            toast.success('Producto duplicado como borrador (inactivo)')
+                .select('id')
+                .single()
+            if (insertErr || !newProd) throw insertErr
+
+            if (fullProduct.product_variants?.length) {
+                const variantsToInsert = fullProduct.product_variants.map((v: any) => ({
+                    product_id: newProd.id, version: v.version, price: v.price, cost_price: v.cost_price, size_list: v.size_list, active: v.active,
+                }))
+                await supabase.from('product_variants').insert(variantsToInsert)
+            }
+
+            if (fullProduct.product_audience?.length) {
+                const audienceToInsert = fullProduct.product_audience.map((a: any) => ({
+                    product_id: newProd.id, target: a.target,
+                }))
+                await supabase.from('product_audience').insert(audienceToInsert)
+            }
+
+            if (fullProduct.product_patches?.length) {
+                const patchesToInsert = fullProduct.product_patches.map((p: any) => ({
+                    product_id: newProd.id, patch_id: p.patch_id,
+                }))
+                await supabase.from('product_patches').insert(patchesToInsert)
+            }
+
+            toast.success('Producto duplicado exitosamente (creado como inactivo)')
             fetchProducts()
         } catch (err: unknown) {
-            toast.error(`Error: ${(err as Error).message}`)
+            toast.error(`Error al duplicar: ${(err as Error).message}`)
         } finally {
             setDuplicating(null)
         }
+    }
+
+    const getStatusIcon = (product: ProductView) => {
+        if (!product.active) return <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Inactivo" />
+        return <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" title="Activo" />
     }
 
     // Filtrado
@@ -240,7 +292,10 @@ export default function ProductsPage() {
             filterStatus === 'all' ||
             (filterStatus === 'active' && p.active) ||
             (filterStatus === 'inactive' && !p.active)
-        return matchesSearch && matchesCategory && matchesLeague && matchesStatus
+        const matchesGender = filterGender === 'all' || p.gender === filterGender
+        const matchesSeason = filterSeason === 'all' || p.season === filterSeason
+
+        return matchesSearch && matchesCategory && matchesLeague && matchesStatus && matchesGender && matchesSeason
     })
 
     return (
@@ -267,22 +322,123 @@ export default function ProductsPage() {
             </div>
 
             {/* BARRA DE HERRAMIENTAS */}
-            <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex flex-col gap-3 sticky top-0 md:top-4 z-10 shadow-2xl">
-                <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+            <div className="bg-neutral-950/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-3 sm:p-4 sticky top-0 md:top-4 z-40 shadow-2xl">
+                <div className="flex items-center gap-2.5 sm:gap-3 justify-between">
                     {/* Buscador */}
-                    <div className="relative w-full md:w-80 group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-primary transition-colors" />
+                    <div className="relative flex-1 group">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-primary transition-colors" />
                         <input
                             type="text"
                             placeholder="Buscar por nombre, equipo..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-white focus:border-primary/50 outline-none transition-all text-sm"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 pl-10 pr-3 text-white focus:border-primary/50 outline-none transition-all text-xs sm:text-sm"
                         />
                     </div>
 
+                    {/* Botón Filtros Emergente (Popover) */}
+                    <div className="relative shrink-0">
+                        <button
+                            onClick={() => setShowFiltersModal(prev => !prev)}
+                            className={`px-3 py-2.5 rounded-xl border font-bold text-xs flex items-center gap-1.5 transition-all ${
+                                activeFiltersCount > 0
+                                    ? 'border-primary bg-primary/20 text-primary'
+                                    : 'border-white/10 bg-black/30 hover:bg-white/5 text-gray-300'
+                            }`}
+                        >
+                            <SlidersHorizontal className="w-4 h-4" />
+                            <span className="hidden sm:inline">Filtros</span>
+                            {activeFiltersCount > 0 && (
+                                <span className="w-5 h-5 rounded-full bg-primary text-black font-black text-[10px] flex items-center justify-center">
+                                    {activeFiltersCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* POPOVER EMERGENTE DE FILTROS */}
+                        {showFiltersModal && (
+                            <>
+                                <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs" onClick={() => setShowFiltersModal(false)} />
+                                <div className="absolute right-0 top-12 z-50 w-[calc(100vw-2rem)] max-w-xs sm:w-80 bg-neutral-900 border border-white/10 rounded-2xl p-4 shadow-2xl space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                                        <span className="text-sm font-bold text-white flex items-center gap-2">
+                                            <SlidersHorizontal className="w-4 h-4 text-primary" />
+                                            Filtros de Catálogo
+                                        </span>
+                                        {activeFiltersCount > 0 && (
+                                            <button onClick={handleClearFilters} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1">
+                                                <X className="w-3 h-3" /> Limpiar
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Estado */}
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase text-gray-500 mb-1.5">Estado</label>
+                                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-primary/50">
+                                            <option value="all">Todos los estados</option>
+                                            <option value="active">Activos</option>
+                                            <option value="inactive">Inactivos</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Categoría */}
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase text-gray-500 mb-1.5">Categoría</label>
+                                        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-primary/50">
+                                            <option value="all">Todas las categorías</option>
+                                            {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Liga */}
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase text-gray-500 mb-1.5">Liga</label>
+                                        <select value={filterLeague} onChange={e => setFilterLeague(e.target.value)}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-primary/50">
+                                            <option value="all">Todas las ligas</option>
+                                            {allLeagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Género */}
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase text-gray-500 mb-1.5">Género</label>
+                                        <select value={filterGender} onChange={e => setFilterGender(e.target.value)}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-primary/50">
+                                            <option value="all">Todos los géneros</option>
+                                            <option value="man">Hombre</option>
+                                            <option value="woman">Mujer</option>
+                                            <option value="kid">Niño</option>
+                                            <option value="unisex">Unisex</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Temporada */}
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase text-gray-500 mb-1.5">Temporada</label>
+                                        <select value={filterSeason} onChange={e => setFilterSeason(e.target.value)}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-primary/50">
+                                            <option value="all">Todas las temporadas</option>
+                                            {allSeasons.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setShowFiltersModal(false)}
+                                        className="w-full py-2.5 bg-primary hover:bg-primary/90 rounded-xl text-xs font-black uppercase text-black transition-colors tracking-wider"
+                                    >
+                                        Ver {filteredProducts.length} productos
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     {/* Controles de Vista */}
-                    <div className="flex items-center gap-2 bg-black/30 p-1 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-1 bg-black/30 p-1 rounded-xl border border-white/5 shrink-0">
                         <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
                             <LayoutGrid className="w-4 h-4" />
                         </button>
@@ -290,42 +446,6 @@ export default function ProductsPage() {
                             <ListIcon className="w-4 h-4" />
                         </button>
                     </div>
-                </div>
-
-                {/* Filtros */}
-                <div className="flex flex-wrap gap-2 items-center">
-                    <div className="relative">
-                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
-                            className="bg-black/40 border border-white/10 rounded-lg pl-3 pr-8 py-2 text-xs text-white appearance-none outline-none focus:border-primary/50 cursor-pointer">
-                            <option value="all">Todos los estados</option>
-                            <option value="active">Activos</option>
-                            <option value="inactive">Inactivos</option>
-                        </select>
-                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
-                    </div>
-                    <div className="relative">
-                        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-                            className="bg-black/40 border border-white/10 rounded-lg pl-3 pr-8 py-2 text-xs text-white appearance-none outline-none focus:border-primary/50 cursor-pointer">
-                            <option value="all">Todas las categorías</option>
-                            {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
-                    </div>
-                    <div className="relative">
-                        <select value={filterLeague} onChange={e => setFilterLeague(e.target.value)}
-                            className="bg-black/40 border border-white/10 rounded-lg pl-3 pr-8 py-2 text-xs text-white appearance-none outline-none focus:border-primary/50 cursor-pointer">
-                            <option value="all">Todas las ligas</option>
-                            {allLeagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
-                    </div>
-                    {(filterStatus !== 'all' || filterCategory !== 'all' || filterLeague !== 'all' || search) && (
-                        <button onClick={() => { setFilterStatus('all'); setFilterCategory('all'); setFilterLeague('all'); setSearch('') }}
-                            className="text-xs text-gray-500 hover:text-white border border-white/10 rounded-lg px-3 py-2 transition-colors">
-                            Limpiar filtros
-                        </button>
-                    )}
-                    <span className="text-xs text-gray-600 ml-auto">{filteredProducts.length} productos</span>
                 </div>
             </div>
 
@@ -347,47 +467,58 @@ export default function ProductsPage() {
                 <>
                     {/* VISTA GRID */}
                     {viewMode === 'grid' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4 md:gap-6 pb-24">
                             {filteredProducts.map(product => (
                                 <div key={product.id} className="group relative bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 flex flex-col">
-                                    {/* Imagen */}
-                                    <div className="aspect-[4/5] relative bg-white/5 overflow-hidden">
+                                    {/* Imagen compacta */}
+                                    <div className="aspect-square sm:aspect-[4/5] relative bg-white/5 overflow-hidden">
+                                        <Image
+                                            src={product.image || '/heroes/default.jpg'}
+                                            alt={product.name}
+                                            fill
+                                            className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                                        />
+
+                                        {/* Gradiente Overlay */}
+                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent opacity-60 group-hover:opacity-80 transition-opacity z-1 pointer-events-none" />
+
                                         {/* Badge Categoria + EN VIVO */}
-                                        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
-                                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-black/60 backdrop-blur-md text-white border border-white/10 flex items-center gap-1.5">
+                                        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10 flex flex-col gap-1 pointer-events-none">
+                                            <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold bg-black/70 backdrop-blur-md text-white border border-white/10 flex items-center gap-1">
                                                 {getStatusIcon(product)}
-                                                {product.category?.name || 'General'}
+                                                <span className="truncate max-w-[70px] sm:max-w-none">{product.category?.name || 'General'}</span>
                                             </span>
                                             {product.trending_until && new Date(product.trending_until) > new Date() && (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-white animate-pulse w-fit">
+                                                <span className="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-primary text-white animate-pulse w-fit">
                                                     ⚡ EN VIVO
                                                 </span>
                                             )}
                                         </div>
 
-                                        {/* Menú Flotante (Solo aparece en hover) */}
-                                        <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 flex flex-col gap-2">
-                                            <Link href={`/admin/productos/editar/${product.id}`} className="p-2.5 bg-white text-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform" title="Editar">
-                                                <Edit className="w-4 h-4" />
+                                        {/* Menú Flotante (Accesible en táctil móvil y hover en escritorio) */}
+                                        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all sm:translate-x-2 sm:group-hover:translate-x-0 flex flex-col gap-1.5">
+                                            <Link href={`/admin/productos/editar/${product.id}`} className="p-2 sm:p-2.5 bg-white text-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform" title="Editar">
+                                                <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                             </Link>
-                                            <button onClick={() => handleDuplicate(product)} disabled={duplicating === product.id} className="p-2.5 bg-black/80 border border-white/20 text-white rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform disabled:opacity-50" title="Duplicar">
-                                                {duplicating === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                                            <button onClick={() => handleDuplicate(product)} disabled={duplicating === product.id} className="p-2 sm:p-2.5 bg-black/80 border border-white/20 text-white rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform disabled:opacity-50" title="Duplicar">
+                                                {duplicating === product.id ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                                             </button>
                                             {/* Trending toggle */}
                                             {trendingProduct === product.id ? (
-                                                <div className="p-2.5 bg-primary/20 rounded-full">
-                                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                                <div className="p-2 sm:p-2.5 bg-primary/20 rounded-full">
+                                                    <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin text-primary" />
                                                 </div>
                                             ) : product.trending_until && new Date(product.trending_until) > new Date() ? (
-                                                <button onClick={() => handleTrending(product.id, null)} className="p-2.5 bg-primary text-white rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform" title="Desactivar EN VIVO">
-                                                    <Zap className="w-4 h-4" fill="currentColor" />
+                                                <button onClick={() => handleTrending(product.id, null)} className="p-2 sm:p-2.5 bg-primary text-white rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform" title="Desactivar EN VIVO">
+                                                    <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" />
                                                 </button>
                                             ) : (
                                                 <div className="relative group/trending">
-                                                    <button className="p-2.5 bg-black/80 border border-white/20 text-gray-400 hover:text-primary hover:border-primary/50 rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all" title="Activar EN VIVO">
-                                                        <Zap className="w-4 h-4" />
+                                                    <button className="p-2 sm:p-2.5 bg-black/80 border border-white/20 text-gray-400 hover:text-primary hover:border-primary/50 rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all" title="Activar EN VIVO">
+                                                        <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                                     </button>
-                                                    <div className="absolute right-full mr-2 top-0 hidden group-hover/trending:flex flex-col gap-1 bg-neutral-900 border border-white/10 rounded-xl p-2 shadow-2xl">
+                                                    <div className="absolute right-full mr-2 top-0 hidden group-hover/trending:flex flex-col gap-1 bg-neutral-900 border border-white/10 rounded-xl p-2 shadow-2xl z-20">
                                                         {[2, 4, 8].map(h => (
                                                             <button key={h} onClick={() => handleTrending(product.id, h)} className="text-xs text-white hover:text-primary px-3 py-1.5 rounded-lg hover:bg-white/5 whitespace-nowrap transition-colors">
                                                                 {h}h
@@ -397,44 +528,33 @@ export default function ProductsPage() {
                                                 </div>
                                             )}
                                         </div>
-
-                                        <Image
-                                            src={product.image || '/heroes/default.jpg'}
-                                            alt={product.name}
-                                            fill
-                                            className="object-cover transition-transform duration-500 group-hover:scale-110"
-                                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                                        />
-
-                                        {/* Gradiente Overlay */}
-                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
                                     </div>
 
                                     {/* Info */}
-                                    <div className="p-5 flex-1 flex flex-col relative">
+                                    <div className="p-3 sm:p-5 flex-1 flex flex-col relative">
                                         <div className="flex-1">
-                                            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-                                                <span className="text-xs font-bold text-primary tracking-wider uppercase">
+                                            <div className="flex items-center justify-between gap-1 mb-1 flex-wrap">
+                                                <span className="text-[10px] sm:text-xs font-bold text-primary tracking-wider uppercase truncate max-w-[90px] sm:max-w-none">
                                                     {product.team?.name || product.brand?.name || 'Sin equipo'}
                                                 </span>
                                                 {product.season && (
-                                                    <span className="text-[10px] font-bold text-gray-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
+                                                    <span className="text-[9px] sm:text-[10px] font-bold text-gray-300 bg-white/10 px-1.5 py-0.2 rounded-full border border-white/10">
                                                         {product.season}
                                                     </span>
                                                 )}
                                             </div>
-                                            <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+                                            <h3 className="text-xs sm:text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-primary transition-colors">
                                                 {product.name}
                                             </h3>
-                                            <div className="flex items-center gap-2 text-xs text-gray-400 mb-4">
-                                                <Trophy className="w-3 h-3" /> {product.league?.name || 'Liga Desconocida'}
+                                            <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-400 mb-2 sm:mb-4 truncate">
+                                                <Trophy className="w-3 h-3 shrink-0" /> <span className="truncate">{product.league?.name || 'Liga Desconocida'}</span>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-end justify-between border-t border-white/10 pt-4 mt-2">
+                                        <div className="flex items-end justify-between border-t border-white/10 pt-2 sm:pt-4 mt-1">
                                             <div>
-                                                <p className="text-xs text-gray-500 mb-0.5">Precio Base</p>
-                                                <p className="text-xl font-black text-white">L {product.price}</p>
+                                                <p className="text-[10px] sm:text-xs text-gray-500 mb-0.5">Precio Base</p>
+                                                <p className="text-sm sm:text-xl font-black text-white">L {product.price}</p>
                                             </div>
                                             <div className={`w-2 h-2 rounded-full ${product.active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
                                         </div>

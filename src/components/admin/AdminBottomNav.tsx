@@ -67,6 +67,7 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
         {
             section: 'Configuración',
             items: [
+                { label: 'Bancos & Pagos', href: '/admin/settings/bancos', icon: DollarSign },
                 { label: 'Banners', href: '/admin/settings/banners', icon: LayoutTemplate },
                 { label: 'Especiales', href: '/admin/settings/special-banners', icon: Sparkles },
                 { label: 'Admins', href: '/admin/settings/admins', icon: Lock },

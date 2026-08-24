@@ -25,6 +25,9 @@ export default async function Home() {
     // 🚀 Preload hero image: el browser descarga antes de que React hidrate
     const firstBannerImage = bannersData?.[0]?.image_url as string | undefined;
 
+    const normalize = (s: string) =>
+        (s || "").toString().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+
     // Procesar ligas (Lógica servida directamente ya procesada)
     let ligasProcesadas: import('@/lib/types').League[] = [];
     if (configData?.ligas?.length) {
@@ -44,11 +47,12 @@ export default async function Home() {
         ligasProcesadas = ligasUnicas;
     }
 
-    // Filtrar "Mundial 2026" y normalizar para props
-    const normalize = (s: string) =>
-        (s || "").toString().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
-
-    ligasProcesadas = ligasProcesadas.filter(l => !normalize(l.nombre).includes("mundial"));
+    // Filtrar ligas visibles en Home y activas (configurables desde el panel de administración)
+    ligasProcesadas = ligasProcesadas.filter(l => {
+        const isVisibleInHome = l.show_in_home ?? l.show_on_home ?? true;
+        const isActive = l.active ?? true;
+        return isVisibleInHome && isActive;
+    });
 
     // Generar URL optimizada de Next.js Image para el preload
     const heroPreloadUrl = firstBannerImage

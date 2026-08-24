@@ -80,8 +80,28 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
         return null;
     }
 
-    // 2. Fetch Product
-    const { data: product } = await supabase
+    // 2. Fetch Product with URL Decoding & Candidate Slug Handling
+    let decodedSlug = slug;
+    try {
+        decodedSlug = decodeURIComponent(slug);
+    } catch {
+        decodedSlug = slug;
+    }
+
+    const sanitizeSlug = (s: string) =>
+        (s || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/\p{Diacritic}/gu, "")
+            .replace(/ñ/g, "n")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)/g, "");
+
+    const candidates = Array.from(
+        new Set([slug, decodedSlug, sanitizeSlug(slug), sanitizeSlug(decodedSlug)])
+    ).filter(Boolean);
+
+    const { data: products } = await supabase
         .from("products")
         .select(`
             id, name, slug, description, image_url, team_id, league_id, category_id, brand_id, season, allows_customization, trending_until,
@@ -91,9 +111,11 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
             product_variants (version, price, original_price, active_original_price, active),
             product_images (id, image_url, sort_order)
         `)
-        .ilike("slug", slug)
+        .in("slug", candidates)
         .eq("active", true)
-        .single();
+        .limit(1);
+
+    const product = products && products.length > 0 ? products[0] : null;
 
     if (!product) return null;
 

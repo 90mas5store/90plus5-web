@@ -31,9 +31,17 @@ export default async function AdminDashboard() {
     return (
         <div className="space-y-6 md:space-y-8">
             {/* HEADER */}
-            <div>
-                <h2 className="text-2xl md:text-3xl font-black text-white">Resumen de Ventas</h2>
-                <p className="text-gray-400 text-sm">Bienvenido de vuelta, Master.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-2xl md:text-3xl font-black text-white">Resumen de Ventas</h2>
+                    <p className="text-gray-400 text-sm">Bienvenido de vuelta, Master.</p>
+                </div>
+                <Link
+                    href="/admin/settings/bancos"
+                    className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition-all shrink-0"
+                >
+                    💳 Bancos y Formas de Pago
+                </Link>
             </div>
 
             {/* METRICAS */}

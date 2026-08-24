@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
     DollarSign, TrendingUp, TrendingDown, Percent,
     Filter, Calculator, Loader2, CreditCard,
-    Building2, Package, ChevronDown, AlertCircle,
+    Building2, Package, ChevronDown, AlertCircle, Download, Tag
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -31,6 +31,7 @@ interface AccountingOrder {
     status: string
     total_amount: number
     subtotal: number | null
+    discount_amount: number | null
     customer_name: string
     order_items: OrderItem[]
     payments: Payment[]
@@ -40,6 +41,7 @@ interface OrderMetrics {
     order: AccountingOrder
     revenue: number
     productRevenue: number
+    discountAmount: number
     shippingRevenue: number
     productCost: number
     shippingCost: number
@@ -102,8 +104,9 @@ function fmtPct(n: number) {
 
 function computeMetrics(order: AccountingOrder): OrderMetrics {
     const productRevenue = order.subtotal ?? 0
+    const discountAmount = order.discount_amount ?? 0
     const revenue = order.total_amount ?? 0
-    const shippingRevenue = revenue - productRevenue
+    const shippingRevenue = Math.max(0, revenue + discountAmount - productRevenue)
 
     let productCost = 0
     let missingCosts = false
@@ -122,10 +125,74 @@ function computeMetrics(order: AccountingOrder): OrderMetrics {
         .reduce((s, p) => s + (p.amount ?? 0), 0)
 
     return {
-        order, revenue, productRevenue, shippingRevenue,
-        productCost, shippingCost, totalCost, grossProfit,
-        marginPct, verifiedPaid, missingCosts,
+        order,
+        revenue,
+        productRevenue,
+        discountAmount,
+        shippingRevenue,
+        productCost,
+        shippingCost,
+        totalCost,
+        grossProfit,
+        marginPct,
+        verifiedPaid,
+        missingCosts,
     }
+}
+
+function exportToCSV(metrics: OrderMetrics[], startDate: string, endDate: string) {
+    if (!metrics || metrics.length === 0) return
+
+    const headers = [
+        'ID Pedido',
+        'Fecha',
+        'Cliente',
+        'Estado',
+        'Subtotal Productos (L)',
+        'Descuento Aplicado (L)',
+        'Envío Cobrado (L)',
+        'Ingreso Neto Total (L)',
+        'Costo Productos (L)',
+        'Costo Logístico Envío (L)',
+        'Costo Total (L)',
+        'Ganancia Bruta (L)',
+        'Margen (%)',
+        'Cobrado Verificado (L)',
+        'Banco / Método'
+    ]
+
+    const rows = metrics.map(m => {
+        const verifiedPays = (m.order.payments || []).filter(p => VERIFIED.includes(p.status))
+        const banks = [...new Set(verifiedPays.map(p => parseBankFromNotes(p.notes, p.method)))].join(' | ') || 'N/A'
+
+        return [
+            m.order.id.slice(0, 8).toUpperCase(),
+            new Date(m.order.created_at).toLocaleDateString('es-HN'),
+            `"${m.order.customer_name.replace(/"/g, '""')}"`,
+            `"${STATUS_LABEL[m.order.status] || m.order.status}"`,
+            m.productRevenue.toFixed(2),
+            m.discountAmount.toFixed(2),
+            m.shippingRevenue.toFixed(2),
+            m.revenue.toFixed(2),
+            m.productCost.toFixed(2),
+            m.shippingCost.toFixed(2),
+            m.totalCost.toFixed(2),
+            m.grossProfit.toFixed(2),
+            m.marginPct.toFixed(1),
+            m.verifiedPaid.toFixed(2),
+            `"${banks.replace(/"/g, '""')}"`
+        ].join(',')
+    })
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `reporte_contabilidad_${startDate}_al_${endDate}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -193,12 +260,22 @@ export default function ContabilidadPage() {
     const totals = (metrics ?? []).reduce((acc, m) => ({
         revenue: acc.revenue + m.revenue,
         productRevenue: acc.productRevenue + m.productRevenue,
+        discountAmount: acc.discountAmount + m.discountAmount,
         shippingRevenue: acc.shippingRevenue + m.shippingRevenue,
         productCost: acc.productCost + m.productCost,
         shippingCost: acc.shippingCost + m.shippingCost,
         totalCost: acc.totalCost + m.totalCost,
         grossProfit: acc.grossProfit + m.grossProfit,
-    }), { revenue: 0, productRevenue: 0, shippingRevenue: 0, productCost: 0, shippingCost: 0, totalCost: 0, grossProfit: 0 })
+    }), {
+        revenue: 0,
+        productRevenue: 0,
+        discountAmount: 0,
+        shippingRevenue: 0,
+        productCost: 0,
+        shippingCost: 0,
+        totalCost: 0,
+        grossProfit: 0
+    })
 
     const overallMargin = totals.revenue > 0 ? (totals.grossProfit / totals.revenue) * 100 : 0
     const ordersWithMissingCosts = (metrics ?? []).filter(m => m.missingCosts).length
@@ -243,25 +320,37 @@ export default function ContabilidadPage() {
     // ─── Render ───────────────────────────────────────────────────────────────
 
     return (
-        <div className="max-w-6xl mx-auto space-y-5 pb-10">
+        <div className="max-w-6xl mx-auto space-y-5 pb-28">
 
             {/* HEADER */}
-            <div>
-                <h1 className="text-xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3">
-                    <DollarSign className="w-5 h-5 md:w-8 md:h-8 text-primary" />
-                    Contabilidad
-                </h1>
-                <p className="text-gray-400 mt-1 text-sm">
-                    Estado de resultados · Costos · Márgenes · Pagos por banco
-                </p>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                <div>
+                    <h1 className="text-xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3">
+                        <DollarSign className="w-5 h-5 md:w-8 md:h-8 text-primary" />
+                        Contabilidad y Finanzas
+                    </h1>
+                    <p className="text-gray-400 mt-1 text-xs md:text-sm">
+                        Estado de resultados · Descuentos · Costos · Márgenes · Pagos por banco
+                    </p>
+                </div>
+
+                {hasData && metrics && metrics.length > 0 && (
+                    <button
+                        onClick={() => exportToCSV(metrics, startDate, endDate)}
+                        className="px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all w-full md:w-auto justify-center"
+                    >
+                        <Download className="w-4 h-4" />
+                        Exportar a CSV / Excel
+                    </button>
+                )}
             </div>
 
             {/* FILTERS */}
-            <div className="bg-neutral-900 border border-white/5 rounded-2xl p-5">
+            <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-bold text-white flex items-center gap-2">
                         <Filter className="w-4 h-4 text-gray-400" />
-                        Período
+                        Período de Análisis
                     </span>
                     <button
                         onClick={() => setShowStatusFilter(!showStatusFilter)}
@@ -273,7 +362,7 @@ export default function ContabilidadPage() {
                 </div>
 
                 {/* Presets */}
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-4">
                     {(['today', 'week', 'month', 'quarter', 'year', 'all'] as const).map((p) => {
                         const labels = { today: 'Hoy', week: 'Semana', month: 'Mes', quarter: 'Trimestre', year: 'Año', all: 'Todo' }
                         return (
@@ -286,16 +375,16 @@ export default function ContabilidadPage() {
                 </div>
 
                 {/* Date inputs */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                     <div>
                         <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1.5">Desde</label>
                         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white text-sm focus:border-primary outline-none transition-colors" />
+                            className="w-full bg-black/50 border border-white/10 rounded-xl p-2.5 sm:p-3 text-white text-xs sm:text-sm focus:border-primary outline-none transition-colors" />
                     </div>
                     <div>
                         <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1.5">Hasta</label>
                         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white text-sm focus:border-primary outline-none transition-colors" />
+                            className="w-full bg-black/50 border border-white/10 rounded-xl p-2.5 sm:p-3 text-white text-xs sm:text-sm focus:border-primary outline-none transition-colors" />
                     </div>
                 </div>
 
@@ -319,9 +408,9 @@ export default function ContabilidadPage() {
                 )}
 
                 <button onClick={calculate} disabled={loading || !startDate || !endDate}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-white text-black font-black rounded-xl hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-white text-black font-black rounded-xl hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
-                    {loading ? 'Calculando...' : 'Calcular'}
+                    {loading ? 'Calculando...' : 'Calcular Contabilidad'}
                 </button>
             </div>
 
@@ -337,7 +426,7 @@ export default function ContabilidadPage() {
             {!hasData && !loading && (
                 <div className="text-center py-20 text-gray-600">
                     <Calculator className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p className="text-sm">Selecciona un período y haz clic en &quot;Calcular&quot;</p>
+                    <p className="text-sm">Selecciona un período y haz clic en &quot;Calcular Contabilidad&quot;</p>
                 </div>
             )}
 
@@ -357,12 +446,20 @@ export default function ContabilidadPage() {
                     {/* KPI CARDS */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <KPICard
-                            label="Ingresos Totales"
+                            label="Ingresos Totales (Netos)"
                             value={fmt(totals.revenue)}
                             sub={`${metrics!.length} pedido${metrics!.length !== 1 ? 's' : ''}`}
                             icon={TrendingUp}
                             colorClass="text-green-400"
                             bgClass="bg-green-500/10 border-green-500/20"
+                        />
+                        <KPICard
+                            label="Descuentos Otorgados"
+                            value={fmt(totals.discountAmount)}
+                            sub="Promociones y cupones"
+                            icon={Tag}
+                            colorClass="text-emerald-400"
+                            bgClass="bg-emerald-500/10 border-emerald-500/20"
                         />
                         <KPICard
                             label="Costos Totales"
@@ -375,18 +472,10 @@ export default function ContabilidadPage() {
                         <KPICard
                             label="Ganancia Bruta"
                             value={fmt(totals.grossProfit)}
-                            sub={totals.grossProfit >= 0 ? 'Resultado positivo' : 'Resultado negativo'}
+                            sub={`Margen: ${fmtPct(overallMargin)}`}
                             icon={DollarSign}
                             colorClass={totals.grossProfit >= 0 ? 'text-white' : 'text-red-400'}
                             bgClass={totals.grossProfit >= 0 ? 'bg-white/10 border-white/20' : 'bg-red-500/10 border-red-500/20'}
-                        />
-                        <KPICard
-                            label="Margen Bruto"
-                            value={fmtPct(overallMargin)}
-                            sub={overallMargin >= 30 ? 'Saludable' : overallMargin >= 15 ? 'Aceptable' : 'Revisar precios'}
-                            icon={Percent}
-                            colorClass={overallMargin >= 30 ? 'text-primary' : overallMargin >= 15 ? 'text-yellow-400' : 'text-orange-400'}
-                            bgClass={overallMargin >= 30 ? 'bg-primary/10 border-primary/20' : 'bg-yellow-500/10 border-yellow-500/20'}
                         />
                     </div>
 
@@ -394,53 +483,56 @@ export default function ContabilidadPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                         {/* Estado de resultados */}
-                        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6">
+                        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 sm:p-6">
                             <h3 className="font-bold text-white mb-5 flex items-center gap-2 text-sm uppercase tracking-widest">
-                                <Package className="w-4 h-4 text-gray-400" />
+                                <Package className="w-4 h-4 text-primary" />
                                 Estado de Resultados
                             </h3>
                             <div className="space-y-2.5">
-                                <ResultRow label="Ingresos por productos" value={totals.productRevenue} colorClass="text-green-400" />
+                                <ResultRow label="Ingresos brutos por productos" value={totals.productRevenue} colorClass="text-green-400" />
+                                {totals.discountAmount > 0 && (
+                                    <ResultRow label="— Descuentos y cupones aplicados" value={totals.discountAmount} negative colorClass="text-emerald-400" />
+                                )}
                                 <ResultRow label="Ingresos por envíos" value={totals.shippingRevenue} colorClass="text-green-300" />
                                 <div className="border-t border-white/10 pt-2.5">
-                                    <ResultRow label="Total Ingresos" value={totals.revenue} colorClass="text-white" bold />
+                                    <ResultRow label="Total Ingresos Netos" value={totals.revenue} colorClass="text-white" bold />
                                 </div>
 
-                                <div className="pt-1">
-                                    <ResultRow label="— Costo de productos" value={totals.productCost} negative colorClass="text-red-400" />
-                                    <ResultRow label="— Costo de envíos" value={totals.shippingCost} negative colorClass="text-red-300" />
+                                <div className="pt-2">
+                                    <ResultRow label="— Costo de productos (COGS)" value={totals.productCost} negative colorClass="text-red-400" />
+                                    <ResultRow label="— Costo de envíos (Logística)" value={totals.shippingCost} negative colorClass="text-red-300" />
                                 </div>
                                 <div className="border-t border-white/10 pt-2.5">
-                                    <ResultRow label="Total Costos" value={totals.totalCost} negative colorClass="text-red-400" bold />
+                                    <ResultRow label="Total Costos Directos" value={totals.totalCost} negative colorClass="text-red-400" bold />
                                 </div>
 
-                                <div className="border-t-2 border-white/20 pt-4 mt-1">
+                                <div className="border-t-2 border-white/20 pt-4 mt-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="font-black text-white text-lg">Ganancia Bruta</span>
-                                        <span className={`font-black text-xl ${totals.grossProfit >= 0 ? 'text-white' : 'text-red-400'}`}>
+                                        <span className="font-black text-white text-base sm:text-lg">Ganancia Bruta</span>
+                                        <span className={`font-black text-lg sm:text-xl ${totals.grossProfit >= 0 ? 'text-white' : 'text-red-400'}`}>
                                             {fmt(totals.grossProfit)}
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between mt-1.5">
-                                        <span className="text-xs text-gray-500">Margen sobre ingresos</span>
+                                        <span className="text-xs text-gray-500">Margen sobre ingresos netos</span>
                                         <span className={`text-sm font-bold ${overallMargin >= 30 ? 'text-primary' : 'text-yellow-400'}`}>
                                             {fmtPct(overallMargin)}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className="bg-white/5 rounded-xl p-3 mt-2 text-[10px] text-gray-500 space-y-1">
+                                <div className="bg-white/5 rounded-xl p-3 mt-3 text-[10px] text-gray-500 space-y-1">
                                     <p>• Costo envío propio: L 120 por pedido con envío cobrado</p>
-                                    <p>• Precio envío cobrado: L {totals.shippingRevenue > 0 ? Math.round(totals.shippingRevenue / Math.max(1, (metrics ?? []).filter(m => m.shippingRevenue > 0).length)) : 140} promedio</p>
+                                    <p>• Precio envío cobrado promedio: L {totals.shippingRevenue > 0 ? Math.round(totals.shippingRevenue / Math.max(1, (metrics ?? []).filter(m => m.shippingRevenue > 0).length)) : 140}</p>
                                     <p>• No incluye gastos operativos fijos</p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Desglose por banco/método */}
-                        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6">
+                        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 sm:p-6">
                             <h3 className="font-bold text-white mb-5 flex items-center gap-2 text-sm uppercase tracking-widest">
-                                <CreditCard className="w-4 h-4 text-gray-400" />
+                                <CreditCard className="w-4 h-4 text-primary" />
                                 Cobros Verificados por Banco
                             </h3>
 
@@ -455,12 +547,12 @@ export default function ContabilidadPage() {
                                                 <div className="flex items-center justify-between mb-1.5">
                                                     <div className="flex items-center gap-2">
                                                         <Building2 className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                                                        <span className="text-sm text-white font-medium">{key}</span>
+                                                        <span className="text-xs sm:text-sm text-white font-medium">{key}</span>
                                                         <span className="text-[10px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">
                                                             {val.count} pago{val.count !== 1 ? 's' : ''}
                                                         </span>
                                                     </div>
-                                                    <span className="text-sm font-bold text-white ml-2 shrink-0">{fmt(val.amount)}</span>
+                                                    <span className="text-xs sm:text-sm font-bold text-white ml-2 shrink-0">{fmt(val.amount)}</span>
                                                 </div>
                                                 <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                                                     <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${barWidth}%` }} />
@@ -488,9 +580,9 @@ export default function ContabilidadPage() {
 
                     {/* RENTABILIDAD POR PRODUCTO */}
                     {productEntries.length > 0 && (
-                        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6">
+                        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 sm:p-6">
                             <h3 className="font-bold text-white mb-5 flex items-center gap-2 text-sm uppercase tracking-widest">
-                                <TrendingUp className="w-4 h-4 text-gray-400" />
+                                <TrendingUp className="w-4 h-4 text-primary" />
                                 Rentabilidad por Producto (Top 15)
                             </h3>
                             <div className="overflow-x-auto">
@@ -529,25 +621,35 @@ export default function ContabilidadPage() {
                     )}
 
                     {/* DETALLE POR PEDIDO */}
-                    <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6">
-                        <h3 className="font-bold text-white mb-5 flex items-center gap-2 text-sm uppercase tracking-widest">
-                            <Package className="w-4 h-4 text-gray-400" />
-                            Detalle por Pedido ({metrics!.length})
-                        </h3>
+                    <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                            <h3 className="font-bold text-white flex items-center gap-2 text-sm uppercase tracking-widest">
+                                <Package className="w-4 h-4 text-primary" />
+                                Detalle por Pedido ({metrics!.length})
+                            </h3>
+                            <button
+                                onClick={() => exportToCSV(metrics!, startDate, endDate)}
+                                className="text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 self-start sm:self-auto"
+                            >
+                                <Download className="w-3.5 h-3.5" /> Exportar esta lista
+                            </button>
+                        </div>
 
                         {metrics!.length === 0 ? (
                             <p className="text-sm text-gray-600 italic text-center py-6">No hay pedidos en este período.</p>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm min-w-[820px]">
+                                <table className="w-full text-sm min-w-[920px]">
                                     <thead>
                                         <tr className="text-[10px] uppercase font-bold text-gray-500 border-b border-white/5">
                                             <th className="text-left pb-3 pr-3">Pedido</th>
                                             <th className="text-left pb-3 pr-3">Cliente</th>
                                             <th className="text-left pb-3 pr-3">Estado</th>
-                                            <th className="text-right pb-3 pr-3">Ingreso</th>
+                                            <th className="text-right pb-3 pr-3">Subtotal</th>
+                                            <th className="text-right pb-3 pr-3">Descuento</th>
+                                            <th className="text-right pb-3 pr-3">Envío</th>
+                                            <th className="text-right pb-3 pr-3">Neto</th>
                                             <th className="text-right pb-3 pr-3">Costo Prod.</th>
-                                            <th className="text-right pb-3 pr-3">Costo Env.</th>
                                             <th className="text-right pb-3 pr-3">Ganancia</th>
                                             <th className="text-right pb-3 pr-3">Margen</th>
                                             <th className="text-right pb-3 pr-3">Cobrado</th>
@@ -578,11 +680,19 @@ export default function ContabilidadPage() {
                                                             {STATUS_LABEL[m.order.status] || m.order.status}
                                                         </span>
                                                     </td>
-                                                    <td className="py-3 pr-3 text-right text-green-400 font-medium text-xs">{fmt(m.revenue)}</td>
-                                                    <td className="py-3 pr-3 text-right text-red-400 text-xs">{fmt(m.productCost)}</td>
-                                                    <td className="py-3 pr-3 text-right text-red-400/70 text-xs">
-                                                        {m.shippingCost > 0 ? fmt(m.shippingCost) : <span className="text-gray-700">—</span>}
+                                                    <td className="py-3 pr-3 text-right text-gray-400 text-xs">{fmt(m.productRevenue)}</td>
+                                                    <td className="py-3 pr-3 text-right text-xs">
+                                                        {m.discountAmount > 0 ? (
+                                                            <span className="text-emerald-400 font-bold">- {fmt(m.discountAmount)}</span>
+                                                        ) : (
+                                                            <span className="text-gray-700">—</span>
+                                                        )}
                                                     </td>
+                                                    <td className="py-3 pr-3 text-right text-gray-400 text-xs">
+                                                        {m.shippingRevenue > 0 ? fmt(m.shippingRevenue) : <span className="text-gray-700">Gratis</span>}
+                                                    </td>
+                                                    <td className="py-3 pr-3 text-right text-green-400 font-bold text-xs">{fmt(m.revenue)}</td>
+                                                    <td className="py-3 pr-3 text-right text-red-400 text-xs">{fmt(m.productCost)}</td>
                                                     <td className={`py-3 pr-3 text-right font-bold text-xs ${m.grossProfit >= 0 ? 'text-white' : 'text-red-400'}`}>
                                                         {fmt(m.grossProfit)}
                                                     </td>
@@ -627,7 +737,7 @@ function KPICard({ label, value, sub, icon: Icon, colorClass, bgClass }: {
                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 leading-tight pr-2">{label}</span>
                 <Icon className={`w-4 h-4 shrink-0 ${colorClass}`} />
             </div>
-            <div className={`text-xl md:text-2xl font-black ${colorClass}`}>{value}</div>
+            <div className={`text-lg sm:text-xl md:text-2xl font-black ${colorClass}`}>{value}</div>
             <div className="text-[10px] text-gray-600 mt-1">{sub}</div>
         </div>
     )
@@ -642,7 +752,7 @@ function ResultRow({ label, value, negative, colorClass, bold }: {
 }) {
     const display = negative ? `— ${fmt(value)}` : fmt(value)
     return (
-        <div className={`flex items-center justify-between ${bold ? 'text-base' : 'text-sm'}`}>
+        <div className={`flex items-center justify-between ${bold ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}`}>
             <span className={bold ? 'font-bold text-white' : 'text-gray-400'}>{label}</span>
             <span className={`${bold ? 'font-black' : 'font-medium'} ${colorClass}`}>{display}</span>
         </div>

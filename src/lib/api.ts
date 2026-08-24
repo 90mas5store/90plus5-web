@@ -177,25 +177,23 @@ async function fetchConfigFromSupabase(): Promise<Config> {
   ] = await Promise.all([
     supabase
       .from("categories")
-      .select("id,name,slug,order_index,icon_url,hero_image_position_desktop,hero_image_position_mobile")
+      .select("id,name,slug,order_index,icon_url")
       .eq("active", true)
       .order("order_index", { ascending: true }),
 
     supabase
       .from("leagues")
-      .select("id,name,slug,image_url,category_id,hero_image_position_desktop,hero_image_position_mobile")
+      .select("id,name,slug,image_url,category_id,active")
       .eq("active", true)
       .order("sort_order", { ascending: true }),
   ]);
 
   if (catError) {
     console.error("Error fetching categories:", catError);
-    throw catError;
   }
 
   if (leagueError) {
-    console.error("Error fetching leagues:", leagueError);
-    throw leagueError;
+    console.warn("Error fetching leagues (using fallback):", leagueError);
   }
 
   // 2️⃣ Adaptamos categorías al shape que espera el frontend
@@ -205,8 +203,8 @@ async function fetchConfigFromSupabase(): Promise<Config> {
     slug: cat.slug,
     order: cat.order_index,
     icon_url: cat.icon_url,
-    hero_image_position_desktop: cat.hero_image_position_desktop,
-    hero_image_position_mobile: cat.hero_image_position_mobile,
+    hero_image_position_desktop: cat.hero_image_position_desktop || "50% 40%",
+    hero_image_position_mobile: cat.hero_image_position_mobile || "50% 50%",
   }));
 
   // 3️⃣ Adaptamos ligas al shape que espera el frontend
@@ -216,8 +214,11 @@ async function fetchConfigFromSupabase(): Promise<Config> {
     slug: league.slug,
     imagen: league.image_url ?? "",
     category_id: league.category_id,
-    hero_image_position_desktop: league.hero_image_position_desktop,
-    hero_image_position_mobile: league.hero_image_position_mobile,
+    active: (league.active as boolean) ?? true,
+    show_in_home: true,
+    show_on_home: true,
+    hero_image_position_desktop: (league.hero_image_position_desktop as string) || "50% 40%",
+    hero_image_position_mobile: (league.hero_image_position_mobile as string) || "50% 50%",
   }));
 
   // 4️⃣ Traemos marcas
@@ -740,13 +741,13 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         season,
         teams ( name ),
         brands ( name ),
-        product_leagues${leagueId ? "!inner" : ""} ( league_id )
+        product_leagues ( league_id )
     `)
     .eq("active", true);
 
   // 2. Aplicar Filtros básicos
   if (categoryId) metadataQuery = metadataQuery.eq('category_id', categoryId);
-  if (leagueId) metadataQuery = metadataQuery.eq('product_leagues.league_id', leagueId);
+  if (leagueId) metadataQuery = metadataQuery.or(`league_id.eq.${leagueId},product_leagues.league_id.eq.${leagueId}`);
   if (teamId) metadataQuery = metadataQuery.eq('team_id', teamId);
   if (brandId) metadataQuery = metadataQuery.eq('brand_id', brandId);
 
@@ -1071,21 +1072,41 @@ export async function getProductById(idOrSlug: string): Promise<Product> {
     .eq("active", true);
 
   if (isUUID) {
-    query = query.eq("id", idOrSlug);
+    const { data, error } = await query.eq("id", idOrSlug).single();
+    if (error) {
+      console.warn(`Producto no encontrado(${idOrSlug}): `, error.message);
+      throw error;
+    }
+    return adaptSupabaseProductToProduct(data);
   } else {
-    query = query.ilike("slug", idOrSlug);
+    let decoded = idOrSlug;
+    try {
+      decoded = decodeURIComponent(idOrSlug);
+    } catch {
+      decoded = idOrSlug;
+    }
+    const sanitizeSlug = (s: string) =>
+      (s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .replace(/ñ/g, "n")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+    const candidates = Array.from(
+      new Set([idOrSlug, decoded, sanitizeSlug(idOrSlug), sanitizeSlug(decoded)])
+    ).filter(Boolean);
+
+    const { data, error } = await query.in("slug", candidates).limit(1);
+
+    if (error || !data || data.length === 0) {
+      console.warn(`Producto no encontrado(${idOrSlug}): `, error?.message || "No data");
+      throw error || new Error("Producto no encontrado");
+    }
+
+    return adaptSupabaseProductToProduct(data[0]);
   }
-
-  const { data, error } = await query.single();
-
-  if (error) {
-    console.warn(`Producto no encontrado(${idOrSlug}): `, error.message);
-    throw error;
-  }
-
-  if (!data) throw new Error("Producto no encontrado");
-
-  return adaptSupabaseProductToProduct(data);
 }
 
 /** 🚚 Obtener zonas de envío (departamentos y municipios) */

@@ -20,6 +20,8 @@ import {
     Tag,
     Loader2,
     X,
+    ExternalLink,
+    DollarSign,
 } from "lucide-react";
 import MainButton from "../../components/ui/MainButton";
 import { useCart } from "../../context/CartContext";
@@ -27,6 +29,7 @@ import useToastMessage from "../../hooks/useToastMessage";
 import { getShippingZones } from "../../lib/api";
 import { ShippingZone } from "../../lib/types";
 import { BUSINESS_LOGIC, calcShippingCost } from "../../lib/constants";
+import { PAYMENT_METHODS_FALLBACK, PaymentMethodConfig, DEFAULT_BANK_ACCOUNTS, BankAccountRecord } from "@/lib/config/banks";
 
 // 📝 Interfaces
 interface FormData {
@@ -122,11 +125,33 @@ export default function CheckoutPage() {
     });
 
     const [metodoPago, setMetodoPago] = useState("");
+    const [paymentMethods, setPaymentMethods] = useState<PaymentMethodConfig[]>(PAYMENT_METHODS_FALLBACK);
+    const [bankAccounts, setBankAccounts] = useState<BankAccountRecord[]>(DEFAULT_BANK_ACCOUNTS);
     const [aceptoTerminos, setAceptoTerminos] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitLock = useRef(false);
     const [errores, setErrores] = useState<FormErrors>({});
     const [orderSuccess, setOrderSuccess] = useState(false);
+
+    useEffect(() => {
+        async function loadPaymentData() {
+            try {
+                const res = await fetch('/api/payment-methods');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                        setPaymentMethods(data);
+                    } else if (data && typeof data === 'object') {
+                        if (data.methods && Array.isArray(data.methods)) setPaymentMethods(data.methods);
+                        if (data.bankAccounts && Array.isArray(data.bankAccounts)) setBankAccounts(data.bankAccounts);
+                    }
+                }
+            } catch {
+                // fallback
+            }
+        }
+        loadPaymentData();
+    }, []);
 
     // 🏷️ Código de descuento
     const [discountCode, setDiscountCode] = useState('');
@@ -664,50 +689,91 @@ export default function CheckoutPage() {
                             </div>
 
                             <div className="grid grid-cols-1 gap-4">
-                                {[
-                                    { id: "transferencia", label: "Transferencia Bancaria", icon: Building2, desc: `Paga el ${BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE * 100}% de anticipo vía transferencia.`, disabled: false },
-                                    { id: "tarjeta", label: "Tarjeta de Crédito / Débito", icon: CreditCard, desc: "Pago seguro en línea.", disabled: true }
-                                ].map((opt) => (
-                                    <label
-                                        key={opt.id}
-                                        className={`group relative flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer overflow-hidden ${metodoPago === opt.id
-                                            ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(229,9,20,0.15)]"
-                                            : "border-white/5 bg-black/40 hover:border-white/20"
-                                            } ${opt.disabled ? "opacity-60" : ""}`}
-                                    >
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${metodoPago === opt.id ? "bg-primary text-white" : "bg-white/5 text-gray-500 group-hover:text-white"
-                                            }`}>
-                                            <opt.icon className="w-6 h-6" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black uppercase tracking-tight text-sm">{opt.label}</span>
-                                                {opt.disabled && (
-                                                    <span className="text-[8px] bg-white/10 px-2 py-0.5 rounded-full text-gray-400 font-bold tracking-widest">PRÓXIMAMENTE</span>
-                                                )}
+                                {paymentMethods.map((opt) => {
+                                    const optCode = opt.code || opt.id;
+                                    const isDisabled = opt.is_coming_soon || !opt.active;
+
+                                    let IconComponent = CreditCard;
+                                    if (opt.type === 'transferencia') IconComponent = Building2;
+                                    if (opt.type === 'link_pago') IconComponent = ExternalLink;
+                                    if (opt.type === 'efectivo') IconComponent = DollarSign;
+
+                                    return (
+                                        <label
+                                            key={opt.id || optCode}
+                                            className={`group relative flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer overflow-hidden ${metodoPago === optCode
+                                                ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(229,9,20,0.15)]"
+                                                : "border-white/5 bg-black/40 hover:border-white/20"
+                                                } ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${metodoPago === optCode ? "bg-primary text-white" : "bg-white/5 text-gray-500 group-hover:text-white"
+                                                }`}>
+                                                <IconComponent className="w-6 h-6" />
                                             </div>
-                                            <p className="text-xs text-gray-500 font-medium">{opt.desc}</p>
-                                        </div>
-                                        <input
-                                            type="radio"
-                                            name="metodoPago"
-                                            value={opt.id}
-                                            checked={metodoPago === opt.id}
-                                            onChange={(e) => setMetodoPago(e.target.value)}
-                                            className="hidden"
-                                            disabled={opt.disabled}
-                                        />
-                                        {metodoPago === opt.id && (
-                                            <motion.div layoutId="check" className="absolute right-6">
-                                                <CheckCircle2 className="w-6 h-6 text-primary" />
-                                            </motion.div>
-                                        )}
-                                    </label>
-                                ))}
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-black uppercase tracking-tight text-sm">{opt.name}</span>
+                                                    {opt.is_coming_soon && (
+                                                        <span className="text-[8px] bg-white/10 px-2 py-0.5 rounded-full text-gray-400 font-bold tracking-widest uppercase">PRÓXIMAMENTE</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-500 font-medium">{opt.description}</p>
+                                            </div>
+                                            <input
+                                                type="radio"
+                                                name="metodoPago"
+                                                value={optCode}
+                                                checked={metodoPago === optCode}
+                                                onChange={(e) => !isDisabled && setMetodoPago(e.target.value)}
+                                                className="hidden"
+                                                disabled={isDisabled}
+                                            />
+                                            {metodoPago === optCode && (
+                                                <motion.div layoutId="check" className="absolute right-6">
+                                                    <CheckCircle2 className="w-6 h-6 text-primary" />
+                                                </motion.div>
+                                            )}
+                                        </label>
+                                    );
+                                })}
                             </div>
 
                             <AnimatePresence>
-                                {metodoPago === "tarjeta" && (
+                                {metodoPago === "transferencia" && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        className="mt-6 p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <Building2 className="w-5 h-5 text-primary" />
+                                            <h3 className="text-sm font-black uppercase tracking-tight text-white">Cuentas Bancarias para Transferencia</h3>
+                                        </div>
+                                        <p className="text-xs text-gray-400">
+                                            Puedes realizar la transferencia del anticipo del 50% (o total) a cualquiera de nuestras cuentas oficiales:
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                            {bankAccounts.filter(b => b.activo).map((bank) => (
+                                                <div key={bank.id} className="p-3.5 bg-black/50 border border-white/10 rounded-xl space-y-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        {bank.logo && (
+                                                            <div className="relative w-5 h-5 shrink-0 rounded overflow-hidden">
+                                                                <Image src={bank.logo} alt={bank.banco} fill className="object-contain" />
+                                                            </div>
+                                                        )}
+                                                        <span className="font-black text-xs text-white uppercase">{bank.banco}</span>
+                                                    </div>
+                                                    <div className="text-[11px] font-mono font-bold text-primary tracking-wider">{bank.numero}</div>
+                                                    <div className="text-[10px] text-gray-400 font-medium truncate">{bank.titular}</div>
+                                                    <div className="text-[9px] text-gray-500 uppercase">{bank.tipo}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {paymentMethods.find(m => (m.code || m.id) === metodoPago)?.is_coming_soon && (
                                     <motion.div
                                         initial={{ opacity: 0, y: -10 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -717,7 +783,7 @@ export default function CheckoutPage() {
                                         <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                                         <div>
                                             <p className="text-sm font-bold text-white uppercase tracking-tight">Función no disponible</p>
-                                            <p className="text-xs text-gray-400 mt-1">Estamos trabajando para integrar pagos con tarjeta. Por favor, selecciona otro método de pago por ahora.</p>
+                                            <p className="text-xs text-gray-400 mt-1">Estamos trabajando para integrar esta opción de pago. Por favor selecciona otro método por ahora.</p>
                                         </div>
                                     </motion.div>
                                 )}

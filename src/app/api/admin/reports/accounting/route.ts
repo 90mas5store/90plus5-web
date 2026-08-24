@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
                 status,
                 total_amount,
                 subtotal,
+                discount_amount,
                 customer_name,
                 order_items (
                     quantity,

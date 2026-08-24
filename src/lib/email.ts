@@ -462,3 +462,88 @@ export const sendAdminNewOrderEmail = async ({
     }
   }
 };
+
+export const sendVipRewardEmail = async ({
+  customerName,
+  customerEmail,
+  couponCode,
+  discountPct,
+  totalJerseys,
+}: {
+  customerName: string;
+  customerEmail: string;
+  couponCode: string;
+  discountPct: number;
+  totalJerseys: number;
+}) => {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>¡Premio VIP 90+5 Store!</title>
+</head>
+<body style="margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" style="padding:40px 12px;">
+        <img src="${SITE_URL}/logo.png" width="100" style="margin-bottom:30px;" />
+        <table width="100%" style="max-width:550px;background:#0a0a0a;border-radius:24px;border:1px solid #333;box-shadow:0 10px 30px rgba(0,0,0,0.8);">
+          <tr>
+            <td style="padding:40px;text-align:center;">
+              <div style="display:inline-block;padding:8px 16px;background:#E50914;color:#fff;font-weight:900;border-radius:20px;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;">
+                🏆 Recompensa VIP 90+5
+              </div>
+              <h1 style="margin:0 0 10px;font-size:28px;font-weight:900;color:#fff;">
+                ¡Felicidades, ${escapeHtml(customerName.split(" ")[0])}! ⚽
+              </h1>
+              <p style="margin:0 0 25px;color:#aaa;font-size:15px;line-height:1.5;">
+                Has alcanzado tu <strong>camisa #${totalJerseys}</strong> acumulada en 90+5 Store.<br/>
+                Como agradecimiento a tu fidelidad, te premiamos con este cupón especial:
+              </p>
+
+              <div style="background:#141414;border:2px dashed #E50914;border-radius:18px;padding:24px;margin-bottom:30px;">
+                <p style="margin:0;color:#888;font-size:12px;font-weight:700;text-transform:uppercase;">
+                  Tu código de descuento exclusivo (${discountPct}% OFF)
+                </p>
+                <p style="margin:10px 0 0;font-family:Courier,monospace;font-size:32px;font-weight:900;color:#fff;letter-spacing:2px;">
+                  ${escapeHtml(couponCode)}
+                </p>
+              </div>
+
+              <a href="${SITE_URL}"
+                 style="display:block;background:#fff;color:#000;text-decoration:none;
+                        padding:18px 0;border-radius:14px;
+                        font-weight:900;text-transform:uppercase;font-size:15px;">
+                Usar mi cupón en la tienda
+              </a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin-top:30px;color:#555;font-size:12px;text-align:center;">
+          <strong>90+5 STORE</strong> · Tu pasión por el fútbol
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+
+  try {
+    const data = await resend.emails.send({
+      from: `${SITE_CONFIG.name} VIP <${CONTACT.email}>`,
+      to: [customerEmail],
+      subject: `🏆 ¡Premio VIP 90+5! Tu cupón por tu camisa #${totalJerseys}`,
+      html: htmlContent,
+    });
+    return { success: true, data };
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error('Error enviando correo VIP:', errMsg);
+    return { success: false, error: errMsg };
+  }
+};

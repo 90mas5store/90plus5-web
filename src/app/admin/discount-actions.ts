@@ -106,3 +106,15 @@ export async function deleteDiscountCode(id: string) {
     revalidatePath('/admin/descuentos')
     return { success: true }
 }
+
+export async function sendVipCouponEmail(data: {
+    customerName: string
+    customerEmail: string
+    couponCode: string
+    discountPct: number
+    totalJerseys: number
+}) {
+    await getAuthUser()
+    const { sendVipRewardEmail } = await import('@/lib/email')
+    return await sendVipRewardEmail(data)
+}

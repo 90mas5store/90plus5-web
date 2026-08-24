@@ -107,6 +107,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 </div>
 
                 {[
+                    { label: 'Bancos & Formas de Pago', href: '/admin/settings/bancos', icon: DollarSign },
                     { label: 'Banners Home', href: '/admin/settings/banners', icon: LayoutTemplate },
                     { label: 'Banners Especiales', href: '/admin/settings/special-banners', icon: Sparkles },
                     { label: 'Administradores', href: '/admin/settings/admins', icon: Lock },

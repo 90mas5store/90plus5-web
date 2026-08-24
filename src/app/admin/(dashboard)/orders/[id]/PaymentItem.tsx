@@ -21,7 +21,7 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
 
     return (
         <div className={`
-            relative p-5 rounded-2xl border transition-all duration-300
+            relative p-3.5 sm:p-5 rounded-2xl border transition-all duration-300
             ${isCompleted ? 'bg-green-500/5 border-green-500/30' :
                 isFailed ? 'bg-red-500/5 border-red-500/30 opacity-60' :
                     'bg-neutral-800/50 border-white/10 hover:border-yellow-500/30'}
@@ -29,19 +29,19 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
             {/* Background Pattern for Pending */}
             {isPending && <div className="absolute top-0 right-0 w-2 h-2 m-3 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_8px_#EAB308]" />}
 
-            <div className="flex justify-between items-start mb-4">
-                <div className="space-y-2 max-w-[65%]">
-                    <div className="flex items-center gap-2">
-                        <span className="font-black text-white text-lg tracking-tight capitalize">
+            <div className="flex justify-between items-start gap-2 mb-3 sm:mb-4">
+                <div className="space-y-1 sm:space-y-2 max-w-[65%] min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-black text-white text-sm sm:text-lg tracking-tight capitalize truncate">
                             {payment.type === 'deposit' ? 'Anticipo 50%' : (payment.type === 'final' || payment.type === 'remaining') ? 'Pago Final' : payment.type}
                         </span>
                         {isCompleted && <ShieldCheck className="w-4 h-4 text-green-500 shrink-0" />}
                     </div>
-                    <div className="text-sm text-gray-400 font-mono">
+                    <div className="text-xs sm:text-sm text-gray-400 font-mono truncate">
                         {payment.method} · {new Date(payment.created_at).toLocaleDateString()}
                     </div>
                     {payment.notes && (
-                        <div className="text-xs bg-black/40 border border-white/5 rounded-lg p-2 text-gray-400 mt-2 break-words">
+                        <div className="text-[11px] sm:text-xs bg-black/40 border border-white/5 rounded-lg p-2 text-gray-400 mt-2 break-words">
                             {payment.notes.split('|').map((note, idx) => (
                                 <span key={idx} className="block truncate">{note.trim()}</span>
                             ))}
@@ -49,12 +49,12 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
                     )}
                 </div>
 
-                <div className="text-right">
-                    <div className={`text-xl font-black ${isFailed ? 'text-red-500 line-through' : 'text-white'}`}>
+                <div className="text-right shrink-0">
+                    <div className={`text-base sm:text-xl font-black ${isFailed ? 'text-red-500 line-through' : 'text-white'}`}>
                         L {payment.amount.toLocaleString("es-HN")}
                     </div>
                     <div className={`
-                        text-[10px] font-bold uppercase tracking-widest mt-1
+                        text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mt-0.5 sm:mt-1
                         ${isCompleted ? 'text-green-500' : isFailed ? 'text-red-500' : 'text-yellow-500'}
                     `}>
                         {isPending ? 'Revisión Pendiente' : isCompleted ? 'Verificado' : 'Rechazado'}
@@ -64,7 +64,7 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
 
             {/* COMPROBANTE DE PAGO */}
             {payment.proof_url && (
-                <div className="pt-4 border-t border-white/5 space-y-2">
+                <div className="pt-3 sm:pt-4 border-t border-white/5 space-y-2">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
                         Comprobante de pago
                     </p>
@@ -80,10 +80,10 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
                             alt="Comprobante de pago"
                             className="w-full max-h-48 object-contain bg-black/40 p-2"
                         />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <div className="flex items-center gap-2 text-white text-xs font-bold">
-                                <ImageIcon className="w-4 h-4" />
-                                Ver imagen completa
+                        <div className="absolute inset-0 bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="flex items-center gap-1.5 text-white text-xs font-bold bg-black/70 px-3 py-1.5 rounded-full border border-white/10">
+                                <ImageIcon className="w-4 h-4 text-primary" />
+                                Ver comprobante
                             </div>
                         </div>
                     </a>
@@ -92,14 +92,14 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
 
             {/* STATUS MESSAGE WITHOUT BUTTONS */}
             {isPending && !payment.proof_url && (
-                <div className="pt-4 border-t border-white/5">
+                <div className="pt-3 sm:pt-4 border-t border-white/5">
                     <div className="text-xs text-yellow-500/70 italic text-center">
                         Esperando comprobante o verificación vía el Gestor de Estados
                     </div>
                 </div>
             )}
             {isPending && payment.proof_url && (
-                <div className="pt-3">
+                <div className="pt-2 sm:pt-3">
                     <div className="text-xs text-yellow-500/70 italic text-center">
                         Comprobante recibido · Pendiente de verificación
                     </div>
