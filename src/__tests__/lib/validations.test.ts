@@ -100,8 +100,8 @@ describe('Backend Data Validations', () => {
             }
         });
 
-        it('rechaza métodos de pago no autorizados', () => {
-            const payload = { ...validOrderPayload, payment_method: 'paypal' as any };
+        it('rechaza métodos de pago vacíos', () => {
+            const payload = { ...validOrderPayload, payment_method: '' };
             const result = createOrderSchema.safeParse(payload);
             expect(result.success).toBe(false);
         });

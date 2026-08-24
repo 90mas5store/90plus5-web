@@ -78,9 +78,10 @@ export const createOrderSchema = z.object({
         .min(5, 'La dirección debe tener al menos 5 caracteres')
         .max(300, 'La dirección no puede exceder 300 caracteres')
         .transform(sanitizeText),
-    payment_method: z.enum(['transferencia'], {
-        message: 'Método de pago no permitido',
-    }),
+    payment_method: z.string({ message: 'El método de pago es obligatorio' })
+        .trim()
+        .min(1, 'El método de pago es obligatorio')
+        .max(100, 'Nombre de método de pago demasiado largo'),
     items: z.array(orderItemSchema, { message: 'Debe incluir al menos un artículo' })
         .min(1, 'El carrito no puede estar vacío')
         .max(50, 'No puede incluir más de 50 artículos por pedido'),
