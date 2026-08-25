@@ -747,7 +747,20 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
 
   // 2. Aplicar Filtros básicos
   if (categoryId) metadataQuery = metadataQuery.eq('category_id', categoryId);
-  if (leagueId) metadataQuery = metadataQuery.or(`league_id.eq.${leagueId},product_leagues.league_id.eq.${leagueId}`);
+  if (leagueId) {
+    const { data: plData } = await supabase
+      .from("product_leagues")
+      .select("product_id")
+      .eq("league_id", leagueId);
+
+    const leagueProductIds = (plData || []).map((pl: { product_id: string }) => pl.product_id).filter(Boolean);
+
+    if (leagueProductIds.length > 0) {
+      metadataQuery = metadataQuery.or(`league_id.eq.${leagueId},id.in.(${leagueProductIds.join(",")})`);
+    } else {
+      metadataQuery = metadataQuery.eq("league_id", leagueId);
+    }
+  }
   if (teamId) metadataQuery = metadataQuery.eq('team_id', teamId);
   if (brandId) metadataQuery = metadataQuery.eq('brand_id', brandId);
 
