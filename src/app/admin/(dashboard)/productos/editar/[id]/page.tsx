@@ -9,8 +9,9 @@ import { revalidateProduct } from '@/app/admin/actions'
 import {
     Save, ArrowLeft, Loader2, Image as ImageIcon,
     Trash2, Plus, AlertCircle, CheckCircle, Tag, Ruler,
-    DollarSign, Percent, ShieldPlus, Users, UserPlus, X
+    DollarSign, Percent, ShieldPlus, Users, UserPlus, X, Sparkles
 } from 'lucide-react'
+import { buildProductSlug, generateUniqueSlug, sanitizeSlugPart } from '@/lib/utils/slug'
 import Image from 'next/image'
 import Link from 'next/link'
 import useToastMessage from '@/hooks/useToastMessage'
@@ -120,6 +121,53 @@ export default function EditProductPage() {
     const [teamPlayers, setTeamPlayers] = useState<Player[]>([])
     const [newPlayer, setNewPlayer] = useState({ name: '', number: '' })
     const [addingPlayer, setAddingPlayer] = useState(false)
+
+    // Slug Auto-Generación & Unicidad
+    const [isAutoSlug, setIsAutoSlug] = useState(false) // Por defecto false al editar para preservar la URL original
+    const [slugChecking, setSlugChecking] = useState(false)
+    const [slugIsUnique, setSlugIsUnique] = useState<boolean | null>(null)
+
+    // Re-calcular Slug automáticamente si la auto-generación está activa
+    useEffect(() => {
+        if (!isAutoSlug) return
+
+        const teamName = teams.find(t => t.id === formData.team_id)?.name
+        const brandName = brands.find(b => b.id === formData.brand_id)?.name
+        const categoryName = categories.find(c => c.id === formData.category_id)?.name
+
+        const autoSlug = buildProductSlug({
+            teamName,
+            brandName,
+            name: formData.name,
+            season: formData.season,
+            categoryName,
+            gender: formData.gender,
+        })
+
+        setFormData(prev => ({ ...prev, slug: autoSlug }))
+    }, [formData.name, formData.team_id, formData.brand_id, formData.category_id, formData.season, formData.gender, teams, brands, categories, isAutoSlug])
+
+    // Chequeo de unicidad en tiempo real (excluyendo este producto)
+    useEffect(() => {
+        if (!formData.slug) {
+            setSlugIsUnique(null)
+            return
+        }
+
+        const timer = setTimeout(async () => {
+            setSlugChecking(true)
+            try {
+                const uniqueSlug = await generateUniqueSlug(supabase, formData.slug, id)
+                setSlugIsUnique(uniqueSlug === formData.slug)
+            } catch (err) {
+                console.error('Error verificando slug:', err)
+            } finally {
+                setSlugChecking(false)
+            }
+        }, 300)
+
+        return () => clearTimeout(timer)
+    }, [formData.slug, id, supabase])
 
     // Initial Load
     useEffect(() => {
@@ -263,16 +311,6 @@ export default function EditProductPage() {
     }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
-    const sanitizeSlug = (text: string) => {
-        return (text || '')
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/\p{Diacritic}/gu, '')
-            .replace(/ñ/g, 'n')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)/g, '')
-    }
-
     // Handlers Generales
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target
@@ -281,7 +319,8 @@ export default function EditProductPage() {
         setFormData(prev => {
             const next = { ...prev, [name]: val }
             if (name === 'slug') {
-                next.slug = sanitizeSlug(String(val))
+                setIsAutoSlug(false)
+                next.slug = sanitizeSlugPart(String(val))
             }
             return next
         })
@@ -427,14 +466,15 @@ export default function EditProductPage() {
 
     // --- SAVE LOGIC ---
     const handleSave = async () => {
-        const cleanSlug = sanitizeSlug(formData.slug || formData.name)
-        if (!formData.name || !cleanSlug) {
+        const rawSlug = formData.slug || formData.name
+        if (!formData.name || !rawSlug) {
             toast.error('Nombre y Slug son obligatorios')
             return
         }
 
         setSaving(true)
         try {
+            const cleanSlug = await generateUniqueSlug(supabase, rawSlug, id)
             const allLeagueIds = new Set<string>(selectedLeagues)
             if (formData.league_id) allLeagueIds.add(formData.league_id)
             const primaryLeagueId = formData.league_id || (allLeagueIds.size > 0 ? Array.from(allLeagueIds)[0] : null)
@@ -727,18 +767,65 @@ export default function EditProductPage() {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase text-gray-500 mb-2 ml-1">Slug (URL)</label>
-                                <div className="flex bg-black/50 border border-white/10 rounded-xl overflow-hidden focus-within:border-primary transition-colors">
-                                    <span className="bg-white/5 px-4 py-3 text-gray-500 text-sm border-r border-white/10 flex items-center">/producto/</span>
+                                <div className="flex items-center justify-between mb-2 ml-1">
+                                    <label className="block text-xs font-bold uppercase text-gray-500">Slug (URL)</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsAutoSlug(true)
+                                            const teamName = teams.find(t => t.id === formData.team_id)?.name
+                                            const brandName = brands.find(b => b.id === formData.brand_id)?.name
+                                            const categoryName = categories.find(c => c.id === formData.category_id)?.name
+                                            const autoSlug = buildProductSlug({
+                                                teamName,
+                                                brandName,
+                                                name: formData.name,
+                                                season: formData.season,
+                                                categoryName,
+                                                gender: formData.gender,
+                                            })
+                                            setFormData(prev => ({ ...prev, slug: autoSlug }))
+                                        }}
+                                        className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-all cursor-pointer ${
+                                            isAutoSlug
+                                                ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
+                                                : 'bg-white/5 text-gray-400 hover:text-white border border-white/10 hover:bg-white/10'
+                                        }`}
+                                        title={isAutoSlug ? 'Auto-generación activa' : 'Hacer clic para re-sincronizar auto-generación'}
+                                    >
+                                        <Sparkles className="w-3 h-3" />
+                                        {isAutoSlug ? 'Automático' : 'Sincronizar'}
+                                    </button>
+                                </div>
+                                <div className="flex bg-black/50 border border-white/10 rounded-xl overflow-hidden focus-within:border-primary transition-colors items-center">
+                                    <span className="bg-white/5 px-4 py-3 text-gray-500 text-sm border-r border-white/10 flex items-center shrink-0">/producto/</span>
                                     <input
                                         type="text"
                                         name="slug"
                                         value={formData.slug}
                                         onChange={handleChange}
                                         className="flex-1 bg-transparent p-3 text-sm text-white outline-none font-mono"
-                                        placeholder="camiseta-local-madrid-24"
+                                        placeholder="real-madrid-camiseta-local-2024-25-camisetas-hombre"
                                     />
+                                    {formData.slug && (
+                                        <div className="px-3 flex items-center text-xs shrink-0">
+                                            {slugChecking ? (
+                                                <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                                            ) : slugIsUnique === true ? (
+                                                <span className="flex items-center gap-1 text-green-400 text-xs font-bold" title="Slug único disponible">
+                                                    <CheckCircle className="w-4 h-4" /> Único
+                                                </span>
+                                            ) : slugIsUnique === false ? (
+                                                <span className="flex items-center gap-1 text-amber-400 text-xs font-bold" title="El slug ya existe; se asignará un sufijo al guardar">
+                                                    <AlertCircle className="w-4 h-4" /> Existente
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    )}
                                 </div>
+                                <p className="text-[10px] text-gray-600 mt-1.5 ml-1">
+                                    Formato automático: Equipo/Marca - Nombre - Temporada - Categoría - Género.
+                                </p>
                             </div>
 
                             <div>

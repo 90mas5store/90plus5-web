@@ -17,6 +17,7 @@ import { usePrefetch, useProductPrefetch } from "@/hooks/usePrefetch";
 import { usePrefersReducedMotion } from "@/hooks/useOptimization";
 import SpecialEventBanner from "./ui/SpecialEventBanner";
 import HomeBannerContainer from "./HomeBannerContainer";
+import MatchdayHeaderBanner from "./ui/MatchdayHeaderBanner";
 
 // 🏗️ Carga dinámica de componentes pesados
 const CarruselDeCategoria = dynamic(() => import("./catalogo/CarruselDeCategoria"), {
@@ -102,6 +103,8 @@ export default function HomeClient({
 
     return (
         <main className="bg-background text-textLight min-h-dvh relative overflow-hidden">
+            {/* 🔴 PARTIDO EN VIVO / MATCHDAY BANNER */}
+            <MatchdayHeaderBanner />
 
             {/* 🏟️ HERO */}
             <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>

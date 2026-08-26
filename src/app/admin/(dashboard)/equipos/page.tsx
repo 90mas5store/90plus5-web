@@ -22,9 +22,27 @@ interface Team {
     is_national_team: boolean
     active: boolean
     football_data_id?: number | null
+    is_matchday_active?: boolean
     // Join
     leagues?: { name: string }
 }
+
+const POPULAR_FOOTBALL_DATA_CLUBS = [
+    { name: 'Real Madrid (ID: 86)', id: 86 },
+    { name: 'FC Barcelona (ID: 81)', id: 81 },
+    { name: 'Atlético de Madrid (ID: 78)', id: 78 },
+    { name: 'Manchester City (ID: 65)', id: 65 },
+    { name: 'Arsenal FC (ID: 57)', id: 57 },
+    { name: 'Liverpool FC (ID: 64)', id: 64 },
+    { name: 'Manchester United (ID: 66)', id: 66 },
+    { name: 'Chelsea FC (ID: 61)', id: 61 },
+    { name: 'Bayern München (ID: 5)', id: 5 },
+    { name: 'Borussia Dortmund (ID: 4)', id: 4 },
+    { name: 'Paris Saint-Germain (ID: 524)', id: 524 },
+    { name: 'Juventus (ID: 109)', id: 109 },
+    { name: 'Inter Milan (ID: 108)', id: 108 },
+    { name: 'AC Milan (ID: 98)', id: 98 },
+]
 
 interface League {
     id: string
@@ -59,6 +77,7 @@ export default function TeamsPage() {
         is_national_team: false,
         active: true,
         football_data_id: '' as string | number,
+        is_matchday_active: false,
     })
 
     const fetchTeams = useCallback(async (p = page) => {
@@ -84,6 +103,27 @@ export default function TeamsPage() {
         }
     }, [page])
 
+    const handleToggleMatchday = async (team: Team) => {
+        const nextState = !team.is_matchday_active;
+        try {
+            const { error } = await supabase
+                .from('teams')
+                .update({ is_matchday_active: nextState })
+                .eq('id', team.id);
+            if (error) {
+                if (error.message?.includes('is_matchday_active') || error.code === 'PGRST204') {
+                    toast.error('Falta la columna "is_matchday_active" en Supabase. Ejecuta la consulta SQL provista.');
+                    return;
+                }
+                throw error;
+            }
+            toast.success(nextState ? `🔴 Matchday activado para ${team.name}` : `Matchday desactivado para ${team.name}`);
+            setTeams(prev => prev.map(t => t.id === team.id ? { ...t, is_matchday_active: nextState } : t));
+        } catch (e: any) {
+            toast.error(`Error: ${e.message}`);
+        }
+    };
+
     const fetchLeagues = useCallback(async () => {
         const { data } = await supabase.from('leagues').select('id, name').order('name')
         if (data) setLeagues(data)
@@ -105,6 +145,7 @@ export default function TeamsPage() {
                 is_national_team: editingTeam.is_national_team,
                 active: editingTeam.active,
                 football_data_id: editingTeam.football_data_id ?? '',
+                is_matchday_active: !!editingTeam.is_matchday_active,
             })
         } else {
             setFormData({
@@ -116,6 +157,7 @@ export default function TeamsPage() {
                 is_national_team: false,
                 active: true,
                 football_data_id: '',
+                is_matchday_active: false,
             })
         }
     }, [editingTeam, isModalOpen])
@@ -138,6 +180,7 @@ export default function TeamsPage() {
                 is_national_team: formData.is_national_team,
                 active: formData.active,
                 football_data_id: fdId && !isNaN(fdId) ? fdId : null,
+                is_matchday_active: formData.is_matchday_active,
             }
 
             if (editingTeam) {
@@ -295,6 +338,18 @@ export default function TeamsPage() {
                                         </td>
                                         <td className="py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleToggleMatchday(team)}
+                                                    title={team.is_matchday_active ? "Partido en Vivo activo (Clic para desactivar)" : "Activar Partido en Vivo (Matchday)"}
+                                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                        team.is_matchday_active
+                                                            ? 'bg-[#E50914] text-white shadow-[0_0_12px_rgba(229,9,20,0.5)] animate-pulse'
+                                                            : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    <span className="w-2 h-2 rounded-full bg-current" />
+                                                    <span>{team.is_matchday_active ? '🔴 Matchday' : 'Matchday'}</span>
+                                                </button>
                                                 <button
                                                     onClick={() => {
                                                         setEditingTeam(team)
@@ -463,11 +518,43 @@ export default function TeamsPage() {
                                         </div>
                                     </div>
 
+                                    {/* Matchday Manual Toggle */}
+                                    <div className="p-4 rounded-xl bg-[#E50914]/10 border border-[#E50914]/30">
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.is_matchday_active}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, is_matchday_active: e.target.checked }))}
+                                                className="w-5 h-5 rounded border border-[#E50914] text-[#E50914] focus:ring-[#E50914]"
+                                            />
+                                            <div>
+                                                <span className="text-sm font-bold text-white select-none block">🔴 Activar Partido en Vivo (Matchday Manual)</span>
+                                                <span className="text-[11px] text-gray-400 font-normal">Destaca las camisetas del equipo con aviso de partido en curso y promoción especial.</span>
+                                            </div>
+                                        </label>
+                                    </div>
+
                                     <div>
                                         <label className="text-xs font-bold uppercase text-gray-400 mb-1 block tracking-wider">
                                             ID football-data.org
-                                            <span className="normal-case text-gray-600 font-normal ml-1">(para marcador EN VIVO automático)</span>
+                                            <span className="normal-case text-gray-400 font-normal ml-1">(para marcador EN VIVO automático)</span>
                                         </label>
+
+                                        {/* Dropdown de sugerencias de clubes internacionales populares */}
+                                        <select
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    setFormData(prev => ({ ...prev, football_data_id: e.target.value }));
+                                                }
+                                            }}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-2.5 text-xs text-gray-300 focus:border-primary outline-none mb-2"
+                                        >
+                                            <option value="">-- Seleccionar club europeo popular (opcional) --</option>
+                                            {POPULAR_FOOTBALL_DATA_CLUBS.map(club => (
+                                                <option key={club.id} value={club.id}>{club.name}</option>
+                                            ))}
+                                        </select>
+
                                         <input
                                             type="number"
                                             value={formData.football_data_id}
@@ -475,8 +562,8 @@ export default function TeamsPage() {
                                             className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none font-mono text-sm"
                                             placeholder="Ej: 86 (Real Madrid)"
                                         />
-                                        <p className="text-[11px] text-gray-600 mt-1">
-                                            Búscalo en api.football-data.org/v4/teams · Dejar vacío si no aplica
+                                        <p className="text-[11px] text-gray-500 mt-1">
+                                            Ingresa el ID numérico oficial o selecciona una sugerencia arriba · Dejar vacío si es equipo local/nacional.
                                         </p>
                                     </div>
                                 </div>

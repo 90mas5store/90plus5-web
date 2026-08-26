@@ -22,14 +22,30 @@ const CatalogHeroContainer = dynamic(() => import("../../components/catalogo/Cat
   loading: () => <div className="h-[35dvh] md:h-[55dvh] w-full bg-neutral-900 animate-pulse mb-4" />
 });
 
-import CatalogFilterPanel, { CatalogFilters, DEFAULT_FILTERS } from "../../components/catalogo/CatalogFilterPanel";
+import CatalogFilterPanel, { CatalogFilters, DEFAULT_FILTERS, SortOption } from "../../components/catalogo/CatalogFilterPanel";
 import useToastMessage from "../../hooks/useToastMessage";
 import ProductCard from "../../components/ui/ProductCard";
 import { useLiveMatches } from "../../hooks/useLiveMatches";
+import MatchdayHeaderBanner from "../../components/ui/MatchdayHeaderBanner";
 import MainButton from "../../components/ui/MainButton"; // Reutilizamos botón consistente
 import { usePrefetch, useProductPrefetch } from "../../hooks/usePrefetch";
 import { usePrefersReducedMotion } from "../../hooks/useOptimization";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, Filter, X, RotateCcw } from "lucide-react";
+
+const PRICE_LABEL_MAP: Record<string, string> = {
+  "0-800": "Hasta L 800",
+  "800-1200": "L 800 - 1,200",
+  "1200-99999": "L 1,200+",
+};
+
+const SORT_LABEL_MAP: Record<string, string> = {
+  relevance: "Relevancia",
+  price_asc: "Precio: Menor a Mayor",
+  price_desc: "Precio: Mayor a Menor",
+  newest: "Novedad",
+  top_sellers: "Lo Más Vendido",
+  alphabetical: "A - Z",
+};
 
 // 🎞️ Animaciones reutilizables
 const fadeInItem = (i = 0) => ({
@@ -70,10 +86,16 @@ export default function CatalogoContent({
 }: CatalogoContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const categoriaParam = searchParams.get("categoria");
+  const categoriaParam = searchParams.get("categoria") || searchParams.get("category");
   const liveMatches = useLiveMatches();
-  const queryParam = searchParams.get("query");
-  const ligaParam = searchParams.get("liga");
+  const queryParam = searchParams.get("query") || searchParams.get("q");
+  const ligaParam = searchParams.get("liga") || searchParams.get("league");
+  const equipoParam = searchParams.get("equipo") || searchParams.get("team");
+  const marcaParam = searchParams.get("marca") || searchParams.get("brand");
+  const temporadaParam = searchParams.get("temporada") || searchParams.get("season");
+  const generoParam = searchParams.get("genero") || searchParams.get("gender");
+  const precioParam = searchParams.get("precio") || searchParams.get("price");
+  const ordenParam = (searchParams.get("orden") || searchParams.get("sortBy") || searchParams.get("sort")) as SortOption | null;
 
   // === ESTADOS ===
   const [productos, setProductos] = useState<Product[]>(initialProducts);
@@ -90,12 +112,17 @@ export default function CatalogoContent({
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(categoriaParam || null);
   // === Equipos por liga ===
   const [teams, setTeams] = useState<{ id: string; name: string; logo_url: string | null }[]>([]);
-  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string | null>(null);
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string | null>(equipoParam || null);
   // === Marcas por categoría ===
   const [categoryBrands, setCategoryBrands] = useState<Brand[]>([]);
-  const [marcaSeleccionada, setMarcaSeleccionada] = useState<string | null>(null);
+  const [marcaSeleccionada, setMarcaSeleccionada] = useState<string | null>(marcaParam || null);
   // === Filtros avanzados ===
-  const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
+  const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>({
+    gender: generoParam || null,
+    priceRange: precioParam || null,
+    season: temporadaParam || null,
+    sortBy: ordenParam || "relevance",
+  });
   const prefersReducedMotion = usePrefersReducedMotion();
   const toast = useToastMessage();
 
@@ -183,6 +210,48 @@ export default function CatalogoContent({
     return lObj;
   }, [ligas, ligaSeleccionada, ligaParam]);
 
+  // Helper para sincronizar el estado completo con la URL del navegador
+  const syncUrlWithFilters = useCallback((overrides?: {
+    categoria?: string | null;
+    liga?: string | null;
+    equipo?: string | null;
+    marca?: string | null;
+    temporada?: string | null;
+    genero?: string | null;
+    precio?: string | null;
+    orden?: string | null;
+    query?: string | null;
+  }) => {
+    const params = new URLSearchParams();
+
+    const cat = overrides && 'categoria' in overrides ? overrides.categoria : categoriaSeleccionada;
+    const lig = overrides && 'liga' in overrides ? overrides.liga : (selectedLeagueObj?.slug || ligaSeleccionada);
+    const eq = overrides && 'equipo' in overrides ? overrides.equipo : equipoSeleccionado;
+    const mar = overrides && 'marca' in overrides ? overrides.marca : marcaSeleccionada;
+    const temp = overrides && 'temporada' in overrides ? overrides.temporada : catalogFilters.season;
+    const gen = overrides && 'genero' in overrides ? overrides.genero : catalogFilters.gender;
+    const pr = overrides && 'precio' in overrides ? overrides.precio : catalogFilters.priceRange;
+    const ord = overrides && 'orden' in overrides ? overrides.orden : catalogFilters.sortBy;
+    const q = overrides && 'query' in overrides ? overrides.query : queryParam;
+
+    if (q) params.set("query", q);
+    if (cat) params.set("categoria", cat);
+    if (lig) params.set("liga", lig);
+    if (eq) params.set("equipo", eq);
+    if (mar) params.set("marca", mar);
+    if (temp) params.set("temporada", temp);
+    if (gen) params.set("genero", gen);
+    if (pr) params.set("precio", pr);
+    if (ord && ord !== "relevance") params.set("orden", ord);
+
+    const newQueryString = params.toString();
+    const currentQueryString = searchParams.toString();
+    if (newQueryString !== currentQueryString) {
+      const newPath = newQueryString ? `/catalogo?${newQueryString}` : "/catalogo";
+      router.replace(newPath, { scroll: false });
+    }
+  }, [router, searchParams, categoriaSeleccionada, selectedLeagueObj?.slug, ligaSeleccionada, equipoSeleccionado, marcaSeleccionada, catalogFilters, queryParam]);
+
   // Categorías que muestran filtro de género
   // Sin categoría (catálogo general) = mostrar género
   // Tenis, Streetwear = mostrar género
@@ -194,13 +263,33 @@ export default function CatalogoContent({
     return genderCategories.some(gc => slug.includes(gc));
   }, [categoriaSeleccionada]);
 
+  const [knownSeasons, setKnownSeasons] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (initialProducts && initialProducts.length > 0) {
+      const set = new Set<string>();
+      initialProducts.forEach(p => { if (p.season) set.add(p.season); });
+      setKnownSeasons(Array.from(set));
+    }
+  }, [initialProducts]);
+
+  useEffect(() => {
+    if (productos.length > 0) {
+      setKnownSeasons(prev => {
+        const set = new Set(prev);
+        productos.forEach(p => { if (p.season) set.add(p.season); });
+        return Array.from(set);
+      });
+    }
+  }, [productos]);
+
   const availableSeasons = useMemo(() => {
-    const seasons = new Set<string>();
+    const seasons = new Set<string>(knownSeasons);
     productos.forEach(p => {
       if (p.season) seasons.add(p.season);
     });
     return Array.from(seasons).sort((a, b) => extractSeasonYear(b) - extractSeasonYear(a));
-  }, [productos]);
+  }, [knownSeasons, productos]);
 
   // === CARGA DE PRODUCTOS (Server-Side Filtered & Paginated) ===
 
@@ -358,6 +447,8 @@ export default function CatalogoContent({
 
   return (
     <main className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden">
+      {/* 🔴 PARTIDO EN VIVO / MATCHDAY BANNER */}
+      <MatchdayHeaderBanner />
       {/* SEO: h1 visible para crawlers y screen readers */}
       <h1 className="sr-only">
         {selectedCategoryObj?.nombre || ligaSeleccionada
@@ -391,6 +482,12 @@ export default function CatalogoContent({
         onFiltersChange={(newFilters) => {
           setCatalogFilters(newFilters);
           shouldScrollOnFilter.current = false;
+          syncUrlWithFilters({
+            temporada: newFilters.season,
+            genero: newFilters.gender,
+            precio: newFilters.priceRange,
+            orden: newFilters.sortBy,
+          });
         }}
       />
 
@@ -413,8 +510,9 @@ export default function CatalogoContent({
                 setMarcaSeleccionada(newBrand);
                 setEquipoSeleccionado(null);
                 shouldScrollOnFilter.current = false;
+                syncUrlWithFilters({ marca: newBrand, equipo: null });
               } else {
-                // Selección de liga (comportamiento original)
+                // Selección de liga
                 const nuevaLiga = ligaSeleccionada === nombre ? null : nombre;
                 setLigaSeleccionada(nuevaLiga);
 
@@ -422,15 +520,8 @@ export default function CatalogoContent({
                   shouldScrollOnFilter.current = true;
                 }
 
-                const params = new URLSearchParams(searchParams.toString());
-                if (nuevaLiga) {
-                  const lObj = ligas.find(l => normalize(l.nombre) === normalize(nuevaLiga));
-                  params.set('liga', lObj?.slug || nuevaLiga);
-                } else {
-                  params.delete('liga');
-                }
-
-                router.replace(`/catalogo?${params.toString()}`, { scroll: false });
+                const lObj = ligas.find(l => normalize(l.nombre) === normalize(nuevaLiga));
+                syncUrlWithFilters({ liga: lObj?.slug || nuevaLiga || null, equipo: null, marca: null });
               }
             }}
           />
@@ -461,9 +552,11 @@ export default function CatalogoContent({
           teams={teams}
           selected={equipoSeleccionado}
           onSelect={(id) => {
-            setEquipoSeleccionado(id);
+            const newEq = equipoSeleccionado === id ? null : id;
+            setEquipoSeleccionado(newEq);
             setMarcaSeleccionada(null);
             shouldScrollOnFilter.current = false;
+            syncUrlWithFilters({ equipo: newEq, marca: null });
           }}
           leagueName={ligaSeleccionada ?? undefined}
         />
@@ -486,8 +579,10 @@ export default function CatalogoContent({
                 <button
                   key={brand.id}
                   onClick={() => {
-                    setMarcaSeleccionada(isSelected ? null : brand.id);
+                    const newBrand = marcaSeleccionada === brand.id ? null : brand.id;
+                    setMarcaSeleccionada(newBrand);
                     setEquipoSeleccionado(null);
+                    syncUrlWithFilters({ marca: newBrand, equipo: null });
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold whitespace-nowrap transition-all ${
                     isSelected
@@ -503,6 +598,191 @@ export default function CatalogoContent({
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* BARRA DE FILTROS ACTIVOS CON ELIMINACIÓN RÁPIDA (1-CLIC) */}
+      {Boolean(
+        queryParam ||
+        categoriaSeleccionada ||
+        ligaSeleccionada ||
+        equipoSeleccionado ||
+        marcaSeleccionada ||
+        catalogFilters.season ||
+        catalogFilters.gender ||
+        catalogFilters.priceRange ||
+        (catalogFilters.sortBy && catalogFilters.sortBy !== "relevance")
+      ) && (
+        <div className="max-w-7xl mx-auto px-4 mt-6 mb-2">
+          <div className="flex flex-wrap items-center gap-2 p-3.5 rounded-2xl bg-neutral-900/80 border border-white/10 backdrop-blur-xl">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gray-400 mr-2 shrink-0">
+              <Filter className="w-3.5 h-3.5 text-[#E50914]" />
+              <span>Filtros activos:</span>
+            </div>
+
+            {queryParam && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Búsqueda: &quot;{queryParam}&quot;</span>
+                <button
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.delete("query");
+                    params.delete("q");
+                    router.replace(params.toString() ? `/catalogo?${params.toString()}` : "/catalogo", { scroll: false });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar búsqueda"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {selectedCategoryObj && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Categoría: {selectedCategoryObj.nombre}</span>
+                <button
+                  onClick={() => {
+                    setCategoriaSeleccionada(null);
+                    syncUrlWithFilters({ categoria: null });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar filtro categoría"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {selectedLeagueObj && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Liga: {selectedLeagueObj.nombre}</span>
+                <button
+                  onClick={() => {
+                    setLigaSeleccionada(null);
+                    syncUrlWithFilters({ liga: null });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar filtro liga"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {equipoSeleccionado && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Equipo: {teams.find(t => t.id === equipoSeleccionado)?.name || equipoSeleccionado}</span>
+                <button
+                  onClick={() => {
+                    setEquipoSeleccionado(null);
+                    syncUrlWithFilters({ equipo: null });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar filtro equipo"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {marcaSeleccionada && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Marca: {categoryBrands.find(b => b.id === marcaSeleccionada)?.name || marcaSeleccionada}</span>
+                <button
+                  onClick={() => {
+                    setMarcaSeleccionada(null);
+                    syncUrlWithFilters({ marca: null });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar filtro marca"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {catalogFilters.season && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Temporada: {catalogFilters.season}</span>
+                <button
+                  onClick={() => {
+                    const newF = { ...catalogFilters, season: null };
+                    setCatalogFilters(newF);
+                    syncUrlWithFilters({ temporada: null });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar filtro temporada"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {catalogFilters.gender && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Género: {catalogFilters.gender === 'man' ? 'Hombre' : catalogFilters.gender === 'woman' ? 'Mujer' : 'Niños'}</span>
+                <button
+                  onClick={() => {
+                    const newF = { ...catalogFilters, gender: null };
+                    setCatalogFilters(newF);
+                    syncUrlWithFilters({ genero: null });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar filtro género"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {catalogFilters.priceRange && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Precio: {PRICE_LABEL_MAP[catalogFilters.priceRange] || catalogFilters.priceRange}</span>
+                <button
+                  onClick={() => {
+                    const newF = { ...catalogFilters, priceRange: null };
+                    setCatalogFilters(newF);
+                    syncUrlWithFilters({ precio: null });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar filtro precio"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {catalogFilters.sortBy !== "relevance" && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-white text-xs font-medium shadow-[0_0_10px_rgba(229,9,20,0.15)] animate-in fade-in zoom-in-95 duration-200">
+                <span>Orden: {SORT_LABEL_MAP[catalogFilters.sortBy] || catalogFilters.sortBy}</span>
+                <button
+                  onClick={() => {
+                    const newF = { ...catalogFilters, sortBy: "relevance" as const };
+                    setCatalogFilters(newF);
+                    syncUrlWithFilters({ orden: "relevance" });
+                  }}
+                  className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white"
+                  title="Eliminar orden"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            <button
+              onClick={() => {
+                setLigaSeleccionada(null);
+                setEquipoSeleccionado(null);
+                setMarcaSeleccionada(null);
+                setCatalogFilters(DEFAULT_FILTERS);
+                router.replace("/catalogo", { scroll: false });
+              }}
+              className="ml-auto text-xs font-bold text-[#E50914] hover:underline flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-[#E50914]/10 transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" /> Limpiar todos
+            </button>
           </div>
         </div>
       )}

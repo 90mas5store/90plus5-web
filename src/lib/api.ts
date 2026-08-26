@@ -598,6 +598,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     priceMin,
     priceMax,
     topSellerIds = [],
+    season = params.season,
   } = params;
 
   // 1️⃣ Revisar Caché (solo en el navegador — el servidor no puede limpiar este cache desde el cliente)
@@ -649,6 +650,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
 
       if (teamId) fuzzyQuery = fuzzyQuery.eq('team_id', teamId);
       if (brandId) fuzzyQuery = fuzzyQuery.eq('brand_id', brandId);
+      if (season) fuzzyQuery = fuzzyQuery.ilike('season', `%${season.trim()}%`);
 
       const { data: productsData, error: productsError } = await fuzzyQuery;
 
@@ -777,8 +779,13 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   if (genderFilterIds) {
     filteredMetadata = filteredMetadata.filter((item) => genderFilterIds!.has(item.id as string));
   }
-  if (params.season) {
-    filteredMetadata = filteredMetadata.filter((item) => (item.season as string) === params.season);
+  if (season) {
+    const targetSeason = season.trim().toLowerCase().replace(/[\/\-_]/g, '');
+    filteredMetadata = filteredMetadata.filter((item) => {
+      if (!item.season) return false;
+      const itemSeason = String(item.season).trim().toLowerCase().replace(/[\/\-_]/g, '');
+      return itemSeason === targetSeason || String(item.season).trim() === season.trim();
+    });
   }
 
   // 4. Ordenamiento en Memoria

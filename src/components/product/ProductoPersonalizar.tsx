@@ -11,7 +11,8 @@ import ProductImage from "@/components/ProductImage";
 import Button from "@/components/ui/MainButton";
 import { useCart } from "@/context/CartContext";
 import useToastMessage from "@/hooks/useToastMessage";
-import { ArrowLeft, ChevronLeft, ChevronRight, Shirt, CheckCircle2, Info, Share2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Shirt, CheckCircle2, Info, Share2, Ruler, Sparkles } from "lucide-react";
+import SizeRecommenderModal from "@/components/product/SizeRecommenderModal";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { ProductCustomizationSkeleton } from "@/components/skeletons/ProductSkeletons";
 import { usePrefetch } from "@/hooks/usePrefetch";
@@ -64,6 +65,7 @@ interface Product {
     allows_customization?: boolean;
     trending_until?: string | null;
     season?: string | null;
+    gender?: string | null;
 }
 
 interface ProductoPersonalizarProps {
@@ -116,6 +118,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
     const [versionSeleccionada, setVersionSeleccionada] = useState<{ id: string; label: string } | null>(null);
     const [tallaSeleccionada, setTallaSeleccionada] = useState<{ id: string; label: string; additional_cost?: number } | null>(null);
     const [parcheSeleccionado, setParcheSeleccionado] = useState<{ id: string; label: string } | null>(null);
+    const [showSizeRecommender, setShowSizeRecommender] = useState(false);
 
     const precioConRecargo = precioActual + (tallaSeleccionada?.additional_cost || 0);
 
@@ -1047,7 +1050,23 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                         {/* Opciones de Talla */}
                         {opciones?.tallas && opciones.tallas.length > 0 && (
                             <div className="space-y-2">
-                                <h3 className="text-sm font-semibold text-gray-300">Talla</h3>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-gray-300">Talla</h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowSizeRecommender(true)}
+                                        className="group relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-xs font-bold text-white hover:bg-[#E50914]/30 hover:border-[#E50914]/80 shadow-[0_0_12px_rgba(229,9,20,0.3)] hover:shadow-[0_0_18px_rgba(229,9,20,0.6)] transition-all duration-300 cursor-pointer overflow-hidden active:scale-95"
+                                    >
+                                        {/* Destello / Pulse Effect */}
+                                        <span className="absolute inset-0 rounded-full bg-[#E50914]/30 animate-ping opacity-30 pointer-events-none" />
+
+                                        <Ruler className="w-3.5 h-3.5 text-[#E50914] group-hover:rotate-12 transition-transform duration-300 shrink-0" />
+                                        <span className="relative z-10 bg-gradient-to-r from-white via-red-100 to-white bg-clip-text text-transparent group-hover:text-white transition-colors">
+                                            ¿Dudas con tu talla?
+                                        </span>
+                                        <Sparkles className="w-3.5 h-3.5 text-[#E50914] animate-pulse shrink-0" />
+                                    </button>
+                                </div>
                                 <div className="flex flex-wrap gap-2">
                                     {opciones.tallas
                                         .filter(t => {
@@ -1078,6 +1097,34 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
                                 </div>
                             </div>
                         )}
+
+                        {/* MODAL RECOMENDADOR INTELIGENTE DE TALLAS */}
+                        <SizeRecommenderModal
+                            isOpen={showSizeRecommender}
+                            onClose={() => setShowSizeRecommender(false)}
+                            productName={producto.modelo}
+                            categoryName={producto.liga}
+                            genderRaw={product.gender || (product as { gender?: string }).gender}
+                            brandName={producto.brands?.name || "Camisetas"}
+                            versionName={versionSeleccionada?.label || "Estándar"}
+                            availableSizes={(opciones?.tallas || [])
+                                .filter(t => {
+                                    if (!versionSeleccionada || !opciones?.variantSizesMap) return true;
+                                    const allowedSizes = opciones.variantSizesMap[versionSeleccionada.id];
+                                    return allowedSizes ? allowedSizes.includes(t.id) : true;
+                                })
+                                .map(t => t.label)
+                            }
+                            onSelectSize={(sizeLabel) => {
+                                const matchingTalla = opciones?.tallas?.find(
+                                    t => t.label.trim().toLowerCase() === sizeLabel.trim().toLowerCase()
+                                );
+                                if (matchingTalla) {
+                                    setTallaSeleccionada(matchingTalla);
+                                    toast.success(`Talla ${matchingTalla.label} seleccionada`);
+                                }
+                            }}
+                        />
 
                         {/* Opciones de Parche */}
                         {opciones?.parches && opciones.parches.length > 0 && (

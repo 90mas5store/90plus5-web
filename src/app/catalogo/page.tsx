@@ -78,10 +78,20 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   // 2. Parsear parámetros de búsqueda
   const params = await Promise.resolve(searchParams);
-  const { categoria, liga, query } = params || {};
-  const categoriaSlug = Array.isArray(categoria) ? categoria[0] : categoria;
-  const ligaParam = Array.isArray(liga) ? liga[0] : liga;
-  const searchTerm = Array.isArray(query) ? query[0] : query;
+  const getSingleParam = (key: string) => {
+    const val = params?.[key];
+    return Array.isArray(val) ? val[0] : val;
+  };
+
+  const categoriaSlug = getSingleParam("categoria") || getSingleParam("category");
+  const ligaParam = getSingleParam("liga") || getSingleParam("league");
+  const searchTerm = getSingleParam("query") || getSingleParam("q");
+  const temporadaParam = getSingleParam("temporada") || getSingleParam("season");
+  const generoParam = getSingleParam("genero") || getSingleParam("gender");
+  const precioParam = getSingleParam("precio") || getSingleParam("price");
+  const ordenParam = (getSingleParam("orden") || getSingleParam("sortBy") || getSingleParam("sort")) as import('../../components/catalogo/CatalogFilterPanel').SortOption | undefined;
+  const equipoParam = getSingleParam("equipo") || getSingleParam("team");
+  const marcaParam = getSingleParam("marca") || getSingleParam("brand");
 
   // 3. Resolver Slugs a IDs
   // Normalización simple para coincidir con la lógica del cliente
@@ -112,6 +122,15 @@ export default async function CatalogoPage({ searchParams }: Props) {
     if (lObj) leagueId = lObj.id;
   }
 
+  // Parsear precios si existen
+  let priceMin: number | undefined;
+  let priceMax: number | undefined;
+  if (precioParam) {
+    const [min, max] = precioParam.split("-").map(Number);
+    if (!isNaN(min)) priceMin = min;
+    if (!isNaN(max)) priceMax = max;
+  }
+
   // 4. Fetch inicial de productos (SSR) + top sellers en paralelo
   let initialProducts: import('@/lib/types').Product[] = [];
   let initialTotal = 0;
@@ -124,6 +143,13 @@ export default async function CatalogoPage({ searchParams }: Props) {
       query: searchTerm,
       categoryId,
       leagueId,
+      teamId: equipoParam,
+      brandId: marcaParam,
+      gender: generoParam,
+      season: temporadaParam,
+      sortBy: ordenParam,
+      priceMin,
+      priceMax,
     }).catch((err) => { console.error("Error fetching catalog:", err); return { data: [], count: 0 }; }),
     // Query top 5 products by sales in last 30 days
     (async () => {

@@ -8,6 +8,7 @@ export interface LiveMatchData {
     awayScore: number;
     minute: number | null;
     isHome: boolean; // true = nuestro equipo es local
+    isManual?: boolean;
 }
 
 const POLL_INTERVAL = 2 * 60 * 1000; // 2 min
