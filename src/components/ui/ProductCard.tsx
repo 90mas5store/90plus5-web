@@ -113,7 +113,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-primary text-white shadow-[0_0_10px_rgba(229,9,20,0.6)] animate-pulse">
                                 ⚡ EN VIVO
                             </span>
-                            {shortOpponent && (
+                            {shortOpponent && liveMatch && !liveMatch.isManual && (
                                 <span className="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold bg-black/70 text-white border border-white/20 whitespace-nowrap">
                                     vs {shortOpponent} · {ourScore}-{theirScore}
                                 </span>
