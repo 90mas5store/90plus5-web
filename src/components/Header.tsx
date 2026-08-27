@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { usePrefersReducedMotion } from "../hooks/useOptimization";
 import { Category } from "@/lib/types";
 import SearchBar, { SearchTrigger } from "./ui/SearchBar";
+import MatchdayHeaderBanner from "./ui/MatchdayHeaderBanner";
 
 // ─────────────────────────────────────────────
 // LinkItem — reutilizado en desktop y tablet
@@ -285,6 +286,7 @@ export default function Header() {
                 ? "bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
                 : "bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5"
             }`}>
+                <MatchdayHeaderBanner />
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <div className="flex items-center justify-between h-16 md:h-[70px]">
 

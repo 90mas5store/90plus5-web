@@ -12,12 +12,13 @@ import { useCart } from "@/context/CartContext";
 import { Product, Config, Category, SpecialBanner } from "@/lib/types";
 import useToastMessage from "@/hooks/useToastMessage";
 import ProductCard from "./ui/ProductCard";
-import { useLiveMatches } from "@/hooks/useLiveMatches";
+import { useLiveMatchesData } from "@/hooks/useLiveMatches";
 import { usePrefetch, useProductPrefetch } from "@/hooks/usePrefetch";
 import { usePrefersReducedMotion } from "@/hooks/useOptimization";
 import SpecialEventBanner from "./ui/SpecialEventBanner";
 import HomeBannerContainer from "./HomeBannerContainer";
 import MatchdayHeaderBanner from "./ui/MatchdayHeaderBanner";
+import MatchdayHeroTakeover from "./home/MatchdayHeroTakeover";
 
 // 🏗️ Carga dinámica de componentes pesados
 const CarruselDeCategoria = dynamic(() => import("./catalogo/CarruselDeCategoria"), {
@@ -50,7 +51,7 @@ export default function HomeClient({
 }: HomeClientProps) {
     const router = useRouter();
     usePrefetch();
-    const liveMatches = useLiveMatches();
+    const { matches: liveMatches, isLoaded: liveMatchesLoaded } = useLiveMatchesData();
 
     // State initialization with props
     const [destacados] = useState<Product[]>(initialDestacados || []);
@@ -103,12 +104,13 @@ export default function HomeClient({
 
     return (
         <main className="bg-background text-textLight min-h-dvh relative overflow-hidden">
-            {/* 🔴 PARTIDO EN VIVO / MATCHDAY BANNER */}
-            <MatchdayHeaderBanner />
-
-            {/* 🏟️ HERO */}
+            {/* 🏟️ HERO TAKEOVER (PARTIDOS EN VIVO) O HERO TRADICIONAL */}
             <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>
-            <HomeBannerContainer initialBanners={banners} />
+            {liveMatchesLoaded && Object.keys(liveMatches).length > 0 ? (
+                <MatchdayHeroTakeover />
+            ) : (
+                <HomeBannerContainer initialBanners={banners} />
+            )}
 
 
             {/* 🏆 EVENTO ESPECIAL (MUNDIAL) */}

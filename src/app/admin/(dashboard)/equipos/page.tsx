@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Edit, Trash2, Search, X, Save, Loader2, Shield, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, X, Save, Loader2, Shield, ChevronLeft, ChevronRight, Flame, Trophy } from 'lucide-react'
 import Image from 'next/image'
 import useToastMessage from '@/hooks/useToastMessage'
 import { useAdminRole } from '@/hooks/useAdminRole'
@@ -21,28 +21,13 @@ interface Team {
     league_id?: string
     is_national_team: boolean
     active: boolean
-    football_data_id?: number | null
     is_matchday_active?: boolean
+    matchday_opponent?: string | null
+    matchday_score?: string | null
+    matchday_period?: string | null
     // Join
     leagues?: { name: string }
 }
-
-const POPULAR_FOOTBALL_DATA_CLUBS = [
-    { name: 'Real Madrid (ID: 86)', id: 86 },
-    { name: 'FC Barcelona (ID: 81)', id: 81 },
-    { name: 'Atlético de Madrid (ID: 78)', id: 78 },
-    { name: 'Manchester City (ID: 65)', id: 65 },
-    { name: 'Arsenal FC (ID: 57)', id: 57 },
-    { name: 'Liverpool FC (ID: 64)', id: 64 },
-    { name: 'Manchester United (ID: 66)', id: 66 },
-    { name: 'Chelsea FC (ID: 61)', id: 61 },
-    { name: 'Bayern München (ID: 5)', id: 5 },
-    { name: 'Borussia Dortmund (ID: 4)', id: 4 },
-    { name: 'Paris Saint-Germain (ID: 524)', id: 524 },
-    { name: 'Juventus (ID: 109)', id: 109 },
-    { name: 'Inter Milan (ID: 108)', id: 108 },
-    { name: 'AC Milan (ID: 98)', id: 98 },
-]
 
 interface League {
     id: string
@@ -56,17 +41,29 @@ export default function TeamsPage() {
     const { isSuperAdmin } = useAdminRole()
 
     const [teams, setTeams] = useState<Team[]>([])
+    const [allTeamsList, setAllTeamsList] = useState<Team[]>([])
     const [leagues, setLeagues] = useState<League[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
     const [totalCount, setTotalCount] = useState(0)
 
-    // Modal State
+    // Modal de Edición de Equipo
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingTeam, setEditingTeam] = useState<Team | null>(null)
     const [saving, setSaving] = useState(false)
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+
+    // Modal Dedicado de Matchday Manual
+    const [matchdayModalTeam, setMatchdayModalTeam] = useState<Team | null>(null)
+    const [matchdayConfig, setMatchdayConfig] = useState({
+        is_matchday_active: true,
+        opponent_selection: '', // team id o 'custom'
+        opponent_custom_name: '',
+        score_home: '0',
+        score_away: '0',
+        period: 'En Vivo',
+    })
 
     const [formData, setFormData] = useState({
         name: '',
@@ -76,7 +73,6 @@ export default function TeamsPage() {
         league_id: '',
         is_national_team: false,
         active: true,
-        football_data_id: '' as string | number,
         is_matchday_active: false,
     })
 
@@ -103,26 +99,18 @@ export default function TeamsPage() {
         }
     }, [page])
 
-    const handleToggleMatchday = async (team: Team) => {
-        const nextState = !team.is_matchday_active;
+    const fetchAllTeamsForDropdown = useCallback(async () => {
         try {
-            const { error } = await supabase
+            const { data } = await supabase
                 .from('teams')
-                .update({ is_matchday_active: nextState })
-                .eq('id', team.id);
-            if (error) {
-                if (error.message?.includes('is_matchday_active') || error.code === 'PGRST204') {
-                    toast.error('Falta la columna "is_matchday_active" en Supabase. Ejecuta la consulta SQL provista.');
-                    return;
-                }
-                throw error;
-            }
-            toast.success(nextState ? `🔴 Matchday activado para ${team.name}` : `Matchday desactivado para ${team.name}`);
-            setTeams(prev => prev.map(t => t.id === team.id ? { ...t, is_matchday_active: nextState } : t));
-        } catch (e: any) {
-            toast.error(`Error: ${e.message}`);
+                .select('id, name, logo_url')
+                .is('deleted_at', null)
+                .order('name', { ascending: true })
+            if (data) setAllTeamsList(data)
+        } catch (e) {
+            console.warn('Error fetching all teams:', e)
         }
-    };
+    }, [])
 
     const fetchLeagues = useCallback(async () => {
         const { data } = await supabase.from('leagues').select('id, name').order('name')
@@ -131,8 +119,9 @@ export default function TeamsPage() {
 
     useEffect(() => {
         fetchTeams()
+        fetchAllTeamsForDropdown()
         fetchLeagues()
-    }, [fetchTeams, fetchLeagues])
+    }, [fetchTeams, fetchAllTeamsForDropdown, fetchLeagues])
 
     useEffect(() => {
         if (editingTeam) {
@@ -144,7 +133,6 @@ export default function TeamsPage() {
                 league_id: editingTeam.league_id || '',
                 is_national_team: editingTeam.is_national_team,
                 active: editingTeam.active,
-                football_data_id: editingTeam.football_data_id ?? '',
                 is_matchday_active: !!editingTeam.is_matchday_active,
             })
         } else {
@@ -156,7 +144,6 @@ export default function TeamsPage() {
                 league_id: '',
                 is_national_team: false,
                 active: true,
-                football_data_id: '',
                 is_matchday_active: false,
             })
         }
@@ -170,7 +157,6 @@ export default function TeamsPage() {
 
         setSaving(true)
         try {
-            const fdId = formData.football_data_id === '' ? null : Number(formData.football_data_id)
             const payload = {
                 name: formData.name,
                 slug: formData.slug,
@@ -179,12 +165,10 @@ export default function TeamsPage() {
                 league_id: formData.league_id || null,
                 is_national_team: formData.is_national_team,
                 active: formData.active,
-                football_data_id: fdId && !isNaN(fdId) ? fdId : null,
                 is_matchday_active: formData.is_matchday_active,
             }
 
             if (editingTeam) {
-                // Update
                 const { error } = await supabase
                     .from('teams')
                     .update(payload)
@@ -192,7 +176,6 @@ export default function TeamsPage() {
                 if (error) throw error
                 toast.success('Equipo actualizado')
             } else {
-                // Create
                 const { error } = await supabase
                     .from('teams')
                     .insert(payload)
@@ -212,7 +195,98 @@ export default function TeamsPage() {
         }
     }
 
+    // Abrir Modal de Configuración Matchday Manual
+    const openMatchdayModal = (team: Team) => {
+        setMatchdayModalTeam(team)
 
+        let opponentSel = ''
+        let customName = ''
+        if (team.matchday_opponent) {
+            const matchInList = allTeamsList.find(t => t.name.toLowerCase() === team.matchday_opponent?.toLowerCase())
+            if (matchInList) {
+                opponentSel = matchInList.id
+            } else {
+                opponentSel = 'custom'
+                customName = team.matchday_opponent
+            }
+        }
+
+        let scoreH = '0'
+        let scoreA = '0'
+        if (team.matchday_score && team.matchday_score.includes('-')) {
+            const parts = team.matchday_score.split('-').map(s => s.trim())
+            scoreH = parts[0] || '0'
+            scoreA = parts[1] || '0'
+        }
+
+        setMatchdayConfig({
+            is_matchday_active: team.is_matchday_active ?? true,
+            opponent_selection: opponentSel,
+            opponent_custom_name: customName,
+            score_home: scoreH,
+            score_away: scoreA,
+            period: team.matchday_period || 'En Vivo',
+        })
+    }
+
+    // Guardar Configuración Matchday Manual
+    const handleSaveMatchdayConfig = async () => {
+        if (!matchdayModalTeam) return;
+
+        let opponentFinalName = ''
+        if (matchdayConfig.opponent_selection === 'custom') {
+            opponentFinalName = matchdayConfig.opponent_custom_name.trim() || 'Rival'
+        } else if (matchdayConfig.opponent_selection) {
+            const found = allTeamsList.find(t => t.id === matchdayConfig.opponent_selection)
+            opponentFinalName = found ? found.name : 'Rival'
+        } else {
+            opponentFinalName = 'Rival'
+        }
+
+        const scoreFinalStr = `${matchdayConfig.score_home || '0'} - ${matchdayConfig.score_away || '0'}`
+
+        setSaving(true)
+        try {
+            await fetch('/api/admin/matchday-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    teamId: matchdayModalTeam.id,
+                    is_matchday_active: matchdayConfig.is_matchday_active,
+                    matchday_opponent: opponentFinalName,
+                    matchday_score: scoreFinalStr,
+                    matchday_period: matchdayConfig.period,
+                }),
+            });
+
+            toast.success(
+                matchdayConfig.is_matchday_active
+                    ? `🔴 Matchday configurado para ${matchdayModalTeam.name}`
+                    : `Matchday desactivado para ${matchdayModalTeam.name}`
+            )
+
+            setTeams(prev =>
+                prev.map(t =>
+                    t.id === matchdayModalTeam.id
+                        ? {
+                              ...t,
+                              is_matchday_active: matchdayConfig.is_matchday_active,
+                              matchday_opponent: opponentFinalName,
+                              matchday_score: scoreFinalStr,
+                              matchday_period: matchdayConfig.period,
+                          }
+                        : t
+                )
+            )
+
+            setMatchdayModalTeam(null)
+        } catch (e: any) {
+            console.error('Error saving matchday config:', e)
+            toast.error(`Error: ${e.message}`)
+        } finally {
+            setSaving(false)
+        }
+    }
 
     const handleDelete = (id: string) => setDeleteTarget(id)
 
@@ -246,7 +320,7 @@ export default function TeamsPage() {
                         Equipos
                     </h1>
                     <p className="text-gray-400 mt-1 md:mt-2 text-sm">
-                        Gestiona los equipos de fútbol (ej: Real Madrid, Barcelona).
+                        Gestiona los equipos de fútbol y configura partidos manuales en vivo.
                     </p>
                 </div>
 
@@ -339,8 +413,8 @@ export default function TeamsPage() {
                                         <td className="py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
-                                                    onClick={() => handleToggleMatchday(team)}
-                                                    title={team.is_matchday_active ? "Partido en Vivo activo (Clic para desactivar)" : "Activar Partido en Vivo (Matchday)"}
+                                                    onClick={() => openMatchdayModal(team)}
+                                                    title={team.is_matchday_active ? "Partido en Vivo activo (Clic para configurar)" : "Activar Partido en Vivo (Matchday)"}
                                                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                                                         team.is_matchday_active
                                                             ? 'bg-[#E50914] text-white shadow-[0_0_12px_rgba(229,9,20,0.5)] animate-pulse'
@@ -409,7 +483,7 @@ export default function TeamsPage() {
                 )}
             </div>
 
-            {/* Modal */}
+            {/* MODAL DE EDICIÓN Y CREACIÓN DE EQUIPO */}
             <AnimatePresence>
                 {isModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -517,55 +591,6 @@ export default function TeamsPage() {
                                             </select>
                                         </div>
                                     </div>
-
-                                    {/* Matchday Manual Toggle */}
-                                    <div className="p-4 rounded-xl bg-[#E50914]/10 border border-[#E50914]/30">
-                                        <label className="flex items-center gap-3 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.is_matchday_active}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, is_matchday_active: e.target.checked }))}
-                                                className="w-5 h-5 rounded border border-[#E50914] text-[#E50914] focus:ring-[#E50914]"
-                                            />
-                                            <div>
-                                                <span className="text-sm font-bold text-white select-none block">🔴 Activar Partido en Vivo (Matchday Manual)</span>
-                                                <span className="text-[11px] text-gray-400 font-normal">Destaca las camisetas del equipo con aviso de partido en curso y promoción especial.</span>
-                                            </div>
-                                        </label>
-                                    </div>
-
-                                    <div>
-                                        <label className="text-xs font-bold uppercase text-gray-400 mb-1 block tracking-wider">
-                                            ID football-data.org
-                                            <span className="normal-case text-gray-400 font-normal ml-1">(para marcador EN VIVO automático)</span>
-                                        </label>
-
-                                        {/* Dropdown de sugerencias de clubes internacionales populares */}
-                                        <select
-                                            onChange={(e) => {
-                                                if (e.target.value) {
-                                                    setFormData(prev => ({ ...prev, football_data_id: e.target.value }));
-                                                }
-                                            }}
-                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-2.5 text-xs text-gray-300 focus:border-primary outline-none mb-2"
-                                        >
-                                            <option value="">-- Seleccionar club europeo popular (opcional) --</option>
-                                            {POPULAR_FOOTBALL_DATA_CLUBS.map(club => (
-                                                <option key={club.id} value={club.id}>{club.name}</option>
-                                            ))}
-                                        </select>
-
-                                        <input
-                                            type="number"
-                                            value={formData.football_data_id}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, football_data_id: e.target.value }))}
-                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none font-mono text-sm"
-                                            placeholder="Ej: 86 (Real Madrid)"
-                                        />
-                                        <p className="text-[11px] text-gray-500 mt-1">
-                                            Ingresa el ID numérico oficial o selecciona una sugerencia arriba · Dejar vacío si es equipo local/nacional.
-                                        </p>
-                                    </div>
                                 </div>
                             </div>
 
@@ -587,6 +612,154 @@ export default function TeamsPage() {
                                 </button>
                             </div>
 
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* MODAL DEDICADO DE CONFIGURACIÓN MATCHDAY MANUAL */}
+            <AnimatePresence>
+                {matchdayModalTeam && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="absolute inset-0" onClick={() => setMatchdayModalTeam(null)} />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-[#111] border border-red-500/30 rounded-3xl w-full max-w-xl shadow-2xl relative overflow-hidden flex flex-col"
+                        >
+                            {/* Modal Header */}
+                            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-red-950/40 via-black to-red-950/40">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center">
+                                        <Flame className="w-5 h-5 text-red-500 fill-red-500" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-black text-white">Configurar Matchday Manual</h2>
+                                        <p className="text-xs text-gray-400 font-medium">Equipo: {matchdayModalTeam.name}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setMatchdayModalTeam(null)} className="text-gray-400 hover:text-white">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-6 space-y-6 overflow-y-auto">
+                                {/* Switch Estado Matchday */}
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+                                    <div>
+                                        <span className="text-sm font-bold text-white block">🔴 Activar Partido en Vivo</span>
+                                        <span className="text-xs text-gray-400 font-normal">Destaca las camisetas con aviso de partido en curso y cupón MATCHDAY</span>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={matchdayConfig.is_matchday_active}
+                                        onChange={(e) => setMatchdayConfig(prev => ({ ...prev, is_matchday_active: e.target.checked }))}
+                                        className="w-6 h-6 rounded border border-red-500 text-red-600 focus:ring-red-500 cursor-pointer"
+                                    />
+                                </div>
+
+                                {/* Selección de Rival */}
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-gray-400 mb-2 block tracking-wider">
+                                        Seleccionar Rival del Partido
+                                    </label>
+                                    <select
+                                        value={matchdayConfig.opponent_selection}
+                                        onChange={(e) => setMatchdayConfig(prev => ({ ...prev, opponent_selection: e.target.value }))}
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-red-500 outline-none text-sm"
+                                    >
+                                        <option value="">-- Seleccionar Equipo Rival de la Tienda --</option>
+                                        {allTeamsList
+                                            .filter(t => t.id !== matchdayModalTeam.id)
+                                            .map(t => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.name}
+                                                </option>
+                                            ))}
+                                        <option value="custom">✍️ Otro (Escribir nombre manualmente)</option>
+                                    </select>
+
+                                    {matchdayConfig.opponent_selection === 'custom' && (
+                                        <div className="mt-3">
+                                            <input
+                                                type="text"
+                                                value={matchdayConfig.opponent_custom_name}
+                                                onChange={(e) => setMatchdayConfig(prev => ({ ...prev, opponent_custom_name: e.target.value }))}
+                                                className="w-full bg-black/50 border border-red-500/50 rounded-xl p-3 text-white focus:border-red-500 outline-none text-sm"
+                                                placeholder="Escribe el nombre del rival (ej. Selección de Honduras)"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Marcador Manual */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold uppercase text-gray-400 mb-2 block tracking-wider truncate">
+                                            Goles {matchdayModalTeam.name}
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="99"
+                                            value={matchdayConfig.score_home}
+                                            onChange={(e) => setMatchdayConfig(prev => ({ ...prev, score_home: e.target.value }))}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white text-center font-mono font-bold text-lg focus:border-red-500 outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold uppercase text-gray-400 mb-2 block tracking-wider">
+                                            Goles Rival
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="99"
+                                            value={matchdayConfig.score_away}
+                                            onChange={(e) => setMatchdayConfig(prev => ({ ...prev, score_away: e.target.value }))}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white text-center font-mono font-bold text-lg focus:border-red-500 outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Tiempo / Estado del Partido (No Minutos) */}
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-gray-400 mb-2 block tracking-wider">
+                                        Tiempo / Estado del Partido
+                                    </label>
+                                    <select
+                                        value={matchdayConfig.period}
+                                        onChange={(e) => setMatchdayConfig(prev => ({ ...prev, period: e.target.value }))}
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-red-500 outline-none text-sm"
+                                    >
+                                        <option value="En Vivo">🔴 En Vivo</option>
+                                        <option value="1er Tiempo">⏱️ 1er Tiempo</option>
+                                        <option value="2do Tiempo">⏱️ 2do Tiempo</option>
+                                        <option value="Tiempo Extra">⏱️ Tiempo Extra</option>
+                                        <option value="Finalizado">🏆 Finalizado (Resultado Final)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="p-6 border-t border-white/10 bg-black/30 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setMatchdayModalTeam(null)}
+                                    className="px-4 py-2 rounded-xl text-gray-400 font-bold hover:bg-white/5 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleSaveMatchdayConfig}
+                                    disabled={saving}
+                                    className="bg-[#E50914] hover:bg-red-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-red-950"
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    Guardar Matchday
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 )}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { getAllManualMatchdayConfigs } from '@/lib/matchdayStore';
 
 import { discountValidateSchema } from '@/lib/validations';
 
@@ -52,17 +53,62 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ valid: false, message: 'Código de descuento inválido o inactivo' });
         }
 
-        // 2. Verificar expiración
-        if (dc.expires_at && new Date(dc.expires_at) < new Date()) {
+        // 2. Condicionante MATCHDAY: Verificar partidos y equipos jugando actualmente
+        const playingTeamIds = new Set<string>();
+
+        if (code.toUpperCase().trim() === 'MATCHDAY') {
+            // Obtenemos todos los equipos con matchday activo de Supabase
+            const { data: dbTeams } = await supabase
+                .from('teams')
+                .select('id, name, is_matchday_active, matchday_opponent');
+
+            const allTeamsData = dbTeams ?? [];
+            const nameToIdMap = new Map<string, string>();
+            for (const t of allTeamsData) {
+                nameToIdMap.set(t.name.toLowerCase().trim(), t.id);
+            }
+
+            const manualConfigs = getAllManualMatchdayConfigs();
+
+            for (const team of allTeamsData) {
+                const manualCfg = manualConfigs.get(team.id);
+                const isActive = team.is_matchday_active || manualCfg?.is_matchday_active;
+
+                if (isActive) {
+                    // Nuestro equipo jugando
+                    playingTeamIds.add(team.id);
+
+                    // Rival si también está en nuestro catálogo
+                    const opponentName = manualCfg?.matchday_opponent || team.matchday_opponent;
+                    if (opponentName) {
+                        const rivalId = nameToIdMap.get(opponentName.toLowerCase().trim());
+                        if (rivalId) {
+                            playingTeamIds.add(rivalId);
+                        }
+                    }
+                }
+            }
+
+            if (playingTeamIds.size === 0) {
+                return NextResponse.json({
+                    valid: false,
+                    message: 'El cupón MATCHDAY solo se puede utilizar mientras haya un partido en vivo o Matchday activo.',
+                });
+            }
+        }
+
+        // 3. Verificar expiración
+        const now = new Date();
+        if (dc.expires_at && new Date(dc.expires_at) < now) {
             return NextResponse.json({ valid: false, message: 'Este código de descuento ha expirado' });
         }
 
-        // 3. Verificar usos disponibles
+        // 4. Verificar usos disponibles
         if (dc.max_uses !== null && dc.used_count >= dc.max_uses) {
             return NextResponse.json({ valid: false, message: 'Este código ha alcanzado su límite de usos' });
         }
 
-        // 4. Verificar que el email no haya usado este código
+        // 5. Verificar que el email no haya usado este código
         const { data: usageRow } = await supabase
             .from('discount_code_usage')
             .select('id')
@@ -74,7 +120,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ valid: false, message: 'Ya has utilizado este código de descuento' });
         }
 
-        // 5. Fetch info de productos y variantes
+        // 6. Fetch info de productos y variantes
         const productIds = [...new Set(items.map(i => i.product_id))];
         const variantIds = [...new Set(items.map(i => i.variant_id))];
 
@@ -111,7 +157,9 @@ export async function POST(request: NextRequest) {
         const leagueScope: string[] = dc.league_ids ?? [];
         const teamScope: string[] = dc.team_ids ?? [];
 
-        // 6. Calcular descuento sobre ítems elegibles
+        const isMatchdayCoupon = code.toUpperCase().trim() === 'MATCHDAY';
+
+        // 7. Calcular descuento sobre ítems elegibles
         let eligibleSubtotal = 0;
 
         for (const item of items) {
@@ -128,7 +176,11 @@ export async function POST(request: NextRequest) {
             const matchesTeam =
                 teamScope.length === 0 || teamScope.includes(product.team_id);
 
-            if (matchesCategory && matchesLeague && matchesTeam) {
+            // Regla estricta para MATCHDAY: el producto debe pertenecer a un equipo que esté jugando en vivo actualmente
+            const matchesMatchdayTeam =
+                !isMatchdayCoupon || (product.team_id && playingTeamIds.has(product.team_id));
+
+            if (matchesCategory && matchesLeague && matchesTeam && matchesMatchdayTeam) {
                 eligibleSubtotal += variant.price * item.quantity;
             }
         }
@@ -138,7 +190,9 @@ export async function POST(request: NextRequest) {
         if (discountAmount <= 0) {
             return NextResponse.json({
                 valid: false,
-                message: 'Este código no aplica a los productos en tu carrito',
+                message: isMatchdayCoupon
+                    ? 'El cupón MATCHDAY solo aplica para las camisetas de los equipos que están jugando en vivo actualmente.'
+                    : 'Este código no aplica a los productos en tu carrito',
             });
         }
 

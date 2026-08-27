@@ -721,7 +721,7 @@ export default function ProductoPersonalizar({ product, breadcrumb, initialRelat
         <motion.main
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className={`min-h-dvh text-white pt-24 pb-20 px-4 md:px-8 relative overflow-hidden bg-gradient-to-b ${getAuraColors(producto.liga)}`}
+            className={`min-h-dvh text-white pt-32 md:pt-36 pb-20 px-4 md:px-8 relative overflow-hidden bg-gradient-to-b ${getAuraColors(producto.liga)}`}
         >
             <HeatmapBackground liga={producto.liga} opacity={0.1} />
 

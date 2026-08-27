@@ -273,13 +273,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             const proxyUrl = new URL('/proxytown/googletagmanager' + url.pathname + url.search, location.href);
                             return proxyUrl;
                         }
-                        if (url.hostname === 'connect.facebook.net') {
-                            const proxyUrl = new URL('/proxytown/facebook' + url.pathname + url.search, location.href);
-                            return proxyUrl;
-                        }
                         return url;
                     }}
                 />
+                {/* ⚡ Optimización de conexiones a CDNs (Supabase, ESPN) */}
+                <link rel="preconnect" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
+                <link rel="dns-prefetch" href="https://fhvxolslqrrkefsvbcrq.supabase.co" />
+                <link rel="dns-prefetch" href="https://a.espncdn.com" />
             </head>
             <body className="bg-background text-textLight antialiased relative overflow-x-hidden">
                 {/* 💫 Overlay global */}

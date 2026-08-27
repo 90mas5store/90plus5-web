@@ -447,8 +447,6 @@ export default function CatalogoContent({
 
   return (
     <main className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden">
-      {/* 🔴 PARTIDO EN VIVO / MATCHDAY BANNER */}
-      <MatchdayHeaderBanner />
       {/* SEO: h1 visible para crawlers y screen readers */}
       <h1 className="sr-only">
         {selectedCategoryObj?.nombre || ligaSeleccionada
