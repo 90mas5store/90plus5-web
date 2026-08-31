@@ -11,8 +11,12 @@ export interface LiveMatchData {
     isManual?: boolean;
     leagueName?: string | null;
     isFinished?: boolean;
+    isUpcoming?: boolean;
+    startTime?: string | null;
     homeLogo?: string | null;
     awayLogo?: string | null;
+    hasHomeTeamInDb?: boolean;
+    hasAwayTeamInDb?: boolean;
 }
 
 const POLL_INTERVAL = 15 * 1000; // 15 segundos (actualización en tiempo real para cliente)

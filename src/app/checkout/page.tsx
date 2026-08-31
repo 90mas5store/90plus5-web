@@ -1,434 +1,201 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "@/lib/motion";
-import Image from "next/image";
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
+import useToastMessage from '@/hooks/useToastMessage';
+import { calcShippingCost, BUSINESS_LOGIC } from '@/lib/constants';
 import {
-    ChevronRight,
-    MapPin,
-    CreditCard,
-    Building2,
-    CheckCircle2,
-    AlertCircle,
-    ArrowLeft,
-    ShoppingBag,
-    User,
-    Mail,
-    Phone,
-    Truck,
-    Tag,
-    Loader2,
-    X,
-    ExternalLink,
-    DollarSign,
-} from "lucide-react";
-import MainButton from "../../components/ui/MainButton";
-import { useCart } from "../../context/CartContext";
-import useToastMessage from "../../hooks/useToastMessage";
-import { getShippingZones } from "../../lib/api";
-import { ShippingZone } from "../../lib/types";
-import { BUSINESS_LOGIC, calcShippingCost } from "../../lib/constants";
-import { PAYMENT_METHODS_FALLBACK, PaymentMethodConfig, DEFAULT_BANK_ACCOUNTS, BankAccountRecord } from "@/lib/config/banks";
-
-// 📝 Interfaces
-interface FormData {
-    nombre: string;
-    correo: string;
-    telefono: string;
-    direccion: string;
-    departamento: string;
-    municipio: string;
-    description?: string; // Honeypot field (hidden)
-}
-
-interface FormErrors {
-    nombre?: boolean;
-    correo?: boolean;
-    telefono?: boolean;
-    direccion?: boolean;
-    departamento?: boolean;
-    municipio?: boolean;
-    metodoPago?: boolean;
-}
-
-
-
-// Interface para el payload de la orden (alineado con backend)
-interface CreateOrderPayload {
-    customer_name: string;
-    customer_email: string;
-    customer_phone: string;
-    shipping_department: string;
-    shipping_municipality: string;
-    shipping_address: string;
-    payment_method: string;
-    items: Array<{
-        product_id: string;
-        variant_id: string | null;
-        size_id: string | null;
-        patch_id: string | null;
-        quantity: number;
-        unit_price: number;
-        personalization_type: 'none' | 'player' | 'custom';
-        player_id: string | null; // UUID
-        custom_number: number | null;
-        custom_name: string | null;
-    }>;
-    discount_code?: string;
-    _honey?: string; // Honeypot
-    idempotency_key?: string;
-}
-
-interface DiscountState {
-    pct: number;
-    amount: number;
-    scopeDesc: string;
-}
-
-interface OrderResponse {
-    success: boolean;
-    order_id?: string;
-    order_number?: string;
-    total: number;
-    deposit: number;
-    shipping: number;
-    payment_id?: string;
-    error?: string;
-}
-
-// Interface manual para el hook JS
-interface ToastHook {
-    success: (msg: string) => void;
-    error: (msg: string) => void;
-    info: (msg: string) => void;
-    warning: (msg: string) => void;
-    celebrate: (msg: string) => void;
-    location: (msg: string) => void;
-    dismiss: (id?: string) => void;
-    loading: (msg: string) => void;
-}
+    PAYMENT_METHODS_FALLBACK,
+    PaymentMethodConfig,
+    DEFAULT_BANK_ACCOUNTS,
+    BankAccountRecord,
+} from '@/lib/config/banks';
+import { CreateOrderPayload, ToastHook } from '@/types/checkout';
+import { useCheckoutForm } from '@/hooks/useCheckoutForm';
+import { useDiscountCoupon } from '@/hooks/useDiscountCoupon';
+import EmptyCartState from '@/components/checkout/EmptyCartState';
+import PersonalInfoSection from '@/components/checkout/PersonalInfoSection';
+import ShippingDetailsSection from '@/components/checkout/ShippingDetailsSection';
+import PaymentMethodSection from '@/components/checkout/PaymentMethodSection';
+import OrderSummarySidebar from '@/components/checkout/OrderSummarySidebar';
 
 export default function CheckoutPage() {
     const router = useRouter();
     const { items, total, clearCart } = useCart();
     const toastMsg = useToastMessage() as ToastHook;
 
-    const [formData, setFormData] = useState<FormData>({
-        nombre: "",
-        correo: "",
-        telefono: "",
-        direccion: "",
-        departamento: "",
-        municipio: "",
-        description: "", // Init honeypot
-    });
+    const {
+        formData,
+        errores,
+        uniqueDepartments,
+        municipalities,
+        handleChange,
+        handleDepartmentChange,
+        handleBlur,
+        validateForm,
+        detectLocation,
+    } = useCheckoutForm(toastMsg);
 
-    const [metodoPago, setMetodoPago] = useState("");
+    const {
+        discountCode,
+        setDiscountCode,
+        discountState,
+        discountLoading,
+        discountError,
+        setDiscountError,
+        applyDiscount,
+        removeDiscount,
+    } = useDiscountCoupon();
+
+    const [metodoPago, setMetodoPago] = useState('');
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethodConfig[]>(PAYMENT_METHODS_FALLBACK);
     const [bankAccounts, setBankAccounts] = useState<BankAccountRecord[]>(DEFAULT_BANK_ACCOUNTS);
     const [aceptoTerminos, setAceptoTerminos] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const submitLock = useRef(false);
-    const [errores, setErrores] = useState<FormErrors>({});
     const [orderSuccess, setOrderSuccess] = useState(false);
+    const submitLock = useRef(false);
 
+    // 🏦 Cargar métodos de pago y cuentas bancarias dinámicas
     useEffect(() => {
+        let isMounted = true;
         async function loadPaymentData() {
             try {
-                const res = await fetch('/api/payment-methods');
-                if (res.ok) {
+                const res = await fetch('/api/payment-methods', { cache: 'no-store' });
+                if (res.ok && isMounted) {
                     const data = await res.json();
                     if (Array.isArray(data)) {
-                        setPaymentMethods(data);
+                        setPaymentMethods([...data].sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99)));
                     } else if (data && typeof data === 'object') {
-                        if (data.methods && Array.isArray(data.methods)) setPaymentMethods(data.methods);
-                        if (data.bankAccounts && Array.isArray(data.bankAccounts)) setBankAccounts(data.bankAccounts);
+                        if (data.methods && Array.isArray(data.methods)) {
+                            setPaymentMethods([...data.methods].sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99)));
+                        }
+                        if (data.bankAccounts && Array.isArray(data.bankAccounts)) {
+                            setBankAccounts([...data.bankAccounts].sort((a, b) => (a.orden || 99) - (b.orden || 99)));
+                        }
                     }
                 }
             } catch {
-                // fallback
+                // fallback activo por defecto
             }
         }
         loadPaymentData();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
-    // 🏷️ Código de descuento
-    const [discountCode, setDiscountCode] = useState('');
-    const [discountState, setDiscountState] = useState<DiscountState | null>(null);
-    const [discountLoading, setDiscountLoading] = useState(false);
-    const [discountError, setDiscountError] = useState<string | null>(null);
-
-    // 🛡️ M9 FIX: Idempotency key determinista basada en contenido del carrito
-    // Mismos items = misma key → previene duplicados desde múltiples tabs
+    // 🛡️ Idempotency key determinista basada en el contenido del carrito
     const idempotencyKey = useRef('');
     useEffect(() => {
         const cartFingerprint = items
-            .map(i => `${i.id}:${i.variant_id || ''}:${i.size_id || ''}:${i.cantidad}:${i.dorsalNombre || ''}:${i.dorsalNumero || ''}`)
+            .map((i) => `${i.id}:${i.variant_id || ''}:${i.size_id || ''}:${i.cantidad}:${i.dorsalNombre || ''}:${i.dorsalNumero || ''}`)
             .sort()
             .join('|');
-        // Simple hash function (djb2)
+
         let hash = 5381;
         for (let i = 0; i < cartFingerprint.length; i++) {
             hash = ((hash << 5) + hash) + cartFingerprint.charCodeAt(i);
-            hash = hash & hash; // Convert to 32-bit integer
+            hash = hash & hash;
         }
-        // Combinar con timestamp de sesión para unicidad entre sesiones
-        const sessionId = sessionStorage.getItem('checkout_session') || crypto.randomUUID();
-        sessionStorage.setItem('checkout_session', sessionId);
+
+        const sessionId = typeof window !== 'undefined'
+            ? sessionStorage.getItem('checkout_session') || crypto.randomUUID()
+            : 'static-session';
+
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('checkout_session', sessionId);
+        }
         idempotencyKey.current = `${Math.abs(hash).toString(36)}-${sessionId}`;
     }, [items]);
 
     const shippingCost = calcShippingCost(formData.departamento, formData.municipio);
-    const discountAmount = discountState?.amount ?? 0;
-    const discountedSubtotal = total - discountAmount;
-    const orderTotal = discountedSubtotal + shippingCost;
-    const anticipo = orderTotal * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
 
-    // 🏷️ Aplicar código de descuento
-    const applyDiscount = async () => {
-        if (!discountCode.trim()) return;
-        if (!formData.correo.includes('@')) {
-            setDiscountError('Ingresa tu correo primero para validar el código');
-            return;
-        }
-        setDiscountLoading(true);
-        setDiscountError(null);
-        try {
-            const itemsPayload = items.map(item => ({
+    const isFormValid = Boolean(
+        formData.nombre.trim() &&
+        formData.correo.trim() &&
+        formData.telefono.trim() &&
+        formData.direccion.trim() &&
+        formData.departamento.trim() &&
+        formData.municipio.trim() &&
+        aceptoTerminos &&
+        items.length > 0
+    );
+
+    const buildOrderPayload = (): CreateOrderPayload => {
+        const itemsPayload = items.map((item) => {
+            let personalizationType: 'none' | 'player' | 'custom' = 'none';
+            let playerId: string | null = null;
+            let customNumber: number | null = null;
+            let customName: string | null = null;
+
+            if (item.dorsalNumero || item.dorsalNombre) {
+                if (item.player_id) {
+                    personalizationType = 'player';
+                    playerId = item.player_id;
+                } else {
+                    personalizationType = 'custom';
+                    customNumber = item.dorsalNumero ? parseInt(item.dorsalNumero, 10) : null;
+                    customName = item.dorsalNombre || null;
+                }
+            }
+
+            return {
                 product_id: item.id,
-                variant_id: item.variant_id || '',
+                variant_id: item.variant_id || null,
+                size_id: item.size_id || null,
+                patch_id: item.patch_id || null,
                 quantity: item.cantidad,
-            }));
-            const res = await fetch('/api/discount/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: discountCode, email: formData.correo, items: itemsPayload }),
-            });
-            const data = await res.json();
-            if (data.valid) {
-                setDiscountState({ pct: data.discount_pct, amount: data.discount_amount, scopeDesc: data.scope_description });
-            } else {
-                setDiscountError(data.message || 'Código inválido');
-                setDiscountState(null);
-            }
-        } catch {
-            setDiscountError('Error al validar el código');
-        } finally {
-            setDiscountLoading(false);
-        }
-    };
-
-    const removeDiscount = () => {
-        setDiscountState(null);
-        setDiscountCode('');
-        setDiscountError(null);
-    };
-
-
-    // Estado para zonas dinámicas
-    const [shippingZones, setShippingZones] = useState<ShippingZone[]>([]);
-
-    // Obtener zonas únicas (departamentos) para el select
-    const uniqueDepartments = Array.from(new Set(shippingZones.map(z => z.department))).sort();
-
-    // Obtener municipios filtrados por departamento seleccionado
-    const municipalities = shippingZones
-        .filter(z => z.department === formData.departamento)
-        .map(z => z.municipality);
-
-    // 📍 Cargar datos (Sin geolocalización automática forzada al inicio, solo si ya tiene permisos)
-    useEffect(() => {
-        getShippingZones().then(zones => {
-            setShippingZones(zones);
+                unit_price: item.precio,
+                personalization_type: personalizationType,
+                player_id: playerId,
+                custom_number: customNumber,
+                custom_name: customName,
+            };
         });
-    }, []);
 
-    // 📍 Lógica de Geolocalización Reutilizable
-    const detectLocation = () => {
-        if (typeof navigator === 'undefined' || !("geolocation" in navigator)) {
-            toastMsg.error("Tu navegador no soporta geolocalización.");
-            return;
-        }
-
-        toastMsg.loading("Detectando ubicación...");
-
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const { latitude, longitude } = pos.coords;
-                let masCercano: ShippingZone | null = null;
-                let menorDist = Infinity;
-
-                // Solo consideramos zonas que tengan coordenadas
-                const zonasConCoords = shippingZones.filter(z => z.latitude && z.longitude);
-
-                for (const zona of zonasConCoords) {
-                    const d = Math.sqrt(
-                        Math.pow(latitude - (zona.latitude || 0), 2) +
-                        Math.pow(longitude - (zona.longitude || 0), 2)
-                    );
-
-                    if (d < menorDist) {
-                        menorDist = d;
-                        masCercano = zona;
-                    }
-                }
-
-                if (masCercano) {
-                    toastMsg.success(`Ubicación: ${masCercano.municipality}, ${masCercano.department}`);
-                    setFormData((prev) => ({
-                        ...prev,
-                        departamento: masCercano!.department,
-                        municipio: masCercano!.municipality,
-                    }));
-                } else {
-                    toastMsg.info("No encontramos una zona cercana. Selecciona manualmente.");
-                }
-            },
-            (err) => {
-                console.warn("Geolocation error:", err);
-                if (err.code === err.PERMISSION_DENIED) {
-                    toastMsg.error("Permiso denegado. Actívalo en el navegador.");
-                } else {
-                    toastMsg.error("No se pudo detectar la ubicación.");
-                }
-            },
-            { timeout: 10000, enableHighAccuracy: true }
-        );
+        return {
+            customer_name: formData.nombre,
+            customer_email: formData.correo,
+            customer_phone: BUSINESS_LOGIC.CONTACT.PHONE_PREFIX + formData.telefono.replace('-', ''),
+            shipping_department: formData.departamento,
+            shipping_municipality: formData.municipio,
+            shipping_address: formData.direccion,
+            payment_method: metodoPago,
+            items: itemsPayload,
+            ...(discountState ? { discount_code: discountCode.trim().toUpperCase() } : {}),
+            _honey: formData.description,
+            idempotency_key: idempotencyKey.current,
+        };
     };
 
-    // 📍 Nota: La geolocalización solo se activa al pulsar el botón manual.
-
-
-    // === VALIDACIÓN ===
-    const validate = (): boolean => {
-        const newErrors: FormErrors = {};
-        const telRegex = BUSINESS_LOGIC.CONTACT.PHONE_REGEX;
-
-        if (!formData.nombre.trim()) newErrors.nombre = true;
-        if (!formData.correo.includes("@")) newErrors.correo = true;
-        if (!telRegex.test(formData.telefono)) newErrors.telefono = true;
-        if (!formData.direccion.trim()) newErrors.direccion = true;
-        if (!formData.departamento) newErrors.departamento = true;
-        if (!formData.municipio) newErrors.municipio = true;
-        if (!metodoPago.trim()) newErrors.metodoPago = true;
-        if (!aceptoTerminos) {
-            toastMsg.warning("Debes aceptar los términos y condiciones");
-            return false;
-        }
-
-        setErrores(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    // === INPUT HANDLER ===
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        if (name === "telefono") {
-            const digits = value.replace(/\D/g, "").slice(0, 8);
-            const formatted = digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
-            setFormData({ ...formData, telefono: formatted });
-            // Clear error on valid input
-            if (/^[0-9]{4}-[0-9]{4}$/.test(formatted)) {
-                setErrores((prev) => ({ ...prev, telefono: undefined }));
-            }
-            return;
-        }
-        setFormData((prev) => ({ ...prev, [name]: value as string }));
-        // Clear error when field has content
-        if (value.trim()) {
-            setErrores((prev) => ({ ...prev, [name]: undefined }));
-        }
-    };
-
-    // === BLUR HANDLER — validación al salir del campo ===
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        const telRegex = BUSINESS_LOGIC.CONTACT.PHONE_REGEX;
-        let hasError = false;
-        if (name === "nombre") hasError = !value.trim();
-        if (name === "correo") hasError = !value.includes("@");
-        if (name === "telefono") hasError = !telRegex.test(value);
-        if (name === "direccion") hasError = !value.trim();
-        if (name === "departamento") hasError = !value;
-        if (name === "municipio") hasError = !value;
-        setErrores((prev) => ({ ...prev, [name]: hasError || undefined }));
-    };
-
-    // === SUBMIT ===
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (submitLock.current) return;
+
+        if (submitLock.current || isSubmitting) return;
 
         if (items.length === 0) {
-            toastMsg.warning("Tu carrito está vacío");
-            return;
-        }
-        if (!validate()) {
-            toastMsg.warning("Completa todos los campos obligatorios");
+            toastMsg.error('Tu carrito está vacío');
             return;
         }
 
-        if (metodoPago === "tarjeta") {
-            toastMsg.info("Esta función estará disponible próximamente");
+        // 🛡️ Honeypot bot protection
+        if (formData.description) {
+            console.warn('🤖 Bot detectado via honeypot');
+            setOrderSuccess(true);
+            clearCart();
+            router.push('/checkout/done');
             return;
         }
+
+        if (!validateForm(metodoPago, aceptoTerminos)) return;
 
         submitLock.current = true;
         setIsSubmitting(true);
 
         try {
-            // 🎯 MAPEAR ITEMS DEL CARRITO AL FORMATO SUPABASE
-            const itemsPayload = items.map((item) => {
-                // Determinar tipo de personalización
-                let personalizationType: 'none' | 'player' | 'custom' = 'none';
-                let playerId: string | null = null;
-                let customNumber: number | null = null;
-                let customName: string | null = null;
-
-                if (item.dorsalNumero || item.dorsalNombre) {
-                    if (item.player_id) {
-                        // Es jugador real
-                        personalizationType = 'player';
-                        playerId = item.player_id;
-                    } else {
-                        // Es custom
-                        personalizationType = 'custom';
-                        customNumber = item.dorsalNumero ? parseInt(item.dorsalNumero, 10) : null;
-                        customName = item.dorsalNombre || null;
-                    }
-                }
-
-                // Retornar objeto tipado
-                return {
-                    product_id: item.id,
-                    variant_id: item.variant_id || null,
-                    size_id: item.size_id || null,
-                    patch_id: item.patch_id || null,
-                    quantity: item.cantidad,
-                    unit_price: item.precio,
-                    personalization_type: personalizationType,
-                    player_id: playerId,
-                    custom_number: customNumber,
-                    custom_name: customName,
-                };
-            });
-
-            // 🚀 Payload Final
-            const orderPayload: CreateOrderPayload = {
-                customer_name: formData.nombre,
-                customer_email: formData.correo,
-                customer_phone: BUSINESS_LOGIC.CONTACT.PHONE_PREFIX + formData.telefono.replace("-", ""),
-                shipping_department: formData.departamento,
-                shipping_municipality: formData.municipio,
-                shipping_address: formData.direccion,
-                payment_method: metodoPago,
-                items: itemsPayload,
-                ...(discountState ? { discount_code: discountCode.trim().toUpperCase() } : {}),
-                _honey: formData.description, // Enviar honeypot
-                idempotency_key: idempotencyKey.current,
-            };
-
+            const orderPayload = buildOrderPayload();
             const response = await fetch('/api/orders/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -438,16 +205,14 @@ export default function CheckoutPage() {
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                console.error("❌ Server Error Details:", result);
+                console.error('❌ Server Error Details:', result);
                 throw new Error(result.details || result.error || 'Error desconocido al crear la orden');
             }
 
-            // ✅ ORDEN CREADA EXITOSAMENTE
-            setOrderSuccess(true); // Evita mostrar pantalla de carrito vacío durante navegación
+            setOrderSuccess(true);
             clearCart();
-            toastMsg.celebrate("¡Pedido registrado correctamente!");
+            toastMsg.celebrate('¡Pedido registrado correctamente!');
 
-            // Redirigir a página de confirmación
             const query = new URLSearchParams({
                 orderId: result.order_number || '',
                 fullOrderId: result.order_id || '',
@@ -461,30 +226,40 @@ export default function CheckoutPage() {
             }).toString();
 
             router.push(`/checkout/done?${query}`);
-
         } catch (error: unknown) {
             console.error('Checkout error:', error);
-            toastMsg.error((error as Error).message || "Error al procesar el pedido. Intenta nuevamente.");
+            toastMsg.error((error as Error).message || 'Error al procesar el pedido. Intenta nuevamente.');
         } finally {
             setIsSubmitting(false);
             submitLock.current = false;
         }
     };
 
-    // === UI ===
+    const handlePayPalSuccess = (result: {
+        order_id: string;
+        order_number: string;
+        total: number;
+        deposit?: number;
+        shipping?: number;
+    }) => {
+        setOrderSuccess(true);
+        clearCart();
+        const params = new URLSearchParams({
+            orderId: result.order_number || result.order_id.slice(0, 8).toUpperCase(),
+            fullOrderId: result.order_id,
+            nombre: formData.nombre.trim(),
+            total: (result.total ?? total).toFixed(2),
+            anticipo: (result.deposit ?? result.total ?? total).toFixed(2),
+            envio: (result.shipping ?? 0).toFixed(2),
+            metodo: 'paypal',
+            municipio: formData.municipio || '',
+            departamento: formData.departamento || '',
+        });
+        router.push(`/checkout/done?${params.toString()}`);
+    };
+
     if (items.length === 0 && !orderSuccess) {
-        return (
-            <main className="min-h-dvh flex flex-col items-center justify-center bg-[#0a0a0a] text-white px-6">
-                <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center border border-white/10 mb-6">
-                    <ShoppingBag className="w-12 h-12 text-gray-600" />
-                </div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Tu carrito está vacío</h2>
-                <p className="text-gray-500 mb-8 text-center max-w-xs">Parece que aún no has añadido nada a tu pedido.</p>
-                <MainButton onClick={() => router.push("/catalogo")} className="px-10 py-4 font-black tracking-widest">
-                    VOLVER AL CATÁLOGO
-                </MainButton>
-            </main>
-        );
+        return <EmptyCartState />;
     }
 
     return (
@@ -494,460 +269,79 @@ export default function CheckoutPage() {
             <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
 
             <div className="max-w-7xl mx-auto">
-                {/* 🔙 Back Link */}
+                {/* 🔙 Botón Volver */}
                 <button
                     onClick={() => router.back()}
-                    className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-8 group"
+                    className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-8 group cursor-pointer"
                 >
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     <span className="text-xs font-bold uppercase tracking-widest">Volver</span>
                 </button>
 
                 <header className="mb-8 md:mb-12">
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none">Finalizar Pedido</h1>
-                    <p className="text-gray-500 mt-2 font-medium text-sm md:text-base">Completa tus datos para procesar tu orden.</p>
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none">
+                        Finalizar Pedido
+                    </h1>
+                    <p className="text-gray-500 mt-2 font-medium text-sm md:text-base">
+                        Completa tus datos para procesar tu orden.
+                    </p>
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12">
-
                     {/* 🧾 COLUMNA IZQUIERDA: FORMULARIO */}
                     <div className="lg:col-span-7 space-y-6 md:space-y-8">
+                        <PersonalInfoSection
+                            formData={formData}
+                            errores={errores}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                        />
 
-                        {/* SECCIÓN 1: DATOS PERSONALES */}
-                        <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                            <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                                <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-xl md:rounded-2xl flex items-center justify-center border border-primary/20">
-                                    <User className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                                </div>
-                                <h2 className="text-lg md:text-xl font-black uppercase tracking-tight">Información Personal</h2>
-                            </div>
+                        <ShippingDetailsSection
+                            formData={formData}
+                            errores={errores}
+                            uniqueDepartments={uniqueDepartments}
+                            municipalities={municipalities}
+                            onDepartmentChange={handleDepartmentChange}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            onDetectLocation={detectLocation}
+                        />
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Nombre Completo *</label>
-                                    <div className="relative">
-                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                                        <input
-                                            name="nombre"
-                                            value={formData.nombre}
-                                            onChange={handleChange}
-                                            onBlur={handleBlur}
-                                            placeholder="Ej. Juan Pérez"
-                                            className={`w-full pl-12 pr-4 py-4 rounded-2xl bg-black/40 border ${errores.nombre ? "border-red-500/50" : "border-white/10"
-                                                } focus:border-primary/50 outline-none text-white transition-all font-medium`}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Correo Electrónico *</label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                                        <input
-                                            type="email"
-                                            name="correo"
-                                            value={formData.correo}
-                                            onChange={handleChange}
-                                            onBlur={handleBlur}
-                                            placeholder="juan@ejemplo.com"
-                                            className={`w-full pl-12 pr-4 py-4 rounded-2xl bg-black/40 border ${errores.correo ? "border-red-500/50" : "border-white/10"
-                                                } focus:border-primary/50 outline-none text-white transition-all font-medium`}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* 🍯 HONEYPOT (Invisible para humanos) */}
-                                <div className="hidden absolute opacity-0 -z-50 h-0 w-0 overflow-hidden">
-                                    <label htmlFor="description">Business Address</label>
-                                    <input
-                                        type="text"
-                                        id="description"
-                                        name="description"
-                                        value={formData.description || ''}
-                                        onChange={handleChange}
-                                        tabIndex={-1}
-                                        autoComplete="off"
-                                    />
-                                </div>
-
-                                <div className="space-y-2 sm:col-span-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Teléfono de Contacto *</label>
-                                    <div className="relative flex items-center">
-                                        <div className="absolute left-3 sm:left-4 flex items-center gap-1 sm:gap-2 text-gray-500 border-r border-white/10 pr-2 sm:pr-3">
-                                            <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
-                                            <span className="text-xs sm:text-sm font-bold">{BUSINESS_LOGIC.CONTACT.PHONE_PREFIX}</span>
-                                        </div>
-                                        <input
-                                            type="tel"
-                                            inputMode="numeric"
-                                            pattern="[0-9]*"
-                                            maxLength={9}
-                                            name="telefono"
-                                            value={formData.telefono}
-                                            onChange={handleChange}
-                                            onBlur={handleBlur}
-                                            placeholder="0000-0000"
-                                            className={`w-full pl-20 sm:pl-24 pr-4 py-4 rounded-2xl bg-black/40 border ${errores.telefono ? "border-red-500/50" : "border-white/10"
-                                                } focus:border-primary/50 outline-none text-white transition-all font-medium tracking-widest`}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* SECCIÓN 2: ENTREGA */}
-                        <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20">
-                                    <MapPin className="w-6 h-6 text-primary" />
-                                </div>
-                                <h2 className="text-xl font-black uppercase tracking-tight">Detalles de Entrega</h2>
-                            </div>
-
-                            {/* 📍 BOTÓN DE GEOLOCALIZACIÓN MANUAL */}
-                            <div className="mb-6">
-                                <button
-                                    onClick={detectLocation}
-                                    type="button"
-                                    className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary hover:text-primary-light transition-colors p-2 hover:bg-primary/5 rounded-lg border border-transparent hover:border-primary/20"
-                                >
-                                    <MapPin className="w-4 h-4" />
-                                    <span>Usar mi ubicación actual</span>
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Departamento *</label>
-                                    <select
-                                        name="departamento"
-                                        value={formData.departamento}
-                                        onChange={(e) => {
-                                            setFormData(prev => ({ ...prev, departamento: e.target.value, municipio: "" }));
-                                            if (e.target.value) setErrores(prev => ({ ...prev, departamento: undefined }));
-                                        }}
-                                        onBlur={handleBlur}
-                                        className={`w-full px-4 py-4 rounded-2xl bg-black/40 border ${errores.departamento ? "border-red-500/50" : "border-white/10"
-                                            } text-white focus:border-primary/50 outline-none transition-all font-medium appearance-none`}
-                                    >
-                                        <option value="" className="bg-[#0a0a0a]">Selecciona...</option>
-                                        {uniqueDepartments.map((dep) => (
-                                            <option key={dep} value={dep} className="bg-[#0a0a0a]">
-                                                {dep}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Municipio *</label>
-                                    <select
-                                        name="municipio"
-                                        value={formData.municipio}
-                                        onChange={handleChange}
-                                        onBlur={handleBlur}
-                                        disabled={!formData.departamento}
-                                        className={`w-full px-4 py-4 rounded-2xl bg-black/40 border ${errores.municipio ? "border-red-500/50" : "border-white/10"
-                                            } text-white focus:border-primary/50 outline-none transition-all font-medium appearance-none disabled:opacity-30`}
-                                    >
-                                        <option value="" className="bg-[#0a0a0a]">Selecciona...</option>
-                                        {formData.departamento &&
-                                            municipalities.map((mun) => (
-                                                <option key={mun} value={mun} className="bg-[#0a0a0a]">
-                                                    {mun}
-                                                </option>
-                                            ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-2 sm:col-span-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Dirección Exacta *</label>
-                                    <div className="relative">
-                                        <Truck className="absolute left-4 top-5 w-4 h-4 text-gray-600" />
-                                        <textarea
-                                            name="direccion"
-                                            rows={3}
-                                            value={formData.direccion}
-                                            onChange={handleChange}
-                                            onBlur={handleBlur}
-                                            placeholder="Barrio, calle, número de casa, puntos de referencia..."
-                                            className={`w-full pl-12 pr-4 py-4 rounded-2xl bg-black/40 border ${errores.direccion ? "border-red-500/50" : "border-white/10"
-                                                } focus:border-primary/50 outline-none text-white transition-all font-medium resize-none`}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* SECCIÓN 3: PAGO */}
-                        <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20">
-                                    <CreditCard className="w-6 h-6 text-primary" />
-                                </div>
-                                <h2 className="text-xl font-black uppercase tracking-tight">Método de Pago</h2>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4">
-                                {paymentMethods.map((opt) => {
-                                    const optCode = opt.code || opt.id;
-                                    const isDisabled = opt.is_coming_soon || !opt.active;
-
-                                    let IconComponent = CreditCard;
-                                    if (opt.type === 'transferencia') IconComponent = Building2;
-                                    if (opt.type === 'link_pago') IconComponent = ExternalLink;
-                                    if (opt.type === 'efectivo') IconComponent = DollarSign;
-
-                                    return (
-                                        <label
-                                            key={opt.id || optCode}
-                                            className={`group relative flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer overflow-hidden ${metodoPago === optCode
-                                                ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(229,9,20,0.15)]"
-                                                : "border-white/5 bg-black/40 hover:border-white/20"
-                                                } ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
-                                        >
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${metodoPago === optCode ? "bg-primary text-white" : "bg-white/5 text-gray-500 group-hover:text-white"
-                                                }`}>
-                                                <IconComponent className="w-6 h-6" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-black uppercase tracking-tight text-sm">{opt.name}</span>
-                                                    {opt.is_coming_soon && (
-                                                        <span className="text-[8px] bg-white/10 px-2 py-0.5 rounded-full text-gray-400 font-bold tracking-widest uppercase">PRÓXIMAMENTE</span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-gray-500 font-medium">{opt.description}</p>
-                                            </div>
-                                            <input
-                                                type="radio"
-                                                name="metodoPago"
-                                                value={optCode}
-                                                checked={metodoPago === optCode}
-                                                onChange={(e) => !isDisabled && setMetodoPago(e.target.value)}
-                                                className="hidden"
-                                                disabled={isDisabled}
-                                            />
-                                            {metodoPago === optCode && (
-                                                <motion.div layoutId="check" className="absolute right-6">
-                                                    <CheckCircle2 className="w-6 h-6 text-primary" />
-                                                </motion.div>
-                                            )}
-                                        </label>
-                                    );
-                                })}
-                            </div>
-
-                            <AnimatePresence>
-                                {metodoPago === "transferencia" && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                        className="mt-6 p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <Building2 className="w-5 h-5 text-primary" />
-                                            <h3 className="text-sm font-black uppercase tracking-tight text-white">Cuentas Bancarias para Transferencia</h3>
-                                        </div>
-                                        <p className="text-xs text-gray-400">
-                                            Puedes realizar la transferencia del anticipo del 50% (o total) a cualquiera de nuestras cuentas oficiales:
-                                        </p>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                                            {bankAccounts.filter(b => b.activo).map((bank) => (
-                                                <div key={bank.id} className="p-3.5 bg-black/50 border border-white/10 rounded-xl space-y-1">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        {bank.logo && (
-                                                            <div className="relative w-5 h-5 shrink-0 rounded overflow-hidden">
-                                                                <Image src={bank.logo} alt={bank.banco} fill className="object-contain" />
-                                                            </div>
-                                                        )}
-                                                        <span className="font-black text-xs text-white uppercase">{bank.banco}</span>
-                                                    </div>
-                                                    <div className="text-[11px] font-mono font-bold text-primary tracking-wider">{bank.numero}</div>
-                                                    <div className="text-[10px] text-gray-400 font-medium truncate">{bank.titular}</div>
-                                                    <div className="text-[9px] text-gray-500 uppercase">{bank.tipo}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {paymentMethods.find(m => (m.code || m.id) === metodoPago)?.is_coming_soon && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                        className="mt-6 p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-start gap-3"
-                                    >
-                                        <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-sm font-bold text-white uppercase tracking-tight">Función no disponible</p>
-                                            <p className="text-xs text-gray-400 mt-1">Estamos trabajando para integrar esta opción de pago. Por favor selecciona otro método por ahora.</p>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </section>
+                        <PaymentMethodSection
+                            metodoPago={metodoPago}
+                            setMetodoPago={setMetodoPago}
+                            paymentMethods={paymentMethods}
+                            bankAccounts={bankAccounts}
+                        />
                     </div>
 
                     {/* 🛒 COLUMNA DERECHA: RESUMEN */}
                     <div className="lg:col-span-5">
-                        <div className="sticky top-28 space-y-8">
-                            <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                                <div className="flex items-center justify-between mb-8">
-                                    <h2 className="text-xl font-black uppercase tracking-tight">Tu Pedido</h2>
-                                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                        {items.length} {items.length === 1 ? 'Ítem' : 'Ítems'}
-                                    </span>
-                                </div>
-
-                                <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar mb-8">
-                                    {items.map((item, idx) => (
-                                        <div key={idx} className="flex gap-4 group">
-                                            <div className="relative w-20 h-20 rounded-2xl overflow-hidden bg-black border border-white/5 shrink-0">
-                                                <Image src={item.imagen} alt={item.equipo} fill className="object-cover" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-sm font-black text-white uppercase truncate tracking-tight">{item.equipo}</h3>
-                                                <p className="text-[10px] text-primary font-bold uppercase tracking-widest mt-0.5">{item.modelo}</p>
-                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                                                    {item.version && <span className="text-[9px] text-gray-500 font-bold uppercase">{item.version}</span>}
-                                                    {item.talla && <span className="text-[9px] text-gray-500 font-bold uppercase">Talla {item.talla}</span>}
-                                                </div>
-                                                {(item.dorsalNombre || item.dorsalNumero) && (
-                                                    <div className="mt-1 flex items-center gap-1.5">
-                                                        <CheckCircle2 className="w-3 h-3 text-green-500" />
-                                                        <span className="text-[9px] font-black text-white uppercase">Dorsal: {item.dorsalNumero || ''} · {item.dorsalNombre || ''}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-sm font-black text-white">L{item.precio.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                                <p className="text-[10px] text-gray-500 font-bold mt-1">x{item.cantidad}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="space-y-4 pt-6 border-t border-white/5">
-                                    {/* 🏷️ Campo de código de descuento */}
-                                    {!discountState ? (
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
-                                                <Tag className="w-3 h-3" /> Código de descuento
-                                            </label>
-                                            <div className="flex gap-2">
-                                                <input
-                                                    value={discountCode}
-                                                    onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountError(null); }}
-                                                    onKeyDown={e => e.key === 'Enter' && applyDiscount()}
-                                                    placeholder="Ej. VERANO25"
-                                                    className="flex-1 px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-white/30 outline-none text-white font-black tracking-widest text-xs"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={applyDiscount}
-                                                    disabled={discountLoading || !discountCode.trim()}
-                                                    className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black hover:bg-white/20 transition-all disabled:opacity-50"
-                                                >
-                                                    {discountLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aplicar'}
-                                                </button>
-                                            </div>
-                                            {discountError && (
-                                                <p className="text-xs text-red-400 font-medium flex items-center gap-1">
-                                                    <AlertCircle className="w-3 h-3 shrink-0" />{discountError}
-                                                </p>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-between p-3 rounded-xl bg-green-500/10 border border-green-500/20">
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
-                                                <div>
-                                                    <p className="text-xs font-black text-green-400 tracking-widest">{discountCode}</p>
-                                                    <p className="text-[10px] text-gray-400">{discountState.pct}% · {discountState.scopeDesc}</p>
-                                                </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={removeDiscount}
-                                                className="p-1 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-all"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
-                                        <span>Subtotal</span>
-                                        <span className="text-white">L{total.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                    </div>
-                                    {discountState && (
-                                        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-green-400">
-                                            <span>Descuento (-{discountState.pct}%)</span>
-                                            <span>-L{discountAmount.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
-                                        <span>Envío (CAEX)</span>
-                                        {shippingCost === 0 ? (
-                                            <span className="text-green-500">Gratis</span>
-                                        ) : (
-                                            <span className="text-white">L{shippingCost.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        )}
-                                    </div>
-                                    {!formData.municipio && (
-                                        <p className="text-[10px] text-gray-600 italic">
-                                            Selecciona tu municipio para calcular el envío
-                                        </p>
-                                    )}
-                                    <div className="flex justify-between items-center py-2">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-black text-white uppercase tracking-tighter">Total a Pagar</span>
-                                            <span className="text-[10px] text-primary font-bold uppercase tracking-widest">Anticipo del {BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE * 100}% requerido</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-3xl font-black text-white tracking-tighter">L{orderTotal.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                            <p className="text-sm font-black text-primary drop-shadow-[0_0_10px_rgba(229,9,20,0.3)]">Anticipo: L{anticipo.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/8 text-[11px] text-gray-400 leading-relaxed">
-                                        Para confirmar el pedido debe cancelar el <span className="text-white font-bold">50% del valor total</span>. El restante 50% se cancela cuando el proveedor confirme que el producto está listo para entregarse.
-                                    </div>
-                                </div>
-
-
-                                <div className="mt-8 mb-4">
-                                    <label className="flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
-                                        <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-all ${aceptoTerminos ? 'bg-primary border-primary' : 'border-white/20 bg-black/40 group-hover:border-white/40'}`}>
-                                            {aceptoTerminos && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                                        </div>
-                                        <input
-                                            type="checkbox"
-                                            className="hidden"
-                                            checked={aceptoTerminos}
-                                            onChange={(e) => setAceptoTerminos(e.target.checked)}
-                                        />
-                                        <p className="text-xs text-gray-500 font-medium leading-relaxed select-none">
-                                            He leído y acepto los <a href="/legal/terminos" target="_blank" className="text-white hover:text-primary underline decoration-white/30 hover:decoration-primary underline-offset-2 transition-colors" onClick={(e) => e.stopPropagation()}>términos de servicio</a> y <a href="/legal/privacidad" target="_blank" className="text-white hover:text-primary underline decoration-white/30 hover:decoration-primary underline-offset-2 transition-colors" onClick={(e) => e.stopPropagation()}>políticas de privacidad</a>.
-                                        </p>
-                                    </label>
-                                </div>
-
-                                <MainButton
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting || !metodoPago || metodoPago === "tarjeta" || !aceptoTerminos}
-                                    className="w-full py-5 bg-primary hover:bg-primary-dark text-white font-black rounded-2xl shadow-[0_20px_40px_rgba(229,9,20,0.25)] flex items-center justify-center gap-3 group disabled:opacity-50 disabled:grayscale transition-all disabled:cursor-not-allowed"
-                                >
-                                    <span>{isSubmitting ? "PROCESANDO..." : "CONFIRMAR PEDIDO"}</span>
-                                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                </MainButton>
-                            </section>
-                        </div>
+                        <OrderSummarySidebar
+                            items={items}
+                            total={total}
+                            shippingCost={shippingCost}
+                            discountState={discountState}
+                            discountCode={discountCode}
+                            discountLoading={discountLoading}
+                            discountError={discountError}
+                            setDiscountCode={setDiscountCode}
+                            setDiscountError={setDiscountError}
+                            applyDiscount={() => applyDiscount(formData.correo, items)}
+                            removeDiscount={removeDiscount}
+                            formData={formData}
+                            metodoPago={metodoPago}
+                            aceptoTerminos={aceptoTerminos}
+                            setAceptoTerminos={setAceptoTerminos}
+                            isFormValid={isFormValid}
+                            isSubmitting={isSubmitting}
+                            orderPayload={buildOrderPayload()}
+                            handleSubmit={handleSubmit}
+                            onPayPalSuccess={handlePayPalSuccess}
+                            onPayPalError={(msg) => toastMsg.error(msg)}
+                        />
                     </div>
-
                 </div>
             </div>
         </main>

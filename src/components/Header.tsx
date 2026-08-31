@@ -7,7 +7,7 @@ import { ShoppingCart, Home, Grid3x3, Sparkles, X, Package, Search } from "lucid
 import { motion, AnimatePresence } from "@/lib/motion";
 import { useCart } from "../context/CartContext";
 import { useCategories } from "../hooks/useCategories";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { usePrefersReducedMotion } from "../hooks/useOptimization";
 import { Category } from "@/lib/types";
@@ -240,10 +240,26 @@ export default function Header() {
     const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
     const [mobileSearchValue, setMobileSearchValue] = useState("");
     const [mounted, setMounted] = useState(false);
+    const headerRef = useRef<HTMLElement>(null);
 
     const prefersReducedMotion = usePrefersReducedMotion();
 
     useEffect(() => { setMounted(true); }, []);
+
+    // Medición dinámica de la altura del Header (con o sin banner de partidos)
+    useEffect(() => {
+        if (!headerRef.current) return;
+        const updateHeight = () => {
+            if (headerRef.current) {
+                const h = headerRef.current.offsetHeight;
+                document.documentElement.style.setProperty('--header-height', `${h}px`);
+            }
+        };
+        updateHeight();
+        const ro = new ResizeObserver(updateHeight);
+        ro.observe(headerRef.current);
+        return () => ro.disconnect();
+    }, [pathname]);
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -282,9 +298,11 @@ export default function Header() {
             {/* ═══════════════════════════════════════
                 TOP HEADER (todas las pantallas)
             ═══════════════════════════════════════ */}
-            <header className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled
-                ? "bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
-                : "bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5"
+            <header
+                ref={headerRef}
+                className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled
+                    ? "bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
+                    : "bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5"
             }`}>
                 <MatchdayHeaderBanner />
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">

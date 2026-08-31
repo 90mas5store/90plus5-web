@@ -21,15 +21,17 @@ export default function CartDrawer() {
       minimumFractionDigits: 0,
     }).format(value);
 
-  // ⏱️ Limpieza automática después de 1 hora
+  // ⏱️ Limpieza automática después de 7 días de inactividad
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const timestamp = localStorage.getItem("cartTimestamp");
     const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-    if (timestamp && now - parseInt(timestamp) > 3600000) {
+    if (timestamp && now - parseInt(timestamp) > SEVEN_DAYS_MS) {
       clearCart();
       localStorage.removeItem("cartTimestamp");
-    } else {
+    } else if (items.length > 0) {
       localStorage.setItem("cartTimestamp", now.toString());
     }
   }, [items, clearCart]);

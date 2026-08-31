@@ -105,20 +105,34 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                 </div>
             )}
 
-            {/* 🔥 Badges: EN VIVO (con marcador) / TOP */}
+            {/* 🔥 Badges: MATCHDAY (PRÓXIMO / EN VIVO / FINAL) / TOP */}
             {(isLive || topSeller) && (
                 <div className="absolute top-3 right-3 md:top-4 md:right-4 z-20 flex flex-col gap-1 items-end">
-                    {isLive && (
+                    {isLive && liveMatch && (
                         <>
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-primary text-white shadow-[0_0_10px_rgba(229,9,20,0.6)] animate-pulse">
-                                ⚡ EN VIVO
+                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold text-white shadow-md ${
+                                liveMatch.isFinished
+                                    ? 'bg-amber-600 shadow-[0_0_10px_rgba(217,119,6,0.6)]'
+                                    : liveMatch.isUpcoming
+                                    ? 'bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)]'
+                                    : 'bg-primary shadow-[0_0_10px_rgba(229,9,20,0.6)] animate-pulse'
+                            }`}>
+                                {liveMatch.isFinished ? '🏆 FINAL' : liveMatch.isUpcoming ? '📅 PRÓXIMO' : '⚡ EN VIVO'}
                             </span>
-                            {shortOpponent && liveMatch && !liveMatch.isManual && (
+                            {shortOpponent && !liveMatch.isManual && (
                                 <span className="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold bg-black/70 text-white border border-white/20 whitespace-nowrap">
-                                    vs {shortOpponent} · {ourScore}-{theirScore}
+                                    {liveMatch.isUpcoming
+                                        ? `vs ${shortOpponent} · ${liveMatch.startTime || 'Hoy'}`
+                                        : `vs ${shortOpponent} · ${ourScore}-${theirScore}`
+                                    }
                                 </span>
                             )}
                         </>
+                    )}
+                    {isLive && !liveMatch && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-primary text-white shadow-[0_0_10px_rgba(229,9,20,0.6)] animate-pulse">
+                            ⚡ MATCHDAY
+                        </span>
                     )}
                     {!isLive && topSeller && (
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-amber-500/90 text-black shadow-[0_0_10px_rgba(245,158,11,0.5)]">

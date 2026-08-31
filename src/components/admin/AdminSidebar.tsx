@@ -19,6 +19,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
 
     const navItems = [
         { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+        { label: 'Analíticas', href: '/admin/analiticas', icon: Activity },
         { label: 'Pedidos', href: '/admin/orders', icon: Package },
         { label: 'Reportes', href: '/admin/reportes', icon: FileSpreadsheet },
         { label: 'Descuentos', href: '/admin/descuentos', icon: Tag },
@@ -108,6 +109,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
 
                 {[
                     { label: 'Bancos & Formas de Pago', href: '/admin/settings/bancos', icon: DollarSign },
+                    { label: 'Tasa de Cambio (USD)', href: '/admin/settings/tasa-cambio', icon: DollarSign },
                     { label: 'Banners Home', href: '/admin/settings/banners', icon: LayoutTemplate },
                     { label: 'Banners Especiales', href: '/admin/settings/special-banners', icon: Sparkles },
                     { label: 'Administradores', href: '/admin/settings/admins', icon: Lock },

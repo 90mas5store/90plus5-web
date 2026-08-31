@@ -20,9 +20,9 @@ export default function PrivacidadPage() {
             </p>
             <ul>
                 <li>Nombre completo.</li>
-                <li>Dirección de envío y facturación.</li>
-                <li>Correo electrónico y número de teléfono (para notificaciones y coordinación de entrega).</li>
-                <li>Información de pago (comprobantes de transferencia). <strong>No almacenamos datos de tarjetas de crédito</strong> directamente.</li>
+                <li>Dirección de entrega y departamento/municipio de destino.</li>
+                <li>Correo electrónico y número de teléfono (para notificaciones del estado del pedido y coordinación de entrega).</li>
+                <li>Información transaccional de pagos. <strong>Importante:</strong> Los datos de tu tarjeta de crédito o débito son introducidos directamente en los formularios seguros de <strong>PayPal (PayPal Holdings, Inc.)</strong>. 90+5 Store nunca tiene acceso, procesa ni almacena números de tarjeta ni códigos de seguridad CVV.</li>
             </ul>
 
             <h2>2. Uso de la Información</h2>
@@ -30,19 +30,21 @@ export default function PrivacidadPage() {
                 Utilizamos tus datos exclusivamente para:
             </p>
             <ul>
-                <li>Procesar y gestionar tu pedido.</li>
-                <li>Enviar actualizaciones sobre el estado de tu compra (vía Email o WhatsApp).</li>
-                <li>Coordinar el envío con la empresa de logística (CAEX, Cargo Expreso, etc.).</li>
-                <li>Mejorar nuestra tienda y experiencia de usuario.</li>
+                <li>Procesar, validar y gestionar tu pedido en la tienda.</li>
+                <li>Enviar actualizaciones en tiempo real sobre el estado de tu compra (vía correo electrónico o WhatsApp).</li>
+                <li>Coordinar el despacho y entrega con las empresas de logística nacional.</li>
+                <li>Garantizar la prevención de fraude y la seguridad de las transacciones.</li>
+                <li>Mejorar continuamente nuestra plataforma y la experiencia de compra.</li>
             </ul>
 
-            <h2>3. Compartir Información</h2>
+            <h2>3. Compartir Información y Pasarelas de Pago</h2>
             <p>
-                <strong>Nunca vendemos tus datos personales.</strong> Solo compartimos la información estrictamente necesaria con terceros proveedores de servicios esenciales, como:
+                <strong>Nunca vendemos ni comercializamos tus datos personales.</strong> Únicamente compartimos la información estrictamente necesaria con proveedores de servicios autorizados para completar tu compra:
             </p>
             <ul>
-                <li>Empresas de mensajería (para entregarte el paquete).</li>
-                <li>Plataformas de infraestructura tecnológica (para que la tienda funcione de manera segura).</li>
+                <li><strong>PayPal:</strong> Como pasarela de pagos internacional certificada PCI-DSS Nivel 1 para el cobro seguro y encriptado con tarjetas de crédito, débito o saldo PayPal.</li>
+                <li><strong>Empresas de Mensajería y Logística:</strong> Para hacer llegar tus paquetes a la dirección indicada en todo el territorio hondureño.</li>
+                <li><strong>Infraestructura en la Nube (Supabase / Vercel / Resend):</strong> Para el almacenamiento seguro de pedidos y el envío de recibos digitales por correo.</li>
             </ul>
 
             <h2>4. Seguridad de los Datos</h2>

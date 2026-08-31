@@ -1,12 +1,13 @@
-import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import ProductoPersonalizar from "@/components/product/ProductoPersonalizar";
-import Breadcrumb from "@/components/ui/Breadcrumb";
-import { adaptSupabaseProductToProduct } from "@/lib/api";
-import { SupabaseRawProduct } from "@/lib/types";
-import { Metadata, ResolvingMetadata } from "next";
-import { SITE_URL, SITE_CONFIG, SOCIAL_LINKS } from "@/lib/config/site";
+import { notFound, redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import ProductoPersonalizar from '@/components/product/ProductoPersonalizar';
+import Breadcrumb from '@/components/ui/Breadcrumb';
+import { adaptSupabaseProductToProduct } from '@/lib/api';
+import { SupabaseRawProduct } from '@/lib/types';
+import { Metadata, ResolvingMetadata } from 'next';
+import { SITE_URL, SITE_CONFIG, SOCIAL_LINKS } from '@/lib/config/site';
+import { buildProductJsonLd, buildBreadcrumbJsonLd, JsonLdProductInput } from '@/lib/seo/productJsonLd';
 
 // ISR: revalidate every hour, unknown slugs served on-demand and cached
 export const revalidate = 3600;
@@ -19,37 +20,12 @@ type Props = {
     params: { slug: string };
 };
 
-// Explicit type for the Supabase product shape returned by getProduct
-type SupabaseProduct = {
-    id: string;
-    name: string;
-    slug: string;
-    description: string | null;
-    image_url: string | null;
+type SupabaseProduct = JsonLdProductInput & {
     team_id: string | null;
     league_id: string | null;
     category_id: string | null;
     brand_id: string | null;
-    season?: string | null;
     gender?: string | null;
-    teams: { name: string; logo_url: string } | null;
-    brands: { name: string; slug: string; logo_url?: string | null } | null;
-    categories: { name: string } | null;
-    product_images: { id: string; image_url: string; sort_order: number }[] | null;
-    product_variants: Array<{
-        version: string;
-        price: number;
-        original_price: number | null;
-        active_original_price: boolean | null;
-        active: boolean;
-    }> | null;
-    variants: Array<{
-        version: string;
-        price: number;
-        original_price: number | null;
-        active_original_price: boolean | null;
-        active: boolean;
-    }> | null;
     allows_customization?: boolean;
     trending_until?: string | null;
 };
@@ -58,15 +34,15 @@ type SupabaseProduct = {
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
     const supabase = createAdminClient();
     const { data } = await supabase
-        .from("products")
-        .select("slug")
-        .eq("active", true)
-        .eq("featured", true)
-        .order("created_at", { ascending: false })
+        .from('products')
+        .select('slug')
+        .eq('active', true)
+        .eq('featured', true)
+        .order('created_at', { ascending: false })
         .limit(30);
 
     return (data || [])
-        .filter((p): p is { slug: string } => typeof p.slug === "string")
+        .filter((p): p is { slug: string } => typeof p.slug === 'string')
         .map((p) => ({ slug: p.slug }));
 }
 
@@ -76,7 +52,7 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
 
     // 1. Legacy UUID Redirect Logic
     if (UUID_REGEX.test(slug)) {
-        const { data } = await supabase.from("products").select("slug").eq("id", slug).single();
+        const { data } = await supabase.from('products').select('slug').eq('id', slug).single();
         if (data?.slug) return { redirect: `/producto/${data.slug}` };
         return null;
     }
@@ -90,20 +66,20 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
     }
 
     const sanitizeSlug = (s: string) =>
-        (s || "")
+        (s || '')
             .toLowerCase()
-            .normalize("NFD")
-            .replace(/\p{Diacritic}/gu, "")
-            .replace(/ñ/g, "n")
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/(^-|-$)/g, "");
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .replace(/ñ/g, 'n')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
 
     const candidates = Array.from(
         new Set([slug, decodedSlug, sanitizeSlug(slug), sanitizeSlug(decodedSlug)])
     ).filter(Boolean);
 
     const { data: products } = await supabase
-        .from("products")
+        .from('products')
         .select(`
             id, name, slug, description, image_url, team_id, league_id, category_id, brand_id, season, gender, allows_customization, trending_until,
             teams (name, logo_url),
@@ -112,16 +88,14 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
             product_variants (version, price, original_price, active_original_price, active),
             product_images (id, image_url, sort_order)
         `)
-        .in("slug", candidates)
-        .eq("active", true)
+        .in('slug', candidates)
+        .eq('active', true)
         .limit(1);
 
     const product = products && products.length > 0 ? products[0] : null;
-
     if (!product) return null;
 
     const teams = Array.isArray(product.teams) ? product.teams[0] : product.teams;
-
     const brands = Array.isArray(product.brands) ? product.brands[0] : product.brands;
     const categories = Array.isArray(product.categories) ? product.categories[0] : product.categories;
 
@@ -137,8 +111,8 @@ async function getProduct(slug: string): Promise<SupabaseProduct | { redirect: s
         brand_id: product.brand_id ?? null,
         season: (product as { season?: string | null }).season ?? null,
         gender: (product as { gender?: string | null }).gender ?? null,
-        teams: teams ? { name: teams.name, logo_url: teams.logo_url ?? "" } : null,
-        brands: brands ? { name: brands.name, slug: brands.slug ?? "", logo_url: (brands as { logo_url?: string }).logo_url ?? null } : null,
+        teams: teams ? { name: teams.name, logo_url: teams.logo_url ?? '' } : null,
+        brands: brands ? { name: brands.name, slug: brands.slug ?? '', logo_url: (brands as { logo_url?: string }).logo_url ?? null } : null,
         categories: categories ? { name: categories.name } : null,
         product_variants: product.product_variants ?? null,
         variants: product.product_variants ?? null,
@@ -155,16 +129,14 @@ export async function generateMetadata(
 ): Promise<Metadata> {
     const data = await getProduct(params.slug);
 
-    // Redirect handled in component, here just return generic or null if not found (will 404 in comp)
     if (!data || 'redirect' in data) return { title: 'Producto no encontrado' };
 
     const previousImages = (await parent).openGraph?.images || [];
-    const mainImage = data.image_url || "/og-image.jpg";
-    const displayName = data.teams?.name || data.brands?.name || "Fútbol";
+    const mainImage = data.image_url || '/og-image.jpg';
+    const displayName = data.teams?.name || data.brands?.name || 'Fútbol';
 
     const title = `${displayName} - ${data.name}`;
     const fullTitle = `${title} | ${SITE_CONFIG.name}`;
-
     const description = data.description || `Compra ${data.name} de ${displayName} al mejor precio. Envíos a todo Honduras.`;
 
     return {
@@ -182,7 +154,7 @@ export async function generateMetadata(
             images: [{ url: mainImage, alt: data.name }, ...previousImages],
         },
         twitter: {
-            card: "summary_large_image",
+            card: 'summary_large_image',
             title: fullTitle,
             description,
             images: [mainImage],
@@ -197,7 +169,6 @@ export default async function ProductoPage({ params }: Props) {
 
     if (!result) notFound();
 
-    // Type Narrowing
     if ('redirect' in result && result.redirect) {
         redirect(result.redirect);
     }
@@ -206,7 +177,7 @@ export default async function ProductoPage({ params }: Props) {
 
     // 🔄 Fetch Productos Relacionados — Liga primero, categoría como fallback
     const relatedBase = supabase
-        .from("products")
+        .from('products')
         .select(`
             id, name, slug, image_url, featured,
             team_id, category_id, league_id, brand_id,
@@ -214,12 +185,12 @@ export default async function ProductoPage({ params }: Props) {
             brands (name, slug, logo_url),
             product_variants (version, price, active, original_price, active_original_price)
         `)
-        .eq("active", true)
-        .neq("id", productData.id)
-        .order("featured", { ascending: false })
+        .eq('active', true)
+        .neq('id', productData.id)
+        .order('featured', { ascending: false })
         .limit(4);
 
-    const filterField = productData.brand_id ? "brand_id" : productData.league_id ? "league_id" : "category_id";
+    const filterField = productData.brand_id ? 'brand_id' : productData.league_id ? 'league_id' : 'category_id';
     const filterValue = productData.brand_id ?? productData.league_id ?? productData.category_id;
 
     const { data: relatedRaw } = filterValue
@@ -229,142 +200,15 @@ export default async function ProductoPage({ params }: Props) {
     const relatedProducts = (relatedRaw as SupabaseRawProduct[] | null || []).map(adaptSupabaseProductToProduct);
 
     // 🧭 Breadcrumb data
-    const teamName = productData.teams?.name || productData.brands?.name || "Catálogo";
-    const categoryName = productData.categories?.name || null;
+    const teamName = productData.teams?.name || productData.brands?.name || 'Catálogo';
     const breadcrumbItems = [
-        { label: "Catálogo", href: "/catalogo" },
+        { label: 'Catálogo', href: '/catalogo' },
         { label: `${teamName} — ${productData.name}` },
     ];
 
     // 🧠 Structured Data (JSON-LD) for Google Rich Results
-    // Usa el precio de la primera variante activa; fallback a la primera variante si ninguna activa
-    const activeVariants = productData.variants?.filter(v => v.active) ?? [];
-    const price = activeVariants[0]?.price ?? productData.variants?.[0]?.price ?? 0;
-    const productUrl = `${SITE_URL}/producto/${params.slug}`;
-
-    // Galería: imagen principal + product_images ordenadas
-    const galleryImages = [
-        ...(productData.image_url ? [productData.image_url] : []),
-        ...(productData.product_images ?? [])
-            .sort((a, b) => a.sort_order - b.sort_order)
-            .map(img => img.image_url)
-            .filter(url => url !== productData.image_url),
-    ];
-
-    // Descripción enriquecida: usa la del producto o genera una automática
-    const hasJugador = activeVariants.some(v => v.version?.toLowerCase().includes('jugador'));
-    const hasAficionado = activeVariants.some(v => v.version?.toLowerCase().includes('aficionado'));
-    const versionStr = hasJugador && hasAficionado
-        ? "versión jugador y aficionado"
-        : hasJugador ? "versión jugador" : hasAficionado ? "versión aficionado" : "";
-    const isBrandProduct = !productData.teams?.name && !!productData.brands?.name;
-    const autoDescription = isBrandProduct
-        ? [
-            `${productData.brands!.name} ${productData.name}.`,
-            categoryName ? `Categoría: ${categoryName}.` : "",
-            "Envíos a todo Honduras.",
-            `Compra en ${SITE_CONFIG.name}.`,
-        ].filter(Boolean).join(" ")
-        : [
-            `Camiseta ${teamName} ${productData.name} temporada 25/26.`,
-            versionStr ? `Disponible en ${versionStr}.` : "",
-            "Envíos a todo Honduras.",
-            `Compra en ${SITE_CONFIG.name}, la tienda de fútbol #1 en Honduras.`,
-        ].filter(Boolean).join(" ");
-    const enrichedDescription = productData.description || autoDescription;
-
-    // Múltiples Offers: una por cada variante activa
-    const offers = activeVariants.length > 0
-        ? activeVariants.map(v => {
-            const versionLabel = v.version?.toLowerCase().includes('jugador')
-                ? "Versión Jugador"
-                : v.version?.toLowerCase().includes('aficionado')
-                    ? "Versión Aficionado"
-                    : v.version;
-            return {
-                "@type": "Offer",
-                "name": `${productData.name} — ${versionLabel}`,
-                "url": productUrl,
-                "priceCurrency": "HNL",
-                "price": v.price,
-                ...(v.original_price && v.active_original_price
-                    ? { "priceValidUntil": new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0] }
-                    : {}),
-                "availability": "https://schema.org/InStock",
-                "itemCondition": "https://schema.org/NewCondition",
-                "areaServed": { "@type": "Country", "name": "Honduras" },
-                "seller": {
-                    "@type": "Organization",
-                    "name": SITE_CONFIG.name,
-                    "url": SITE_URL
-                }
-            };
-        })
-        : [{
-            "@type": "Offer",
-            "url": productUrl,
-            "priceCurrency": "HNL",
-            "price": price,
-            "availability": "https://schema.org/InStock",
-            "itemCondition": "https://schema.org/NewCondition",
-            "areaServed": { "@type": "Country", "name": "Honduras" },
-            "seller": {
-                "@type": "Organization",
-                "name": SITE_CONFIG.name,
-                "url": SITE_URL
-            }
-        }];
-
-    const productJsonLd = {
-        "@context": "https://schema.org",
-        "@type": "Product",
-        "name": productData.name,
-        ...(galleryImages.length > 0 && { "image": galleryImages }),
-        "description": enrichedDescription,
-        "sku": productData.id,
-        "brand": {
-            "@type": "Brand",
-            "name": productData.brands?.name || productData.teams?.name || SITE_CONFIG.name
-        },
-        "category": categoryName || "Deportes",
-        "keywords": [
-            productData.teams?.name ? `camiseta ${teamName}` : `${productData.brands?.name || ''} ${categoryName || ''}`.trim(),
-            `${productData.name} Honduras`,
-            productData.teams?.name ? "camiseta fútbol Honduras" : `${productData.brands?.name || ''} Honduras`.trim(),
-            "comprar Honduras",
-        ].filter(Boolean).join(", "),
-        "offers": offers.length === 1 ? offers[0] : offers,
-        "seller": {
-            "@type": "Organization",
-            "name": SITE_CONFIG.name,
-            "url": SITE_URL
-        }
-    };
-
-    const breadcrumbJsonLd = {
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-            {
-                "@type": "ListItem",
-                "position": 1,
-                "name": "Inicio",
-                "item": SITE_URL
-            },
-            {
-                "@type": "ListItem",
-                "position": 2,
-                "name": "Catálogo",
-                "item": `${SITE_URL}/catalogo`
-            },
-            {
-                "@type": "ListItem",
-                "position": 3,
-                "name": `${teamName} — ${productData.name}`,
-                "item": productUrl
-            }
-        ]
-    };
+    const productJsonLd = buildProductJsonLd(productData, params.slug);
+    const breadcrumbJsonLd = buildBreadcrumbJsonLd(teamName, productData.name, params.slug);
 
     return (
         <>

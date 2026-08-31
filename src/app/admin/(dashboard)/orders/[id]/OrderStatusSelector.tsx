@@ -56,6 +56,12 @@ export default function OrderStatusSelector({
                 return;
             }
 
+            // Si se pasa a deposit_paid y ya tiene el anticipo verificado (ej: vía PayPal u otro pago verificado)
+            if (newStatus === 'deposit_paid' && verifiedPaidSum >= (deposit50 - 1)) {
+                executeStatusUpdate(newStatus)
+                return;
+            }
+
             // Sugerir monto por defecto
             const defaultAmount = newStatus === 'deposit_paid'
                 ? (deposit50 > 0 ? deposit50.toFixed(2) : '')

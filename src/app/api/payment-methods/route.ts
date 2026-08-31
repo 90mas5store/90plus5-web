@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { fetchPaymentMethods, fetchBankAccounts, DEFAULT_PAYMENT_METHODS, DEFAULT_BANK_ACCOUNTS } from '@/lib/config/banks'
+import { fetchPaymentMethods, fetchBankAccounts } from '@/lib/config/banks.server'
+import { DEFAULT_PAYMENT_METHODS, DEFAULT_BANK_ACCOUNTS } from '@/lib/config/banks'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0

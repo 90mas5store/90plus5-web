@@ -50,6 +50,7 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
         {
             section: 'Análisis',
             items: [
+                { label: 'Analíticas', href: '/admin/analiticas', icon: Activity },
                 { label: 'Contabilidad', href: '/admin/contabilidad', icon: DollarSign },
                 { label: 'Descuentos', href: '/admin/descuentos', icon: Tag },
             ],
@@ -68,6 +69,7 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
             section: 'Configuración',
             items: [
                 { label: 'Bancos & Pagos', href: '/admin/settings/bancos', icon: DollarSign },
+                { label: 'Tasa USD', href: '/admin/settings/tasa-cambio', icon: DollarSign },
                 { label: 'Banners', href: '/admin/settings/banners', icon: LayoutTemplate },
                 { label: 'Especiales', href: '/admin/settings/special-banners', icon: Sparkles },
                 { label: 'Admins', href: '/admin/settings/admins', icon: Lock },

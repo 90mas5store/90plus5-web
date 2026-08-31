@@ -15,9 +15,16 @@ interface Payment {
 
 export default function PaymentItem({ payment }: { payment: Payment }) {
     // Styles based on status
+    const isCompleted = payment.status === 'verified' || payment.status === 'completed' || payment.status === 'succeeded';
     const isPending = payment.status === 'pending';
-    const isCompleted = payment.status === 'verified';
-    const isFailed = payment.status === 'rejected';
+    const isFailed = payment.status === 'rejected' || payment.status === 'failed';
+
+    const getPaymentTypeLabel = (type: string) => {
+        if (type === 'full') return 'Pago Total (100%)';
+        if (type === 'deposit') return 'Anticipo 50%';
+        if (type === 'final' || type === 'remaining') return 'Pago Final';
+        return type;
+    };
 
     return (
         <div className={`
@@ -33,12 +40,12 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
                 <div className="space-y-1 sm:space-y-2 max-w-[65%] min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-black text-white text-sm sm:text-lg tracking-tight capitalize truncate">
-                            {payment.type === 'deposit' ? 'Anticipo 50%' : (payment.type === 'final' || payment.type === 'remaining') ? 'Pago Final' : payment.type}
+                            {getPaymentTypeLabel(payment.type)}
                         </span>
                         {isCompleted && <ShieldCheck className="w-4 h-4 text-green-500 shrink-0" />}
                     </div>
                     <div className="text-xs sm:text-sm text-gray-400 font-mono truncate">
-                        {payment.method} · {new Date(payment.created_at).toLocaleDateString()}
+                        {payment.method === 'paypal' ? 'PayPal / Tarjeta' : payment.method} · {new Date(payment.created_at).toLocaleDateString()}
                     </div>
                     {payment.notes && (
                         <div className="text-[11px] sm:text-xs bg-black/40 border border-white/5 rounded-lg p-2 text-gray-400 mt-2 break-words">

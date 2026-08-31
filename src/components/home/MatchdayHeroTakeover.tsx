@@ -33,7 +33,7 @@ export default function MatchdayHeroTakeover() {
   const liveMatches = useLiveMatches();
   const rawEntries = Object.entries(liveMatches);
 
-  // Deduplicar partidos por enfrentamiento único (para no repetir FC Barcelona vs Real Madrid)
+  // Deduplicar partidos por enfrentamiento único y ordenar por prioridad: EN VIVO > FINALIZADO > PRÓXIMO
   const uniqueMatchMap = new Map<string, [string, LiveMatchData]>();
   for (const [id, match] of rawEntries) {
     const fixtureKey = [match.homeTeam, match.awayTeam]
@@ -46,7 +46,13 @@ export default function MatchdayHeroTakeover() {
     }
   }
 
-  const activeEntries = Array.from(uniqueMatchMap.values());
+  const activeEntries = Array.from(uniqueMatchMap.values()).sort((a, b) => {
+    const matchA = a[1];
+    const matchB = b[1];
+    const scoreA = (!matchA.isFinished && !matchA.isUpcoming) ? 3 : matchA.isFinished ? 2 : 1;
+    const scoreB = (!matchB.isFinished && !matchB.isUpcoming) ? 3 : matchB.isFinished ? 2 : 1;
+    return scoreB - scoreA;
+  });
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -96,9 +102,12 @@ export default function MatchdayHeroTakeover() {
   const activeHomeLogo = match.isHome ? activeItem.homeLogo : activeItem.awayLogo;
   const activeAwayLogo = match.isHome ? activeItem.awayLogo : activeItem.homeLogo;
 
+  const hasTeamPlayingInDb = match.isHome ? match.hasHomeTeamInDb !== false : match.hasAwayTeamInDb !== false;
+  const hasOpponentInDb = match.isHome ? !!match.hasAwayTeamInDb : !!match.hasHomeTeamInDb;
+
   return (
     <div
-      className="relative w-full min-h-[500px] sm:min-h-[560px] md:min-h-[640px] overflow-hidden bg-gradient-to-b from-black via-neutral-950 to-black text-white pt-24 sm:pt-28 md:pt-36 pb-8 sm:pb-12 border-b border-[#E50914]/30 shadow-[0_15px_50px_rgba(229,9,20,0.25)]"
+      className="relative w-full overflow-hidden bg-gradient-to-b from-black via-neutral-950 to-black text-white pt-20 sm:pt-24 md:pt-24 pb-6 sm:pb-8 border-b border-[#E50914]/30 shadow-[0_15px_50px_rgba(229,9,20,0.25)]"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -109,30 +118,47 @@ export default function MatchdayHeroTakeover() {
         
         {/* ──────── 1. BARRA SUPERIOR DE MINIATURAS (TOUCH-SCROLLABLE EN MÓVIL) ──────── */}
         {matchItems.length > 1 && (
-          <div className="mb-4 sm:mb-6 flex items-center justify-start md:justify-center gap-2 overflow-x-auto pb-2 scrollbar-none touch-pan-x">
+          <div className="mb-3 sm:mb-4 flex items-center justify-start md:justify-center gap-2 overflow-x-auto pb-2 scrollbar-none touch-pan-x">
             <span className="text-[11px] sm:text-xs font-black uppercase text-red-500 tracking-wider flex items-center gap-1 shrink-0 mr-1">
               <Flame className="w-3.5 h-3.5 fill-red-500" />
-              En Vivo:
+              {matchItems.some(i => !i.match.isFinished && !i.match.isUpcoming)
+                ? "En Vivo:"
+                : matchItems.some(i => i.match.isFinished)
+                ? "Jornada:"
+                : "Próximos:"}
             </span>
 
             {matchItems.map((item, idx) => {
               const isActive = idx === currentIndex;
+              const isUpc = item.match.isUpcoming;
+              const isFin = item.match.isFinished;
+
               return (
                 <button
                   key={item.id}
                   onClick={() => setCurrentIndex(idx)}
                   className={`shrink-0 transition-all duration-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 border cursor-pointer ${
                     isActive
-                      ? "bg-[#E50914] text-white border-red-500 shadow-[0_0_15px_rgba(229,9,20,0.8)] scale-105"
+                      ? isUpc
+                        ? "bg-blue-600 text-white border-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.8)] scale-105"
+                        : isFin
+                        ? "bg-amber-600 text-white border-amber-400 shadow-[0_0_15px_rgba(217,119,6,0.8)] scale-105"
+                        : "bg-[#E50914] text-white border-red-500 shadow-[0_0_15px_rgba(229,9,20,0.8)] scale-105"
                       : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   <span className="whitespace-nowrap">
                     {item.teamPlaying} <span className="opacity-70 font-normal">vs</span> {item.opponent}
                   </span>
-                  <span className="bg-black/50 px-2 py-0.5 rounded-full text-[11px] text-amber-300 font-mono font-bold">
-                    {item.teamScore} - {item.opponentScore}
-                  </span>
+                  {isUpc ? (
+                    <span className="bg-black/50 px-2 py-0.5 rounded-full text-[10px] text-blue-300 font-bold">
+                      {item.match.startTime || "Próximo"}
+                    </span>
+                  ) : (
+                    <span className="bg-black/50 px-2 py-0.5 rounded-full text-[11px] text-amber-300 font-mono font-bold">
+                      {item.teamScore} - {item.opponentScore}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -147,24 +173,35 @@ export default function MatchdayHeroTakeover() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.35 }}
-            className="bg-neutral-900/80 backdrop-blur-2xl border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-8 md:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
+            className="bg-neutral-900/80 backdrop-blur-2xl border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
           >
             {/* BADGE CABECERA (TORNEO & ESTADO) */}
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-4 sm:mb-8">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/20 border border-[#E50914]/40 text-red-400 text-[10px] sm:text-xs font-black uppercase tracking-wider">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 sm:mb-5">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider ${
+                match.isFinished
+                  ? "bg-amber-500/20 border border-amber-500/40 text-amber-400"
+                  : match.isUpcoming
+                  ? "bg-blue-500/20 border border-blue-500/40 text-blue-400"
+                  : "bg-[#E50914]/20 border border-[#E50914]/40 text-red-400"
+              }`}>
                 {match.isFinished ? (
                   <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                ) : match.isUpcoming ? (
+                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
                 ) : (
                   <Flame className="w-3.5 h-3.5 text-red-500 fill-red-500 animate-pulse" />
                 )}
-                {match.isFinished
-                  ? "RESULTADO FINAL"
-                  : match.leagueName
-                  ? match.leagueName.toUpperCase()
-                  : "MATCHDAY EN VIVO"}
+                <span>
+                  {match.leagueName ? match.leagueName.toUpperCase() : "MATCHDAY"}
+                  {match.isFinished
+                    ? " · RESULTADO FINAL"
+                    : match.isUpcoming
+                    ? " · PRÓXIMO ENCUENTRO"
+                    : " · EN VIVO"}
+                </span>
               </span>
 
-              {!match.isFinished && match.minute && (
+              {!match.isFinished && !match.isUpcoming && match.minute && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 text-gray-300 text-[10px] sm:text-xs font-bold font-mono animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                   MINUTO {match.minute}&apos;
@@ -173,7 +210,7 @@ export default function MatchdayHeroTakeover() {
             </div>
 
             {/* MARCADOR PRINCIPAL CON ESCUDOS */}
-            <div className="grid grid-cols-3 items-center justify-items-center gap-2 sm:gap-4 my-4 sm:my-6">
+            <div className="grid grid-cols-3 items-center justify-items-center gap-2 sm:gap-4 my-2 sm:my-3">
               
               {/* EQUIPO LOCAL / NUESTRO EQUIPO */}
               <div className="flex flex-col items-center text-center gap-2 sm:gap-3 w-full">
@@ -185,18 +222,31 @@ export default function MatchdayHeroTakeover() {
                 </h2>
               </div>
 
-              {/* MARCADOR GLOBAL EN VIVO */}
+              {/* MARCADOR GLOBAL / VERSUS */}
               <div className="flex flex-col items-center justify-center text-center">
-                <div className="flex items-center gap-2 sm:gap-4 md:gap-6 text-2xl sm:text-5xl md:text-7xl font-black text-white font-mono tracking-tighter">
-                  <span className={match.isFinished ? "text-amber-400" : "text-red-500"}>
-                    {teamScore}
-                  </span>
-                  <span className="text-gray-600 font-light">-</span>
-                  <span className="text-gray-300">{opponentScore}</span>
-                </div>
-                <span className="mt-1 sm:mt-2 text-[10px] sm:text-xs md:text-sm text-gray-400 font-semibold uppercase tracking-widest whitespace-nowrap">
-                  {match.isFinished ? "Partido Finalizado" : "En Vivo"}
-                </span>
+                {match.isUpcoming ? (
+                  <div className="flex flex-col items-center justify-center">
+                    <span className="text-3xl sm:text-5xl md:text-6xl font-black text-blue-400 font-mono tracking-wider">
+                      VS
+                    </span>
+                    <span className="mt-1 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-[10px] sm:text-xs md:text-sm font-bold tracking-wide">
+                      {match.startTime || "Próximo Partido"}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 sm:gap-4 md:gap-6 text-2xl sm:text-5xl md:text-7xl font-black text-white font-mono tracking-tighter">
+                      <span className={match.isFinished ? "text-amber-400" : "text-red-500"}>
+                        {teamScore}
+                      </span>
+                      <span className="text-gray-600 font-light">-</span>
+                      <span className="text-gray-300">{opponentScore}</span>
+                    </div>
+                    <span className="mt-1 text-[10px] sm:text-xs md:text-sm text-gray-400 font-semibold uppercase tracking-widest whitespace-nowrap">
+                      {match.isFinished ? "Partido Finalizado" : "En Vivo"}
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* RIVAL */}
@@ -211,8 +261,8 @@ export default function MatchdayHeroTakeover() {
 
             </div>
 
-            {/* ──────── 3. OFERTA Y BOTONES DE COMPRA RESPONSIVE PARA AMBOS EQUIPOS ──────── */}
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-white/10 flex flex-col lg:flex-row items-center justify-between gap-4">
+            {/* ──────── 3. OFERTA Y BOTONES DE COMPRA RESPONSIVE PARA EQUIPOS EN BD ──────── */}
+            <div className="mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-white/10 flex flex-col lg:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-300 text-center lg:text-left">
                 <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>
@@ -225,21 +275,43 @@ export default function MatchdayHeroTakeover() {
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
-                <Link
-                  href={`/catalogo?query=${encodeURIComponent(teamPlaying)}`}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#E50914] hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider transition-all hover:scale-105 shadow-[0_0_20px_rgba(229,9,20,0.5)] active:scale-95"
-                >
-                  <span>Camisetas {teamPlaying}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
+                {hasTeamPlayingInDb && (
+                  <Link
+                    href={`/catalogo?query=${encodeURIComponent(teamPlaying)}`}
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && window.trackEvent) {
+                        window.trackEvent('matchday_click', { team: teamPlaying, role: 'team_playing', match: match.leagueName });
+                      }
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#E50914] hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider transition-all hover:scale-105 shadow-[0_0_20px_rgba(229,9,20,0.5)] active:scale-95"
+                  >
+                    <span>Camisetas {teamPlaying}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                )}
 
-                {opponent && opponent !== 'Rival' && (
+                {hasOpponentInDb && opponent && opponent !== 'Rival' && (
                   <Link
                     href={`/catalogo?query=${encodeURIComponent(opponent)}`}
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && window.trackEvent) {
+                        window.trackEvent('matchday_click', { team: opponent, role: 'opponent', match: match.leagueName });
+                      }
+                    }}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider transition-all hover:scale-105 active:scale-95"
                   >
                     <span>Camisetas {opponent}</span>
                     <ArrowRight className="w-4 h-4 text-gray-400" />
+                  </Link>
+                )}
+
+                {!hasTeamPlayingInDb && !hasOpponentInDb && (
+                  <Link
+                    href="/catalogo"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#E50914] hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider transition-all hover:scale-105 shadow-[0_0_20px_rgba(229,9,20,0.5)] active:scale-95"
+                  >
+                    <span>Ver Catálogo</span>
+                    <ArrowRight className="w-4 h-4" />
                   </Link>
                 )}
               </div>

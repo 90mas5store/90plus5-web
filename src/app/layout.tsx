@@ -7,6 +7,10 @@ import HeaderWrapper from "../components/HeaderWrapper";
 import CartDrawer from "../components/cart/CartDrawer";
 import ClientLayout from "./ClientLayout";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
+import AnalyticsTracker from "@/components/analytics/AnalyticsTracker";
+import ClarityScript from "@/components/analytics/ClarityScript";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Metadata, Viewport } from "next";
 import { Partytown } from '@builder.io/partytown/react';
 import { MotionProvider } from "@/lib/motion";
@@ -335,6 +339,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     }}
                 />
                 <CookieConsent />
+                <Suspense fallback={null}>
+                    <AnalyticsTracker />
+                </Suspense>
+                <ClarityScript />
+                <VercelAnalytics />
+                <SpeedInsights />
             </body>
         </html>
     );

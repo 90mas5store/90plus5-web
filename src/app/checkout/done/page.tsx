@@ -11,7 +11,9 @@ import {
   Share2,
   ArrowLeft,
   ChevronDown,
-  Upload
+  Upload,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import Button from "../../../components/ui/MainButton";
 import type { BankAccount } from "../../../lib/config/banks";
@@ -88,7 +90,10 @@ function CheckoutDoneContent() {
   };
 
   const handleShare = () => {
-    const message = `👋 Hola, soy ${nombre}. Te comparto el comprobante de mi pedido *${orderId}* por un monto de *L${total}* (${metodo}).`;
+    const isPaypal = metodo === "paypal";
+    const message = isPaypal
+      ? `👋 Hola, soy *${nombre}*. Acabo de realizar mi pedido *#${orderId}* pagado con *PayPal / Tarjeta* por un monto de *L${total}*.`
+      : `👋 Hola, soy *${nombre}*. Te comparto el comprobante de mi pedido *${orderId}* por un monto de *L${total}* (${metodo}).`;
     const whatsappURL = getWhatsappLink({ message });
     window.open(whatsappURL, "_blank");
   };
@@ -156,13 +161,19 @@ function CheckoutDoneContent() {
                 )}
 
                 <div className="flex justify-between items-center pb-3 border-b border-white/5">
-                  <span className="text-gray-400 text-sm">Anticipo (50%)</span>
+                  <span className="text-gray-400 text-sm">
+                    {metodo === "paypal"
+                      ? (parseFloat(anticipo || "0") >= parseFloat(total || "0") ? "Monto Pagado (100%)" : "Anticipo Pagado (50%)")
+                      : "Anticipo (50%)"}
+                  </span>
                   <span className="text-xl font-black text-green-500">L{anticipo}</span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400 text-sm">Método de Pago</span>
-                  <span className="capitalize font-bold text-white">{metodo}</span>
+                  <span className="font-bold text-white">
+                    {metodo === "paypal" ? "PayPal / Tarjeta" : metodo}
+                  </span>
                 </div>
 
                 {municipio && (
@@ -397,6 +408,41 @@ function CheckoutDoneContent() {
                   <span>Enviar por WhatsApp</span>
                 </Button>
               </>
+            )}
+
+            {metodo === "paypal" && (
+              <section className="bg-emerald-500/10 backdrop-blur-md sm:backdrop-blur-xl border border-emerald-500/20 p-6 sm:p-8 rounded-[2rem] space-y-6">
+                <div className="flex items-center gap-3 text-emerald-400">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-7 h-7 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight text-white">
+                      Pago Verificado con Éxito
+                    </h2>
+                    <p className="text-xs text-emerald-400 font-bold">
+                      Procesado y confirmado vía PayPal / Tarjeta
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-sm text-gray-300 bg-black/40 border border-white/5 p-4 rounded-2xl">
+                  <p className="leading-relaxed">
+                    🎉 <strong className="text-white">¡No necesitas enviar comprobante ni realizar transferencias adicionales!</strong> Tu pago fue recibido y registrado automáticamente en nuestro sistema.
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Ya estamos gestionando la preparación de tu pedido. Te notificaremos vía WhatsApp o correo electrónico tan pronto esté listo para envío.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleShare}
+                  className="w-full py-4 bg-green-600/90 hover:bg-green-600 text-white font-bold rounded-2xl flex items-center justify-center gap-3 text-sm shadow-lg shadow-green-600/20 cursor-pointer"
+                >
+                  <Share2 className="w-5 h-5" />
+                  <span>Contactar por WhatsApp</span>
+                </Button>
+              </section>
             )}
 
             {metodo === "whatsapp" && (

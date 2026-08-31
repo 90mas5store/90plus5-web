@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { fetchBankAccounts } from "@/lib/config/banks";
+import { fetchBankAccounts } from "@/lib/config/banks.server";
 import { getWhatsappLink } from "@/lib/whatsapp";
 import { SITE_URL, SITE_CONFIG, CONTACT } from "@/lib/config/site";
 

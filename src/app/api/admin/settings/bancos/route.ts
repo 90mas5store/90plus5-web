@@ -32,9 +32,17 @@ export async function GET() {
             .select('*')
             .order('sort_order', { ascending: true })
 
-        const methods: PaymentMethodRecord[] = (methodsErr || !methodsData || methodsData.length === 0)
+        let methods: PaymentMethodRecord[] = (methodsErr || !methodsData || methodsData.length === 0)
             ? DEFAULT_PAYMENT_METHODS
             : (methodsData as PaymentMethodRecord[])
+
+        // Asegurar que PayPal siempre esté disponible en el listado si la base de datos no lo tenía
+        if (!methods.some((m) => m.code === 'paypal')) {
+            const paypalDefault = DEFAULT_PAYMENT_METHODS.find((p) => p.code === 'paypal')
+            if (paypalDefault) {
+                methods.push(paypalDefault)
+            }
+        }
 
         // Fetch bank accounts from Supabase DB
         const { data: banksData, error: banksErr } = await supabase
@@ -78,11 +86,30 @@ export async function POST(req: Request) {
 
         if (type === 'method') {
             if (action === 'toggle') {
-                updateMemoryPaymentStatus(data.id, data.active, data.is_coming_soon)
-                if (data.id && data.id.length > 10 && data.id.includes('-')) {
-                    await supabase.from('payment_methods').update({ active: data.active, is_coming_soon: data.is_coming_soon }).eq('id', data.id)
-                } else if (data.code) {
-                    await supabase.from('payment_methods').update({ active: data.active, is_coming_soon: data.is_coming_soon }).eq('code', data.code)
+                updateMemoryPaymentStatus(data.id, data.active, data.is_coming_soon, data.code)
+                const targetCode = data.code || data.id
+                if (targetCode) {
+                    const { data: updData } = await supabase
+                        .from('payment_methods')
+                        .update({ active: data.active, is_coming_soon: data.is_coming_soon })
+                        .eq('code', targetCode)
+                        .select()
+
+                    if (!updData || updData.length === 0) {
+                        const fullDefault = DEFAULT_PAYMENT_METHODS.find((p) => p.code === targetCode)
+                        if (fullDefault) {
+                            await supabase.from('payment_methods').insert([{
+                                code: targetCode,
+                                name: fullDefault.name,
+                                description: fullDefault.description,
+                                type: fullDefault.type,
+                                active: data.active,
+                                is_coming_soon: data.is_coming_soon,
+                                sort_order: fullDefault.sort_order,
+                                instructions: fullDefault.instructions || ''
+                            }])
+                        }
+                    }
                 }
             } else if (action === 'save') {
                 updateMemoryPaymentRecord(data)
@@ -99,7 +126,45 @@ export async function POST(req: Request) {
                 if (data.id && data.id.length > 10 && data.id.includes('-')) {
                     await supabase.from('payment_methods').update(record).eq('id', data.id)
                 } else {
-                    await supabase.from('payment_methods').upsert({ ...record, id: data.id || undefined }, { onConflict: 'code' })
+                    const { data: updData } = await supabase
+                        .from('payment_methods')
+                        .update(record)
+                        .eq('code', record.code)
+                        .select()
+
+                    if (!updData || updData.length === 0) {
+                        await supabase.from('payment_methods').insert([record])
+                    }
+                }
+            } else if (action === 'reorder') {
+                if (Array.isArray(data)) {
+                    for (const item of data) {
+                        updateMemoryPaymentRecord(item)
+                        const targetCode = item.code || item.id
+                        if (targetCode) {
+                            const { data: updData } = await supabase
+                                .from('payment_methods')
+                                .update({ sort_order: item.sort_order })
+                                .eq('code', targetCode)
+                                .select()
+
+                            if (!updData || updData.length === 0) {
+                                const fullDefault = DEFAULT_PAYMENT_METHODS.find((p) => p.code === targetCode)
+                                if (fullDefault) {
+                                    await supabase.from('payment_methods').insert([{
+                                        code: targetCode,
+                                        name: fullDefault.name,
+                                        description: fullDefault.description,
+                                        type: fullDefault.type,
+                                        active: fullDefault.active,
+                                        is_coming_soon: fullDefault.is_coming_soon,
+                                        sort_order: item.sort_order,
+                                        instructions: fullDefault.instructions || ''
+                                    }])
+                                }
+                            }
+                        }
+                    }
                 }
             } else if (action === 'delete') {
                 deleteMemoryPaymentRecord(data.id)
@@ -111,11 +176,60 @@ export async function POST(req: Request) {
             }
         } else if (type === 'bank') {
             if (action === 'toggle') {
-                updateMemoryBankStatus(data.id, data.activo)
-                if (data.id && data.id.length > 10 && data.id.includes('-')) {
-                    await supabase.from('bank_accounts').update({ activo: data.activo }).eq('id', data.id)
-                } else if (data.slug) {
-                    await supabase.from('bank_accounts').update({ activo: data.activo }).eq('slug', data.slug)
+                updateMemoryBankStatus(data.id, data.activo, data.slug)
+                const targetSlug = data.slug || data.id
+                if (targetSlug) {
+                    const { data: updData } = await supabase
+                        .from('bank_accounts')
+                        .update({ activo: data.activo })
+                        .eq('slug', targetSlug)
+                        .select()
+
+                    if (!updData || updData.length === 0) {
+                        const fullDefault = DEFAULT_BANK_ACCOUNTS.find((b) => b.slug === targetSlug)
+                        if (fullDefault) {
+                            await supabase.from('bank_accounts').insert([{
+                                slug: targetSlug,
+                                banco: fullDefault.banco,
+                                titular: fullDefault.titular,
+                                numero: fullDefault.numero,
+                                tipo: fullDefault.tipo,
+                                logo: fullDefault.logo,
+                                activo: data.activo,
+                                orden: fullDefault.orden
+                            }])
+                        }
+                    }
+                }
+            } else if (action === 'reorder') {
+                if (Array.isArray(data)) {
+                    for (const item of data) {
+                        updateMemoryBankRecord(item)
+                        const targetSlug = item.slug || item.id
+                        if (targetSlug) {
+                            const { data: updData } = await supabase
+                                .from('bank_accounts')
+                                .update({ orden: item.orden })
+                                .eq('slug', targetSlug)
+                                .select()
+
+                            if (!updData || updData.length === 0) {
+                                const fullDefault = DEFAULT_BANK_ACCOUNTS.find((b) => b.slug === targetSlug)
+                                if (fullDefault) {
+                                    await supabase.from('bank_accounts').insert([{
+                                        slug: targetSlug,
+                                        banco: fullDefault.banco,
+                                        titular: fullDefault.titular,
+                                        numero: fullDefault.numero,
+                                        tipo: fullDefault.tipo,
+                                        logo: fullDefault.logo,
+                                        activo: fullDefault.activo,
+                                        orden: item.orden
+                                    }])
+                                }
+                            }
+                        }
+                    }
                 }
             } else if (action === 'save') {
                 updateMemoryBankRecord(data)
@@ -131,10 +245,16 @@ export async function POST(req: Request) {
                 }
                 if (data.id && data.id.length > 10 && data.id.includes('-')) {
                     await supabase.from('bank_accounts').update(record).eq('id', data.id)
-                } else if (data.slug) {
-                    await supabase.from('bank_accounts').update(record).eq('slug', data.slug)
                 } else {
-                    await supabase.from('bank_accounts').insert([record])
+                    const { data: updData } = await supabase
+                        .from('bank_accounts')
+                        .update(record)
+                        .eq('slug', record.slug)
+                        .select()
+
+                    if (!updData || updData.length === 0) {
+                        await supabase.from('bank_accounts').insert([record])
+                    }
                 }
             } else if (action === 'delete') {
                 deleteMemoryBankRecord(data.id)
@@ -152,3 +272,4 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true })
     }
 }
+

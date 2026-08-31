@@ -74,7 +74,10 @@ export const ProductGridSkeleton = memo(ProductGridSkeletonComponent);
 
 function ProductCustomizationSkeletonComponent() {
     return (
-        <div className="min-h-dvh bg-black text-white pt-8 pb-20 px-4 md:px-8">
+        <div
+            style={{ paddingTop: 'calc(var(--header-height, 4.5rem) + 1.25rem)' }}
+            className="min-h-dvh bg-black text-white pb-20 px-4 md:px-8"
+        >
             <div className="max-w-7xl mx-auto">
                 {/* Back button skeleton */}
                 <div className="mb-8 w-24 h-6 bg-white/10 rounded" />

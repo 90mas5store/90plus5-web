@@ -130,6 +130,25 @@ export async function POST(request: NextRequest) {
 
         const payload = parseResult.data;
 
+        // 🛡️ IDEMPOTENCY CHECK — Si ya existe una orden con esta misma clave de idempotencia, retornar la orden existente
+        if (payload.idempotency_key) {
+            const { data: existingOrder } = await supabase
+                .from('orders')
+                .select('id, order_number, total_amount')
+                .eq('idempotency_key', payload.idempotency_key)
+                .maybeSingle();
+
+            if (existingOrder) {
+                console.info('🔁 Idempotency hit: Retornando orden ya creada #', existingOrder.order_number);
+                return NextResponse.json({
+                    success: true,
+                    order_id: existingOrder.id,
+                    order_number: existingOrder.order_number,
+                    reused: true
+                });
+            }
+        }
+
         // 🛡️ SECURITY: FETCH REAL PRICES
         // Extraer IDs únicos para batch fetching
         const productIds = [...new Set(payload.items.map(i => i.product_id))];

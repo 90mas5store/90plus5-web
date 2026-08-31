@@ -55,7 +55,15 @@ export async function getPaymentMethodsAdmin(): Promise<PaymentMethodRecord[]> {
             return DEFAULT_PAYMENT_METHODS
         }
 
-        return data as PaymentMethodRecord[]
+        const methods = [...data] as PaymentMethodRecord[]
+        if (!methods.some((m) => m.code === 'paypal')) {
+            const paypalDefault = DEFAULT_PAYMENT_METHODS.find((p) => p.code === 'paypal')
+            if (paypalDefault) {
+                methods.push(paypalDefault)
+            }
+        }
+
+        return methods
     } catch (err) {
         console.warn('[payment-actions] Using default payment methods fallback:', err)
         return DEFAULT_PAYMENT_METHODS

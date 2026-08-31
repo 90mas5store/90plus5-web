@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchBankAccounts } from '@/lib/config/banks';
+import { fetchBankAccounts } from '@/lib/config/banks.server';
 
 /**
  * GET /api/bank-accounts

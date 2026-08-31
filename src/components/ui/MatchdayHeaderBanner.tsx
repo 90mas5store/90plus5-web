@@ -24,7 +24,13 @@ export default function MatchdayHeaderBanner() {
     }
   }
 
-  const activeEntries = Array.from(uniqueMatchMap.values());
+  const activeEntries = Array.from(uniqueMatchMap.values()).sort((a, b) => {
+    const matchA = a[1];
+    const matchB = b[1];
+    const scoreA = (!matchA.isFinished && !matchA.isUpcoming) ? 3 : matchA.isFinished ? 2 : 1;
+    const scoreB = (!matchB.isFinished && !matchB.isUpcoming) ? 3 : matchB.isFinished ? 2 : 1;
+    return scoreB - scoreA;
+  });
 
   if (pathname === '/' || activeEntries.length === 0) return null;
 
@@ -111,48 +117,62 @@ function MatchPill({
   const { match, teamPlaying, opponent, teamScore, opponentScore } = item;
   const catalogHref = `/catalogo?query=${encodeURIComponent(teamPlaying)}`;
 
+  const isFinished = match.isFinished;
+  const isUpcoming = match.isUpcoming;
+
   return (
     <Link
       href={catalogHref}
       className={`inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 py-1 rounded-full border transition-all hover:scale-105 whitespace-nowrap shrink-0 ${
-        match.isFinished
+        isFinished
           ? "bg-amber-950/60 border-amber-500/40 text-amber-100 hover:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
+          : isUpcoming
+          ? "bg-blue-950/60 border-blue-500/40 text-blue-100 hover:border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
           : "bg-red-950/60 border-red-500/40 text-white hover:border-red-500 shadow-[0_0_10px_rgba(229,9,20,0.25)]"
       }`}
     >
-      {/* Badge Torneo */}
+      {/* Badge Torneo / Estado */}
       <span
         className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wide flex items-center gap-1 shrink-0 ${
-          match.isFinished ? "bg-amber-600 text-white" : "bg-[#E50914] text-white"
+          isFinished
+            ? "bg-amber-600 text-white"
+            : isUpcoming
+            ? "bg-blue-600 text-white"
+            : "bg-[#E50914] text-white"
         }`}
       >
-        {match.isFinished ? (
+        {isFinished ? (
           <Trophy className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+        ) : isUpcoming ? (
+          <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
         ) : (
           <Flame className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white fill-white" />
         )}
-        {match.isFinished
-          ? "FINAL"
-          : match.leagueName
-          ? match.leagueName.toUpperCase()
-          : "EN VIVO"}
+        <span>
+          {match.leagueName ? match.leagueName.toUpperCase() : "MATCHDAY"}
+          {isFinished ? " · FINAL" : isUpcoming ? " · PRÓXIMO" : " · EN VIVO"}
+        </span>
       </span>
 
       {/* Detalle Partido */}
       <span className="text-[11px] sm:text-xs font-bold whitespace-nowrap">
-        <strong className={match.isFinished ? "text-amber-300" : "text-red-400"}>
+        <strong className={isFinished ? "text-amber-300" : isUpcoming ? "text-blue-300" : "text-red-400"}>
           {teamPlaying}
         </strong>{" "}
-        {teamScore} - {opponentScore}{" "}
+        {isUpcoming ? "vs" : `${teamScore} - ${opponentScore}`}{" "}
         {opponent && opponent !== 'Rival' && (
           <span className="font-normal text-gray-300">({opponent})</span>
         )}
       </span>
 
-      {/* Minuto o Finalizado */}
-      {match.isFinished ? (
+      {/* Minuto, Horario o Finalizado */}
+      {isFinished ? (
         <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-[9px] sm:text-[10px] text-amber-300 font-bold shrink-0">
           Finalizado
+        </span>
+      ) : isUpcoming ? (
+        <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-[9px] sm:text-[10px] text-blue-300 font-bold shrink-0">
+          {match.startTime || "Hoy"}
         </span>
       ) : (
         match.minute && (

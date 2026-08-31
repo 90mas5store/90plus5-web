@@ -28,14 +28,23 @@ export default function TerminosPage() {
                 <li>La personalización (nombre y número) se realiza exactamente como la escribe el cliente. No nos hacemos responsables por errores ortográficos introducidos por el usuario.</li>
             </ul>
 
-            <h2>3. Pedidos y Pagos</h2>
+            <h2>3. Pedidos y Métodos de Pago</h2>
             <p>
-                Para iniciar la producción o el despacho de tu pedido, requerimos un <strong>anticipo del 50%</strong> del valor total.
+                Ofrecemos múltiples formas de pago para tu comodidad y seguridad:
             </p>
             <ul>
-                <li>El 50% restante se cancela cuando el pedido esté listo para entrega o envío.</li>
-                <li>Aceptamos transferencias bancarias a nuestras cuentas oficiales (BAC, Atlántida, Occidente, Ficohsa).</li>
-                <li>Los pedidos no pagados (anticipo) en un plazo de 48 horas serán cancelados automáticamente.</li>
+                <li>
+                    <strong>Transferencia Bancaria:</strong> Requerimos un anticipo del 50% para procesar pedidos bajo encargo, cancelando el 50% restante al momento de la entrega o despacho. Aceptamos transferencias a nuestras cuentas oficiales en BAC Credomatic y Banco Atlántida.
+                </li>
+                <li>
+                    <strong>PayPal y Tarjetas Internacionales (Débito / Crédito):</strong> Los pagos procesados a través de la pasarela oficial de PayPal se cobran al 100% en Dólares Estadounidenses (USD) al tipo de cambio oficial publicado en la tienda. La confirmación del pago y la reserva de inventario son inmediatas.
+                </li>
+                <li>
+                    <strong>Seguridad en Pagos Electrónicos:</strong> Todas las transacciones con tarjeta son procesadas de extremo a extremo por PayPal bajo los más estrictos estándares de seguridad y encriptación PCI-DSS. 90+5 Store no almacena ni tiene acceso a los números completos de tu tarjeta de crédito o débito.
+                </li>
+                <li>
+                    <strong>Plazo de Confirmación:</strong> Los pedidos con método de transferencia bancaria que no reciban su comprobante en un plazo de 48 horas podrán ser cancelados automáticamente para liberar el inventario.
+                </li>
             </ul>
 
             <h2>4. Tiempos de Entrega</h2>

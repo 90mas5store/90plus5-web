@@ -1,5 +1,3 @@
-import { createAdminClient } from '@/lib/supabase/admin';
-
 export interface BankAccountRecord {
     id: string;
     slug: string;
@@ -17,7 +15,7 @@ export interface PaymentMethodRecord {
     code: string;
     name: string;
     description: string;
-    type: 'transferencia' | 'efectivo' | 'link_pago' | 'tarjeta' | 'otro';
+    type: 'transferencia' | 'efectivo' | 'link_pago' | 'tarjeta' | 'paypal' | 'otro';
     active: boolean;
     is_coming_soon: boolean;
     sort_order: number;
@@ -76,6 +74,17 @@ export let DEFAULT_PAYMENT_METHODS: PaymentMethodRecord[] = [
         instructions: 'Al completar el pedido, nuestro equipo te enviará el link por WhatsApp.'
     },
     {
+        id: 'pm-paypal',
+        code: 'paypal',
+        name: 'PayPal / Tarjetas Internacionales',
+        description: 'Paga de forma instantánea y segura con saldo PayPal, tarjeta de crédito o débito.',
+        type: 'paypal',
+        active: true,
+        is_coming_soon: false,
+        sort_order: 3,
+        instructions: 'Paga en dólares (USD) de forma segura con tu cuenta de PayPal o tarjeta.',
+    },
+    {
         id: 'pm-efectivo',
         code: 'efectivo',
         name: 'Efectivo / Pago al Entregar',
@@ -83,30 +92,30 @@ export let DEFAULT_PAYMENT_METHODS: PaymentMethodRecord[] = [
         type: 'efectivo',
         active: true,
         is_coming_soon: false,
-        sort_order: 3,
+        sort_order: 4,
         instructions: 'Prepara el monto exacto para entregarlo al repartidor.'
     },
     {
         id: 'pm-tarjeta',
         code: 'tarjeta',
-        name: 'Tarjeta de Crédito / Débito',
+        name: 'Tarjeta de Crédito / Débito (Local)',
         description: 'Pago seguro en línea con tarjeta Visa/Mastercard.',
         type: 'tarjeta',
-        active: true,
+        active: false,
         is_coming_soon: true,
-        sort_order: 4,
+        sort_order: 5,
         instructions: 'Integración en desarrollo.'
     }
 ];
 
-export function updateMemoryBankStatus(id: string, activo: boolean) {
-    DEFAULT_BANK_ACCOUNTS = DEFAULT_BANK_ACCOUNTS.map(b => b.id === id ? { ...b, activo } : b);
+export function updateMemoryBankStatus(id: string, activo: boolean, slug?: string) {
+    DEFAULT_BANK_ACCOUNTS = DEFAULT_BANK_ACCOUNTS.map(b => (b.id === id || (slug && b.slug === slug)) ? { ...b, activo } : b);
 }
 
 export function updateMemoryBankRecord(bank: Partial<BankAccountRecord>) {
-    const exists = DEFAULT_BANK_ACCOUNTS.some(b => b.id === bank.id);
+    const exists = DEFAULT_BANK_ACCOUNTS.some(b => b.id === bank.id || (bank.slug && b.slug === bank.slug));
     if (exists) {
-        DEFAULT_BANK_ACCOUNTS = DEFAULT_BANK_ACCOUNTS.map(b => b.id === bank.id ? { ...b, ...bank } as BankAccountRecord : b);
+        DEFAULT_BANK_ACCOUNTS = DEFAULT_BANK_ACCOUNTS.map(b => (b.id === bank.id || (bank.slug && b.slug === bank.slug)) ? { ...b, ...bank } as BankAccountRecord : b);
     } else {
         DEFAULT_BANK_ACCOUNTS.push({
             id: bank.id || `bank_${Date.now()}`,
@@ -126,14 +135,14 @@ export function deleteMemoryBankRecord(id: string) {
     DEFAULT_BANK_ACCOUNTS = DEFAULT_BANK_ACCOUNTS.filter(b => b.id !== id);
 }
 
-export function updateMemoryPaymentStatus(id: string, active: boolean, is_coming_soon: boolean) {
-    DEFAULT_PAYMENT_METHODS = DEFAULT_PAYMENT_METHODS.map(p => p.id === id ? { ...p, active, is_coming_soon } : p);
+export function updateMemoryPaymentStatus(id: string, active: boolean, is_coming_soon: boolean, code?: string) {
+    DEFAULT_PAYMENT_METHODS = DEFAULT_PAYMENT_METHODS.map(p => (p.id === id || (code && p.code === code)) ? { ...p, active, is_coming_soon } : p);
 }
 
 export function updateMemoryPaymentRecord(method: Partial<PaymentMethodRecord>) {
     const exists = DEFAULT_PAYMENT_METHODS.some(p => p.id === method.id || (method.code && p.code === method.code));
     if (exists) {
-        DEFAULT_PAYMENT_METHODS = DEFAULT_PAYMENT_METHODS.map(p => (p.id === method.id || p.code === method.code) ? { ...p, ...method } as PaymentMethodRecord : p);
+        DEFAULT_PAYMENT_METHODS = DEFAULT_PAYMENT_METHODS.map(p => (p.id === method.id || (method.code && p.code === method.code)) ? { ...p, ...method } as PaymentMethodRecord : p);
     } else {
         DEFAULT_PAYMENT_METHODS.push({
             id: method.id || `pm_${Date.now()}`,
@@ -156,47 +165,3 @@ export function deleteMemoryPaymentRecord(id: string) {
 export const BANK_ACCOUNTS_FALLBACK = DEFAULT_BANK_ACCOUNTS;
 export const PAYMENT_METHODS_FALLBACK = DEFAULT_PAYMENT_METHODS;
 export const BANK_ACCOUNTS = DEFAULT_BANK_ACCOUNTS;
-
-/**
- * Obtiene las cuentas bancarias activas desde Supabase.
- */
-export async function fetchBankAccounts(): Promise<BankAccountRecord[]> {
-    try {
-        const supabase = createAdminClient();
-        const { data, error } = await supabase
-            .from('bank_accounts')
-            .select('id, slug, banco, titular, numero, tipo, logo, activo, orden')
-            .eq('activo', true)
-            .order('orden', { ascending: true });
-
-        if (error || !data || data.length === 0) {
-            return DEFAULT_BANK_ACCOUNTS.filter(b => b.activo);
-        }
-
-        return data as BankAccountRecord[];
-    } catch {
-        return DEFAULT_BANK_ACCOUNTS.filter(b => b.activo);
-    }
-}
-
-/**
- * Obtiene las formas de pago desde Supabase.
- */
-export async function fetchPaymentMethods(): Promise<PaymentMethodRecord[]> {
-    try {
-        const supabase = createAdminClient();
-        const { data, error } = await supabase
-            .from('payment_methods')
-            .select('*')
-            .eq('active', true)
-            .order('sort_order', { ascending: true });
-
-        if (error || !data || data.length === 0) {
-            return DEFAULT_PAYMENT_METHODS.filter(p => p.active);
-        }
-
-        return data as PaymentMethodRecord[];
-    } catch {
-        return DEFAULT_PAYMENT_METHODS.filter(p => p.active);
-    }
-}

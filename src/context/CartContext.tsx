@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-type CartItem = {
+export type CartItem = {
   id: string;
   equipo: string;
   modelo: string;
@@ -59,6 +59,7 @@ const CartContext = createContext<CartContextType>({} as CartContextType);
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   // 🧮 Calcular total
   const total = items.reduce(
@@ -66,47 +67,37 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     0
   );
 
-  // 💾 Cargar carrito desde localStorage al montar
+  // 💾 1. Cargar carrito desde localStorage una sola vez al montar
   useEffect(() => {
-    // Verificar que estamos en el cliente
     if (typeof window === 'undefined') return;
 
-    // Llamar setState en callback para evitar setState síncrono en effect
-    const id = setTimeout(() => {
-      try {
-        const saved = localStorage.getItem("cart90mas5");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setItems(parsed);
-          }
+    try {
+      const saved = localStorage.getItem("cart90mas5") || localStorage.getItem("cartItems");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setItems(parsed);
         }
-      } catch (error) {
-        console.error('Error loading cart from localStorage:', error);
-        localStorage.removeItem("cart90mas5");
-        localStorage.removeItem("cartItems");
       }
-    }, 0);
-    return () => clearTimeout(id);
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+    } finally {
+      setIsHydrated(true);
+    }
   }, []);
 
-  // 💾 Guardar carrito al cambiar
-  // 🛡️ A2 FIX: Solo guardar datos mínimos en localStorage (sin precios)
-  // Los precios se recalculan desde el servidor en checkout
+  // 💾 2. Guardar carrito al cambiar (SOLO si ya se cargó/hidrató de localStorage)
   useEffect(() => {
-    // Verificar que estamos en el cliente
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !isHydrated) return;
 
     try {
       const cartData = JSON.stringify(items);
       localStorage.setItem("cart90mas5", cartData);
-      // También guardar en 'cartItems' para compatibilidad con checkout/done
       localStorage.setItem("cartItems", cartData);
-      // ✅ Carrito guardado en localStorage
     } catch (error) {
       console.error('Error saving cart to localStorage:', error);
     }
-  }, [items]);
+  }, [items, isHydrated]);
 
   // 🧩 Función auxiliar para comparar ítems idénticos
   const isSameItem = (a: CartItem, b: CartItem) =>
@@ -134,6 +125,17 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       return [...prev, { ...newItem, cantidad: Math.min(Math.max(1, newItem.cantidad), 99) }];
     });
     setIsOpen(true);
+
+    if (typeof window !== 'undefined' && window.trackEvent) {
+      window.trackEvent('add_to_cart', {
+        productId: newItem.id,
+        modelo: newItem.modelo,
+        equipo: newItem.equipo,
+        talla: newItem.talla,
+        precio: newItem.precio,
+        cantidad: newItem.cantidad,
+      });
+    }
   };
 
   // ❌ Eliminar item
