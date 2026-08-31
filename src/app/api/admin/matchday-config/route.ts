@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { setManualMatchdayConfig, ManualMatchdayStore } from '@/lib/matchdayStore';
+import type { ManualMatchdayStore } from '@/lib/matchdayStore';
 
 export async function POST(req: Request) {
   try {
@@ -18,26 +18,23 @@ export async function POST(req: Request) {
       matchday_period: matchday_period || 'En Vivo',
     };
 
-    // Guardar en memoria para respuesta inmediata
-    setManualMatchdayConfig(teamId, config);
-
-    // Intentar guardar en Supabase (si las columnas existen)
+    // Supabase es la fuente de verdad. En Vercel la memoria y el filesystem no
+    // son persistentes ni se comparten entre instancias de funciones.
     const supabase = createAdminClient();
-    try {
-      const payload = {
-        is_matchday_active: config.is_matchday_active,
-        matchday_opponent: config.matchday_opponent,
-        matchday_score: config.matchday_score,
-        matchday_period: config.matchday_period,
-      };
+    const payload = {
+      is_matchday_active: config.is_matchday_active,
+      matchday_opponent: config.matchday_opponent,
+      matchday_score: config.matchday_score,
+      matchday_period: config.matchday_period,
+    };
 
-      const { error } = await supabase.from('teams').update(payload).eq('id', teamId);
-      if (error) {
-        // Fallback a is_matchday_active básico si faltan columnas extendidas en PostgreSQL
-        await supabase.from('teams').update({ is_matchday_active: config.is_matchday_active }).eq('id', teamId);
-      }
-    } catch (dbErr) {
-      console.warn('[matchday-config] DB update fallback:', dbErr);
+    const { error } = await supabase.from('teams').update(payload).eq('id', teamId);
+    if (error) {
+      console.error('[matchday-config] Error saving configuration to Supabase:', error);
+      return NextResponse.json(
+        { error: 'No se pudo guardar la configuración de Matchday en Supabase.' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, teamId, config });

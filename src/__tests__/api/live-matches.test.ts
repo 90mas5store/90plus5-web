@@ -6,7 +6,7 @@ vi.mock('@/lib/supabase/admin', () => ({
     from: (table: string) => ({
       select: () => {
         if (table === 'teams') {
-          return Promise.resolve({
+          const response = {
             data: [
               { id: 'real-madrid-id', name: 'Real Madrid', logo_url: 'https://example.com/rm.png', is_matchday_active: false, leagues: { name: 'LaLiga Española' } },
               { id: 'atletico-madrid-id', name: 'Atlético de Madrid', logo_url: 'https://example.com/atleti.png', is_matchday_active: false, leagues: { name: 'LaLiga Española' } },
@@ -15,9 +15,10 @@ vi.mock('@/lib/supabase/admin', () => ({
               { id: 'psg-id', name: 'Paris Saint-Germain', logo_url: 'https://example.com/psg.png', is_matchday_active: false, leagues: { name: 'Ligue 1 Francia' } },
             ],
             error: null,
-          });
+          };
+          return { is: () => Promise.resolve(response) };
         }
-        return Promise.resolve({ data: [], error: null });
+        return { is: () => Promise.resolve({ data: [], error: null }) };
       },
     }),
   }),

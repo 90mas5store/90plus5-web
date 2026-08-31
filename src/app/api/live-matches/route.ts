@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server';
-import { createClient as createDirectSupabaseClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { LiveMatchData } from '@/hooks/useLiveMatches';
-import { getManualMatchdayConfig } from '@/lib/matchdayStore';
 
 // Caché en memoria ultrarrápida: 5 segundos para actualización instantánea
 let liveCache: { data: Record<string, LiveMatchData>; ts: number } | null = null;
@@ -195,8 +194,9 @@ function formatMatchTime(dateStr?: string | null): string {
   }
 }
 
-export async function GET() {
+export async function GET(req?: NextRequest) {
   const now = Date.now();
+  const isDebug = req ? req.nextUrl.searchParams.get('debug') === '1' : false;
 
   // Devolver respuesta en caché si está dentro del TTL (5 s) (omitir en entorno de pruebas)
   if (process.env.NODE_ENV !== 'test' && liveCache && now - liveCache.ts < CACHE_TTL) {
@@ -206,43 +206,35 @@ export async function GET() {
   }
 
   const result: Record<string, LiveMatchData> = {};
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fhvxolslqrrkefsvbcrq.supabase.co';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
+  let events: any[] = [];
   // 1. OBTENER LISTADO DE EQUIPOS, LOGOS Y SUS LIGAS REGISTRADAS EN SUPABASE
   let teamsData: any[] = [];
   const teamLeagueMap = new Map<string, string>();
   const teamLogoByName = new Map<string, string>();
 
-  if (supabaseUrl && supabaseKey) {
-    try {
-      const supabase = createDirectSupabaseClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('teams')
+      .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
+      .is('deleted_at', null);
 
-      let { data, error } = await supabase
-        .from('teams')
-        .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
-        .is('deleted_at', null);
-
-      if (error || !data || data.length === 0) {
-        const fallback = await supabase
-          .from('teams')
-          .select('id, name, logo_url');
-        data = fallback.data as any;
-      }
-
-      teamsData = data || [];
-
-      for (const t of teamsData) {
-        if (t.name) {
-          const norm = normalizeTeamName(t.name);
-          if (t.logo_url) teamLogoByName.set(norm, t.logo_url);
-        }
-      }
-    } catch (e) {
-      console.warn('[live-matches] Error fetching teams from Supabase:', e);
+    if (error) {
+      throw error;
     }
+
+    teamsData = data || [];
+
+    for (const t of teamsData) {
+      if (t.name) {
+        const norm = normalizeTeamName(t.name);
+        if (t.logo_url) teamLogoByName.set(norm, t.logo_url);
+      }
+    }
+  } catch (e) {
+    // No usar una consulta degradada: perder is_matchday_active ocultaría los
+    // matchdays manuales y haría que el fallo pareciera un resultado vacío.
+    console.error('[live-matches] Error fetching teams from Supabase:', e);
   }
 
   // Respaldo garantizado de equipos base si la BD estuviera momentáneamente ocupada
@@ -368,7 +360,7 @@ export async function GET() {
     );
 
     const responses = await Promise.allSettled(fetchPromises);
-    let events: any[] = [];
+    events = [];
 
     for (const item of responses) {
       if (item.status === 'fulfilled' && item.value?.events) {
@@ -470,11 +462,9 @@ export async function GET() {
   // 3. RESPALDO MANUAL: ACTIVACIONES DESDE EL ADMIN (is_matchday_active = true)
   for (const team of teamsData) {
     if (team.is_matchday_active && !result[team.id]) {
-      const storedConfig = getManualMatchdayConfig(team.id);
-
-      const opponentName = storedConfig?.matchday_opponent || team.matchday_opponent || 'Rival';
-      const scoreStr = storedConfig?.matchday_score || team.matchday_score || '0-0';
-      const periodStr = storedConfig?.matchday_period || team.matchday_period || 'En Vivo';
+      const opponentName = team.matchday_opponent || 'Rival';
+      const scoreStr = team.matchday_score || '0-0';
+      const periodStr = team.matchday_period || 'En Vivo';
 
       let hScore = 0;
       let aScore = 0;
@@ -513,6 +503,22 @@ export async function GET() {
         };
       }
     }
+  }
+
+  if (isDebug) {
+    return NextResponse.json({
+      supabaseDataCount: teamsData.length,
+      nameToUuidSize: nameToUuid.size,
+      eventsFetched: events.length,
+      sampleEvents: events.slice(0, 5).map((e: any) => ({
+        name: e.name,
+        competitors: e.competitions?.[0]?.competitors?.map((c: any) => ({ name: c.team?.name, homeAway: c.homeAway })),
+        state: e.status?.type?.state,
+        date: e.date,
+      })),
+      resultKeys: Object.keys(result),
+      result,
+    });
   }
 
   if (Object.keys(result).length > 0) {
