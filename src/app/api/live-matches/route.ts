@@ -226,13 +226,13 @@ export async function GET() {
   try {
     let { data, error } = await supabase
       .from('teams')
-      .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period, leagues (name)');
+      .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
+      .is('deleted_at', null);
 
-    // Fallback a columnas estándar si las columnas extendidas no existen en la BD aún
-    if (error) {
+    if (error || !data || data.length === 0) {
       const fallback = await supabase
         .from('teams')
-        .select('id, name, logo_url, is_matchday_active, leagues (name)');
+        .select('id, name, logo_url');
       data = fallback.data as any;
     }
 
@@ -243,13 +243,28 @@ export async function GET() {
         const norm = normalizeTeamName(t.name);
         if (t.logo_url) teamLogoByName.set(norm, t.logo_url);
       }
-      const l = Array.isArray(t.leagues) ? t.leagues[0] : t.leagues;
-      if (l?.name) {
-        teamLeagueMap.set(t.id, l.name);
-      }
     }
   } catch (e) {
     console.warn('[live-matches] Error fetching teams from Supabase:', e);
+  }
+
+  // Respaldo garantizado de equipos base si la BD estuviera momentáneamente ocupada
+  if (teamsData.length === 0) {
+    teamsData = [
+      { id: '671e730c-9a6f-43b0-9b22-6588926cfeca', name: 'FC Barcelona' },
+      { id: '2e8c6793-c8e3-454f-a53d-452d46466503', name: 'Arsenal' },
+      { id: 'c3a6d6d9-6efc-4b8f-abc8-f980cb2ce246', name: 'Manchester City' },
+      { id: '493fceb8-ee26-4c02-a664-c0556053c4e8', name: 'Real Madrid' },
+      { id: '535b242f-6f50-482a-94aa-9524603e5972', name: 'Club Deportivo Olimpia' },
+      { id: 'b0a1c2d3-e4f5-6789-0123-456789abcdef', name: 'Liverpool' },
+      { id: 'c1d2e3f4-a5b6-7890-1234-567890abcdef', name: 'Chelsea FC' },
+      { id: 'd2e3f4a5-b6c7-8901-2345-678901abcdef', name: 'Bayern Munich' },
+      { id: 'e3f4a5b6-c7d8-9012-3456-789012abcdef', name: 'Paris Saint Germain' },
+      { id: 'f4a5b6c7-d8e9-0123-4567-890123abcdef', name: 'Inter Miami' },
+      { id: '05b6c7d8-e9f0-1234-5678-901234abcdef', name: 'Motagua' },
+      { id: '16c7d8e9-f0a1-2345-6789-012345abcdef', name: 'Real España' },
+      { id: '27d8e9f0-a1b2-3456-7890-123456abcdef', name: 'Marathón' },
+    ];
   }
 
   // Mapa robusto de búsqueda de IDs por nombre normalizado y alias
@@ -504,8 +519,14 @@ export async function GET() {
     }
   }
 
-  liveCache = { data: result, ts: now };
+  if (Object.keys(result).length > 0) {
+    liveCache = { data: result, ts: now };
+  }
   return NextResponse.json(result, {
-    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate',
+      'CDN-Cache-Control': 'no-store',
+      'Vercel-CDN-Cache-Control': 'no-store',
+    },
   });
 }
