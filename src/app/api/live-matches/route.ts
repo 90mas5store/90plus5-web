@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createDirectSupabaseClient } from '@supabase/supabase-js';
 import type { LiveMatchData } from '@/hooks/useLiveMatches';
 import { getManualMatchdayConfig } from '@/lib/matchdayStore';
 
@@ -206,12 +205,17 @@ export async function GET() {
   }
 
   const result: Record<string, LiveMatchData> = {};
-  let supabase: any;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    supabase = await createClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn('[live-matches] Supabase URL or Key not found in environment');
+    return NextResponse.json({});
   }
+
+  const supabase = createDirectSupabaseClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   // 1. OBTENER LISTADO DE EQUIPOS, LOGOS Y SUS LIGAS REGISTRADAS EN SUPABASE
   let teamsData: any[] = [];

@@ -142,6 +142,28 @@ export default function PaymentMethodSection({
                     </motion.div>
                 )}
 
+                {metodoPago === 'paypal' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="mt-6 p-5 rounded-2xl bg-[#003087]/10 border border-[#0079C1]/30 space-y-3"
+                    >
+                        <div className="flex items-center gap-2">
+                            <CreditCard className="w-5 h-5 text-[#0079C1]" />
+                            <h3 className="text-sm font-black uppercase tracking-tight text-white">
+                                Pago con Tarjeta Internacional o Saldo PayPal
+                            </h3>
+                        </div>
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                            Aceptamos tarjetas de débito o crédito internacionales (Visa, Mastercard, Amex) y saldo de cuenta PayPal en USD al tipo de cambio oficial.
+                        </p>
+                        <p className="text-[11px] text-amber-400/90 lg:hidden font-medium bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                            👇 <strong>Atención en celular:</strong> Llena tus datos de entrega y desplázate al final de la página (en el Resumen) para pulsar el botón oficial de PayPal o Tarjeta.
+                        </p>
+                    </motion.div>
+                )}
+
                 {paymentMethods.find((m) => (m.code || m.id) === metodoPago)?.is_coming_soon && (
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
