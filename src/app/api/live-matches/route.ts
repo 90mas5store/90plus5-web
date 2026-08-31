@@ -291,19 +291,20 @@ export async function GET() {
       }
     }
 
-    // 3. Registrar todos los alias configurados
+    // 3. Registrar todos los alias configurados de forma bidireccional y exhaustiva
     for (const [key, aliases] of Object.entries(TEAM_ALIASES)) {
-      const normKey = normalizeTeamName(key);
-      const normKeyNoSpace = normKey.replace(/\s+/g, '');
-      if (norm === normKey || cleanVariant === normKey || noSpaceVariant === normKeyNoSpace) {
-        for (const alias of aliases) {
-          const normAlias = normalizeTeamName(alias);
-          if (!nameToUuid.has(normAlias)) {
-            nameToUuid.set(normAlias, t.id);
+      const allVariants = [key, ...aliases].map(a => normalizeTeamName(a));
+      const cleanVariants = allVariants.map(a => a.replace(/\bfc\b|\bcf\b|\bcd\b|\bclub\b/g, '').replace(/\s+/g, ' ').trim());
+
+      const isMatch = allVariants.includes(norm) || cleanVariants.includes(norm) || cleanVariants.includes(cleanVariant);
+      if (isMatch) {
+        for (const variant of allVariants) {
+          if (variant && !nameToUuid.has(variant)) {
+            nameToUuid.set(variant, t.id);
           }
-          const normAliasNoSpace = normAlias.replace(/\s+/g, '');
-          if (normAliasNoSpace && !nameToUuid.has(normAliasNoSpace)) {
-            nameToUuid.set(normAliasNoSpace, t.id);
+          const noSpace = variant.replace(/\s+/g, '');
+          if (noSpace && !nameToUuid.has(noSpace)) {
+            nameToUuid.set(noSpace, t.id);
           }
         }
       }

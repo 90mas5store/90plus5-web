@@ -138,7 +138,7 @@ const nextConfig = {
               "base-uri 'self'",
               "form-action 'self'",
               "frame-ancestors 'none'",
-              "connect-src 'self' https://*.facebook.com https://connect.facebook.net https://www.google-analytics.com https://www.googletagmanager.com https://fhvxolslqrrkefsvbcrq.supabase.co wss://fhvxolslqrrkefsvbcrq.supabase.co https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com",
+              "connect-src 'self' https://site.api.espn.com https://*.espn.com https://*.espncdn.com https://*.facebook.com https://connect.facebook.net https://www.google-analytics.com https://www.googletagmanager.com https://fhvxolslqrrkefsvbcrq.supabase.co wss://fhvxolslqrrkefsvbcrq.supabase.co https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com",
               "upgrade-insecure-requests",
             ].join('; '),
           },
