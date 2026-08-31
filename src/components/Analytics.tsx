@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import Script from 'next/script';
 import { getConsentLevel } from './CookieConsent';
 
 declare global {
@@ -28,8 +29,8 @@ export default function Analytics() {
     useEffect(() => {
         if (consent !== 'all') return;
 
-        if (pathname && window.gtag) {
-            window.gtag('config', process.env.NEXT_PUBLIC_GA_ID!, {
+        if (pathname && window.gtag && process.env.NEXT_PUBLIC_GA_ID) {
+            window.gtag('config', process.env.NEXT_PUBLIC_GA_ID, {
                 page_path: pathname,
             });
         }
@@ -42,16 +43,15 @@ export default function Analytics() {
 
     return (
         <>
-            {/* --- GOOGLE ANALYTICS 4 (Partytown) --- */}
+            {/* --- GOOGLE ANALYTICS 4 --- */}
             {process.env.NEXT_PUBLIC_GA_ID && (
                 <>
-                    <script
-                        async
-                        type="text/partytown"
+                    <Script
+                        strategy="afterInteractive"
                         src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
                     />
-                    <script
-                        type="text/partytown"
+                    <Script
+                        strategy="afterInteractive"
                         id="google-analytics"
                         dangerouslySetInnerHTML={{
                             __html: `
@@ -67,10 +67,10 @@ export default function Analytics() {
                 </>
             )}
 
-            {/* --- FACEBOOK PIXEL (Partytown) --- */}
+            {/* --- FACEBOOK PIXEL --- */}
             {process.env.NEXT_PUBLIC_FB_PIXEL_ID && (
-                <script
-                    type="text/partytown"
+                <Script
+                    strategy="afterInteractive"
                     id="facebook-pixel"
                     dangerouslySetInnerHTML={{
                         __html: `
