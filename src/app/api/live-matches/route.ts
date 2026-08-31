@@ -305,21 +305,21 @@ export async function GET() {
       'ita.1',
       'ger.1',
       'fra.1',
-      'uefa.europa',
-      'uefa.europa.conf',
-      'esp.copa_del_rey',
       'hon.1',
       'concacaf.central_american_cup',
       'mex.1',
       'usa.1',
+      'uefa.europa',
       'conmebol.libertadores',
       'fifa.world',
     ];
 
     const endpoints: string[] = [];
     for (const league of leagues) {
+      // 1. Scoreboard general en vivo / jornada activa
+      endpoints.push(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`);
+      // 2. Scoreboard con fecha local de hoy
       endpoints.push(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${todayStr}`);
-      endpoints.push(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${tomorrowStr}`);
     }
 
     const fetchPromises = endpoints.map(url =>
@@ -328,7 +328,7 @@ export async function GET() {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'application/json',
         },
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(5000),
       })
         .then(res => (res.ok ? res.json() : null))
         .catch(() => null)

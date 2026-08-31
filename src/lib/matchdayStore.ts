@@ -33,8 +33,8 @@ function saveToFile() {
     }
     const obj = Object.fromEntries(manualStore.entries());
     fs.writeFileSync(DATA_FILE, JSON.stringify(obj, null, 2), 'utf-8');
-  } catch (e) {
-    console.warn('[matchdayStore] Error writing file:', e);
+  } catch {
+    // Silencioso en Vercel (read-only filesystem)
   }
 }
 
