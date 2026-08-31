@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import type { LiveMatchData } from '@/hooks/useLiveMatches';
 import { getManualMatchdayConfig } from '@/lib/matchdayStore';
 
@@ -189,7 +190,12 @@ export async function GET() {
   }
 
   const result: Record<string, LiveMatchData> = {};
-  const supabase = createAdminClient();
+  let supabase: any;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    supabase = await createClient();
+  }
 
   // 1. OBTENER LISTADO DE EQUIPOS, LOGOS Y SUS LIGAS REGISTRADAS EN SUPABASE
   let teamsData: any[] = [];
@@ -292,18 +298,34 @@ export async function GET() {
     const tomorrowLocalDate = new Date(nowLocalDate.getTime() + 24 * 60 * 60 * 1000);
     const tomorrowStr = tomorrowLocalDate.toLocaleDateString('en-CA', { timeZone: tz }).replace(/-/g, '');
 
-    const endpoints = [
-      `https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${todayStr}`,
-      `https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${tomorrowStr}`,
-      `https://site.api.espn.com/apis/site/v2/sports/soccer/hon.1/scoreboard?dates=${todayStr}`,
-      `https://site.api.espn.com/apis/site/v2/sports/soccer/hon.1/scoreboard?dates=${tomorrowStr}`,
-      'https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.central_american_cup/scoreboard',
+    const leagues = [
+      'esp.1',
+      'eng.1',
+      'uefa.champions',
+      'ita.1',
+      'ger.1',
+      'fra.1',
+      'uefa.europa',
+      'uefa.europa.conf',
+      'esp.copa_del_rey',
+      'hon.1',
+      'concacaf.central_american_cup',
+      'mex.1',
+      'usa.1',
+      'conmebol.libertadores',
+      'fifa.world',
     ];
+
+    const endpoints: string[] = [];
+    for (const league of leagues) {
+      endpoints.push(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${todayStr}`);
+      endpoints.push(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${tomorrowStr}`);
+    }
 
     const fetchPromises = endpoints.map(url =>
       fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'application/json',
         },
         signal: AbortSignal.timeout(4000),
