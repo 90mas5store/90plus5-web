@@ -206,46 +206,43 @@ export async function GET() {
   }
 
   const result: Record<string, LiveMatchData> = {};
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fhvxolslqrrkefsvbcrq.supabase.co';
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn('[live-matches] Supabase URL or Key not found in environment');
-    return NextResponse.json({});
-  }
-
-  const supabase = createDirectSupabaseClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   // 1. OBTENER LISTADO DE EQUIPOS, LOGOS Y SUS LIGAS REGISTRADAS EN SUPABASE
   let teamsData: any[] = [];
   const teamLeagueMap = new Map<string, string>();
   const teamLogoByName = new Map<string, string>();
 
-  try {
-    let { data, error } = await supabase
-      .from('teams')
-      .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
-      .is('deleted_at', null);
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const supabase = createDirectSupabaseClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
 
-    if (error || !data || data.length === 0) {
-      const fallback = await supabase
+      let { data, error } = await supabase
         .from('teams')
-        .select('id, name, logo_url');
-      data = fallback.data as any;
-    }
+        .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
+        .is('deleted_at', null);
 
-    teamsData = data || [];
-
-    for (const t of teamsData) {
-      if (t.name) {
-        const norm = normalizeTeamName(t.name);
-        if (t.logo_url) teamLogoByName.set(norm, t.logo_url);
+      if (error || !data || data.length === 0) {
+        const fallback = await supabase
+          .from('teams')
+          .select('id, name, logo_url');
+        data = fallback.data as any;
       }
+
+      teamsData = data || [];
+
+      for (const t of teamsData) {
+        if (t.name) {
+          const norm = normalizeTeamName(t.name);
+          if (t.logo_url) teamLogoByName.set(norm, t.logo_url);
+        }
+      }
+    } catch (e) {
+      console.warn('[live-matches] Error fetching teams from Supabase:', e);
     }
-  } catch (e) {
-    console.warn('[live-matches] Error fetching teams from Supabase:', e);
   }
 
   // Respaldo garantizado de equipos base si la BD estuviera momentáneamente ocupada
@@ -328,12 +325,6 @@ export async function GET() {
 
   // 2. CONSULTAR LA API PÚBLICA EN TIEMPO REAL DE ESPN SPORTS
   try {
-    const tz = 'America/Tegucigalpa';
-    const nowLocalDate = new Date();
-    const todayStr = nowLocalDate.toLocaleDateString('en-CA', { timeZone: tz }).replace(/-/g, '');
-    const tomorrowLocalDate = new Date(nowLocalDate.getTime() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrowLocalDate.toLocaleDateString('en-CA', { timeZone: tz }).replace(/-/g, '');
-
     const leagues = [
       'esp.1',
       'eng.1',
@@ -342,7 +333,6 @@ export async function GET() {
       'ger.1',
       'fra.1',
       'hon.1',
-      'concacaf.central_american_cup',
       'mex.1',
       'usa.1',
       'uefa.europa',
@@ -350,13 +340,9 @@ export async function GET() {
       'fifa.world',
     ];
 
-    const endpoints: string[] = [];
-    for (const league of leagues) {
-      // 1. Scoreboard general en vivo / jornada activa
-      endpoints.push(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`);
-      // 2. Scoreboard con fecha local de hoy
-      endpoints.push(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${todayStr}`);
-    }
+    const endpoints = leagues.map(
+      league => `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`
+    );
 
     const fetchPromises = endpoints.map(url =>
       fetch(url, {
