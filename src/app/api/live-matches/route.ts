@@ -347,14 +347,23 @@ export async function GET() {
     const fetchPromises = endpoints.map(url =>
       fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'application/json',
+          'User-Agent': 'ESPN-Scoreboard/1.0',
         },
         cache: 'no-store',
         signal: AbortSignal.timeout(6000),
       })
-        .then(res => (res.ok ? res.json() : null))
-        .catch(() => null)
+        .then(res => {
+          if (!res.ok) {
+            console.warn(`[live-matches] ESPN fetch failed for ${url} with status: ${res.status}`);
+            return null;
+          }
+          return res.json();
+        })
+        .catch(err => {
+          console.warn(`[live-matches] ESPN fetch error for ${url}:`, err.message);
+          return null;
+        })
     );
 
     const responses = await Promise.allSettled(fetchPromises);
