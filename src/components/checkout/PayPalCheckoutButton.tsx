@@ -26,7 +26,8 @@ export default function PayPalCheckoutButton({
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [paymentType, setPaymentType] = useState<'deposit' | 'full'>('deposit'); // Por defecto: 50% de anticipo
 
-    const clientId = (process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '').trim();
+    const rawClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
+    const clientId = rawClientId.replace(/['"\s]/g, '').trim();
 
     // Cargar tasa de cambio activa en segundo plano
     useEffect(() => {
