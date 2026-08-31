@@ -166,7 +166,7 @@ export default function PayPalCheckoutButton({
                     💡 <strong>¿Cómo ingresar tu tarjeta?</strong> Haz clic en el botón negro <strong>&quot;Tarjeta de débito o crédito&quot;</strong> abajo para escribir los datos de tu tarjeta directamente, o pulsa el botón amarillo de <strong>PayPal</strong> para pagar con tu cuenta.
                 </p>
 
-                <div className={`relative transition-all min-h-[50px] ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="relative transition-all min-h-[100px] w-full">
                     {isProcessing && (
                         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
                             <div className="p-6 rounded-3xl bg-neutral-900 border border-neutral-800 shadow-2xl flex flex-col items-center gap-4 text-center max-w-xs">
@@ -180,13 +180,13 @@ export default function PayPalCheckoutButton({
                     )}
 
                     <PayPalScriptProvider
-                        key={`${clientId}-${paymentType}`}
+                        key={clientId}
                         options={{
                             clientId: clientId,
                             currency: 'USD',
                             intent: 'capture',
                             components: 'buttons',
-                            'enable-funding': 'card',
+                            enableFunding: 'card',
                         }}
                     >
                         <PayPalButtons
@@ -197,7 +197,14 @@ export default function PayPalCheckoutButton({
                                 label: 'pay',
                                 height: 48,
                             }}
-                            disabled={disabled || isProcessing}
+                            disabled={isProcessing}
+                            onClick={(data, actions) => {
+                                if (disabled) {
+                                    onError('Por favor completa todos tus datos de envío arriba y acepta los términos antes de continuar.');
+                                    return actions.reject();
+                                }
+                                return actions.resolve();
+                            }}
                             createOrder={async () => {
                                 try {
                                     const payloadWithPaymentType = {

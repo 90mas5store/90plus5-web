@@ -8,6 +8,7 @@ let liveCache: { data: Record<string, LiveMatchData>; ts: number } | null = null
 const CACHE_TTL = 5 * 1000; // 5 segundos
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 function normalizeTeamName(name: string): string {
   if (!name) return '';
@@ -348,7 +349,8 @@ export async function GET() {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'application/json',
         },
-        signal: AbortSignal.timeout(5000),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(6000),
       })
         .then(res => (res.ok ? res.json() : null))
         .catch(() => null)
