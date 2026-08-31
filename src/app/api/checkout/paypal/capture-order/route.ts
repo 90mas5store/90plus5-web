@@ -126,9 +126,9 @@ export async function POST(request: NextRequest) {
                     const hasUses = dc.max_uses === null || (dc.used_count || 0) < dc.max_uses;
 
                     if (isValidDate && hasUses) {
-                        if (dc.discount_type === 'percentage') {
-                            discountAmount = (calculatedSubtotal * Number(dc.discount_value)) / 100;
-                        } else if (dc.discount_type === 'fixed') {
+                        if (dc.discount_pct) {
+                            discountAmount = (calculatedSubtotal * Number(dc.discount_pct)) / 100;
+                        } else if (dc.discount_value) {
                             discountAmount = Number(dc.discount_value);
                         }
                         discountCodeId = dc.id;

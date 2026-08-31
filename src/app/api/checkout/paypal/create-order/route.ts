@@ -76,26 +76,30 @@ export async function POST(request: NextRequest) {
         // 3. Aplicar descuento si existe
         let discountHnl = 0;
         if (payload.discount_code) {
-            const cleanCode = payload.discount_code.trim().toUpperCase();
-            const { data: dc } = await supabase
-                .from('discount_codes')
-                .select('*')
-                .eq('code', cleanCode)
-                .eq('active', true)
-                .maybeSingle();
+            try {
+                const cleanCode = payload.discount_code.trim().toUpperCase();
+                const { data: dc } = await supabase
+                    .from('discount_codes')
+                    .select('*')
+                    .eq('code', cleanCode)
+                    .eq('active', true)
+                    .maybeSingle();
 
-            if (dc) {
-                const now = new Date();
-                const isValidDate = !dc.expires_at || new Date(dc.expires_at) >= now;
-                const hasUses = dc.max_uses === null || (dc.used_count || 0) < dc.max_uses;
+                if (dc) {
+                    const now = new Date();
+                    const isValidDate = !dc.expires_at || new Date(dc.expires_at) >= now;
+                    const hasUses = dc.max_uses === null || (dc.used_count || 0) < dc.max_uses;
 
-                if (isValidDate && hasUses) {
-                    if (dc.discount_type === 'percentage') {
-                        discountHnl = (subtotalHnl * Number(dc.discount_value)) / 100;
-                    } else if (dc.discount_type === 'fixed') {
-                        discountHnl = Number(dc.discount_value);
+                    if (isValidDate && hasUses) {
+                        if (dc.discount_pct) {
+                            discountHnl = (subtotalHnl * Number(dc.discount_pct)) / 100;
+                        } else if (dc.discount_value) {
+                            discountHnl = Number(dc.discount_value);
+                        }
                     }
                 }
+            } catch (err) {
+                console.warn('[PayPal create-order] Error validando cupón:', err);
             }
         }
 

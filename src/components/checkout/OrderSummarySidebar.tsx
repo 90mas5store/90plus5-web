@@ -270,7 +270,7 @@ export default function OrderSummarySidebar({
                         )}
                         <PayPalCheckoutButton
                             orderPayload={orderPayload}
-                            totalHnl={total}
+                            totalHnl={orderTotal}
                             disabled={!isFormValid || isSubmitting}
                             onSuccess={onPayPalSuccess}
                             onError={onPayPalError}
