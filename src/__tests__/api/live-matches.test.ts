@@ -24,9 +24,15 @@ vi.mock('@/lib/supabase/admin', () => ({
   }),
 }));
 
-// Mock manual matchdayStore
-vi.mock('@/lib/matchdayStore', () => ({
-  getManualMatchdayConfig: () => null,
+// Mock Upstash Redis — simula caché vacía (MISS) para que los tests siempre
+// llamen a ESPN y no dependan de Redis real
+vi.mock('@upstash/redis', () => ({
+  Redis: class {
+    // get → null = caché MISS
+    async get() { return null; }
+    // set → no-op
+    async set() { return 'OK'; }
+  },
 }));
 
 describe('Live Matches API Endpoint (/api/live-matches)', () => {

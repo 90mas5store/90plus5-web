@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
-import { getAllManualMatchdayConfigs } from '@/lib/matchdayStore';
+// matchdayStore eliminado: la fuente de verdad de matchday es Supabase.
+// La escritura se hace en admin/matchday-config/route.ts → columna is_matchday_active.
 
 import { discountValidateSchema } from '@/lib/validations';
 
@@ -57,7 +58,9 @@ export async function POST(request: NextRequest) {
         const playingTeamIds = new Set<string>();
 
         if (code.toUpperCase().trim() === 'MATCHDAY') {
-            // Obtenemos todos los equipos con matchday activo de Supabase
+            // Fuente de verdad: columna is_matchday_active en Supabase.
+            // El admin activa/desactiva matchday via /api/admin/matchday-config
+            // que escribe directamente en esta columna.
             const { data: dbTeams } = await supabase
                 .from('teams')
                 .select('id, name, is_matchday_active, matchday_opponent');
@@ -68,23 +71,15 @@ export async function POST(request: NextRequest) {
                 nameToIdMap.set(t.name.toLowerCase().trim(), t.id);
             }
 
-            const manualConfigs = getAllManualMatchdayConfigs();
-
             for (const team of allTeamsData) {
-                const manualCfg = manualConfigs.get(team.id);
-                const isActive = team.is_matchday_active || manualCfg?.is_matchday_active;
-
-                if (isActive) {
-                    // Nuestro equipo jugando
+                if (team.is_matchday_active) {
+                    // Equipo con matchday activo
                     playingTeamIds.add(team.id);
 
-                    // Rival si también está en nuestro catálogo
-                    const opponentName = manualCfg?.matchday_opponent || team.matchday_opponent;
-                    if (opponentName) {
-                        const rivalId = nameToIdMap.get(opponentName.toLowerCase().trim());
-                        if (rivalId) {
-                            playingTeamIds.add(rivalId);
-                        }
+                    // Si el rival también está en nuestro catálogo, incluirlo
+                    if (team.matchday_opponent) {
+                        const rivalId = nameToIdMap.get(team.matchday_opponent.toLowerCase().trim());
+                        if (rivalId) playingTeamIds.add(rivalId);
                     }
                 }
             }

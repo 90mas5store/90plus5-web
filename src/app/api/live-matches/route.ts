@@ -1,29 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { Redis } from '@upstash/redis';
 import type { LiveMatchData } from '@/hooks/useLiveMatches';
 
-// Caché en memoria ultrarrápida: 5 segundos para actualización instantánea
-let liveCache: { data: Record<string, LiveMatchData>; ts: number } | null = null;
-const CACHE_TTL = 5 * 1000; // 5 segundos
+// ─────────────────────────────────────────────────────────────────────────────
+// CACHÉ DISTRIBUIDA EN UPSTASH REDIS
+// Vercel ejecuta cada request en una función serverless efímera distinta.
+// Las variables en memoria se resetean en cada instancia → usar Redis.
+// ─────────────────────────────────────────────────────────────────────────────
+const CACHE_KEY = 'live-matches:v1';
+const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
+
+let redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (redis) return redis;
+  try {
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!url || !token) return null;
+    redis = new Redis({ url, token });
+    return redis;
+  } catch {
+    return null;
+  }
+}
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NORMALIZACIÓN DE NOMBRES
+// ─────────────────────────────────────────────────────────────────────────────
 function normalizeTeamName(name: string): string {
   if (!name) return '';
   return name
     .toLowerCase()
     .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
+    // Compatible con todos los runtimes (sin Unicode property escapes)
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[-_]/g, ' ')
     .replace(/[^a-z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Diccionario de alias entre nombres registrados en DB Supabase y nombres/alias de la API de ESPN
+// ─────────────────────────────────────────────────────────────────────────────
+// ALIAS: DB Supabase ↔ ESPN API
+// ─────────────────────────────────────────────────────────────────────────────
 const TEAM_ALIASES: Record<string, string[]> = {
-  // Selecciones Nacionales (Español DB <-> Inglés ESPN)
+  // Selecciones Nacionales
   'espana': ['spain', 'seleccion espanola'],
   'alemania': ['germany', 'dfb team'],
   'inglaterra': ['england', 'three lions'],
@@ -43,11 +68,10 @@ const TEAM_ALIASES: Record<string, string[]> = {
   'argentina': ['argentina', 'la albiceleste'],
   'jamaica': ['jamaica'],
   'honduras': ['honduras', 'la h', 'los catrachos'],
-
   // Clubes
   'real madrid': ['real madrid cf', 'real madrid', 'rmadrid', 'r madrid'],
   'atletico de madrid': ['atletico madrid', 'atletico de madrid', 'atl madrid', 'atletico', 'atl. madrid'],
-  'fc barcelona': ['barcelona', 'barca', 'fc barcelona', 'barca'],
+  'fc barcelona': ['barcelona', 'barca', 'fc barcelona'],
   'paris saint germain': ['psg', 'paris saint-germain', 'paris sg', 'paris saint germain'],
   'manchester united': ['man united', 'man utd', 'manchester utd', 'manchester united', 'manchester u.'],
   'manchester city': ['man city', 'manchester city', 'man. city'],
@@ -77,80 +101,37 @@ const TEAM_ALIASES: Record<string, string[]> = {
   'porto': ['porto', 'fc porto'],
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMATEADORES
+// ─────────────────────────────────────────────────────────────────────────────
 function formatCompetitionName(rawName?: string | null): string | null {
   if (!rawName) return null;
   const name = rawName.trim();
   const lower = name.toLowerCase();
 
-  if (lower.includes("honduras") || lower.includes("honduran") || lower.includes("hon.1") || lower.includes("liga nacional")) {
-    return "Liga Nacional Honduras";
-  }
-  if (lower.includes("central_american_cup") || lower.includes("central american cup")) {
-    return "Copa Centroamericana CONCACAF";
-  }
-  if (lower.includes("liga f") || lower.includes("liga-f") || lower.includes("spanish-liga-f") || lower.includes("primera iberdrola")) {
-    return "Liga F (Femenina)";
-  }
-  if (lower.includes("women's champions league") || lower.includes("uwcl") || lower.includes("women-champions")) {
-    return "UEFA Champions League Femenina";
-  }
-  if (lower.includes("champions league") || lower.includes("champions-league") || lower.includes("ucl")) {
-    return "UEFA Champions League";
-  }
-  if (lower.includes("europa league") || lower.includes("europa-league") || lower.includes("uel")) {
-    return "UEFA Europa League";
-  }
-  if (lower.includes("conference league") || lower.includes("conference-league")) {
-    return "UEFA Conference League";
-  }
-  if (lower.includes("copa del rey") || lower.includes("copa-del-rey")) {
-    return "Copa del Rey";
-  }
-  if (lower.includes("laliga") || lower.includes("la liga") || lower.includes("spanish primera")) {
-    return "LaLiga Española";
-  }
-  if (lower.includes("premier league") || lower.includes("premier-league") || lower.includes("epl")) {
-    return "Premier League";
-  }
-  if (lower.includes("serie a") || lower.includes("serie-a")) {
-    return "Serie A Italia";
-  }
-  if (lower.includes("bundesliga")) {
-    return "Bundesliga Alemania";
-  }
-  if (lower.includes("ligue 1") || lower.includes("ligue-1")) {
-    return "Ligue 1 Francia";
-  }
-  if (lower.includes("concacaf")) {
-    return "CONCACAF Champions Cup";
-  }
-  if (lower.includes("libertadores")) {
-    return "Copa Libertadores";
-  }
-  if (lower.includes("sudamericana")) {
-    return "Copa Sudamericana";
-  }
-  if (lower.includes("fa cup") || lower.includes("fa-cup")) {
-    return "FA Cup";
-  }
-  if (lower.includes("carabao") || lower.includes("efl cup")) {
-    return "Carabao Cup";
-  }
-  if (lower.includes("coppa italia")) {
-    return "Coppa Italia";
-  }
-  if (lower.includes("dfb")) {
-    return "Copa de Alemania";
-  }
-  if (lower.includes("mls") || lower.includes("major league soccer")) {
-    return "MLS";
-  }
-  if (lower.includes("liga mx")) {
-    return "Liga MX";
-  }
-  if (lower.includes("friendly") || lower.includes("amistoso")) {
-    return "Amistoso";
-  }
+  if (lower.includes('honduras') || lower.includes('honduran') || lower.includes('hon.1') || lower.includes('liga nacional')) return 'Liga Nacional Honduras';
+  if (lower.includes('central_american_cup') || lower.includes('central american cup')) return 'Copa Centroamericana CONCACAF';
+  if (lower.includes('liga f') || lower.includes('liga-f') || lower.includes('spanish-liga-f') || lower.includes('primera iberdrola')) return 'Liga F (Femenina)';
+  if (lower.includes("women's champions league") || lower.includes('uwcl') || lower.includes('women-champions')) return 'UEFA Champions League Femenina';
+  if (lower.includes('champions league') || lower.includes('champions-league') || lower.includes('ucl')) return 'UEFA Champions League';
+  if (lower.includes('europa league') || lower.includes('europa-league') || lower.includes('uel')) return 'UEFA Europa League';
+  if (lower.includes('conference league') || lower.includes('conference-league')) return 'UEFA Conference League';
+  if (lower.includes('copa del rey') || lower.includes('copa-del-rey')) return 'Copa del Rey';
+  if (lower.includes('laliga') || lower.includes('la liga') || lower.includes('spanish primera')) return 'LaLiga Española';
+  if (lower.includes('premier league') || lower.includes('premier-league') || lower.includes('epl')) return 'Premier League';
+  if (lower.includes('serie a') || lower.includes('serie-a')) return 'Serie A Italia';
+  if (lower.includes('bundesliga')) return 'Bundesliga Alemania';
+  if (lower.includes('ligue 1') || lower.includes('ligue-1')) return 'Ligue 1 Francia';
+  if (lower.includes('concacaf')) return 'CONCACAF Champions Cup';
+  if (lower.includes('libertadores')) return 'Copa Libertadores';
+  if (lower.includes('sudamericana')) return 'Copa Sudamericana';
+  if (lower.includes('fa cup') || lower.includes('fa-cup')) return 'FA Cup';
+  if (lower.includes('carabao') || lower.includes('efl cup')) return 'Carabao Cup';
+  if (lower.includes('coppa italia')) return 'Coppa Italia';
+  if (lower.includes('dfb')) return 'Copa de Alemania';
+  if (lower.includes('mls') || lower.includes('major league soccer')) return 'MLS';
+  if (lower.includes('liga mx')) return 'Liga MX';
+  if (lower.includes('friendly') || lower.includes('amistoso')) return 'Amistoso';
 
   return name;
 }
@@ -161,13 +142,11 @@ function formatMatchTime(dateStr?: string | null): string {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return 'HOY';
 
-    // Zona horaria de Honduras / Centroamérica (America/Tegucigalpa, UTC-6)
     const tz = 'America/Tegucigalpa';
     const now = new Date();
 
     const dStr = d.toLocaleDateString('en-CA', { timeZone: tz });
     const todayStr = now.toLocaleDateString('en-CA', { timeZone: tz });
-
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const tomorrowStr = tomorrow.toLocaleDateString('en-CA', { timeZone: tz });
 
@@ -194,22 +173,37 @@ function formatMatchTime(dateStr?: string | null): string {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HANDLER PRINCIPAL
+// ─────────────────────────────────────────────────────────────────────────────
 export async function GET(req?: NextRequest) {
   const now = Date.now();
   const isDebug = req ? req.nextUrl.searchParams.get('debug') === '1' : false;
+  const client = getRedis();
 
-  // Devolver respuesta en caché si está dentro del TTL (5 s) (omitir en entorno de pruebas)
-  if (process.env.NODE_ENV !== 'test' && liveCache && now - liveCache.ts < CACHE_TTL) {
-    return NextResponse.json(liveCache.data, {
-      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
-    });
+  // ── 0. Intentar responder desde caché Redis (skip en test y debug) ──────────
+  if (process.env.NODE_ENV !== 'test' && !isDebug && client) {
+    try {
+      const cached = await client.get<Record<string, LiveMatchData>>(CACHE_KEY);
+      if (cached && typeof cached === 'object') {
+        return NextResponse.json(cached, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            'X-Live-Cache': 'HIT',
+          },
+        });
+      }
+    } catch (redisErr) {
+      // Redis no disponible → seguir sin caché (degradado, no crash)
+      console.warn('[live-matches] Redis cache read error:', redisErr);
+    }
   }
 
   const result: Record<string, LiveMatchData> = {};
   let events: any[] = [];
-  // 1. OBTENER LISTADO DE EQUIPOS, LOGOS Y SUS LIGAS REGISTRADAS EN SUPABASE
+
+  // ── 1. SUPABASE: equipos, logos, configuración manual de matchday ──────────
   let teamsData: any[] = [];
-  const teamLeagueMap = new Map<string, string>();
   const teamLogoByName = new Map<string, string>();
 
   try {
@@ -219,9 +213,7 @@ export async function GET(req?: NextRequest) {
       .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
       .is('deleted_at', null);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     teamsData = data || [];
 
@@ -232,12 +224,10 @@ export async function GET(req?: NextRequest) {
       }
     }
   } catch (e) {
-    // No usar una consulta degradada: perder is_matchday_active ocultaría los
-    // matchdays manuales y haría que el fallo pareciera un resultado vacío.
     console.error('[live-matches] Error fetching teams from Supabase:', e);
   }
 
-  // Respaldo garantizado de equipos base si la BD estuviera momentáneamente ocupada
+  // Respaldo garantizado si la BD estuviera temporalmente caída
   if (teamsData.length === 0) {
     teamsData = [
       { id: '671e730c-9a6f-43b0-9b22-6588926cfeca', name: 'FC Barcelona' },
@@ -256,21 +246,19 @@ export async function GET(req?: NextRequest) {
     ];
   }
 
-  // Mapa robusto de búsqueda de IDs por nombre normalizado y alias
+  // ── Mapa robusto: nombre normalizado → UUID ────────────────────────────────
   const nameToUuid = new Map<string, string>();
   for (const t of teamsData) {
     if (!t.name) continue;
     const norm = normalizeTeamName(t.name);
     if (!norm) continue;
 
-    // 1. Asignar nombre exacto normalizado y variante sin espacios
     nameToUuid.set(norm, t.id);
     const noSpaceVariant = norm.replace(/\s+/g, '');
     if (noSpaceVariant && !nameToUuid.has(noSpaceVariant)) {
       nameToUuid.set(noSpaceVariant, t.id);
     }
 
-    // 2. Variante sin prefijos/sufijos (ej. "fc barcelona" -> "barcelona", "chelsea fc" -> "chelsea", "cd olimpia" -> "olimpia")
     const cleanVariant = norm
       .replace(/\bfc\b|\bcf\b|\bcd\b|\bclub\b/g, '')
       .replace(/\s+/g, ' ')
@@ -283,30 +271,29 @@ export async function GET(req?: NextRequest) {
       }
     }
 
-    // 3. Registrar todos los alias configurados de forma bidireccional y exhaustiva
     for (const [key, aliases] of Object.entries(TEAM_ALIASES)) {
       const allVariants = [key, ...aliases].map(a => normalizeTeamName(a));
-      const cleanVariants = allVariants.map(a => a.replace(/\bfc\b|\bcf\b|\bcd\b|\bclub\b/g, '').replace(/\s+/g, ' ').trim());
+      const cleanVariants = allVariants.map(a =>
+        a.replace(/\bfc\b|\bcf\b|\bcd\b|\bclub\b/g, '').replace(/\s+/g, ' ').trim()
+      );
 
-      const isMatch = allVariants.includes(norm) || cleanVariants.includes(norm) || cleanVariants.includes(cleanVariant);
+      const isMatch =
+        allVariants.includes(norm) ||
+        cleanVariants.includes(norm) ||
+        cleanVariants.includes(cleanVariant);
+
       if (isMatch) {
         for (const variant of allVariants) {
-          if (variant && !nameToUuid.has(variant)) {
-            nameToUuid.set(variant, t.id);
-          }
+          if (variant && !nameToUuid.has(variant)) nameToUuid.set(variant, t.id);
           const noSpace = variant.replace(/\s+/g, '');
-          if (noSpace && !nameToUuid.has(noSpace)) {
-            nameToUuid.set(noSpace, t.id);
-          }
+          if (noSpace && !nameToUuid.has(noSpace)) nameToUuid.set(noSpace, t.id);
         }
       }
     }
   }
 
-  const getTeamLogo = (name: string, espnLogo?: string | null) => {
-    // 1. Siempre priorizar el logotipo oficial en alta resolución de la API de ESPN (500x500 PNG transparente)
+  const getTeamLogo = (name: string, espnLogo?: string | null): string | null => {
     if (espnLogo) return espnLogo;
-    // 2. Fallback al logotipo registrado en base de datos si la API no provee imagen
     const norm = normalizeTeamName(name);
     const uuid = nameToUuid.get(norm);
     if (uuid) {
@@ -316,7 +303,7 @@ export async function GET(req?: NextRequest) {
     return teamLogoByName.get(norm) || null;
   };
 
-  // 2. CONSULTAR LA API PÚBLICA EN TIEMPO REAL DE ESPN SPORTS
+  // ── 2. ESPN: partidos en tiempo real ──────────────────────────────────────
   try {
     const leagues = [
       'esp.1',
@@ -333,28 +320,25 @@ export async function GET(req?: NextRequest) {
       'fifa.world',
     ];
 
-    const endpoints = leagues.map(
-      league => `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`
-    );
-
-    const fetchPromises = endpoints.map(url =>
-      fetch(url, {
+    const fetchPromises = leagues.map(league =>
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'ESPN-Scoreboard/1.0',
         },
         cache: 'no-store',
-        signal: AbortSignal.timeout(6000),
+        // Aumentado de 6s → 8s para evitar abortos prematuros en Vercel
+        signal: AbortSignal.timeout(8000),
       })
         .then(res => {
           if (!res.ok) {
-            console.warn(`[live-matches] ESPN fetch failed for ${url} with status: ${res.status}`);
+            console.warn(`[live-matches] ESPN fetch failed for ${league}: ${res.status}`);
             return null;
           }
           return res.json();
         })
         .catch(err => {
-          console.warn(`[live-matches] ESPN fetch error for ${url}:`, err.message);
+          console.warn(`[live-matches] ESPN fetch error for ${league}:`, err?.message ?? err);
           return null;
         })
     );
@@ -372,48 +356,41 @@ export async function GET(req?: NextRequest) {
       const competition = event.competitions?.[0];
       if (!competition) continue;
 
-      const state = event.status?.type?.state; // 'pre' = por jugar hoy/mañana, 'in' = en vivo, 'post' = finalizado
+      const state = event.status?.type?.state;
       const clockDisplay = event.status?.displayClock || event.status?.type?.shortDetail || null;
 
-      // Fecha de inicio del partido
       const eventDateStr = event.date || competition.date || null;
       const eventTimestamp = eventDateStr ? new Date(eventDateStr).getTime() : 0;
       const elapsedMinutes = eventTimestamp > 0 ? (now - eventTimestamp) / (60 * 1000) : 999;
 
-      // Visibilidad del partido de la jornada:
-      // - Programado para hoy o mañana ('pre'): dentro de las próximas 36 horas
-      // - En vivo ('in')
-      // - Finalizado ('post'): visible hasta 4 horas (240 min) después del inicio del partido
+      // Ventana de visibilidad: próximos 36h, en vivo, o finalizado en las últimas 4h
       const isUpcoming = state === 'pre';
       const isLiveNow = state === 'in';
       const isFinishedToday = state === 'post' && elapsedMinutes <= 4 * 60;
+      if (!isUpcoming && !isLiveNow && !isFinishedToday) continue;
 
-      const isMatchdayActive = isUpcoming || isLiveNow || isFinishedToday;
-      if (!isMatchdayActive) continue;
-
-      // Extraer la competencia real del partido
-      const rawComp = competition.altGameNote || event.season?.slug || competition.league?.name || event.league?.name || null;
+      const rawComp =
+        competition.altGameNote ||
+        event.season?.slug ||
+        competition.league?.name ||
+        event.league?.name ||
+        null;
       const competitionName = formatCompetitionName(rawComp);
 
-      // Extraer competidores (local / visitante)
       const homeComp = competition.competitors?.find((c: any) => c.homeAway === 'home');
       const awayComp = competition.competitors?.find((c: any) => c.homeAway === 'away');
-
       if (!homeComp || !awayComp) continue;
 
       const homeName = homeComp.team?.name || homeComp.team?.displayName || '';
       const awayName = awayComp.team?.name || awayComp.team?.displayName || '';
-
       const homeScore = parseInt(homeComp.score ?? '0', 10);
       const awayScore = parseInt(awayComp.score ?? '0', 10);
 
       const homeNorm = normalizeTeamName(homeName);
       const awayNorm = normalizeTeamName(awayName);
-
       const homeUuid = nameToUuid.get(homeNorm);
       const awayUuid = nameToUuid.get(awayNorm);
 
-      // Priorizar el logotipo oficial en alta resolución de ESPN
       const homeLogoUrl = getTeamLogo(homeName, homeComp.team?.logo);
       const awayLogoUrl = getTeamLogo(awayName, awayComp.team?.logo);
 
@@ -429,7 +406,7 @@ export async function GET(req?: NextRequest) {
           minute: minuteNum,
           isHome: isHomeTeam,
           isManual: false,
-          leagueName: competitionName || teamLeagueMap.get(uuid) || null,
+          leagueName: competitionName || null,
           isFinished: isFinishedToday,
           isUpcoming,
           startTime: startTimeText,
@@ -443,7 +420,7 @@ export async function GET(req?: NextRequest) {
         if (!existing) {
           result[uuid] = payload;
         } else {
-          // Prioridad: EN VIVO ('in') > PRÓXIMO ('pre') > FINALIZADO ('post')
+          // Prioridad: EN VIVO > PRÓXIMO > FINALIZADO
           if (isLiveNow) {
             result[uuid] = payload;
           } else if (isUpcoming && existing.isFinished) {
@@ -459,7 +436,7 @@ export async function GET(req?: NextRequest) {
     console.error('[live-matches] ESPN API Error:', err);
   }
 
-  // 3. RESPALDO MANUAL: ACTIVACIONES DESDE EL ADMIN (is_matchday_active = true)
+  // ── 3. RESPALDO MANUAL: equipos con is_matchday_active = true en Supabase ──
   for (const team of teamsData) {
     if (team.is_matchday_active && !result[team.id]) {
       const opponentName = team.matchday_opponent || 'Rival';
@@ -485,8 +462,8 @@ export async function GET(req?: NextRequest) {
         minute: null,
         isHome: true,
         isManual: true,
-        leagueName: periodStr !== 'En Vivo' ? periodStr : (teamLeagueMap.get(team.id) || 'MATCHDAY EN VIVO'),
-        isFinished: isFinished,
+        leagueName: periodStr !== 'En Vivo' ? periodStr : 'MATCHDAY EN VIVO',
+        isFinished,
         homeLogo: team.logo_url || null,
         awayLogo: getTeamLogo(opponentName),
         hasHomeTeamInDb: true,
@@ -495,24 +472,26 @@ export async function GET(req?: NextRequest) {
 
       result[team.id] = matchDataPayload;
 
-      // Si el equipo rival también está registrado en la base de datos de la tienda, activar la insignia Live para el rival también!
+      // Si el rival también está en BD, activar su badge Live también
       if (awayUuid && !result[awayUuid]) {
-        result[awayUuid] = {
-          ...matchDataPayload,
-          isHome: false,
-        };
+        result[awayUuid] = { ...matchDataPayload, isHome: false };
       }
     }
   }
 
+  // ── 4. DEBUG ─────────────────────────────────────────────────────────────
   if (isDebug) {
     return NextResponse.json({
       supabaseDataCount: teamsData.length,
       nameToUuidSize: nameToUuid.size,
       eventsFetched: events.length,
+      redisAvailable: !!client,
       sampleEvents: events.slice(0, 5).map((e: any) => ({
         name: e.name,
-        competitors: e.competitions?.[0]?.competitors?.map((c: any) => ({ name: c.team?.name, homeAway: c.homeAway })),
+        competitors: e.competitions?.[0]?.competitors?.map((c: any) => ({
+          name: c.team?.name,
+          homeAway: c.homeAway,
+        })),
         state: e.status?.type?.state,
         date: e.date,
       })),
@@ -521,14 +500,19 @@ export async function GET(req?: NextRequest) {
     });
   }
 
-  if (Object.keys(result).length > 0) {
-    liveCache = { data: result, ts: now };
+  // ── 5. Guardar en Redis si hay datos ──────────────────────────────────────
+  if (Object.keys(result).length > 0 && client) {
+    client
+      .set(CACHE_KEY, JSON.stringify(result), { ex: CACHE_TTL_SECONDS })
+      .catch(err => console.warn('[live-matches] Redis cache write error:', err));
   }
+
   return NextResponse.json(result, {
     headers: {
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate',
       'CDN-Cache-Control': 'no-store',
       'Vercel-CDN-Cache-Control': 'no-store',
+      'X-Live-Cache': 'MISS',
     },
   });
 }
