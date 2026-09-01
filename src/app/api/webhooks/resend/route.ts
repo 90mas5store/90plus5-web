@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { Webhook } from 'svix';
 import { SITE_CONFIG, CONTACT } from '@/lib/config/site';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
 
 export async function POST(req: Request) {
     const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
