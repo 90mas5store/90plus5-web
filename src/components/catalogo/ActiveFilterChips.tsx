@@ -41,12 +41,18 @@ export default function ActiveFilterChips({
     onRemoveSort,
     onClearAll,
 }: ActiveFilterChipsProps) {
+    const isUuid = (val: string | null | undefined) =>
+        Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
+    const displayTeamName = isUuid(teamName) ? null : teamName;
+    const displayBrandName = isUuid(brandName) ? null : brandName;
+
     const hasActiveFilters = Boolean(
         queryParam ||
         categoryName ||
         leagueName ||
-        teamName ||
-        brandName ||
+        displayTeamName ||
+        displayBrandName ||
         filters.season ||
         filters.gender ||
         filters.priceRange ||
@@ -95,18 +101,18 @@ export default function ActiveFilterChips({
                     </span>
                 )}
 
-                {teamName && (
+                {displayTeamName && (
                     <span className={chipClass}>
-                        <span>Equipo: {teamName}</span>
+                        <span>Equipo: {displayTeamName}</span>
                         <button onClick={onRemoveTeam} className={closeBtnClass} title="Eliminar filtro equipo">
                             <X className="w-3 h-3" />
                         </button>
                     </span>
                 )}
 
-                {brandName && (
+                {displayBrandName && (
                     <span className={chipClass}>
-                        <span>Marca: {brandName}</span>
+                        <span>Marca: {displayBrandName}</span>
                         <button onClick={onRemoveBrand} className={closeBtnClass} title="Eliminar filtro marca">
                             <X className="w-3 h-3" />
                         </button>

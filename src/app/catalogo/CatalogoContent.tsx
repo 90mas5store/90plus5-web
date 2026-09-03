@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Config, Product } from '@/lib/types';
+import { createClient } from '@/lib/supabase/client';
 
 import CatalogFilterPanel, {
     CatalogFilters,
@@ -87,6 +88,7 @@ export default function CatalogoContent({
     // 2️⃣ Estados locales de filtros
     const [equipoSeleccionado, setEquipoSeleccionado] = useState<string | null>(equipoParam || null);
     const [marcaSeleccionada, setMarcaSeleccionada] = useState<string | null>(marcaParam || null);
+    const [fetchedTeamName, setFetchedTeamName] = useState<string | null>(null);
     const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>({
         gender: generoParam || null,
         priceRange: precioParam || null,
@@ -119,6 +121,93 @@ export default function CatalogoContent({
         ligaParam,
         toast,
     });
+
+    // 🛡️ Resolver nombre legible del equipo para que NUNCA se muestre un UUID al usuario
+    useEffect(() => {
+        if (!equipoSeleccionado) {
+            setFetchedTeamName(null);
+            return;
+        }
+
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(equipoSeleccionado);
+        if (!isUuid) {
+            setFetchedTeamName(equipoSeleccionado);
+            return;
+        }
+
+        // 1. ¿Está en teams locales?
+        const fromTeams = teams.find((t) => t.id === equipoSeleccionado)?.name;
+        if (fromTeams) {
+            setFetchedTeamName(fromTeams);
+            return;
+        }
+
+        // 2. ¿Está en liveMatches?
+        const match = liveMatches[equipoSeleccionado];
+        if (match) {
+            const name = match.isHome ? match.homeTeam : match.awayTeam;
+            if (name) {
+                setFetchedTeamName(name);
+                return;
+            }
+        }
+
+        // 3. ¿Está en los productos cargados?
+        const fromProducts = productos.find((p) => p.team_id === equipoSeleccionado)?.equipo;
+        if (fromProducts) {
+            setFetchedTeamName(fromProducts);
+            return;
+        }
+
+        // 4. Si aún no está en memoria, consultar directamente a Supabase
+        let isMounted = true;
+        try {
+            const sb = createClient();
+            sb.from('teams')
+                .select('name')
+                .eq('id', equipoSeleccionado)
+                .single()
+                .then(({ data }) => {
+                    if (isMounted && data?.name) {
+                        setFetchedTeamName(data.name);
+                    }
+                });
+        } catch {
+            // Ignorar errores en background
+        }
+
+        return () => {
+            isMounted = false;
+        };
+    }, [equipoSeleccionado, teams, liveMatches, productos]);
+
+    const activeTeamName = useMemo(() => {
+        if (!equipoSeleccionado) return null;
+        if (fetchedTeamName) return fetchedTeamName;
+        const fromTeams = teams.find((t) => t.id === equipoSeleccionado)?.name;
+        if (fromTeams) return fromTeams;
+        const match = liveMatches[equipoSeleccionado];
+        if (match) {
+            const name = match.isHome ? match.homeTeam : match.awayTeam;
+            if (name) return name;
+        }
+        const fromProducts = productos.find((p) => p.team_id === equipoSeleccionado)?.equipo;
+        if (fromProducts) return fromProducts;
+
+        // Si es un UUID y aún no resuelve, NUNCA mostrar el UUID crudo
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(equipoSeleccionado);
+        return isUuid ? null : equipoSeleccionado;
+    }, [equipoSeleccionado, fetchedTeamName, teams, liveMatches, productos]);
+
+    const activeBrandName = useMemo(() => {
+        if (!marcaSeleccionada) return null;
+        const fromBrands = categoryBrands.find((b) => b.id === marcaSeleccionada)?.name;
+        if (fromBrands) return fromBrands;
+        const fromProducts = productos.find((p) => p.brand_id === marcaSeleccionada)?.brand_name;
+        if (fromProducts) return fromProducts;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(marcaSeleccionada);
+        return isUuid ? null : marcaSeleccionada;
+    }, [marcaSeleccionada, categoryBrands, productos]);
 
     // 🔄 Sincronización con búsqueda del header
     const prevQueryRef = useRef(queryParam);
@@ -288,8 +377,8 @@ export default function CatalogoContent({
                 queryParam={queryParam}
                 categoryName={selectedCategoryObj?.nombre}
                 leagueName={selectedLeagueObj?.nombre}
-                teamName={teams.find((t) => t.id === equipoSeleccionado)?.name || equipoSeleccionado}
-                brandName={categoryBrands.find((b) => b.id === marcaSeleccionada)?.name || marcaSeleccionada}
+                teamName={activeTeamName}
+                brandName={activeBrandName}
                 filters={catalogFilters}
                 onRemoveQuery={() => {
                     const params = new URLSearchParams(searchParams.toString());

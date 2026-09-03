@@ -84,6 +84,9 @@ export default function MatchdayHeroTakeover() {
     const homeLogo = match.homeLogo;
     const awayLogo = match.awayLogo;
 
+    const teamPlayingId = match.isHome ? (match.homeTeamId || id) : match.awayTeamId;
+    const opponentId = match.isHome ? match.awayTeamId : (match.homeTeamId || id);
+
     return {
       id,
       match,
@@ -93,6 +96,8 @@ export default function MatchdayHeroTakeover() {
       opponentScore,
       homeLogo,
       awayLogo,
+      teamPlayingId,
+      opponentId,
     };
   });
 
@@ -277,7 +282,9 @@ export default function MatchdayHeroTakeover() {
               <div className="flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
                 {hasTeamPlayingInDb && (
                   <Link
-                    href={`/catalogo?query=${encodeURIComponent(teamPlaying)}`}
+                    href={activeItem.teamPlayingId
+                      ? `/catalogo?equipo=${encodeURIComponent(activeItem.teamPlayingId)}`
+                      : `/catalogo?query=${encodeURIComponent(teamPlaying)}`}
                     onClick={() => {
                       if (typeof window !== 'undefined' && window.trackEvent) {
                         window.trackEvent('matchday_click', { team: teamPlaying, role: 'team_playing', match: match.leagueName });
@@ -292,7 +299,9 @@ export default function MatchdayHeroTakeover() {
 
                 {hasOpponentInDb && opponent && opponent !== 'Rival' && (
                   <Link
-                    href={`/catalogo?query=${encodeURIComponent(opponent)}`}
+                    href={activeItem.opponentId
+                      ? `/catalogo?equipo=${encodeURIComponent(activeItem.opponentId)}`
+                      : `/catalogo?query=${encodeURIComponent(opponent)}`}
                     onClick={() => {
                       if (typeof window !== 'undefined' && window.trackEvent) {
                         window.trackEvent('matchday_click', { team: opponent, role: 'opponent', match: match.leagueName });

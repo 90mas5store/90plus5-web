@@ -17,6 +17,8 @@ export interface LiveMatchData {
   awayLogo?: string | null;
   hasHomeTeamInDb?: boolean;
   hasAwayTeamInDb?: boolean;
+  homeTeamId?: string | null;
+  awayTeamId?: string | null;
 }
 
 // Alineado con el TTL de Redis en el servidor (30s)

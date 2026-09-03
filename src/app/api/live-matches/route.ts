@@ -6,7 +6,7 @@ import type { LiveMatchData } from '@/hooks/useLiveMatches';
 // ─────────────────────────────────────────────────────────────────────────────
 // CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE_KEY = 'live-matches:v1';
+const CACHE_KEY = 'live-matches:v2';
 const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
 const MEMORY_CACHE_TTL_MS = 30_000;
 
@@ -462,6 +462,13 @@ export async function GET(req?: NextRequest) {
       const homeUuid = nameToUuid.get(homeNorm);
       const awayUuid = nameToUuid.get(awayNorm);
 
+      const homeTeamInDb = homeUuid ? teamsData.find(t => t.id === homeUuid) : null;
+      const awayTeamInDb = awayUuid ? teamsData.find(t => t.id === awayUuid) : null;
+
+      // Preferir nombre oficial configurado en la base de datos (ej. "CD Olimpia" en vez de "Club Deportivo Olimpia")
+      const finalHomeTeam = homeTeamInDb?.name || homeName;
+      const finalAwayTeam = awayTeamInDb?.name || awayName;
+
       const homeLogoUrl = getTeamLogo(homeName, homeComp.team?.logo);
       const awayLogoUrl = getTeamLogo(awayName, awayComp.team?.logo);
 
@@ -470,8 +477,8 @@ export async function GET(req?: NextRequest) {
 
       const saveMatch = (uuid: string, isHomeTeam: boolean) => {
         const payload: LiveMatchData = {
-          homeTeam: homeName,
-          awayTeam: awayName,
+          homeTeam: finalHomeTeam,
+          awayTeam: finalAwayTeam,
           homeScore: isNaN(homeScore) ? 0 : homeScore,
           awayScore: isNaN(awayScore) ? 0 : awayScore,
           minute: minuteNum,
@@ -485,6 +492,8 @@ export async function GET(req?: NextRequest) {
           awayLogo: awayLogoUrl,
           hasHomeTeamInDb: !!homeUuid,
           hasAwayTeamInDb: !!awayUuid,
+          homeTeamId: homeUuid || null,
+          awayTeamId: awayUuid || null,
         };
 
         const existing = result[uuid];
@@ -539,6 +548,8 @@ export async function GET(req?: NextRequest) {
         awayLogo: getTeamLogo(opponentName),
         hasHomeTeamInDb: true,
         hasAwayTeamInDb: !!awayUuid,
+        homeTeamId: team.id,
+        awayTeamId: awayUuid || null,
       };
 
       result[team.id] = matchDataPayload;

@@ -39,7 +39,8 @@ export default function MatchdayHeaderBanner() {
     const opponent = match.isHome ? match.awayTeam : match.homeTeam;
     const teamScore = match.isHome ? match.homeScore : match.awayScore;
     const opponentScore = match.isHome ? match.awayScore : match.homeScore;
-    return { id, match, teamPlaying, opponent, teamScore, opponentScore };
+    const teamPlayingId = match.isHome ? (match.homeTeamId || id) : match.awayTeamId;
+    return { id, match, teamPlaying, opponent, teamScore, opponentScore, teamPlayingId };
   });
 
   const isMultiple = matchItems.length > 1;
@@ -66,9 +67,9 @@ export default function MatchdayHeaderBanner() {
               para 10% OFF
             </span>
             <Link
-              href={`/catalogo?query=${encodeURIComponent(
-                matchItems[0].teamPlaying
-              )}`}
+              href={matchItems[0].teamPlayingId
+                ? `/catalogo?equipo=${encodeURIComponent(matchItems[0].teamPlayingId)}`
+                : `/catalogo?query=${encodeURIComponent(matchItems[0].teamPlaying)}`}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#E50914] hover:bg-red-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider transition-all hover:scale-105 shadow-md whitespace-nowrap"
             >
               <span>Ver Camisetas</span>
@@ -112,10 +113,13 @@ function MatchPill({
     opponent: string;
     teamScore: number;
     opponentScore: number;
+    teamPlayingId?: string | null;
   };
 }) {
-  const { match, teamPlaying, opponent, teamScore, opponentScore } = item;
-  const catalogHref = `/catalogo?query=${encodeURIComponent(teamPlaying)}`;
+  const { match, teamPlaying, opponent, teamScore, opponentScore, teamPlayingId } = item;
+  const catalogHref = teamPlayingId
+    ? `/catalogo?equipo=${encodeURIComponent(teamPlayingId)}`
+    : `/catalogo?query=${encodeURIComponent(teamPlaying)}`;
 
   const isFinished = match.isFinished;
   const isUpcoming = match.isUpcoming;
