@@ -4,15 +4,20 @@ import { Redis } from '@upstash/redis';
 import type { LiveMatchData } from '@/hooks/useLiveMatches';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CACHÉ DISTRIBUIDA EN UPSTASH REDIS
-// Vercel ejecuta cada request en una función serverless efímera distinta.
-// Las variables en memoria se resetean en cada instancia → usar Redis.
+// CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
 // ─────────────────────────────────────────────────────────────────────────────
 const CACHE_KEY = 'live-matches:v1';
 const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
+const MEMORY_CACHE_TTL_MS = 30_000;
+
+// Caché en memoria para instancias Serverless cálidas
+let memoryCache: { data: Record<string, LiveMatchData>; timestamp: number } | null = null;
 
 let redis: Redis | null = null;
+let redisDisabledUntil = 0;
+
 function getRedis(): Redis | null {
+  if (Date.now() < redisDisabledUntil) return null;
   if (redis) return redis;
   try {
     const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -25,6 +30,7 @@ function getRedis(): Redis | null {
   }
 }
 
+export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -181,21 +187,45 @@ export async function GET(req?: NextRequest) {
   const isDebug = req ? req.nextUrl.searchParams.get('debug') === '1' : false;
   const client = getRedis();
 
-  // ── 0. Intentar responder desde caché Redis (skip en test y debug) ──────────
-  if (process.env.NODE_ENV !== 'test' && !isDebug && client) {
+  // ── 0. Intentar responder desde caché en memoria local (ultrarrápido, ~0ms) ─
+  if (process.env.NODE_ENV !== 'test' && !isDebug && memoryCache) {
+    if (now - memoryCache.timestamp < MEMORY_CACHE_TTL_MS) {
+      return NextResponse.json(memoryCache.data, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'X-Live-Cache': 'HIT-MEMORY',
+        },
+      });
+    }
+  }
+
+  // ── 0.1 Intentar responder desde caché Redis (con timeout estricto de 1s) ───
+  if (process.env.NODE_ENV !== 'test' && !isDebug && client && Date.now() >= redisDisabledUntil) {
     try {
-      const cached = await client.get<Record<string, LiveMatchData>>(CACHE_KEY);
-      if (cached && typeof cached === 'object') {
+      const getPromise = client.get<any>(CACHE_KEY);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis get timeout')), 1000)
+      );
+      let cached = await Promise.race([getPromise, timeoutPromise]);
+      if (typeof cached === 'string') {
+        try {
+          cached = JSON.parse(cached);
+        } catch {
+          cached = null;
+        }
+      }
+      if (cached && typeof cached === 'object' && Object.keys(cached).length > 0) {
+        memoryCache = { data: cached, timestamp: now };
         return NextResponse.json(cached, {
           headers: {
             'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-            'X-Live-Cache': 'HIT',
+            'X-Live-Cache': 'HIT-REDIS',
           },
         });
       }
-    } catch (redisErr) {
-      // Redis no disponible → seguir sin caché (degradado, no crash)
-      console.warn('[live-matches] Redis cache read error:', redisErr);
+    } catch (redisErr: any) {
+      redisDisabledUntil = Date.now() + 60_000;
+      console.warn('[live-matches] Redis cache read error/timeout, desactivando 60s:', redisErr?.message ?? redisErr);
     }
   }
 
@@ -207,15 +237,30 @@ export async function GET(req?: NextRequest) {
   const teamLogoByName = new Map<string, string>();
 
   try {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from('teams')
-      .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
-      .is('deleted_at', null);
+    let supabase: any = null;
+    try {
+      supabase = createAdminClient();
+    } catch (adminErr) {
+      console.warn('[live-matches] Admin client init failed, intentando con clave anon:', adminErr);
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (url && anon) {
+        const { createClient } = await import('@supabase/supabase-js');
+        supabase = createClient(url, anon, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+      }
+    }
 
-    if (error) throw error;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
+        .is('deleted_at', null);
 
-    teamsData = data || [];
+      if (error) throw error;
+      teamsData = data || [];
+    }
 
     for (const t of teamsData) {
       if (t.name) {
@@ -227,22 +272,25 @@ export async function GET(req?: NextRequest) {
     console.error('[live-matches] Error fetching teams from Supabase:', e);
   }
 
-  // Respaldo garantizado si la BD estuviera temporalmente caída
+  // Respaldo garantizado con UUIDs REALES de Supabase si la BD estuviera temporalmente caída
   if (teamsData.length === 0) {
     teamsData = [
-      { id: '671e730c-9a6f-43b0-9b22-6588926cfeca', name: 'FC Barcelona' },
-      { id: '2e8c6793-c8e3-454f-a53d-452d46466503', name: 'Arsenal' },
-      { id: 'c3a6d6d9-6efc-4b8f-abc8-f980cb2ce246', name: 'Manchester City' },
-      { id: '493fceb8-ee26-4c02-a664-c0556053c4e8', name: 'Real Madrid' },
-      { id: '535b242f-6f50-482a-94aa-9524603e5972', name: 'Club Deportivo Olimpia' },
-      { id: 'b0a1c2d3-e4f5-6789-0123-456789abcdef', name: 'Liverpool' },
-      { id: 'c1d2e3f4-a5b6-7890-1234-567890abcdef', name: 'Chelsea FC' },
-      { id: 'd2e3f4a5-b6c7-8901-2345-678901abcdef', name: 'Bayern Munich' },
-      { id: 'e3f4a5b6-c7d8-9012-3456-789012abcdef', name: 'Paris Saint Germain' },
-      { id: 'f4a5b6c7-d8e9-0123-4567-890123abcdef', name: 'Inter Miami' },
-      { id: '05b6c7d8-e9f0-1234-5678-901234abcdef', name: 'Motagua' },
-      { id: '16c7d8e9-f0a1-2345-6789-012345abcdef', name: 'Real España' },
-      { id: '27d8e9f0-a1b2-3456-7890-123456abcdef', name: 'Marathón' },
+      { id: '671e730c-9a6f-43b0-9b22-6588926cfeca', name: 'FC Barcelona', logo_url: '/logos/equipos/barcelona.svg' },
+      { id: '2e8c6793-c8e3-454f-a53d-452d46466503', name: 'Arsenal', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775539836961-xxn1h7zcejb.svg' },
+      { id: 'c3a6d6d9-6efc-4b8f-abc8-f980cb2ce246', name: 'Manchester City', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1776039237536-gua3daf4ltk.svg' },
+      { id: '493fceb8-ee26-4c02-a664-c0556053c4e8', name: 'Real Madrid', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1768970531374-743yjjcb8j8.svg' },
+      { id: '535b242f-6f50-482a-94aa-9524603e5972', name: 'CD Olimpia', logo_url: '/logos/equipos/Club Deportivo Olimpia.svg' },
+      { id: '067d0186-17de-497d-9532-c90ad1e0effb', name: 'Liverpool', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775544862903-ikkwx6vrri.svg' },
+      { id: 'e39203c0-92cf-48e6-8429-bce20da45e13', name: 'Chelsea FC', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1776044510126-tfa4un9ng4.svg' },
+      { id: '00bf32a5-db80-4fb6-88a8-cc5b84167987', name: 'Bayern Munich', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775444175090-n450h73x5pg.svg' },
+      { id: '734d3f3a-6fc6-4ce5-9116-8a7853de1907', name: 'Paris Saint-Germain', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775542553886-vgunrf4jdva.svg' },
+      { id: 'f2b0bc65-047d-49d0-b643-173dc4ec40c9', name: 'Inter Miami', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775709971779-1rjvw2996jt.svg' },
+      { id: '7adc38c5-f207-42d7-a716-12c1e02c93fb', name: 'Motagua', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775885316983-tbcj46jswn.svg' },
+      { id: '6f2b172f-9f4d-43e3-8619-71745e0d14ca', name: 'Real España' },
+      { id: '9d0b0a07-a734-4897-971c-6c9ec24a9907', name: 'Manchester United', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1776042018072-x7jc5gwzvue.svg' },
+      { id: '3d781df1-cc3b-4b7f-8135-9171128fae49', name: 'Atlético de Madrid', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775544295185-t8jsvrk5gm.svg' },
+      { id: '321b4200-0969-4c1e-bc68-bb835436769d', name: 'España', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1774740806567-zokm3f8scb.svg' },
+      { id: '6c238d61-9ba4-4847-98a9-395a44731fd8', name: 'Argentina', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1768976768804-c67yaqe3x39.svg' },
     ];
   }
 
@@ -320,28 +368,39 @@ export async function GET(req?: NextRequest) {
       'fifa.world',
     ];
 
-    const fetchPromises = leagues.map(league =>
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`, {
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'ESPN-Scoreboard/1.0',
-        },
-        cache: 'no-store',
-        // Aumentado de 6s → 8s para evitar abortos prematuros en Vercel
-        signal: AbortSignal.timeout(8000),
-      })
-        .then(res => {
-          if (!res.ok) {
-            console.warn(`[live-matches] ESPN fetch failed for ${league}: ${res.status}`);
-            return null;
+    const ESPN_HEADERS = {
+      Accept: 'application/json, text/plain, */*',
+      'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      Referer: 'https://www.espn.com/',
+    };
+
+    const fetchPromises = leagues.map(async league => {
+      // Intentar primero con el endpoint principal, y si falla o da 403, usar el endpoint web de ESPN
+      const endpoints = [
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
+        `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
+      ];
+
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url, {
+            headers: ESPN_HEADERS,
+            cache: 'no-store',
+            signal: AbortSignal.timeout(4500),
+          });
+
+          if (res.ok) {
+            return await res.json();
           }
-          return res.json();
-        })
-        .catch(err => {
-          console.warn(`[live-matches] ESPN fetch error for ${league}:`, err?.message ?? err);
-          return null;
-        })
-    );
+          console.warn(`[live-matches] ESPN fetch failed for ${league} (${url}): ${res.status}`);
+        } catch (err: any) {
+          console.warn(`[live-matches] ESPN fetch error for ${league} (${url}):`, err?.message ?? err);
+        }
+      }
+      return null;
+    });
 
     const responses = await Promise.allSettled(fetchPromises);
     events = [];
@@ -500,11 +559,19 @@ export async function GET(req?: NextRequest) {
     });
   }
 
-  // ── 5. Guardar en Redis si hay datos ──────────────────────────────────────
-  if (Object.keys(result).length > 0 && client) {
-    client
-      .set(CACHE_KEY, JSON.stringify(result), { ex: CACHE_TTL_SECONDS })
-      .catch(err => console.warn('[live-matches] Redis cache write error:', err));
+  // ── 5. Guardar en memoria local y en Redis si hay datos ──────────────────
+  if (Object.keys(result).length > 0) {
+    memoryCache = { data: result, timestamp: now };
+
+    if (client && Date.now() >= redisDisabledUntil) {
+      Promise.race([
+        client.set(CACHE_KEY, JSON.stringify(result), { ex: CACHE_TTL_SECONDS }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis set timeout')), 1000)),
+      ]).catch(err => {
+        redisDisabledUntil = Date.now() + 60_000;
+        console.warn('[live-matches] Redis cache write error/timeout, desactivando 60s:', err?.message ?? err);
+      });
+    }
   }
 
   return NextResponse.json(result, {

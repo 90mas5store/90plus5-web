@@ -67,4 +67,25 @@ describe("Middleware - Rate Limiting", () => {
         expect(res.status).toBe(200);
         expect(res.headers.get("X-RateLimit-Limit")).toBeNull();
     });
+
+    it("permite orígenes de Vercel (*.vercel.app) en producción", async () => {
+        const req = createApiRequest("/api/orders/create", {
+            ip: "192.168.1.104",
+            method: "OPTIONS",
+            origin: "https://90plus5-web.vercel.app",
+        });
+        const res = await middleware(req);
+        expect(res.status).toBe(204);
+        expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://90plus5-web.vercel.app");
+    });
+
+    it("permite llamadas a /api/live-matches sin importar el origen", async () => {
+        const req = createApiRequest("/api/live-matches", {
+            ip: "192.168.1.105",
+            method: "GET",
+            origin: "https://some-client-origin.com",
+        });
+        const res = await middleware(req);
+        expect(res.status).toBe(200);
+    });
 });

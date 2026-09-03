@@ -46,7 +46,7 @@ export function useLiveMatchesData(): {
       try {
         const res = await fetch('/api/live-matches', {
           cache: 'no-store',
-          signal: AbortSignal.timeout(12_000),
+          signal: AbortSignal.timeout(20_000),
         });
 
         if (!isMountedRef.current) return;

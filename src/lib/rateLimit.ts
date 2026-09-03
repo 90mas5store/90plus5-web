@@ -122,6 +122,7 @@ function checkInMemory(
 // Caché de instancias de Ratelimit para Upstash
 let cachedUpstashRedis: any = null;
 const ratelimitInstances = new Map<string, any>();
+let upstashDisabledUntil = 0;
 
 /**
  * @param identifier  Clave única (p.ej. `"orders:${ip}"`)
@@ -135,6 +136,11 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
     const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
     const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    // Si Upstash está temporalmente deshabilitado por fallo previo, usar memoria directa
+    if (Date.now() < upstashDisabledUntil) {
+        return checkInMemory(identifier, maxRequests, windowMs);
+    }
 
     if (upstashUrl && upstashToken) {
         try {
@@ -157,15 +163,27 @@ export async function checkRateLimit(
             }
 
             const ratelimit = ratelimitInstances.get(cacheKey);
-            const { success, remaining, reset } = await ratelimit.limit(identifier);
+
+            // Timeout estricto de 1000ms para evitar colapsar la respuesta si Redis es inalcanzable
+            const limitPromise = ratelimit.limit(identifier);
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Upstash rate limit timeout')), 1000)
+            );
+
+            const { success, remaining, reset } = (await Promise.race([
+                limitPromise,
+                timeoutPromise,
+            ])) as { success: boolean; remaining: number; reset: number };
+
             return {
                 allowed: success,
                 remaining,
                 retryAfterMs: success ? 0 : Math.max(0, reset - Date.now()),
             };
-        } catch (err) {
-            // Fallback to in-memory if Upstash fails
-            console.warn('[rateLimit] Upstash error, falling back to in-memory:', err);
+        } catch (err: any) {
+            // Fallback to in-memory if Upstash fails y activar circuit-breaker de 60s
+            upstashDisabledUntil = Date.now() + 60_000;
+            console.warn('[rateLimit] Upstash error/timeout, desactivando 60s y recurriendo a memoria:', err?.message ?? err);
             return checkInMemory(identifier, maxRequests, windowMs);
         }
     }

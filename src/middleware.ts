@@ -40,13 +40,40 @@ async function isUserInAdminWhitelist(userId: string): Promise<boolean> {
 }
 
 // 🌐 CONFIGURACIÓN DE CORS
-function isOriginAllowed(origin: string | null): boolean {
+function isOriginAllowed(origin: string | null, req?: NextRequest): boolean {
     if (!origin) return true; // Permite llamadas server-to-server o same-origin sin header Origin
 
     // Normalizar la URL de origen eliminando barras finales
     const normalizedOrigin = origin.replace(/\/$/, '');
 
-    // Orígenes explícitamente permitidos por env o defecto
+    // 1. Same-origin: si el origen coincide con la URL de la propia petición o header Host
+    if (req) {
+        const reqOrigin = req.nextUrl.origin?.replace(/\/$/, '');
+        if (reqOrigin && normalizedOrigin === reqOrigin) {
+            return true;
+        }
+
+        const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+        if (host) {
+            const hostClean = host.replace(/\/$/, '');
+            if (normalizedOrigin === `https://${hostClean}` || normalizedOrigin === `http://${hostClean}`) {
+                return true;
+            }
+        }
+    }
+
+    // 2. Despliegues en Vercel (*.vercel.app y VERCEL_URL)
+    if (/^https:\/\/[a-zA-Z0-9-_.]+\.vercel\.app$/.test(normalizedOrigin)) {
+        return true;
+    }
+    if (process.env.VERCEL_URL) {
+        const vercelDomain = process.env.VERCEL_URL.replace(/\/$/, '');
+        if (normalizedOrigin === `https://${vercelDomain}` || normalizedOrigin === `http://${vercelDomain}`) {
+            return true;
+        }
+    }
+
+    // 3. Orígenes explícitamente permitidos por env o defecto
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://90mas5.store').replace(/\/$/, '');
     const allowedFromEnv = process.env.ALLOWED_ORIGINS
         ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim().replace(/\/$/, ''))
@@ -63,7 +90,7 @@ function isOriginAllowed(origin: string | null): boolean {
         return true;
     }
 
-    // Permitir orígenes de desarrollo/pruebas locales
+    // 4. Permitir orígenes de desarrollo/pruebas locales
     if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
         if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)) {
             return true;
@@ -90,11 +117,12 @@ export async function middleware(req: NextRequest) {
 
     // 0️⃣ PROTECCIÓN CORS PARA API (/api/*)
     if (req.nextUrl.pathname.startsWith('/api')) {
-        // Excepción para webhooks (solicitudes server-to-server sin navegador)
+        // Excepción para webhooks y rutas públicas de solo lectura de partidos
         const isWebhook = req.nextUrl.pathname.startsWith('/api/webhooks');
+        const isPublicMatches = req.nextUrl.pathname === '/api/live-matches' || req.nextUrl.pathname === '/api/matchday';
 
         if (!isWebhook) {
-            if (!isOriginAllowed(origin)) {
+            if (!isPublicMatches && !isOriginAllowed(origin, req)) {
                 console.warn(`🚫 Petición CORS bloqueada para el origen no autorizado: ${origin}`);
                 return new NextResponse(
                     JSON.stringify({ success: false, error: 'CORS policy: Access denied for this origin' }),
@@ -140,7 +168,7 @@ export async function middleware(req: NextRequest) {
                     ...rateLimitHeaders,
                 };
 
-                if (origin && isOriginAllowed(origin)) {
+                if (origin && isOriginAllowed(origin, req)) {
                     Object.assign(responseHeaders, getCorsHeaders(origin));
                 }
 
