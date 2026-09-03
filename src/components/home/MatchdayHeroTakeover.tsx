@@ -79,6 +79,10 @@ export default function MatchdayHeroTakeover() {
   const matchItems = activeEntries.map(([id, match]) => {
     const teamPlaying = match.isHome ? match.homeTeam : match.awayTeam;
     const opponent = match.isHome ? match.awayTeam : match.homeTeam;
+    const teamPlayingShort = match.isHome ? (match.homeShortTeam || match.homeTeam) : (match.awayShortTeam || match.awayTeam);
+    const opponentShort = match.isHome ? (match.awayShortTeam || match.awayTeam) : (match.homeShortTeam || match.homeTeam);
+    const teamPlayingDbName = match.isHome ? (match.homeTeamDbName || teamPlayingShort) : (match.awayTeamDbName || opponentShort);
+    const opponentDbName = match.isHome ? (match.awayTeamDbName || opponentShort) : (match.homeTeamDbName || teamPlayingShort);
     const teamScore = match.isHome ? match.homeScore : match.awayScore;
     const opponentScore = match.isHome ? match.awayScore : match.homeScore;
     const homeLogo = match.homeLogo;
@@ -92,6 +96,10 @@ export default function MatchdayHeroTakeover() {
       match,
       teamPlaying,
       opponent,
+      teamPlayingShort,
+      opponentShort,
+      teamPlayingDbName,
+      opponentDbName,
       teamScore,
       opponentScore,
       homeLogo,
@@ -223,7 +231,8 @@ export default function MatchdayHeroTakeover() {
                   <TeamLogo src={activeHomeLogo} alt={teamPlaying} />
                 </div>
                 <h2 className="text-xs sm:text-lg md:text-2xl font-black text-white tracking-tight line-clamp-2">
-                  {teamPlaying}
+                  <span className="hidden sm:inline">{teamPlaying}</span>
+                  <span className="inline sm:hidden">{activeItem.teamPlayingShort}</span>
                 </h2>
               </div>
 
@@ -260,7 +269,8 @@ export default function MatchdayHeroTakeover() {
                   <TeamLogo src={activeAwayLogo} alt={opponent} />
                 </div>
                 <h2 className="text-xs sm:text-lg md:text-2xl font-black text-gray-300 tracking-tight line-clamp-2">
-                  {opponent}
+                  <span className="hidden sm:inline">{opponent}</span>
+                  <span className="inline sm:hidden">{activeItem.opponentShort}</span>
                 </h2>
               </div>
 
@@ -292,7 +302,7 @@ export default function MatchdayHeroTakeover() {
                     }}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#E50914] hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider transition-all hover:scale-105 shadow-[0_0_20px_rgba(229,9,20,0.5)] active:scale-95"
                   >
-                    <span>Camisetas {teamPlaying}</span>
+                    <span>Camisetas {activeItem.teamPlayingDbName || activeItem.teamPlayingShort || teamPlaying}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 )}
@@ -309,7 +319,7 @@ export default function MatchdayHeroTakeover() {
                     }}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider transition-all hover:scale-105 active:scale-95"
                   >
-                    <span>Camisetas {opponent}</span>
+                    <span>Camisetas {activeItem.opponentDbName || activeItem.opponentShort || opponent}</span>
                     <ArrowRight className="w-4 h-4 text-gray-400" />
                   </Link>
                 )}

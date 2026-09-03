@@ -57,17 +57,24 @@ export default function ProductHeaderInfo({
                         </div>
                     </div>
                     {showLiveBanner && (
-                        <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 shadow-md ${
-                                liveMatch?.isFinished
-                                    ? 'bg-amber-600 text-white shadow-[0_0_12px_rgba(217,119,6,0.6)]'
-                                    : liveMatch?.isUpcoming
-                                    ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.6)]'
-                                    : 'bg-primary text-white animate-pulse shadow-[0_0_12px_rgba(229,9,20,0.6)]'
-                            }`}
-                        >
-                            {liveMatch?.isFinished ? '🏆 FINAL' : liveMatch?.isUpcoming ? '📅 PRÓXIMO' : '⚡ EN VIVO'}
-                        </span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span
+                                className={`px-2.5 py-1 rounded-full text-xs font-bold shadow-md ${
+                                    liveMatch?.isFinished
+                                        ? 'bg-amber-600 text-white shadow-[0_0_12px_rgba(217,119,6,0.6)]'
+                                        : liveMatch?.isUpcoming
+                                        ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.6)]'
+                                        : 'bg-primary text-white animate-pulse shadow-[0_0_12px_rgba(229,9,20,0.6)]'
+                                }`}
+                            >
+                                {liveMatch?.isFinished ? '🏆 FINAL' : liveMatch?.isUpcoming ? '📅 PRÓXIMO' : '⚡ EN VIVO'}
+                            </span>
+                            {liveMatch && (
+                                <span className="text-[10px] font-bold text-gray-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10 whitespace-nowrap">
+                                    {liveMatch.homeAbbr || liveMatch.homeTeam.slice(0, 3)} {liveMatch.isUpcoming ? 'vs' : `${liveMatch.homeScore}-${liveMatch.awayScore}`} {liveMatch.awayAbbr || liveMatch.awayTeam.slice(0, 3)}
+                                </span>
+                            )}
+                        </div>
                     )}
                 </div>
 
@@ -147,11 +154,11 @@ export default function ProductHeaderInfo({
                                     : 'border-primary/40'
                             }`}
                         >
-                            <span className="text-white">{liveMatch.homeTeam}</span>
+                            <span className="text-white font-bold">{liveMatch.homeAbbr || liveMatch.homeTeam}</span>
                             {liveMatch.isUpcoming ? (
                                 <>
                                     <span className="text-blue-400 font-bold">vs</span>
-                                    <span className="text-white">{liveMatch.awayTeam}</span>
+                                    <span className="text-white font-bold">{liveMatch.awayAbbr || liveMatch.awayTeam}</span>
                                     <span className="text-blue-300 text-xs font-semibold bg-blue-500/20 px-2 py-0.5 rounded-md">
                                         {liveMatch.startTime || 'Próximamente'}
                                     </span>
@@ -161,13 +168,13 @@ export default function ProductHeaderInfo({
                                     <span
                                         className={
                                             liveMatch.isFinished
-                                                ? 'text-amber-400 text-base'
-                                                : 'text-primary text-base'
+                                                ? 'text-amber-400 text-base font-bold'
+                                                : 'text-primary text-base font-bold'
                                         }
                                     >
                                         {liveMatch.homeScore} - {liveMatch.awayScore}
                                     </span>
-                                    <span className="text-white">{liveMatch.awayTeam}</span>
+                                    <span className="text-white font-bold">{liveMatch.awayAbbr || liveMatch.awayTeam}</span>
                                     {liveMatch.isFinished ? (
                                         <span className="text-amber-300 text-xs font-semibold bg-amber-500/20 px-2 py-0.5 rounded-md">
                                             Final

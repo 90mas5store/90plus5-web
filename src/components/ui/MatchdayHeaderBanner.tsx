@@ -37,10 +37,16 @@ export default function MatchdayHeaderBanner() {
   const matchItems = activeEntries.map(([id, match]) => {
     const teamPlaying = match.isHome ? match.homeTeam : match.awayTeam;
     const opponent = match.isHome ? match.awayTeam : match.homeTeam;
+    const teamPlayingAbbr = match.isHome
+      ? (match.homeAbbr || teamPlaying.slice(0, 3).toUpperCase())
+      : (match.awayAbbr || teamPlaying.slice(0, 3).toUpperCase());
+    const opponentAbbr = match.isHome
+      ? (match.awayAbbr || opponent.slice(0, 3).toUpperCase())
+      : (match.homeAbbr || opponent.slice(0, 3).toUpperCase());
     const teamScore = match.isHome ? match.homeScore : match.awayScore;
     const opponentScore = match.isHome ? match.awayScore : match.homeScore;
     const teamPlayingId = match.isHome ? (match.homeTeamId || id) : match.awayTeamId;
-    return { id, match, teamPlaying, opponent, teamScore, opponentScore, teamPlayingId };
+    return { id, match, teamPlaying, opponent, teamPlayingAbbr, opponentAbbr, teamScore, opponentScore, teamPlayingId };
   });
 
   const isMultiple = matchItems.length > 1;
@@ -111,12 +117,14 @@ function MatchPill({
     match: LiveMatchData;
     teamPlaying: string;
     opponent: string;
+    teamPlayingAbbr: string;
+    opponentAbbr: string;
     teamScore: number;
     opponentScore: number;
     teamPlayingId?: string | null;
   };
 }) {
-  const { match, teamPlaying, opponent, teamScore, opponentScore, teamPlayingId } = item;
+  const { match, teamPlaying, opponent, teamPlayingAbbr, opponentAbbr, teamScore, opponentScore, teamPlayingId } = item;
   const catalogHref = teamPlayingId
     ? `/catalogo?equipo=${encodeURIComponent(teamPlayingId)}`
     : `/catalogo?query=${encodeURIComponent(teamPlaying)}`;
@@ -158,14 +166,14 @@ function MatchPill({
         </span>
       </span>
 
-      {/* Detalle Partido */}
+      {/* Detalle Partido con Abreviaturas */}
       <span className="text-[11px] sm:text-xs font-bold whitespace-nowrap">
         <strong className={isFinished ? "text-amber-300" : isUpcoming ? "text-blue-300" : "text-red-400"}>
-          {teamPlaying}
+          {teamPlayingAbbr}
         </strong>{" "}
         {isUpcoming ? "vs" : `${teamScore} - ${opponentScore}`}{" "}
         {opponent && opponent !== 'Rival' && (
-          <span className="font-normal text-gray-300">({opponent})</span>
+          <strong className="text-gray-300">{opponentAbbr}</strong>
         )}
       </span>
 

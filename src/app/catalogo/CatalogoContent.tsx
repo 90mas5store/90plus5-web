@@ -135,28 +135,30 @@ export default function CatalogoContent({
             return;
         }
 
-        // 1. ¿Está en teams locales?
+        // 1. ¿Está en los productos cargados? (Nombre oficial del catálogo)
+        const fromProducts = productos.find((p) => p.team_id === equipoSeleccionado)?.equipo;
+        if (fromProducts) {
+            setFetchedTeamName(fromProducts);
+            return;
+        }
+
+        // 2. ¿Está en teams locales?
         const fromTeams = teams.find((t) => t.id === equipoSeleccionado)?.name;
         if (fromTeams) {
             setFetchedTeamName(fromTeams);
             return;
         }
 
-        // 2. ¿Está en liveMatches?
+        // 3. ¿Está en liveMatches como nombre de BD?
         const match = liveMatches[equipoSeleccionado];
         if (match) {
-            const name = match.isHome ? match.homeTeam : match.awayTeam;
+            const name = match.isHome
+                ? (match.homeTeamDbName || match.homeShortTeam || match.homeTeam)
+                : (match.awayTeamDbName || match.awayShortTeam || match.awayTeam);
             if (name) {
                 setFetchedTeamName(name);
                 return;
             }
-        }
-
-        // 3. ¿Está en los productos cargados?
-        const fromProducts = productos.find((p) => p.team_id === equipoSeleccionado)?.equipo;
-        if (fromProducts) {
-            setFetchedTeamName(fromProducts);
-            return;
         }
 
         // 4. Si aún no está en memoria, consultar directamente a Supabase
@@ -184,15 +186,17 @@ export default function CatalogoContent({
     const activeTeamName = useMemo(() => {
         if (!equipoSeleccionado) return null;
         if (fetchedTeamName) return fetchedTeamName;
+        const fromProducts = productos.find((p) => p.team_id === equipoSeleccionado)?.equipo;
+        if (fromProducts) return fromProducts;
         const fromTeams = teams.find((t) => t.id === equipoSeleccionado)?.name;
         if (fromTeams) return fromTeams;
         const match = liveMatches[equipoSeleccionado];
         if (match) {
-            const name = match.isHome ? match.homeTeam : match.awayTeam;
+            const name = match.isHome
+                ? (match.homeTeamDbName || match.homeShortTeam || match.homeTeam)
+                : (match.awayTeamDbName || match.awayShortTeam || match.awayTeam);
             if (name) return name;
         }
-        const fromProducts = productos.find((p) => p.team_id === equipoSeleccionado)?.equipo;
-        if (fromProducts) return fromProducts;
 
         // Si es un UUID y aún no resuelve, NUNCA mostrar el UUID crudo
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(equipoSeleccionado);

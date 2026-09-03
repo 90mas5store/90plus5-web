@@ -78,7 +78,9 @@ describe('Live Matches API Endpoint (/api/live-matches)', () => {
     expect(data['atletico-madrid-id']).toBeDefined();
 
     expect(data['real-madrid-id'].homeTeam).toBe('Real Madrid');
-    expect(data['real-madrid-id'].awayTeam).toBe('Atlético de Madrid');
+    expect(data['real-madrid-id'].awayTeam).toBe('Atlético Madrid');
+    expect(data['real-madrid-id'].homeTeamDbName).toBe('Real Madrid');
+    expect(data['real-madrid-id'].awayTeamDbName).toBe('Atlético de Madrid');
     expect(data['real-madrid-id'].homeScore).toBe(2);
 
     expect(data['atletico-madrid-id'].isHome).toBe(false);
@@ -118,7 +120,8 @@ describe('Live Matches API Endpoint (/api/live-matches)', () => {
     const data = await response.json();
 
     expect(data['spain-id']).toBeDefined();
-    expect(data['spain-id'].homeTeam).toBe('España');
+    expect(data['spain-id'].homeTeam).toBe('Spain');
+    expect(data['spain-id'].homeTeamDbName).toBe('España');
     expect(data['spain-id'].homeScore).toBe(1);
   });
 

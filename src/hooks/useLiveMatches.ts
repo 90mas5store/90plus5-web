@@ -2,8 +2,14 @@
 import { useState, useEffect, useRef } from 'react';
 
 export interface LiveMatchData {
-  homeTeam: string;
+  homeTeam: string;              // Nombre completo broadcast (ej. "Club Deportivo Olimpia")
   awayTeam: string;
+  homeShortTeam?: string;        // Nombre corto para móvil (ej. "Olimpia")
+  awayShortTeam?: string;
+  homeAbbr?: string;             // Abreviatura 3 letras (ej. "OLI")
+  awayAbbr?: string;             // (ej. "PLA")
+  homeTeamDbName?: string | null;// Nombre comercial en BD (ej. "CD Olimpia")
+  awayTeamDbName?: string | null;
   homeScore: number;
   awayScore: number;
   minute: number | null;

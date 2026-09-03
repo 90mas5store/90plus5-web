@@ -55,10 +55,11 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
 
     // Datos del marcador cuando viene de la API
     const opponent = liveMatch ? (liveMatch.isHome ? liveMatch.awayTeam : liveMatch.homeTeam) : null;
+    const opponentAbbr = liveMatch
+        ? (liveMatch.isHome ? liveMatch.awayAbbr : liveMatch.homeAbbr) || (opponent ? opponent.slice(0, 3).toUpperCase() : null)
+        : null;
     const ourScore = liveMatch ? (liveMatch.isHome ? liveMatch.homeScore : liveMatch.awayScore) : null;
     const theirScore = liveMatch ? (liveMatch.isHome ? liveMatch.awayScore : liveMatch.homeScore) : null;
-    // Nombre corto del rival (primeras 2 palabras)
-    const shortOpponent = opponent ? opponent.split(' ').slice(0, 2).join(' ') : null;
 
     const productHref = `/producto/${item.slug || item.id}`;
 
@@ -119,11 +120,11 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                             }`}>
                                 {liveMatch.isFinished ? '🏆 FINAL' : liveMatch.isUpcoming ? '📅 PRÓXIMO' : '⚡ EN VIVO'}
                             </span>
-                            {shortOpponent && !liveMatch.isManual && (
+                            {opponentAbbr && !liveMatch.isManual && (
                                 <span className="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold bg-black/70 text-white border border-white/20 whitespace-nowrap">
                                     {liveMatch.isUpcoming
-                                        ? `vs ${shortOpponent} · ${liveMatch.startTime || 'Hoy'}`
-                                        : `vs ${shortOpponent} · ${ourScore}-${theirScore}`
+                                        ? `vs ${opponentAbbr} · ${liveMatch.startTime || 'Hoy'}`
+                                        : `vs ${opponentAbbr} · ${ourScore}-${theirScore}`
                                     }
                                 </span>
                             )}

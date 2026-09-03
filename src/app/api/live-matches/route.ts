@@ -6,7 +6,7 @@ import type { LiveMatchData } from '@/hooks/useLiveMatches';
 // ─────────────────────────────────────────────────────────────────────────────
 // CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE_KEY = 'live-matches:v2';
+const CACHE_KEY = 'live-matches:v3';
 const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
 const MEMORY_CACHE_TTL_MS = 30_000;
 
@@ -452,33 +452,42 @@ export async function GET(req?: NextRequest) {
       const awayComp = competition.competitors?.find((c: any) => c.homeAway === 'away');
       if (!homeComp || !awayComp) continue;
 
-      const homeName = homeComp.team?.name || homeComp.team?.displayName || '';
-      const awayName = awayComp.team?.name || awayComp.team?.displayName || '';
+      const homeRawName = homeComp.team?.displayName || homeComp.team?.name || '';
+      const awayRawName = awayComp.team?.displayName || awayComp.team?.name || '';
+
+      const homeShortName = homeComp.team?.shortDisplayName || homeComp.team?.name || homeRawName;
+      const awayShortName = awayComp.team?.shortDisplayName || awayComp.team?.name || awayRawName;
+
+      const homeAbbr = (homeComp.team?.abbreviation || homeShortName.slice(0, 3)).toUpperCase();
+      const awayAbbr = (awayComp.team?.abbreviation || awayShortName.slice(0, 3)).toUpperCase();
+
       const homeScore = parseInt(homeComp.score ?? '0', 10);
       const awayScore = parseInt(awayComp.score ?? '0', 10);
 
-      const homeNorm = normalizeTeamName(homeName);
-      const awayNorm = normalizeTeamName(awayName);
+      const homeNorm = normalizeTeamName(homeRawName);
+      const awayNorm = normalizeTeamName(awayRawName);
       const homeUuid = nameToUuid.get(homeNorm);
       const awayUuid = nameToUuid.get(awayNorm);
 
       const homeTeamInDb = homeUuid ? teamsData.find(t => t.id === homeUuid) : null;
       const awayTeamInDb = awayUuid ? teamsData.find(t => t.id === awayUuid) : null;
 
-      // Preferir nombre oficial configurado en la base de datos (ej. "CD Olimpia" en vez de "Club Deportivo Olimpia")
-      const finalHomeTeam = homeTeamInDb?.name || homeName;
-      const finalAwayTeam = awayTeamInDb?.name || awayName;
-
-      const homeLogoUrl = getTeamLogo(homeName, homeComp.team?.logo);
-      const awayLogoUrl = getTeamLogo(awayName, awayComp.team?.logo);
+      const homeLogoUrl = getTeamLogo(homeRawName, homeComp.team?.logo);
+      const awayLogoUrl = getTeamLogo(awayRawName, awayComp.team?.logo);
 
       const minuteNum = isLiveNow && clockDisplay ? parseInt(clockDisplay, 10) || null : null;
       const startTimeText = isUpcoming ? formatMatchTime(eventDateStr) : null;
 
       const saveMatch = (uuid: string, isHomeTeam: boolean) => {
         const payload: LiveMatchData = {
-          homeTeam: finalHomeTeam,
-          awayTeam: finalAwayTeam,
+          homeTeam: homeRawName,
+          awayTeam: awayRawName,
+          homeShortTeam: homeShortName,
+          awayShortTeam: awayShortName,
+          homeAbbr,
+          awayAbbr,
+          homeTeamDbName: homeTeamInDb?.name || null,
+          awayTeamDbName: awayTeamInDb?.name || null,
           homeScore: isNaN(homeScore) ? 0 : homeScore,
           awayScore: isNaN(awayScore) ? 0 : awayScore,
           minute: minuteNum,
@@ -534,9 +543,18 @@ export async function GET(req?: NextRequest) {
       const isFinished = periodStr.toLowerCase().includes('final');
       const awayUuid = nameToUuid.get(normalizeTeamName(opponentName));
 
+      const homeAbbr = team.name.slice(0, 3).toUpperCase();
+      const awayAbbr = opponentName.slice(0, 3).toUpperCase();
+
       const matchDataPayload: LiveMatchData = {
         homeTeam: team.name,
         awayTeam: opponentName,
+        homeShortTeam: team.name,
+        awayShortTeam: opponentName,
+        homeAbbr,
+        awayAbbr,
+        homeTeamDbName: team.name,
+        awayTeamDbName: null,
         homeScore: hScore,
         awayScore: aScore,
         minute: null,
