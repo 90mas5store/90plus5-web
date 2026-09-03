@@ -419,13 +419,25 @@ export async function GET(req?: NextRequest) {
       const clockDisplay = event.status?.displayClock || event.status?.type?.shortDetail || null;
 
       const eventDateStr = event.date || competition.date || null;
-      const eventTimestamp = eventDateStr ? new Date(eventDateStr).getTime() : 0;
+      let isSameDayToday = false;
+      let eventTimestamp = 0;
+      if (eventDateStr) {
+        const d = new Date(eventDateStr);
+        if (!isNaN(d.getTime())) {
+          eventTimestamp = d.getTime();
+          const tz = 'America/Tegucigalpa';
+          const todayStr = new Date(now).toLocaleDateString('en-CA', { timeZone: tz });
+          const eventDayStr = d.toLocaleDateString('en-CA', { timeZone: tz });
+          isSameDayToday = eventDayStr === todayStr;
+        }
+      }
+
       const elapsedMinutes = eventTimestamp > 0 ? (now - eventTimestamp) / (60 * 1000) : 999;
 
-      // Ventana de visibilidad: próximos 36h, en vivo, o finalizado en las últimas 4h
-      const isUpcoming = state === 'pre';
+      // Ventana de visibilidad: estrictamente partidos de HOY (horario Honduras) o en vivo en este momento
       const isLiveNow = state === 'in';
-      const isFinishedToday = state === 'post' && elapsedMinutes <= 4 * 60;
+      const isUpcoming = state === 'pre' && isSameDayToday;
+      const isFinishedToday = state === 'post' && isSameDayToday && elapsedMinutes <= 4 * 60;
       if (!isUpcoming && !isLiveNow && !isFinishedToday) continue;
 
       const rawComp =
