@@ -107,7 +107,7 @@ export default function MatchdayHeroTakeover() {
 
   return (
     <div
-      className="relative w-full overflow-hidden bg-gradient-to-b from-black via-neutral-950 to-black text-white pt-20 sm:pt-24 md:pt-24 pb-6 sm:pb-8 border-b border-[#E50914]/30 shadow-[0_15px_50px_rgba(229,9,20,0.25)]"
+      className="relative w-full overflow-hidden bg-gradient-to-b from-black via-neutral-950 to-black text-white pt-24 sm:pt-28 md:pt-32 pb-8 sm:pb-10 md:pb-12 border-b border-[#E50914]/30 shadow-[0_15px_50px_rgba(229,9,20,0.25)]"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >

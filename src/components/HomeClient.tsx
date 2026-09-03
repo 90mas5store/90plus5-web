@@ -114,7 +114,10 @@ export default function HomeClient({
 
 
             {/* 🏆 EVENTO ESPECIAL (MUNDIAL) */}
-            <SpecialEventBanner banners={initialSpecialBanners} />
+            <SpecialEventBanner
+                banners={initialSpecialBanners}
+                hasMatchdayHero={liveMatchesLoaded && Object.keys(liveMatches).length > 0}
+            />
 
             {/* 🏆 LIGAS */}
             <div id="ligas">

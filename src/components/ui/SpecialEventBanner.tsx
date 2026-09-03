@@ -18,15 +18,16 @@ const SLIDE_INTERVAL = 10000; // 10 seconds
 
 interface SpecialEventBannerProps {
     banners?: SpecialBanner[];
+    hasMatchdayHero?: boolean;
 }
 
-export default function SpecialEventBanner({ banners }: SpecialEventBannerProps) {
+export default function SpecialEventBanner({ banners, hasMatchdayHero = false }: SpecialEventBannerProps) {
     if (!banners || banners.length === 0) return null;
 
-    return <SpecialEventCarousel banners={banners} />;
+    return <SpecialEventCarousel banners={banners} hasMatchdayHero={hasMatchdayHero} />;
 }
 
-function SpecialEventCarousel({ banners }: { banners: SpecialBanner[] }) {
+function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: SpecialBanner[]; hasMatchdayHero?: boolean }) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
     const [videoFailedMap, setVideoFailedMap] = useState<Record<string, boolean>>({});
@@ -58,7 +59,9 @@ function SpecialEventCarousel({ banners }: { banners: SpecialBanner[] }) {
 
     return (
         <section
-            className="px-4 max-w-7xl mx-auto -mt-6 md:-mt-10 mb-8 relative z-10"
+            className={`px-4 max-w-7xl mx-auto relative z-10 ${
+                hasMatchdayHero ? "mt-12 sm:mt-16 md:mt-20 mb-10 md:mb-16" : "-mt-6 md:-mt-10 mb-8"
+            }`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
