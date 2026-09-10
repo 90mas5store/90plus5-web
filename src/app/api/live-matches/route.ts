@@ -6,7 +6,7 @@ import type { LiveMatchData } from '@/hooks/useLiveMatches';
 // ─────────────────────────────────────────────────────────────────────────────
 // CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE_KEY = 'live-matches:v3';
+const CACHE_KEY = 'live-matches:v4';
 const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
 const MEMORY_CACHE_TTL_MS = 30_000;
 
@@ -92,10 +92,10 @@ const TEAM_ALIASES: Record<string, string[]> = {
   'juventus': ['juventus', 'juventus fc', 'juve'],
   'inter': ['inter milan', 'internazionale', 'inter milano', 'inter'],
   'ac milan': ['milan', 'ac milan', 'a.c. milan', 'rossoneri'],
-  'cd olimpia': ['olimpia', 'cd olimpia', 'club deportivo olimpia', 'c.d. olimpia', 'olimpia tegucigalpa'],
-  'motagua': ['cd motagua', 'motagua', 'futbol club motagua', 'fc motagua'],
-  'real espana': ['real espana', 'real cd espana', 'real club deportivo espana'],
-  'marathon': ['marathon', 'cd marathon', 'club deportivo marathon'],
+  'cd olimpia': ['olimpia', 'cd olimpia', 'club deportivo olimpia', 'c.d. olimpia', 'olimpia tegucigalpa', 'club olimpia deportivo', 'olimpia deportivo'],
+  'motagua': ['cd motagua', 'motagua', 'futbol club motagua', 'fc motagua', 'c.d. motagua'],
+  'real espana': ['real espana', 'real cd espana', 'real club deportivo espana', 'rcd espana', 'real españa', 'real cd españa'],
+  'marathon': ['marathon', 'cd marathon', 'club deportivo marathon', 'marathón', 'cd marathón'],
   'boca juniors': ['boca', 'boca juniors', 'ca boca juniors'],
   'river plate': ['river plate', 'river', 'ca river plate'],
   'america': ['club america', 'america', 'ca america'],
@@ -116,7 +116,23 @@ function formatCompetitionName(rawName?: string | null): string | null {
   const lower = name.toLowerCase();
 
   if (lower.includes('honduras') || lower.includes('honduran') || lower.includes('hon.1') || lower.includes('liga nacional')) return 'Liga Nacional Honduras';
-  if (lower.includes('central_american_cup') || lower.includes('central american cup')) return 'Copa Centroamericana CONCACAF';
+  if (
+    lower.includes('central_american_cup') ||
+    lower.includes('central american cup') ||
+    lower.includes('central.american.cup') ||
+    lower.includes('copa centroamericana')
+  ) {
+    return 'Copa Centroamericana CONCACAF';
+  }
+  if (lower.includes('copa america') || lower.includes('copa américa') || lower.includes('conmebol.america')) return 'Copa América';
+  if (lower.includes('uefa.euro') || lower.includes('eurocopa') || lower.includes('european championship')) return 'UEFA Eurocopa';
+  if (lower.includes('uefa.nations') || lower.includes('uefa nations league')) return 'UEFA Nations League';
+  if (lower.includes('worldq.conmebol') || (lower.includes('worldq') && lower.includes('conmebol'))) return 'Eliminatorias CONMEBOL';
+  if (lower.includes('worldq.uefa') || (lower.includes('worldq') && lower.includes('uefa'))) return 'Eliminatorias UEFA';
+  if (lower.includes('worldq') || lower.includes('qualifying') || lower.includes('eliminatoria')) return 'Eliminatorias CONCACAF';
+  if (lower.includes('gold') || lower.includes('copa oro') || lower.includes('copa-oro')) return 'Copa Oro CONCACAF';
+  if (lower.includes('nations.league') || lower.includes('nations league') || lower.includes('nations-league')) return 'CONCACAF Nations League';
+  if (lower.includes('fifa.world') || lower.includes('world cup') || lower.includes('copa mundial') || lower.includes('mundial')) return 'Copa Mundial FIFA';
   if (lower.includes('liga f') || lower.includes('liga-f') || lower.includes('spanish-liga-f') || lower.includes('primera iberdrola')) return 'Liga F (Femenina)';
   if (lower.includes("women's champions league") || lower.includes('uwcl') || lower.includes('women-champions')) return 'UEFA Champions League Femenina';
   if (lower.includes('champions league') || lower.includes('champions-league') || lower.includes('ucl')) return 'UEFA Champions League';
@@ -128,6 +144,7 @@ function formatCompetitionName(rawName?: string | null): string | null {
   if (lower.includes('serie a') || lower.includes('serie-a')) return 'Serie A Italia';
   if (lower.includes('bundesliga')) return 'Bundesliga Alemania';
   if (lower.includes('ligue 1') || lower.includes('ligue-1')) return 'Ligue 1 Francia';
+  if (lower.includes('champions_cup') || lower.includes('champions cup') || lower.includes('concacaf.champions')) return 'CONCACAF Champions Cup';
   if (lower.includes('concacaf')) return 'CONCACAF Champions Cup';
   if (lower.includes('libertadores')) return 'Copa Libertadores';
   if (lower.includes('sudamericana')) return 'Copa Sudamericana';
@@ -137,7 +154,7 @@ function formatCompetitionName(rawName?: string | null): string | null {
   if (lower.includes('dfb')) return 'Copa de Alemania';
   if (lower.includes('mls') || lower.includes('major league soccer')) return 'MLS';
   if (lower.includes('liga mx')) return 'Liga MX';
-  if (lower.includes('friendly') || lower.includes('amistoso')) return 'Amistoso';
+  if (lower.includes('friendly') || lower.includes('amistoso')) return 'Amistoso Internacional';
 
   return name;
 }
@@ -268,6 +285,17 @@ export async function GET(req?: NextRequest) {
         if (t.logo_url) teamLogoByName.set(norm, t.logo_url);
       }
     }
+
+    // Garantizar que la Selección de Honduras esté siempre reconocida con su escudo oficial
+    const hasHondurasInDb = teamsData.some(t => normalizeTeamName(t.name) === 'honduras');
+    if (!hasHondurasInDb) {
+      teamsData.push({
+        id: 'honduras-national-team',
+        name: 'Honduras',
+        logo_url: '/logos/ligas/honduras-seleccion.svg',
+      });
+      teamLogoByName.set('honduras', '/logos/ligas/honduras-seleccion.svg');
+    }
   } catch (e) {
     console.error('[live-matches] Error fetching teams from Supabase:', e);
   }
@@ -366,6 +394,18 @@ export async function GET(req?: NextRequest) {
       'uefa.europa',
       'conmebol.libertadores',
       'fifa.world',
+      'concacaf.central.american.cup',
+      'concacaf.champions',
+      'concacaf.nations.league',
+      'concacaf.gold',
+      'fifa.worldq.concacaf',
+      'fifa.worldq.conmebol',
+      'fifa.worldq.uefa',
+      'conmebol.america',
+      'uefa.euro',
+      'uefa.nations',
+      'uefa.euroq',
+      'fifa.friendly',
     ];
 
     const ESPN_HEADERS = {
@@ -392,7 +432,12 @@ export async function GET(req?: NextRequest) {
           });
 
           if (res.ok) {
-            return await res.json();
+            const data = await res.json();
+            return {
+              leagueSlug: league,
+              leagueName: data.leagues?.[0]?.name || null,
+              events: data.events || [],
+            };
           }
           console.warn(`[live-matches] ESPN fetch failed for ${league} (${url}): ${res.status}`);
         } catch (err: any) {
@@ -407,7 +452,11 @@ export async function GET(req?: NextRequest) {
 
     for (const item of responses) {
       if (item.status === 'fulfilled' && item.value?.events) {
-        events = events.concat(item.value.events);
+        const leagueName = item.value.leagueName;
+        const leagueSlug = item.value.leagueSlug;
+        for (const evt of item.value.events) {
+          events.push({ ...evt, _leagueName: leagueName, _leagueSlug: leagueSlug });
+        }
       }
     }
 
@@ -442,6 +491,8 @@ export async function GET(req?: NextRequest) {
 
       const rawComp =
         competition.altGameNote ||
+        event._leagueName ||
+        event._leagueSlug ||
         event.season?.slug ||
         competition.league?.name ||
         event.league?.name ||

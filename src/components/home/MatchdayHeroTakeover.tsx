@@ -128,7 +128,7 @@ export default function MatchdayHeroTakeover() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-950/30 via-black to-black opacity-80 pointer-events-none" />
 
       <div className="relative max-w-6xl mx-auto px-3 sm:px-6">
-        
+
         {/* ──────── 1. BARRA SUPERIOR DE MINIATURAS (TOUCH-SCROLLABLE EN MÓVIL) ──────── */}
         {matchItems.length > 1 && (
           <div className="mb-3 sm:mb-4 flex items-center justify-start md:justify-center gap-2 overflow-x-auto pb-2 scrollbar-none touch-pan-x">
@@ -137,8 +137,8 @@ export default function MatchdayHeroTakeover() {
               {matchItems.some(i => !i.match.isFinished && !i.match.isUpcoming)
                 ? "En Vivo:"
                 : matchItems.some(i => i.match.isFinished)
-                ? "Jornada:"
-                : "Próximos:"}
+                  ? "Jornada:"
+                  : "Próximos:"}
             </span>
 
             {matchItems.map((item, idx) => {
@@ -150,15 +150,14 @@ export default function MatchdayHeroTakeover() {
                 <button
                   key={item.id}
                   onClick={() => setCurrentIndex(idx)}
-                  className={`shrink-0 transition-all duration-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 border cursor-pointer ${
-                    isActive
+                  className={`shrink-0 transition-all duration-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 border cursor-pointer ${isActive
                       ? isUpc
                         ? "bg-blue-600 text-white border-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.8)] scale-105"
                         : isFin
-                        ? "bg-amber-600 text-white border-amber-400 shadow-[0_0_15px_rgba(217,119,6,0.8)] scale-105"
-                        : "bg-[#E50914] text-white border-red-500 shadow-[0_0_15px_rgba(229,9,20,0.8)] scale-105"
+                          ? "bg-amber-600 text-white border-amber-400 shadow-[0_0_15px_rgba(217,119,6,0.8)] scale-105"
+                          : "bg-[#E50914] text-white border-red-500 shadow-[0_0_15px_rgba(229,9,20,0.8)] scale-105"
                       : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
-                  }`}
+                    }`}
                 >
                   <span className="whitespace-nowrap">
                     {item.teamPlaying} <span className="opacity-70 font-normal">vs</span> {item.opponent}
@@ -190,13 +189,12 @@ export default function MatchdayHeroTakeover() {
           >
             {/* BADGE CABECERA (TORNEO & ESTADO) */}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3 sm:mb-5">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider ${
-                match.isFinished
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider ${match.isFinished
                   ? "bg-amber-500/20 border border-amber-500/40 text-amber-400"
                   : match.isUpcoming
-                  ? "bg-blue-500/20 border border-blue-500/40 text-blue-400"
-                  : "bg-[#E50914]/20 border border-[#E50914]/40 text-red-400"
-              }`}>
+                    ? "bg-blue-500/20 border border-blue-500/40 text-blue-400"
+                    : "bg-[#E50914]/20 border border-[#E50914]/40 text-red-400"
+                }`}>
                 {match.isFinished ? (
                   <Trophy className="w-3.5 h-3.5 text-amber-400" />
                 ) : match.isUpcoming ? (
@@ -209,8 +207,8 @@ export default function MatchdayHeroTakeover() {
                   {match.isFinished
                     ? " · RESULTADO FINAL"
                     : match.isUpcoming
-                    ? " · PRÓXIMO ENCUENTRO"
-                    : " · EN VIVO"}
+                      ? " · PRÓXIMO ENCUENTRO"
+                      : " · EN VIVO"}
                 </span>
               </span>
 
@@ -224,7 +222,7 @@ export default function MatchdayHeroTakeover() {
 
             {/* MARCADOR PRINCIPAL CON ESCUDOS */}
             <div className="grid grid-cols-3 items-center justify-items-center gap-2 sm:gap-4 my-2 sm:my-3">
-              
+
               {/* EQUIPO LOCAL / NUESTRO EQUIPO */}
               <div className="flex flex-col items-center text-center gap-2 sm:gap-3 w-full">
                 <div className="w-14 h-14 sm:w-24 sm:h-24 md:w-28 md:h-28 relative flex items-center justify-center bg-white/5 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-white/10 shadow-lg group">
