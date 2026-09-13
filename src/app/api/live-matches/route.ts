@@ -419,10 +419,10 @@ export async function GET(req?: NextRequest) {
     };
 
     const fetchPromises = leagues.map(async league => {
-      // Intentar primero con el endpoint principal, y si falla o da 403, usar el endpoint web de ESPN
+      // Intentar primero con el endpoint web de ESPN (evita 403 en serverless/Vercel)
       const endpoints = [
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
         `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
       ];
 
       for (const url of endpoints) {
@@ -546,7 +546,7 @@ export async function GET(req?: NextRequest) {
       // Ventana de visibilidad: estrictamente partidos de HOY (horario Honduras) o en vivo en este momento
       const isLiveNow = state === 'in';
       const isUpcoming = state === 'pre' && isSameDayToday;
-      const isFinishedToday = state === 'post' && isSameDayToday && elapsedMinutes <= 4 * 60;
+      const isFinishedToday = state === 'post' && (elapsedMinutes <= 12 * 60 || (isSameDayToday && elapsedMinutes <= 18 * 60));
       if (!isUpcoming && !isLiveNow && !isFinishedToday) continue;
 
       const rawComp =
@@ -704,7 +704,7 @@ export async function GET(req?: NextRequest) {
       if (event.id && (isLiveNow || isFinishedToday) && (homeUuid || awayUuid)) {
         try {
           const sumLeague = event._leagueSlug || 'mex.1';
-          const sumUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${sumLeague}/summary?event=${event.id}`;
+          const sumUrl = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${sumLeague}/summary?event=${event.id}`;
           const sumRes = await fetch(sumUrl, {
             headers: ESPN_HEADERS,
             signal: AbortSignal.timeout(2200),

@@ -15,6 +15,8 @@ function getRedis(): Redis | null {
   }
 }
 
+const standingsMemoryCache: Record<string, { groups: StandingGroup[]; timestamp: number }> = {};
+
 export const maxDuration = 15;
 export const dynamic = 'force-dynamic';
 
@@ -80,69 +82,100 @@ export async function GET(req: NextRequest) {
   const league = searchParams.get('league') || 'esp.1';
   const teamParam = (searchParams.get('team') || '').toLowerCase().trim();
 
-  // Cache v2 con orden garantizado y soporte para conferencias/grupos
-  const cacheKey = `standings:v2:${league}`;
+  // Cache v3 con orden garantizado, soporte para conferencias/grupos y multi-endpoint ESPN
+  const cacheKey = `standings:v3:${league}`;
   const client = getRedis();
 
   let groups: StandingGroup[] = [];
 
-  if (client) {
+  // 1. Intentar memoria de la instancia cálida
+  const memCached = standingsMemoryCache[league];
+  if (memCached && (Date.now() - memCached.timestamp) < 5 * 60 * 1000) {
+    groups = memCached.groups;
+  }
+
+  // 2. Intentar Redis si no hay en memoria
+  if (groups.length === 0 && client) {
     try {
       const cached = await client.get<StandingGroup[]>(cacheKey);
       if (cached && Array.isArray(cached) && cached.length > 0) {
         groups = cached;
+        standingsMemoryCache[league] = { groups, timestamp: Date.now() };
       }
     } catch {
       // ignore cache read error
     }
   }
 
+  // 3. Consultar ESPN con endpoints resilientes (site.web.api.espn.com NUNCA es bloqueado por Akamai)
   if (groups.length === 0) {
-    try {
-      const res = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${league}/standings`, {
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        },
-        signal: AbortSignal.timeout(6000),
-      });
+    const endpoints = [
+      `https://site.web.api.espn.com/apis/v2/sports/soccer/${league}/standings`,
+      `https://site.api.espn.com/apis/v2/sports/soccer/${league}/standings`,
+    ];
 
-      if (!res.ok) {
-        return NextResponse.json({ league, standings: [], groups: [], error: `ESPN status ${res.status}` }, { status: 200 });
-      }
+    const ESPN_HEADERS = {
+      Accept: 'application/json, text/plain, */*',
+      'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      Referer: 'https://www.espn.com/',
+    };
 
-      const data = await res.json();
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          headers: ESPN_HEADERS,
+          cache: 'no-store',
+          signal: AbortSignal.timeout(6500),
+        });
 
-      if (Array.isArray(data.children) && data.children.length > 0) {
-        for (const child of data.children) {
-          const childEntries = child.standings?.entries || [];
-          const parsed = parseAndSortEntries(childEntries);
+        if (!res.ok) {
+          console.warn(`[standings] ESPN fetch status ${res.status} from ${url}`);
+          continue;
+        }
+
+        const data = await res.json();
+
+        if (Array.isArray(data.children) && data.children.length > 0) {
+          for (const child of data.children) {
+            const childEntries = child.standings?.entries || [];
+            const parsed = parseAndSortEntries(childEntries);
+            if (parsed.length > 0) {
+              groups.push({
+                name: child.name || data.name || 'General',
+                standings: parsed,
+              });
+            }
+          }
+        } else if (Array.isArray(data.standings)) {
+          const parsed = parseAndSortEntries(data.standings[0]?.entries || []);
           if (parsed.length > 0) {
             groups.push({
-              name: child.name || 'General',
+              name: data.name || 'General',
               standings: parsed,
             });
           }
         }
-      } else if (Array.isArray(data.standings)) {
-        const parsed = parseAndSortEntries(data.standings[0]?.entries || []);
-        if (parsed.length > 0) {
-          groups.push({
-            name: data.name || 'General',
-            standings: parsed,
-          });
-        }
-      }
 
-      if (client && groups.length > 0) {
+        if (groups.length > 0) {
+          break; // Éxito con este endpoint
+        }
+      } catch (err: any) {
+        console.warn(`[standings] Error fetching from ${url}:`, err?.message ?? err);
+      }
+    }
+
+    if (groups.length > 0) {
+      standingsMemoryCache[league] = { groups, timestamp: Date.now() };
+
+      if (client) {
         try {
           await client.set(cacheKey, groups, { ex: 300 }); // 5 minutos
         } catch {
           // ignore cache write error
         }
       }
-    } catch (err: any) {
-      return NextResponse.json({ league, standings: [], groups: [], error: err?.message || 'Error fetching standings' }, { status: 200 });
     }
   }
 
