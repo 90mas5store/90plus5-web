@@ -121,11 +121,24 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                                 {liveMatch.isFinished ? '🏆 FINAL' : liveMatch.isUpcoming ? '📅 PRÓXIMO' : '⚡ EN VIVO'}
                             </span>
                             {opponentAbbr && !liveMatch.isManual && (
-                                <span className="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold bg-black/70 text-white border border-white/20 whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold bg-black/80 text-white border border-white/20 whitespace-nowrap shadow-sm">
                                     {liveMatch.isUpcoming
-                                        ? `vs ${opponentAbbr} · ${liveMatch.startTime || 'Hoy'}`
-                                        : `vs ${opponentAbbr} · ${ourScore}-${theirScore}`
+                                        ? `${liveMatch.isHome ? 'vs' : '@'} ${opponentAbbr} · ${liveMatch.startTime || 'Hoy'}`
+                                        : `${liveMatch.isHome ? 'vs' : '@'} ${opponentAbbr} · ${ourScore}-${theirScore}`
                                     }
+                                </span>
+                            )}
+                            {/* Micro-detalle: Goleadores al hover */}
+                            {liveMatch.events && liveMatch.events.some(e => e.type === 'goal') && (
+                                <span className="hidden group-hover:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-950/90 text-red-200 border border-red-500/50 shadow-md backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+                                    <span>⚽</span>
+                                    <span className="truncate max-w-[130px]">
+                                        {liveMatch.events
+                                            .filter(e => e.type === 'goal')
+                                            .slice(0, 2)
+                                            .map(g => `${g.playerName.split(' ').pop()} ${g.minute}`)
+                                            .join(', ')}
+                                    </span>
                                 </span>
                             )}
                         </>

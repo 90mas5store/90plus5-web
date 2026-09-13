@@ -132,7 +132,7 @@ describe('Live Matches API Endpoint (/api/live-matches)', () => {
       events: [
         {
           name: 'FC Barcelona vs PSG',
-          date: new Date(Date.now() + 3600 * 1000).toISOString(),
+          date: new Date().toISOString(),
           status: {
             type: { state: 'pre', shortDetail: '15:00' }
           },
@@ -249,5 +249,239 @@ describe('Live Matches API Endpoint (/api/live-matches)', () => {
     expect(hondurasMatch.leagueName).toBe('Eliminatorias CONCACAF');
     expect(hondurasMatch.homeScore).toBe(1);
     expect(hondurasMatch.homeLogo).toBe('/logos/ligas/honduras-seleccion.svg');
+  });
+
+  it('extracts enriched ESPN data (goals with scorers, cards, possession stats, venue and colors)', async () => {
+    const mockEspnEvents = {
+      events: [
+        {
+          name: 'Real Madrid vs Atlético Madrid',
+          date: new Date().toISOString(),
+          status: {
+            displayClock: "68'",
+            type: { state: 'in', shortDetail: "68'" }
+          },
+          competitions: [
+            {
+              venue: {
+                fullName: 'Santiago Bernabéu',
+                address: { city: 'Madrid' }
+              },
+              details: [
+                {
+                  type: { id: '70', text: 'Goal' },
+                  scoringPlay: true,
+                  clock: { displayValue: "23'" },
+                  team: { id: 'real-madrid-espn' },
+                  athletesInvolved: [{ displayName: 'Vinicius Jr', jersey: '7' }]
+                },
+                {
+                  type: { id: '94', text: 'Yellow Card' },
+                  yellowCard: true,
+                  clock: { displayValue: "41'" },
+                  team: { id: 'atletico-espn' },
+                  athletesInvolved: [{ displayName: 'Koke', jersey: '6' }]
+                }
+              ],
+              competitors: [
+                {
+                  id: 'real-madrid-espn',
+                  homeAway: 'home',
+                  score: '1',
+                  team: { displayName: 'Real Madrid', color: 'ffffff', alternateColor: 'febe10' },
+                  statistics: [
+                    { name: 'possessionPct', displayValue: '57' },
+                    { name: 'shotsOnTarget', displayValue: '5' }
+                  ]
+                },
+                {
+                  id: 'atletico-espn',
+                  homeAway: 'away',
+                  score: '0',
+                  team: { displayName: 'Atlético Madrid', color: 'cb3524', alternateColor: 'ffffff' },
+                  statistics: [
+                    { name: 'possessionPct', displayValue: '43' },
+                    { name: 'shotsOnTarget', displayValue: '2' }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockEspnEvents),
+      })
+    ) as any;
+
+    const { GET } = await import('@/app/api/live-matches/route');
+    const response = await GET();
+    const data = await response.json();
+
+    const rmMatch = data['real-madrid-id'];
+    expect(rmMatch).toBeDefined();
+    expect(rmMatch.homeColor).toBe('#ffffff');
+    expect(rmMatch.awayColor).toBe('#cb3524');
+    expect(rmMatch.venueName).toBe('Santiago Bernabéu');
+    expect(rmMatch.venueCity).toBe('Madrid');
+    expect(rmMatch.events).toHaveLength(2);
+    expect(rmMatch.events[0].playerName).toBe('Vinicius Jr');
+    expect(rmMatch.events[0].type).toBe('goal');
+    expect(rmMatch.events[1].playerName).toBe('Koke');
+    expect(rmMatch.events[1].type).toBe('yellow-card');
+    expect(rmMatch.stats?.possession?.home).toBe('57');
+    expect(rmMatch.stats?.possession?.away).toBe('43');
+    expect(rmMatch.stats?.shotsOnTarget?.home).toBe('5');
+    expect(rmMatch.stats?.shotsOnTarget?.away).toBe('2');
+  });
+
+  it('preserves strict Home (left) and Away (right) order even when the DB team is playing as away visitor', async () => {
+    // Escenario: Atlético de Madrid es Local y Barcelona es Visitante
+    const mockEspnEvents = {
+      events: [
+        {
+          name: 'Atlético Madrid vs Barcelona',
+          date: new Date().toISOString(),
+          status: {
+            displayClock: "55'",
+            type: { state: 'in', shortDetail: "55'" }
+          },
+          competitions: [
+            {
+              competitors: [
+                { homeAway: 'home', team: { displayName: 'Atlético Madrid' }, score: '2' },
+                { homeAway: 'away', team: { displayName: 'Barcelona' }, score: '1' },
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockEspnEvents),
+      })
+    ) as any;
+
+    const { GET } = await import('@/app/api/live-matches/route');
+    const response = await GET();
+    const data = await response.json();
+
+    // Consultamos la entrada de Barcelona (que es el visitante)
+    const barcaMatch = data['barcelona-id'];
+    expect(barcaMatch).toBeDefined();
+    expect(barcaMatch.isHome).toBe(false); // Es visitante
+    // Local SIEMPRE debe ser Atlético Madrid con score 2
+    expect(barcaMatch.homeTeam).toBe('Atlético Madrid');
+    expect(barcaMatch.homeScore).toBe(2);
+    // Visitante SIEMPRE debe ser Barcelona con score 1
+    expect(barcaMatch.awayTeam).toBe('Barcelona');
+    expect(barcaMatch.awayScore).toBe(1);
+  });
+
+  it('correctly detects halftime (isHalftime: true) and preserves stoppage added time (displayClock: "45+11\'")', async () => {
+    const mockEspnEvents = {
+      events: [
+        {
+          name: 'Real Madrid vs FC Barcelona',
+          date: new Date().toISOString(),
+          status: {
+            clock: 2700,
+            displayClock: "45'+11'",
+            period: 1,
+            type: {
+              id: '23',
+              name: 'STATUS_HALFTIME',
+              state: 'in',
+              completed: false,
+              description: 'Halftime',
+              detail: 'HT',
+              shortDetail: 'HT'
+            }
+          },
+          competitions: [
+            {
+              competitors: [
+                { homeAway: 'home', team: { displayName: 'Real Madrid' }, score: '1' },
+                { homeAway: 'away', team: { displayName: 'FC Barcelona' }, score: '1' },
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockEspnEvents),
+      })
+    ) as any;
+
+    const { GET } = await import('@/app/api/live-matches/route');
+    const response = await GET();
+    const data = await response.json();
+
+    const rm = data['real-madrid-id'];
+    expect(rm).toBeDefined();
+    expect(rm.isHalftime).toBe(true);
+    expect(rm.displayClock).toBe("45+11'");
+    expect(rm.minute).toBe(45);
+  });
+
+  it('serves stale memory cache as fallback when ESPN fetch returns empty events', async () => {
+    // 1er llamado: genera datos en memoria
+    const mockEspnEvents = {
+      events: [
+        {
+          name: 'Motagua vs Olimpia',
+          date: new Date().toISOString(),
+          status: {
+            displayClock: "35'",
+            type: { state: 'in', shortDetail: "35'" }
+          },
+          competitions: [
+            {
+              competitors: [
+                { homeAway: 'home', team: { displayName: 'Motagua' }, score: '1' },
+                { homeAway: 'away', team: { displayName: 'CD Olimpia' }, score: '0' },
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockEspnEvents),
+      })
+    ) as any;
+
+    const { GET } = await import('@/app/api/live-matches/route');
+    const res1 = await GET();
+    const data1 = await res1.json();
+    expect(data1['motagua-id']).toBeDefined();
+
+    // 2do llamado: ESPN falla y devuelve vacío
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        status: 503,
+      })
+    ) as any;
+
+    const res2 = await GET();
+    const data2 = await res2.json();
+    // Debe entregar los datos previos desde el stale memoryCache
+    expect(data2['motagua-id']).toBeDefined();
+    expect(data2['motagua-id'].homeScore).toBe(1);
   });
 });

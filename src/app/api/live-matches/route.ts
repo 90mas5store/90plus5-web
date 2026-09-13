@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Redis } from '@upstash/redis';
-import type { LiveMatchData } from '@/hooks/useLiveMatches';
+import type { LiveMatchData, MatchEventDetail, MatchStats } from '@/hooks/useLiveMatches';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE_KEY = 'live-matches:v4';
+const CACHE_KEY = 'live-matches:v5';
+const STALE_CACHE_KEY = 'live-matches:last-known-good';
 const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
+const STALE_CACHE_TTL_SECONDS = 86400; // 24 horas — respaldo ante caídas de ESPN
 const MEMORY_CACHE_TTL_MS = 30_000;
 
 // Caché en memoria para instancias Serverless cálidas
@@ -460,12 +462,70 @@ export async function GET(req?: NextRequest) {
       }
     }
 
+    // ── Resiliencia: si ESPN no devolvió ningún evento (rate limit, outage, timeout)
+    if (events.length === 0) {
+      if (memoryCache?.data && Object.keys(memoryCache.data).length > 0) {
+        console.warn('[live-matches] ESPN no devolvió eventos; sirviendo memoryCache como stale fallback');
+        return NextResponse.json(memoryCache.data, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'X-Live-Cache': 'STALE-MEMORY',
+          },
+        });
+      }
+      if (client && Date.now() >= redisDisabledUntil) {
+        try {
+          const stale = await client.get<string | Record<string, LiveMatchData>>(STALE_CACHE_KEY);
+          if (stale) {
+            const staleData = typeof stale === 'string' ? JSON.parse(stale) : stale;
+            if (staleData && Object.keys(staleData).length > 0) {
+              console.warn('[live-matches] ESPN no devolvió eventos; sirviendo Redis como stale fallback');
+              return NextResponse.json(staleData, {
+                headers: {
+                  'Cache-Control': 'no-store, no-cache, must-revalidate',
+                  'X-Live-Cache': 'STALE-REDIS',
+                },
+              });
+            }
+          }
+        } catch (staleErr: any) {
+          console.warn('[live-matches] Error al leer stale cache de Redis:', staleErr?.message ?? staleErr);
+        }
+      }
+    }
+
     for (const event of events) {
       const competition = event.competitions?.[0];
       if (!competition) continue;
 
       const state = event.status?.type?.state;
-      const clockDisplay = event.status?.displayClock || event.status?.type?.shortDetail || null;
+      const statusTypeName = (event.status?.type?.name || '').toUpperCase();
+      const statusDesc = (event.status?.type?.description || '').toLowerCase();
+      const statusDetail = (event.status?.type?.detail || '').toUpperCase();
+      const statusShortDetail = (event.status?.type?.shortDetail || '').toUpperCase();
+
+      const isHalftime =
+        statusTypeName === 'STATUS_HALFTIME' ||
+        statusDesc.includes('halftime') ||
+        statusDetail === 'HT' ||
+        statusShortDetail === 'HT' ||
+        statusDesc.includes('entretiempo') ||
+        statusDesc.includes('medio tiempo');
+
+      // Formatear reloj legible preservando tiempo añadido (ej: "45'+11'" -> "45+11'", "90'+6'" -> "90+6'")
+      let cleanDisplayClock: string | null = null;
+      const rawClockCandidate = event.status?.displayClock || event.status?.type?.shortDetail || null;
+      if (rawClockCandidate && typeof rawClockCandidate === 'string') {
+        const stripped = rawClockCandidate.replace(/['"´`\s]/g, '');
+        if (stripped && /\d/.test(stripped) && stripped !== 'HT' && stripped !== 'FT') {
+          cleanDisplayClock = stripped.endsWith("'") ? stripped : `${stripped}'`;
+        }
+      }
+      if (!cleanDisplayClock && event.status?.clock != null && !isNaN(event.status.clock) && event.status.clock > 0) {
+        cleanDisplayClock = `${Math.floor(event.status.clock / 60)}'`;
+      }
+
+      const clockDisplay = cleanDisplayClock || event.status?.type?.shortDetail || null;
 
       const eventDateStr = event.date || competition.date || null;
       let isSameDayToday = false;
@@ -526,7 +586,239 @@ export async function GET(req?: NextRequest) {
       const homeLogoUrl = getTeamLogo(homeRawName, homeComp.team?.logo);
       const awayLogoUrl = getTeamLogo(awayRawName, awayComp.team?.logo);
 
-      const minuteNum = isLiveNow && clockDisplay ? parseInt(clockDisplay, 10) || null : null;
+      const formatColor = (c?: string | null) => {
+        if (!c) return null;
+        const clean = c.replace('#', '').trim();
+        return clean ? `#${clean}` : null;
+      };
+      const homeColor = formatColor(homeComp.team?.color);
+      const awayColor = formatColor(awayComp.team?.color);
+      const homeAltColor = formatColor(homeComp.team?.alternateColor);
+      const awayAltColor = formatColor(awayComp.team?.alternateColor);
+
+      const venueName = competition.venue?.fullName || null;
+      const venueCity = competition.venue?.address?.city || null;
+
+      // Incidencias del partido (Goles, Penales, Tarjetas, VAR y Goles Anulados)
+      const parsedEvents: MatchEventDetail[] = [];
+      if (Array.isArray(competition.details)) {
+        for (const d of competition.details) {
+          const typeText = (d.type?.text || '').toLowerCase();
+          const isOwnGoal = Boolean(d.ownGoal || typeText.includes('own goal') || typeText.includes('autogol'));
+          const isPenaltyScored = Boolean(
+            (d.penaltyKick && d.scoringPlay) ||
+            typeText.includes('penalty - scored') ||
+            typeText.includes('penalty scored') ||
+            d.type?.id === '98'
+          );
+          const isPenaltyMissed = Boolean(
+            (d.penaltyKick && !d.scoringPlay) ||
+            typeText.includes('penalty - missed') ||
+            typeText.includes('penalty - saved') ||
+            typeText.includes('missed penalty')
+          );
+          const isDisallowed = Boolean(
+            typeText.includes('disallowed') ||
+            typeText.includes('anulado') ||
+            typeText.includes('overturned') ||
+            typeText.includes('cancelled') ||
+            typeText.includes('no goal')
+          );
+          const isVar = Boolean(
+            typeText.includes('var') ||
+            typeText.includes('video assistant') ||
+            isDisallowed
+          );
+          const isRed = Boolean(d.redCard || typeText.includes('red card') || d.type?.id === '93' || d.type?.id === '95');
+          const isYellow = Boolean(d.yellowCard || typeText.includes('yellow card') || d.type?.id === '94');
+          const isGoal = Boolean(!isOwnGoal && !isPenaltyScored && !isDisallowed && (d.scoringPlay || typeText.includes('goal') || d.type?.id === '70' || d.type?.id === '137' || d.type?.id === '173'));
+
+          if (!isGoal && !isPenaltyScored && !isPenaltyMissed && !isOwnGoal && !isDisallowed && !isVar && !isRed && !isYellow) {
+            continue;
+          }
+
+          let eventType: MatchEventDetail['type'] = 'goal';
+          let eventText = 'Gol';
+
+          if (isDisallowed) {
+            eventType = 'disallowed-goal';
+            eventText = 'Gol Anulado';
+          } else if (isVar && !isGoal && !isRed && !isYellow) {
+            eventType = 'var';
+            eventText = 'Revisión VAR';
+          } else if (isPenaltyScored) {
+            eventType = 'penalty-goal';
+            eventText = 'Gol de Penal';
+          } else if (isPenaltyMissed) {
+            eventType = 'penalty-miss';
+            eventText = 'Penal Fallado';
+          } else if (isOwnGoal) {
+            eventType = 'own-goal';
+            eventText = 'Autogol';
+          } else if (isRed) {
+            eventType = 'red-card';
+            eventText = 'Tarjeta Roja';
+          } else if (isYellow) {
+            eventType = 'yellow-card';
+            eventText = 'Tarjeta Amarilla';
+          } else if (isGoal) {
+            eventType = 'goal';
+            eventText = 'Gol';
+          }
+
+          const athlete = d.athletesInvolved?.[0];
+          const isHomeEvent = d.team?.id
+            ? String(d.team.id) === String(homeComp.id || homeComp.team?.id)
+            : false;
+
+          parsedEvents.push({
+            id: `${d.clock?.value || d.clock?.displayValue || Math.random()}-${athlete?.displayName || eventText}`,
+            type: eventType,
+            minute: d.clock?.displayValue || (d.clock?.value ? `${Math.floor(d.clock.value / 60)}'` : ''),
+            text: eventText,
+            teamId: d.team?.id ? String(d.team.id) : undefined,
+            isHome: isHomeEvent,
+            playerName: athlete?.displayName || athlete?.fullName || (isGoal ? 'Gol' : isDisallowed ? 'Gol Anulado' : isVar ? 'Decisión VAR' : 'Jugador'),
+            playerShortName: athlete?.shortName,
+            jersey: athlete?.jersey,
+          });
+        }
+      }
+
+      // Mapa de dorsales de atletas a partir de competition.details
+      const athleteJerseyMap = new Map<string, string>();
+      if (Array.isArray(competition.details)) {
+        for (const d of competition.details) {
+          if (Array.isArray(d.athletesInvolved)) {
+            for (const a of d.athletesInvolved) {
+              if (a.id && a.jersey) athleteJerseyMap.set(String(a.id), String(a.jersey));
+              if (a.displayName && a.jersey) athleteJerseyMap.set(String(a.displayName), String(a.jersey));
+              if (a.fullName && a.jersey) athleteJerseyMap.set(String(a.fullName), String(a.jersey));
+            }
+          }
+        }
+      }
+
+      // Si el partido está en vivo o finalizado hoy, enriquecemos con summary endpoint de ESPN
+      // para capturar penales fallados, revisiones de VAR y goles anulados que ESPN omite en scoreboard details
+      if (event.id && (isLiveNow || isFinishedToday) && (homeUuid || awayUuid)) {
+        try {
+          const sumLeague = event._leagueSlug || 'mex.1';
+          const sumUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${sumLeague}/summary?event=${event.id}`;
+          const sumRes = await fetch(sumUrl, {
+            headers: ESPN_HEADERS,
+            signal: AbortSignal.timeout(2200),
+          });
+          if (sumRes.ok) {
+            const sumData = await sumRes.json();
+            if (Array.isArray(sumData.keyEvents)) {
+              for (const k of sumData.keyEvents) {
+                const kType = (k.type?.text || '').toLowerCase();
+                const isPenSaved = kType.includes('penalty - saved') || kType.includes('penalty saved') || k.type?.id === '114';
+                const isPenMissed = kType.includes('penalty - missed') || kType.includes('penalty missed') || k.type?.id === '73';
+                const isDisallow = kType.includes('disallowed') || kType.includes('anulado') || kType.includes('overturned') || kType.includes('no goal');
+                const isVarCheck = kType.includes('var') || kType.includes('video assistant');
+                const isPenScored = kType.includes('penalty - scored') || kType.includes('penalty scored') || k.type?.id === '98';
+
+                if (!isPenSaved && !isPenMissed && !isDisallow && !isVarCheck && !isPenScored) {
+                  continue;
+                }
+
+                const kClock = k.clock?.displayValue || (k.clock?.value ? `${Math.floor(k.clock.value / 60)}'` : '');
+                // Evitar duplicados con parsedEvents
+                const alreadyExists = parsedEvents.some(
+                  pe => pe.minute === kClock && (
+                    (isPenSaved || isPenMissed) ? (pe.type === 'penalty-miss' || pe.type === 'goal') : pe.text === k.type?.text
+                  )
+                );
+                if (alreadyExists) continue;
+
+                const athlete = k.participants?.[0]?.athlete;
+                const pName = athlete?.displayName || k.text?.match(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)+)/)?.[1] || (isPenSaved || isPenMissed ? 'Penal' : 'Incidencia');
+                const jerseyFromMap = athlete?.id ? athleteJerseyMap.get(String(athlete.id)) : (pName ? athleteJerseyMap.get(pName) : undefined);
+
+                const isHomeEvt = k.team?.displayName
+                  ? k.team.displayName.toLowerCase().includes(homeRawName.toLowerCase()) || homeRawName.toLowerCase().includes(k.team.displayName.toLowerCase())
+                  : true;
+
+                let eType: MatchEventDetail['type'] = 'penalty-miss';
+                let eText = 'Penal Fallado';
+                if (isPenSaved) {
+                  eType = 'penalty-miss';
+                  eText = 'Penal Atajado';
+                } else if (isPenMissed) {
+                  eType = 'penalty-miss';
+                  eText = 'Penal Fallado';
+                } else if (isPenScored) {
+                  eType = 'penalty-goal';
+                  eText = 'Gol de Penal';
+                } else if (isDisallow) {
+                  eType = 'disallowed-goal';
+                  eText = 'Gol Anulado (VAR)';
+                } else if (isVarCheck) {
+                  eType = 'var';
+                  eText = 'Revisión VAR';
+                }
+
+                parsedEvents.push({
+                  id: `key-${k.id || kClock}-${pName}`,
+                  type: eType,
+                  minute: kClock,
+                  text: eText,
+                  teamId: isHomeEvt ? (homeComp.id ? String(homeComp.id) : undefined) : (awayComp.id ? String(awayComp.id) : undefined),
+                  isHome: isHomeEvt,
+                  playerName: pName,
+                  jersey: jerseyFromMap,
+                });
+              }
+            }
+          }
+        } catch {
+          // Continuar sin summary si falla
+        }
+      }
+
+      // Ordenar incidencias cronológicamente por minuto de juego (19', 35', 43', 45', 45'+6'...)
+      parsedEvents.sort((a, b) => {
+        const getMinVal = (str?: string) => {
+          if (!str) return 0;
+          const m = str.match(/(\d+)(?:\+(\d+))?/);
+          if (!m) return 0;
+          return parseInt(m[1], 10) * 100 + parseInt(m[2] || '0', 10);
+        };
+        return getMinVal(a.minute) - getMinVal(b.minute);
+      });
+
+      // Estadísticas del partido (Posesión, Tiros)
+      const getStat = (statsArr: any[], statName: string) => {
+        const s = statsArr?.find((item: any) => item.name?.toLowerCase() === statName.toLowerCase());
+        return s?.displayValue ? String(s.displayValue) : null;
+      };
+      const homeStatsList = homeComp.statistics || [];
+      const awayStatsList = awayComp.statistics || [];
+      const posH = getStat(homeStatsList, 'possessionPct');
+      const posA = getStat(awayStatsList, 'possessionPct');
+      const sotH = getStat(homeStatsList, 'shotsOnTarget');
+      const sotA = getStat(awayStatsList, 'shotsOnTarget');
+      const totH = getStat(homeStatsList, 'totalShots');
+      const totA = getStat(awayStatsList, 'totalShots');
+      const flsH = getStat(homeStatsList, 'foulsCommitted');
+      const flsA = getStat(awayStatsList, 'foulsCommitted');
+      const cnrH = getStat(homeStatsList, 'wonCorners');
+      const cnrA = getStat(awayStatsList, 'wonCorners');
+
+      let matchStats: MatchStats | undefined = undefined;
+      if (posH || sotH || totH) {
+        matchStats = {
+          possession: posH && posA ? { home: posH, away: posA } : undefined,
+          shotsOnTarget: sotH && sotA ? { home: sotH, away: sotA } : undefined,
+          totalShots: totH && totA ? { home: totH, away: totA } : undefined,
+          fouls: flsH && flsA ? { home: flsH, away: flsA } : undefined,
+          corners: cnrH && cnrA ? { home: cnrH, away: cnrA } : undefined,
+        };
+      }
+
+      const minuteNum = (isLiveNow || isHalftime) && clockDisplay ? parseInt(clockDisplay, 10) || null : null;
       const startTimeText = isUpcoming ? formatMatchTime(eventDateStr) : null;
 
       const saveMatch = (uuid: string, isHomeTeam: boolean) => {
@@ -542,6 +834,8 @@ export async function GET(req?: NextRequest) {
           homeScore: isNaN(homeScore) ? 0 : homeScore,
           awayScore: isNaN(awayScore) ? 0 : awayScore,
           minute: minuteNum,
+          displayClock: cleanDisplayClock,
+          isHalftime,
           isHome: isHomeTeam,
           isManual: false,
           leagueName: competitionName || null,
@@ -554,6 +848,15 @@ export async function GET(req?: NextRequest) {
           hasAwayTeamInDb: !!awayUuid,
           homeTeamId: homeUuid || null,
           awayTeamId: awayUuid || null,
+          homeColor,
+          awayColor,
+          homeAltColor,
+          awayAltColor,
+          venueName,
+          venueCity,
+          leagueSlug: event._leagueSlug || null,
+          events: parsedEvents.length > 0 ? parsedEvents : undefined,
+          stats: matchStats,
         };
 
         const existing = result[uuid];
@@ -657,8 +960,11 @@ export async function GET(req?: NextRequest) {
 
     if (client && Date.now() >= redisDisabledUntil) {
       Promise.race([
-        client.set(CACHE_KEY, JSON.stringify(result), { ex: CACHE_TTL_SECONDS }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis set timeout')), 1000)),
+        Promise.all([
+          client.set(CACHE_KEY, JSON.stringify(result), { ex: CACHE_TTL_SECONDS }),
+          client.set(STALE_CACHE_KEY, JSON.stringify(result), { ex: STALE_CACHE_TTL_SECONDS }),
+        ]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis set timeout')), 1500)),
       ]).catch(err => {
         redisDisabledUntil = Date.now() + 60_000;
         console.warn('[live-matches] Redis cache write error/timeout, desactivando 60s:', err?.message ?? err);

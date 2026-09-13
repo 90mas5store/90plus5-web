@@ -236,7 +236,7 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
                     } else {
                         isLive = true;
                         liveScore = `${teamLive.homeScore} - ${teamLive.awayScore}`;
-                        liveMinute = teamLive.minute ? `${teamLive.minute}'` : undefined;
+                        liveMinute = teamLive.isHalftime ? 'ET' : (teamLive.displayClock || (teamLive.minute ? `${teamLive.minute}'` : undefined));
                     }
                 }
 

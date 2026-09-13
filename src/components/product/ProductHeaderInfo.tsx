@@ -179,10 +179,14 @@ export default function ProductHeaderInfo({
                                         <span className="text-amber-300 text-xs font-semibold bg-amber-500/20 px-2 py-0.5 rounded-md">
                                             Final
                                         </span>
+                                    ) : liveMatch.isHalftime ? (
+                                        <span className="text-amber-400 text-xs font-semibold bg-amber-500/20 px-2 py-0.5 rounded-md">
+                                            Entretiempo
+                                        </span>
                                     ) : (
-                                        liveMatch.minute && (
+                                        (liveMatch.displayClock || liveMatch.minute) && (
                                             <span className="text-gray-400 text-xs font-normal">
-                                                {liveMatch.minute}&apos;
+                                                {liveMatch.displayClock || `${liveMatch.minute}'`}
                                             </span>
                                         )
                                     )}
