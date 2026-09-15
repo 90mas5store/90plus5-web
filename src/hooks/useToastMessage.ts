@@ -34,9 +34,10 @@ interface UseToastMessageReturn {
     dismiss: (toastId?: string) => void;
 }
 
-export default function useToastMessage(): UseToastMessageReturn {
+// 🛠️ Instancia única y estable de métodos toast para evitar re-renders innecesarios en dependencias de hooks
+const toastMethods: UseToastMessageReturn = {
     // ✅ Toast de éxito general
-    const success = (message: string) =>
+    success: (message: string) =>
         toast.success(message, {
             duration: 4000,
             style: {
@@ -45,10 +46,10 @@ export default function useToastMessage(): UseToastMessageReturn {
                 boxShadow: "0 8px 32px rgba(229,9,20,0.15), 0 0 0 1px rgba(229,9,20,0.1)",
             },
             iconTheme: { primary: "#E50914", secondary: "#fff" },
-        });
+        }),
 
     // ❌ Toast de error
-    const error = (message: string) =>
+    error: (message: string) =>
         toast.error(message, {
             duration: 5000,
             style: {
@@ -57,10 +58,10 @@ export default function useToastMessage(): UseToastMessageReturn {
                 boxShadow: "0 8px 32px rgba(255,50,50,0.15), 0 0 0 1px rgba(255,50,50,0.1)",
             },
             iconTheme: { primary: "#ff3b3b", secondary: "#fff" },
-        });
+        }),
 
     // ℹ️ Toast informativo
-    const info = (message: string) =>
+    info: (message: string) =>
         toast(message, {
             duration: 4000,
             icon: "💡",
@@ -68,10 +69,10 @@ export default function useToastMessage(): UseToastMessageReturn {
                 ...baseStyle,
                 border: "1px solid rgba(255,255,255,0.15)",
             },
-        });
+        }),
 
     // 🛒 Toast especial para agregar al carrito
-    const cartSuccess = (productName: string, size: string, customization: string | null = null) => {
+    cartSuccess: (productName: string, size: string, customization: string | null = null) => {
         const mensaje = customization
             ? `🎽 ${productName} · Talla ${size} · ${customization}`
             : `🎽 ${productName} · Talla ${size}`;
@@ -88,10 +89,10 @@ export default function useToastMessage(): UseToastMessageReturn {
                 iconTheme: { primary: "#22c55e", secondary: "#fff" },
             }
         );
-    };
+    },
 
     // ✨ Toast de confirmación (acciones completadas)
-    const confirm = (message: string) =>
+    confirm: (message: string) =>
         toast.success(message, {
             duration: 3500,
             icon: "✨",
@@ -100,19 +101,19 @@ export default function useToastMessage(): UseToastMessageReturn {
                 border: "1px solid rgba(229,9,20,0.5)",
                 boxShadow: "0 8px 32px rgba(229,9,20,0.2), 0 0 0 1px rgba(229,9,20,0.15)",
             },
-        });
+        }),
 
     // ⏳ Toast de carga
-    const loading = (message: string) =>
+    loading: (message: string) =>
         toast.loading(message, {
             style: {
                 ...baseStyle,
                 border: "1px solid rgba(255,255,255,0.1)",
             },
-        });
+        }),
 
     // 📍 Toast de ubicación
-    const location = (message: string) =>
+    location: (message: string) =>
         toast.success(message, {
             duration: 4000,
             icon: "📍",
@@ -121,10 +122,10 @@ export default function useToastMessage(): UseToastMessageReturn {
                 border: "1px solid rgba(59,130,246,0.4)",
                 boxShadow: "0 8px 32px rgba(59,130,246,0.12), 0 0 0 1px rgba(59,130,246,0.08)",
             },
-        });
+        }),
 
     // ⚠️ Toast de advertencia
-    const warning = (message: string) =>
+    warning: (message: string) =>
         toast(message, {
             duration: 4500,
             icon: "⚠️",
@@ -133,10 +134,10 @@ export default function useToastMessage(): UseToastMessageReturn {
                 border: "1px solid rgba(251,191,36,0.4)",
                 boxShadow: "0 8px 32px rgba(251,191,36,0.12), 0 0 0 1px rgba(251,191,36,0.08)",
             },
-        });
+        }),
 
     // 🎉 Toast de celebración (pedidos completados)
-    const celebrate = (message: string) =>
+    celebrate: (message: string) =>
         toast.success(message, {
             duration: 5000,
             icon: "🎉",
@@ -146,21 +147,12 @@ export default function useToastMessage(): UseToastMessageReturn {
                 boxShadow: "0 12px 40px rgba(229,9,20,0.25), 0 0 0 1px rgba(229,9,20,0.2)",
                 background: "linear-gradient(135deg, #0A0A0A 0%, #1a0a0a 100%)",
             },
-        });
+        }),
 
     // 🔄 Dismiss toast por ID
-    const dismiss = (toastId?: string) => toast.dismiss(toastId);
+    dismiss: (toastId?: string) => toast.dismiss(toastId),
+};
 
-    return {
-        success,
-        error,
-        info,
-        cartSuccess,
-        confirm,
-        loading,
-        location,
-        warning,
-        celebrate,
-        dismiss
-    };
+export default function useToastMessage(): UseToastMessageReturn {
+    return toastMethods;
 }

@@ -17,6 +17,7 @@ const withPWA = require("next-pwa")({
   skipWaiting: true,
   cleanupOutdatedCaches: true,
   buildExcludes: [/app-build-manifest\.json$/, /middleware-manifest\.json$/, /\.map$/],
+  publicExcludes: ['!images/**/*', '!~partytown/**/*', '!robots.txt', '!sitemap*.xml', '!noprecache/**/*'],
   runtimeCaching: [
     // Admin, API y Supabase: nunca cachear, siempre red directa
     // Nota: urlPattern se testa contra la URL completa (https://...), no solo el pathname

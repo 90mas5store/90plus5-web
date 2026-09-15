@@ -64,7 +64,7 @@ export default function AdminSeasonSettingsPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, []);
 
     useEffect(() => {
         loadConfig();

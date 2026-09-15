@@ -39,8 +39,9 @@ export default function AdminTasaCambioPage() {
                 setInputRate(String(data.rate));
                 setUpdatedAt(data.updated_at);
                 // Actualizar calculadora con la nueva tasa
-                const hnlNum = parseFloat(calcHnl) || 0;
-                setCalcUsd((hnlNum / data.rate).toFixed(2));
+                setCalcUsd((prev) => {
+                    return (1200 / data.rate).toFixed(2);
+                });
             }
         } catch (err) {
             console.error('Error loading rate:', err);
@@ -48,7 +49,7 @@ export default function AdminTasaCambioPage() {
         } finally {
             setLoading(false);
         }
-    }, [calcHnl]);
+    }, []);
 
     useEffect(() => {
         loadRate();

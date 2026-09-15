@@ -12,7 +12,6 @@ import ClarityScript from "@/components/analytics/ClarityScript";
 import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Metadata, Viewport } from "next";
-import { Partytown } from '@builder.io/partytown/react';
 import { MotionProvider } from "@/lib/motion";
 import { SITE_URL, SITE_CONFIG, CONTACT, SOCIAL_LINKS, SEO } from "@/lib/config/site";
 import CookieConsent from "@/components/CookieConsent";
@@ -291,21 +290,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 }
                             ]
                         })
-                    }}
-                />
-                <Partytown
-                    debug={process.env.NODE_ENV === 'development'}
-                    forward={['gtag', 'fbq', 'dataLayer.push']}
-                    resolveUrl={(url, location, type) => {
-                        if (url.hostname === 'www.google-analytics.com') {
-                            const proxyUrl = new URL('/proxytown/google-analytics' + url.pathname + url.search, location.href);
-                            return proxyUrl;
-                        }
-                        if (url.hostname === 'www.googletagmanager.com') {
-                            const proxyUrl = new URL('/proxytown/googletagmanager' + url.pathname + url.search, location.href);
-                            return proxyUrl;
-                        }
-                        return url;
                     }}
                 />
                 {/* ⚡ Optimización de conexiones a CDNs (Supabase, ESPN) */}
