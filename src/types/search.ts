@@ -17,6 +17,7 @@ export interface QuickClub {
     name: string;
     logoUrl?: string;
     query: string;
+    count?: number;
 }
 
 export interface SearchBarProps {
@@ -28,4 +29,6 @@ export interface SearchBarProps {
     className?: string;
     enableLiveResults?: boolean;
     autoFocus?: boolean;
+    onClose?: () => void;
+    showCloseButton?: boolean;
 }

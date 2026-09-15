@@ -12,6 +12,8 @@ export const SITE_CONFIG = {
   country: "Honduras",
   location: "Tegucigalpa, Honduras",
   priceRange: "HNL 350 - HNL 900",
+  currentSeason: "2026/27",
+  currentSeasonShort: "26/27",
 } as const;
 
 export const CONTACT = {

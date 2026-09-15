@@ -34,26 +34,27 @@ export default function TerminosPage() {
             </p>
             <ul>
                 <li>
-                    <strong>Transferencia Bancaria:</strong> Requerimos un anticipo del 50% para procesar pedidos bajo encargo, cancelando el 50% restante al momento de la entrega o despacho. Aceptamos transferencias a nuestras cuentas oficiales en BAC Credomatic y Banco Atlántida.
+                    <strong>Transferencia Bancaria:</strong> Requerimos un anticipo del 50% para procesar pedidos bajo encargo, cancelando el 50% restante al momento de la entrega o despacho. Aceptamos transferencias directas a nuestras cuentas de BAC Credomatic y Banco Atlántida, así como transferencias ACH interbancarias desde Ficohsa, Banpaís, Banco de Occidente y otros bancos de Honduras.
                 </li>
                 <li>
-                    <strong>PayPal y Tarjetas Internacionales (Débito / Crédito):</strong> Los pagos procesados a través de la pasarela oficial de PayPal se cobran al 100% en Dólares Estadounidenses (USD) al tipo de cambio oficial publicado en la tienda. La confirmación del pago y la reserva de inventario son inmediatas.
+                    <strong>PayPal y Tarjetas Internacionales (Débito / Crédito):</strong> Los pagos procesados a través de la pasarela oficial de PayPal se cobran al 100% en Dólares Estadounidenses (USD) al tipo de cambio oficial publicado en la tienda. La confirmación del pago y el procesamiento del pedido son inmediatos.
                 </li>
                 <li>
                     <strong>Seguridad en Pagos Electrónicos:</strong> Todas las transacciones con tarjeta son procesadas de extremo a extremo por PayPal bajo los más estrictos estándares de seguridad y encriptación PCI-DSS. 90+5 Store no almacena ni tiene acceso a los números completos de tu tarjeta de crédito o débito.
                 </li>
                 <li>
-                    <strong>Plazo de Confirmación:</strong> Los pedidos con método de transferencia bancaria que no reciban su comprobante en un plazo de 48 horas podrán ser cancelados automáticamente para liberar el inventario.
+                    <strong>Plazo de Confirmación:</strong> Los pedidos con método de transferencia bancaria que no reciban su comprobante en un plazo de 48 horas podrán ser cancelados para no demorar la orden de importación.
                 </li>
             </ul>
 
             <h2>4. Tiempos de Entrega</h2>
             <p>
-                Los tiempos de entrega son estimados y pueden variar debido a alta demanda o factores logísticos externos.
+                Operamos de manera 100% digital sin local físico ni inventario para venta inmediata. Todas las prendas se procesan principalmente bajo la modalidad de encargo. Los tiempos de entrega se componen de:
             </p>
             <ul>
-                <li><strong>En Stock:</strong> 1-3 días hábiles para envíos nacionales.</li>
-                <li><strong>Bajo Pedido:</strong> 2-4 semanas aproximadamente (pueden aplicarse variaciones).</li>
+                <li><strong>Bajo Pedido (Importación):</strong> 3 a 5 semanas aproximadamente desde la confirmación del anticipo del 50%.</li>
+                <li><strong>Entregas en Tegucigalpa:</strong> Coordinación local gratuita una vez recibido el producto en el país.</li>
+                <li><strong>Envíos Nacionales:</strong> 1 a 3 días hábiles una vez despachado por Cargo Expreso (CAEX, siendo ambas la misma empresa de logística) a cualquier departamento de Honduras.</li>
             </ul>
 
             <h2>5. Cambios y Devoluciones</h2>

@@ -15,6 +15,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const params = await Promise.resolve(searchParams);
   const categoriaParam = typeof params?.categoria === 'string' ? params.categoria : undefined;
   const ligaParam = typeof params?.liga === 'string' ? params.liga : undefined;
+  const equipoParam = typeof params?.equipo === 'string' ? params.equipo : typeof params?.team === 'string' ? params.team : undefined;
+  const marcaParam = typeof params?.marca === 'string' ? params.marca : typeof params?.brand === 'string' ? params.brand : undefined;
+  const queryParam = typeof params?.query === 'string' ? params.query : typeof params?.q === 'string' ? params.q : undefined;
 
   // Resolver slug → nombre real
   const config = await getConfig();
@@ -22,8 +25,34 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
   let displayName: string | undefined;
+  let customTitle: string | undefined;
+  let customDesc: string | undefined;
 
-  if (ligaParam && config?.ligas) {
+  if (equipoParam) {
+    try {
+      const adminClient = createAdminClient();
+      const { data: teamObj } = await adminClient
+        .from('teams')
+        .select('name')
+        .or(`slug.eq.${equipoParam},name.ilike.%${equipoParam}%`)
+        .limit(1)
+        .maybeSingle();
+      if (teamObj?.name) {
+        displayName = teamObj.name;
+        customTitle = `Camisetas de ${displayName} en Honduras | ${SITE_CONFIG.name}`;
+        customDesc = `Compra camisetas oficiales de ${displayName} en Honduras. Versión jugador y aficionado temporada 25/26, personalización oficial y envíos a todo el país.`;
+      }
+    } catch { /* fallback */ }
+  } else if (marcaParam && config?.marcas) {
+    const mObj = config.marcas.find(
+      (m) => (m.slug && m.slug === marcaParam) || normalize(m.name) === normalize(marcaParam)
+    );
+    if (mObj?.name) {
+      displayName = mObj.name;
+      customTitle = `Ropa Deportiva y Camisetas ${displayName} en Honduras | ${SITE_CONFIG.name}`;
+      customDesc = `Explora la colección oficial de ${displayName} en Honduras. Envíos express a Tegucigalpa, San Pedro Sula y todo el país.`;
+    }
+  } else if (ligaParam && config?.ligas) {
     const lObj = config.ligas.find(
       (l) => (l.slug && l.slug === ligaParam) || normalize(l.nombre) === normalize(ligaParam)
     );
@@ -31,35 +60,43 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   } else if (categoriaParam && config?.categorias) {
     const cObj = config.categorias.find((c) => c.slug === categoriaParam);
     displayName = cObj?.nombre;
+  } else if (queryParam) {
+    displayName = `Resultados para "${queryParam}"`;
   }
 
   const titleStr = displayName || 'Catálogo';
+  const finalTitle = customTitle || `${titleStr} | ${SITE_CONFIG.name} Honduras`;
+  const finalDesc = customDesc || `Explora nuestra colección de ${titleStr}: versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua y más. Envíos a todo Honduras.`;
 
   // Canonical dinámico: páginas filtradas tienen su propio canonical para SEO por keyword
-  const canonicalUrl = ligaParam
+  const canonicalUrl = equipoParam
+    ? `${SITE_URL}/catalogo?equipo=${encodeURIComponent(equipoParam)}`
+    : marcaParam
+    ? `${SITE_URL}/catalogo?marca=${encodeURIComponent(marcaParam)}`
+    : ligaParam
     ? `${SITE_URL}/catalogo?liga=${encodeURIComponent(ligaParam)}`
     : categoriaParam
     ? `${SITE_URL}/catalogo?categoria=${encodeURIComponent(categoriaParam)}`
     : `${SITE_URL}/catalogo`;
 
   return {
-    title: `${titleStr} | ${SITE_CONFIG.name} Honduras`,
-    description: `Explora nuestra colección de ${titleStr}: versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua y más. Envíos a todo Honduras.`,
+    title: finalTitle,
+    description: finalDesc,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
       type: 'website',
       locale: SITE_CONFIG.locale,
-      title: `${titleStr} | ${SITE_CONFIG.name}`,
-      description: `Más de 100 equipaciones oficiales temporada 25/26. Versión jugador y aficionado. Envíos rápidos a todo Honduras.`,
+      title: finalTitle,
+      description: finalDesc,
       url: canonicalUrl,
       images: [{ url: `${SITE_URL}/og-image.jpg`, width: 1200, height: 630, alt: `${titleStr} - ${SITE_CONFIG.name}` }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${titleStr} | ${SITE_CONFIG.name}`,
-      description: `Más de 100 equipaciones 25/26. Versión jugador y aficionado. Envíos a todo Honduras.`,
+      title: finalTitle,
+      description: finalDesc,
       images: ['/og-image.jpg'],
       creator: SOCIAL_LINKS.twitterHandle,
     },
@@ -122,6 +159,33 @@ export default async function CatalogoPage({ searchParams }: Props) {
     if (lObj) leagueId = lObj.id;
   }
 
+  let teamId: string | undefined;
+  if (equipoParam) {
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (UUID_REGEX.test(equipoParam)) {
+      teamId = equipoParam;
+    } else {
+      try {
+        const adminClient = createAdminClient();
+        const { data: t } = await adminClient
+          .from('teams')
+          .select('id')
+          .or(`slug.eq.${equipoParam},name.ilike.%${equipoParam}%`)
+          .limit(1)
+          .maybeSingle();
+        if (t?.id) teamId = t.id;
+      } catch { /* fallback */ }
+    }
+  }
+
+  let brandId: string | undefined;
+  if (marcaParam && config?.marcas) {
+    const mObj = config.marcas.find(
+      (m) => (m.slug && m.slug === marcaParam) || normalize(m.name) === normalize(marcaParam) || m.id === marcaParam
+    );
+    if (mObj) brandId = mObj.id;
+  }
+
   // Parsear precios si existen
   let priceMin: number | undefined;
   let priceMax: number | undefined;
@@ -143,8 +207,8 @@ export default async function CatalogoPage({ searchParams }: Props) {
       query: searchTerm,
       categoryId,
       leagueId,
-      teamId: equipoParam,
-      brandId: marcaParam,
+      teamId: teamId || equipoParam,
+      brandId: brandId || marcaParam,
       gender: generoParam,
       season: temporadaParam,
       sortBy: ordenParam,

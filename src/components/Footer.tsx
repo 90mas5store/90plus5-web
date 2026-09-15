@@ -67,9 +67,9 @@ export default function Footer() {
             90<span className="text-white">+</span>5
           </motion.h2>
           <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
-            Donde el tiempo se rompe.
+            La tienda deportiva online #1 en Honduras.
             <br />
-            Desde {SITE_CONFIG.location}.
+            Sede en {SITE_CONFIG.location} · Pedidos por encargo con envíos a todo el país.
           </p>
         </div>
 

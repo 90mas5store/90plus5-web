@@ -19,6 +19,7 @@ import SpecialEventBanner from "./ui/SpecialEventBanner";
 import HomeBannerContainer from "./HomeBannerContainer";
 import MatchdayHeaderBanner from "./ui/MatchdayHeaderBanner";
 import MatchdayHeroTakeover from "./home/MatchdayHeroTakeover";
+import StoreGeoAuthoritySection from "./home/StoreGeoAuthoritySection";
 
 // 🏗️ Carga dinámica de componentes pesados
 const CarruselDeCategoria = dynamic(() => import("./catalogo/CarruselDeCategoria"), {
@@ -105,7 +106,7 @@ export default function HomeClient({
     return (
         <main className="bg-background text-textLight min-h-dvh relative overflow-hidden">
             {/* 🏟️ HERO TAKEOVER (PARTIDOS EN VIVO) O HERO TRADICIONAL */}
-            <h1 className="sr-only">90+5 Store - La Mejor Tienda de Camisetas de Fútbol en Honduras</h1>
+            <h1 className="sr-only">90+5 Store | Tienda Deportiva en Tegucigalpa · Camisetas de Fútbol y Ropa Deportiva en Honduras</h1>
             {liveMatchesLoaded && Object.keys(liveMatches).length > 0 ? (
                 <MatchdayHeroTakeover />
             ) : (
@@ -233,6 +234,9 @@ export default function HomeClient({
                 </AnimatePresence>
 
             </section>
+
+            {/* 🏆 AUTORIDAD GEO & PROPUESTA DE VALOR (TEGUCIGALPA / HONDURAS) */}
+            <StoreGeoAuthoritySection />
         </main>
     );
 }

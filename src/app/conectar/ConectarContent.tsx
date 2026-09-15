@@ -55,9 +55,9 @@ export default function ContactoPage() {
           className="text-gray-300 max-w-xl leading-relaxed"
         >
           Somos fanáticos del fútbol, la moda retro y los detalles que hacen historia.
-          Si querés colaborar, tenés una duda o simplemente querés saludar, escribinos.
+          Operamos <strong>100% online bajo pedido</strong> (llegada estimada en <strong>3 a 5 semanas</strong>). No contamos con tienda física ni manejamos stock para venta inmediata, lo que nos permite ofrecerte cualquier camiseta del mundo en tu talla exacta. Sede operativa en <span className="text-[#E50914] font-semibold">{SITE_CONFIG.location}</span> con entregas locales y envíos seguros a toda Honduras vía <strong>Cargo Expreso (CAEX)</strong>.
           <br />
-          Basados en <span className="text-[#E50914] font-semibold">{SITE_CONFIG.location}</span> ⚽
+          ¿Querés encargar tu camiseta favorita o tenés dudas de tallas? Escribinos por WhatsApp y te asesoramos personalmente. ⚽
         </motion.p>
 
         {/* DATOS */}
@@ -78,7 +78,7 @@ export default function ContactoPage() {
 
         {/* WHATSAPP */}
         <motion.a
-          href={getWhatsappLink({ message: "¡Hola! Quiero hacer una consulta sobre un producto." })}
+          href={getWhatsappLink({ message: "¡Hola! Quiero hacer una consulta sobre un producto bajo pedido." })}
           target="_blank"
           rel="noopener noreferrer"
           initial={{ opacity: 0, scale: 0.9 }}
@@ -106,10 +106,10 @@ export default function ContactoPage() {
             >
               <div className="text-[#E50914] mb-3 text-xl">🚚</div>
               <h3 className="text-lg font-bold text-white mb-2 group-hover:text-[#E50914] transition-colors">
-                Envíos y Devoluciones
+                Envíos y Entregas
               </h3>
               <p className="text-gray-400 text-xs leading-relaxed">
-                Conoce nuestras coberturas, precios y políticas de cambio.
+                Entregas en Tegucigalpa y envíos nacionales a los 18 departamentos vía Cargo Expreso (CAEX).
               </p>
             </Link>
 
@@ -119,10 +119,10 @@ export default function ContactoPage() {
             >
               <div className="text-[#E50914] mb-3 text-xl">📜</div>
               <h3 className="text-lg font-bold text-white mb-2 group-hover:text-[#E50914] transition-colors">
-                Términos y Condiciones
+                Términos y Pedidos
               </h3>
               <p className="text-gray-400 text-xs leading-relaxed">
-                Reglas claras sobre pagos, anticipos y responsabilidades.
+                Pedidos bajo encargo (3 a 5 semanas), sin stock inmediato, anticipo 50% y garantías.
               </p>
             </Link>
 

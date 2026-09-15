@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import HomeClient from "../components/HomeClient";
-import { faqJsonLd } from "../components/GeoFAQSection";
 import { getBannersServer, getConfigServer, getFeaturedServer, getSpecialBannersServer } from "../lib/api-server";
 import { Metadata } from "next";
 import { SITE_URL } from "@/lib/config/site";
@@ -9,6 +8,8 @@ import { SITE_URL } from "@/lib/config/site";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
+    title: "90+5 Store | Tienda Deportiva en Tegucigalpa · Camisetas de Fútbol en Honduras",
+    description: "La mejor tienda deportiva online en Honduras con sede en Tegucigalpa. Camisetas oficiales 25/26 versión jugador y aficionado bajo pedido (3 a 5 semanas) y envíos seguros a toda Honduras vía Cargo Expreso (CAEX).",
     alternates: { canonical: SITE_URL },
 };
 
@@ -70,11 +71,6 @@ export default async function Home() {
                     fetchPriority="high"
                 />
             )}
-            {/* 🤖 GEO: FAQPage JSON-LD para ChatGPT, Perplexity, Google AI Overview */}
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-            />
             <HomeClient
                 initialDestacados={featuredData || []}
                 initialBanners={bannersData || []}

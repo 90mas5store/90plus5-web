@@ -83,8 +83,8 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
             .map(([name]) => name);
     }, [catalog]);
 
-    // Top Clubs for quick crest bar
-    const topClubs = useMemo((): QuickClub[] => {
+    // All Clubs from catalog with logos and product counts
+    const allClubs = useMemo((): QuickClub[] => {
         if (catalog.length === 0) return [];
         const clubMap = new Map<string, { count: number; logoUrl?: string }>();
         catalog.forEach((p) => {
@@ -96,13 +96,16 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
 
         return Array.from(clubMap.entries())
             .sort((a, b) => b[1].count - a[1].count)
-            .slice(0, 8)
             .map(([name, data]) => ({
                 name,
                 logoUrl: data.logoUrl,
                 query: name,
+                count: data.count,
             }));
     }, [catalog]);
+
+    // Top Clubs for quick crest bar
+    const topClubs = useMemo(() => allClubs.slice(0, 10), [allClubs]);
 
     // Intelligent Search Matching with Aliases, Categories, Leagues & Live Matches
     const results = useMemo((): SearchResult[] => {
@@ -266,6 +269,7 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
         results,
         trendingSuggestions,
         topClubs,
+        allClubs,
         isLoaded,
         isLoading,
         loadCatalogData,

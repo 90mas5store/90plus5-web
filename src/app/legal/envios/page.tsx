@@ -16,18 +16,28 @@ export default function EnviosPage() {
 
             <h2>1. Cobertura de Envíos</h2>
             <p>
-                Realizamos envíos a <strong>todo el territorio nacional de Honduras</strong>. Trabajamos principalmente con empresas de logística confiables como Cargo Expreso y CAEX para asegurar que tu pedido llegue a tiempo y en perfectas condiciones.
+                Realizamos envíos a <strong>todo el territorio nacional de Honduras</strong> (los 18 departamentos). Trabajamos con la empresa de logística líder <strong>Cargo Expreso (CAEX, ambas denominaciones refieren a la misma empresa)</strong> para garantizar que tu pedido llegue a tiempo, con número de guía oficial y en perfectas condiciones.
             </p>
 
-            <h2>2. Costos y Tiempos</h2>
+            <h2>2. Modalidad Bajo Pedido y Tiempos de Entrega</h2>
+            <p>
+                En <strong>90+5 Store</strong> no disponemos de tienda física ni manejamos stock para venta inmediata. Operamos de manera 100% digital y principalmente <strong>bajo pedido (por encargo)</strong>. Este modelo nos permite ofrecerte cualquier camiseta del mundo, versión jugador o aficionado, talla exacta y personalización oficial sin las limitaciones de inventario físico de las tiendas convencionales.
+            </p>
             <ul>
-                <li><strong>Tegucigalpa y Distrito Central:</strong> El envío es completamente <strong>Gratis</strong> vía entregas en puntos convenidos o a domicilio local. Tiempo: 24h hábiles una vez listo el pedido.</li>
-                <li><strong>Resto del país (Nacional):</strong> Tiene un costo fijo de <strong>L. 140</strong> independientemente del lugar o departamento de destino. Tiempo: 1-3 días hábiles una vez despachado por nuestra paquetería de confianza.</li>
+                <li>
+                    <strong>Tiempo de Importación / Llegada:</strong> Los pedidos bajo encargo tardan entre <strong>3 y 5 semanas</strong> en llegar a Honduras una vez confirmado el anticipo del 50%.
+                </li>
+                <li>
+                    <strong>Tegucigalpa y Distrito Central:</strong> Una vez recibido el pedido en el país, la entrega es <strong>Gratis</strong> vía entregas locales coordinadas en puntos convenidos o a domicilio.
+                </li>
+                <li>
+                    <strong>Resto del país (Nacional):</strong> Envíos a San Pedro Sula, La Ceiba, Choluteca, Comayagua y los 18 departamentos vía <strong>Cargo Expreso (CAEX)</strong> con tarifa plana de <strong>L. 140</strong>. El tiempo de tránsito nacional es de 1 a 3 días hábiles una vez despachado.
+                </li>
             </ul>
 
             <h2>3. Rastreo de Pedido</h2>
             <p>
-                Una vez que tu pedido sea despachado, recibirás un número de guía. Puedes rastrear el estado de tu pedido directamente en nuestra sección de <a href="/rastreo" className="text-[#E50914] no-underline hover:underline">Rastreo</a> o en la web de la paquetería correspondiente.
+                Una vez que tu pedido llega a Honduras y es despachado por Cargo Expreso (CAEX), recibirás tu número de guía oficial. Puedes rastrear el estado de tu paquete en cualquier momento directamente en nuestra sección de <a href="/rastreo" className="text-[#E50914] no-underline hover:underline">Rastreo de Pedido</a> o en la plataforma de Cargo Expreso.
             </p>
 
             <h2>4. Política de Cambios</h2>

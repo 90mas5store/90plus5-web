@@ -3,19 +3,20 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ShoppingCart, Home, Grid3x3, Sparkles, X, Package, Search } from "lucide-react";
+import { ShoppingCart, Home, Grid3x3, Sparkles, X, Package, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "@/lib/motion";
 import { useCart } from "../context/CartContext";
 import { useCategories } from "../hooks/useCategories";
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { usePrefersReducedMotion } from "../hooks/useOptimization";
 import { Category } from "@/lib/types";
-import SearchBar, { SearchTrigger } from "./ui/SearchBar";
+import { SITE_CONFIG } from "@/lib/config/site";
+import { useSeasonSettings } from "../hooks/useSeasonSettings";
+import SearchTrigger from "@/components/search/SearchTrigger";
 import MatchdayHeaderBanner from "./ui/MatchdayHeaderBanner";
 
 // ─────────────────────────────────────────────
-// LinkItem — reutilizado en desktop y tablet
+// LinkItem — elemento de navegación individual
 // ─────────────────────────────────────────────
 function LinkItem({ href, children, onClick, icon: Icon, isActive, prefersReducedMotion }: {
     href: string;
@@ -28,14 +29,14 @@ function LinkItem({ href, children, onClick, icon: Icon, isActive, prefersReduce
     return (
         <Link href={href} onClick={onClick} className="group relative">
             <motion.div
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className={`relative px-5 py-2.5 rounded-2xl transition-all duration-500 flex items-center gap-2.5 ${isActive ? "text-white" : "text-gray-400 hover:text-white"}`}
+                whileHover={prefersReducedMotion ? undefined : { scale: 1.04, y: -1 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
+                className={`relative px-4 lg:px-5 py-2.5 rounded-2xl transition-all duration-300 flex items-center gap-2.5 ${isActive ? "text-white" : "text-gray-400 hover:text-white"}`}
             >
                 {isActive && (
                     <motion.div
-                        className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 rounded-2xl blur-xl"
-                        animate={{ opacity: 0.65, scale: 1 }}
+                        className="absolute inset-0 bg-gradient-to-r from-primary/25 via-primary/10 to-primary/25 rounded-2xl blur-lg"
+                        animate={{ opacity: 0.7, scale: 1 }}
                         transition={{ duration: 0.3 }}
                     />
                 )}
@@ -43,14 +44,14 @@ function LinkItem({ href, children, onClick, icon: Icon, isActive, prefersReduce
                 <div className="absolute inset-0 shadow-[0_8px_32px_rgba(229,9,20,0.15)] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative flex items-center gap-2.5">
                     {Icon && (
-                        <motion.div whileHover={{ rotate: -10, scale: 1.1 }} transition={{ type: "spring", stiffness: 300, damping: 15 }}>
+                        <motion.div whileHover={prefersReducedMotion ? undefined : { rotate: -8, scale: 1.1 }} transition={{ type: "spring", stiffness: 300, damping: 15 }}>
                             <Icon className={`w-4 h-4 transition-all duration-300 ${isActive
                                 ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.6)]'
                                 : 'group-hover:text-white group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'
                             }`} />
                         </motion.div>
                     )}
-                    <span className={`font-medium text-[15px] tracking-wide transition-all duration-300 ${isActive ? 'text-white' : 'text-gray-300'}`}>
+                    <span className={`font-medium text-sm lg:text-[15px] tracking-wide transition-all duration-300 ${isActive ? 'text-white font-semibold' : 'text-gray-300'}`}>
                         {children}
                     </span>
                 </div>
@@ -67,7 +68,7 @@ function LinkItem({ href, children, onClick, icon: Icon, isActive, prefersReduce
 }
 
 // ─────────────────────────────────────────────
-// CategoriesDropdown — desktop y tablet
+// CategoriesDropdown — Mega Menú Enriquecido Desktop & Tablet
 // ─────────────────────────────────────────────
 interface CatDropdownProps {
     categorias: Category[];
@@ -80,37 +81,62 @@ interface CatDropdownProps {
     setMegaMenuPinned: (v: boolean) => void;
     megaMenuHovered: boolean;
     setMegaMenuHovered: (v: boolean) => void;
-    isTablet?: boolean;
 }
 
 function CategoriesDropdown({
     categorias, isLoading, categoriaActual, isCategoryActive, currentCategory,
     prefersReducedMotion, megaMenuPinned, setMegaMenuPinned, megaMenuHovered, setMegaMenuHovered,
-    isTablet = false,
 }: CatDropdownProps) {
     const isMenuOpen = megaMenuPinned || megaMenuHovered;
+    const menuRef = useRef<HTMLDivElement>(null);
+    const seasonSettings = useSeasonSettings();
 
     const closeMenu = () => {
         setMegaMenuPinned(false);
         setMegaMenuHovered(false);
     };
 
+    // Cerrar al hacer clic fuera o presionar la tecla Escape
+    useEffect(() => {
+        if (!isMenuOpen) return;
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                closeMenu();
+            }
+        };
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                closeMenu();
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [isMenuOpen]);
+
     return (
         <div
+            ref={menuRef}
             className="relative"
             onMouseEnter={() => setMegaMenuHovered(true)}
             onMouseLeave={() => setMegaMenuHovered(false)}
         >
             <motion.button
                 onClick={() => setMegaMenuPinned(!megaMenuPinned)}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className={`relative px-5 py-2.5 rounded-2xl transition-all duration-500 flex items-center gap-2.5 ${isCategoryActive ? "text-white" : "text-gray-400 hover:text-white"}`}
+                whileHover={prefersReducedMotion ? undefined : { scale: 1.04, y: -1 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
+                className={`relative px-4 lg:px-5 py-2.5 rounded-2xl transition-all duration-300 flex items-center gap-2.5 cursor-pointer ${isCategoryActive ? "text-white" : "text-gray-400 hover:text-white"}`}
             >
                 {isCategoryActive && (
                     <motion.div
-                        className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 rounded-2xl blur-xl"
-                        animate={{ opacity: 0.65, scale: 1 }}
+                        className="absolute inset-0 bg-gradient-to-r from-primary/25 via-primary/10 to-primary/25 rounded-2xl blur-lg"
+                        animate={{ opacity: 0.7, scale: 1 }}
                         transition={{ duration: 0.3 }}
                     />
                 )}
@@ -119,12 +145,12 @@ function CategoriesDropdown({
 
                 <div className="relative flex items-center gap-2.5">
                     {currentCategory?.icon_url ? (
-                        <div className="w-7 h-7 flex items-center justify-center">
+                        <div className="w-6 h-6 flex items-center justify-center">
                             <Image
                                 src={currentCategory.icon_url}
                                 alt={currentCategory.nombre}
-                                width={200}
-                                height={200}
+                                width={32}
+                                height={32}
                                 className={`object-contain max-w-full max-h-full transition-all duration-300 ${isCategoryActive
                                     ? 'brightness-0 invert drop-shadow-[0_0_8px_rgba(229,9,20,0.6)]'
                                     : 'brightness-0 invert opacity-60 hover:opacity-100'
@@ -134,14 +160,14 @@ function CategoriesDropdown({
                     ) : (
                         <Grid3x3 className={`w-4 h-4 transition-all duration-300 ${isCategoryActive ? 'text-primary drop-shadow-[0_0_8px_rgba(229,9,20,0.6)]' : ''}`} />
                     )}
-                    <span className={`font-medium text-[15px] tracking-wide transition-all duration-300 ${isCategoryActive ? 'text-white' : 'text-gray-300'}`}>
+                    <span className={`font-medium text-sm lg:text-[15px] tracking-wide transition-all duration-300 ${isCategoryActive ? 'text-white font-semibold' : 'text-gray-300'}`}>
                         {currentCategory?.nombre || "Categorías"}
                     </span>
                     <svg
-                        className={`w-4 h-4 transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`}
+                        className={`w-3.5 h-3.5 transition-transform duration-300 ${isMenuOpen ? 'rotate-180 text-primary' : 'text-gray-400'}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
                     >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 9l-7 7-7-7" />
                     </svg>
                 </div>
 
@@ -157,63 +183,105 @@ function CategoriesDropdown({
             <AnimatePresence>
                 {isMenuOpen && (
                     <motion.div
-                        initial={{ opacity: 0, y: 8, x: "-50%" }}
+                        initial={{ opacity: 0, y: 10, x: "-50%" }}
                         animate={{ opacity: 1, y: 0, x: "-50%" }}
-                        exit={{ opacity: 0, y: 8, x: "-50%" }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute top-full left-1/2 mt-2 z-50"
+                        exit={{ opacity: 0, y: 10, x: "-50%" }}
+                        transition={{ duration: 0.22, ease: "easeOut" }}
+                        className="absolute top-full left-1/2 mt-2 z-50 pointer-events-auto"
                     >
                         <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0a0a0a]/95 backdrop-blur-md rotate-45 border-l border-t border-white/10" />
 
-                        <div className={`relative bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.5)] ${isTablet ? 'min-w-[480px] max-w-[560px]' : 'min-w-[800px]'}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent rounded-2xl pointer-events-none" />
+                        <div className="relative bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.7)] w-[820px] max-w-[92vw] max-h-[min(540px,calc(100vh-120px))] flex flex-col md:flex-row gap-5 overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent rounded-2xl pointer-events-none" />
 
-                            <div className={`relative grid gap-3 ${isTablet ? 'grid-cols-3' : 'grid-cols-5'}`}>
-                                {!isLoading && categorias.map((categoria) => {
-                                    const isActive = categoria.slug === categoriaActual;
-                                    return (
-                                        <Link
-                                            key={categoria.id}
-                                            href={`/catalogo?categoria=${encodeURIComponent(categoria.slug)}`}
-                                            onClick={closeMenu}
-                                            className={`group/item relative p-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
-                                                ? "bg-primary/20 border-2 border-primary/50 shadow-[0_0_30px_rgba(229,9,20,0.3)]"
-                                                : "bg-white/[0.02] hover:bg-white/[0.08] border border-white/[0.05] hover:border-primary/30"
-                                            }`}
-                                        >
-                                            <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-500 rounded-xl ${isActive
-                                                ? "from-primary/20 via-primary/10 to-transparent"
-                                                : "from-primary/0 via-primary/0 to-primary/0 group-hover/item:from-primary/10 group-hover/item:via-primary/5 group-hover/item:to-transparent"
-                                            }`} />
-                                            <div className={`absolute inset-0 transition-opacity duration-500 ${isActive ? "opacity-100" : "opacity-0 group-hover/item:opacity-100"}`}>
-                                                <div className="absolute inset-0 bg-primary/5 blur-xl rounded-xl" />
-                                            </div>
+                            {/* Lado izquierdo: Grid de categorías scrollable */}
+                            <div className="flex-1 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                    {!isLoading && categorias.map((categoria) => {
+                                        const isActive = categoria.slug === categoriaActual;
+                                        return (
+                                            <Link
+                                                key={categoria.id}
+                                                href={`/catalogo?categoria=${encodeURIComponent(categoria.slug)}`}
+                                                onClick={closeMenu}
+                                                className={`group/item relative p-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
+                                                    ? "bg-primary/20 border-2 border-primary/50 shadow-[0_0_24px_rgba(229,9,20,0.3)]"
+                                                    : "bg-white/[0.02] hover:bg-white/[0.08] border border-white/[0.05] hover:border-primary/30"
+                                                }`}
+                                            >
+                                                <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-500 rounded-xl ${isActive
+                                                    ? "from-primary/20 via-primary/10 to-transparent"
+                                                    : "from-primary/0 via-primary/0 to-primary/0 group-hover/item:from-primary/15 group-hover/item:via-primary/5 group-hover/item:to-transparent"
+                                                }`} />
 
-                                            <div className="relative flex items-center gap-3">
-                                                <div className={`flex-shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br flex items-center justify-center p-1.5 transition-all duration-300 ${isActive
-                                                    ? "from-primary/40 to-primary/20 scale-110"
-                                                    : "from-primary/20 to-primary/5 group-hover/item:scale-110"
-                                                }`}>
-                                                    {categoria.icon_url ? (
-                                                        <Image src={categoria.icon_url} alt={categoria.nombre} width={32} height={32} className="object-contain brightness-0 invert max-w-full max-h-full" />
-                                                    ) : (
-                                                        <Sparkles className="w-5 h-5 text-white" />
+                                                <div className="relative flex items-center gap-3">
+                                                    <div className={`flex-shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br flex items-center justify-center p-1.5 transition-all duration-300 ${isActive
+                                                        ? "from-primary/40 to-primary/20 scale-110"
+                                                        : "from-primary/20 to-primary/5 group-hover/item:scale-110"
+                                                    }`}>
+                                                        {categoria.icon_url ? (
+                                                            <Image
+                                                                src={categoria.icon_url}
+                                                                alt={categoria.nombre}
+                                                                width={32}
+                                                                height={32}
+                                                                className="object-contain brightness-0 invert max-w-full max-h-full"
+                                                            />
+                                                        ) : (
+                                                            <Sparkles className="w-5 h-5 text-white" />
+                                                        )}
+                                                    </div>
+                                                    <span className={`font-semibold text-sm transition-colors duration-300 flex-1 truncate ${isActive ? "text-white" : "text-gray-300 group-hover/item:text-white"}`}>
+                                                        {categoria.nombre}
+                                                    </span>
+                                                    {isActive && (
+                                                        <motion.div
+                                                            initial={{ scale: 0 }}
+                                                            animate={{ scale: 1 }}
+                                                            className="w-2.5 h-2.5 bg-primary rounded-full shrink-0 shadow-[0_0_8px_rgba(229,9,20,0.9)]"
+                                                        />
                                                     )}
                                                 </div>
-                                                <span className={`font-medium text-sm transition-colors duration-300 flex-1 ${isActive ? "text-white" : "text-gray-300 group-hover/item:text-white"}`}>
-                                                    {categoria.nombre}
-                                                </span>
-                                                {isActive && (
-                                                    <motion.div
-                                                        initial={{ scale: 0 }}
-                                                        animate={{ scale: 1 }}
-                                                        className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-[#0a0a0a]"
-                                                    />
-                                                )}
-                                            </div>
-                                        </Link>
-                                    );
-                                })}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Lado derecho: Tarjeta Editorial Contextual y Dinámica */}
+                            <div className="hidden md:flex flex-col justify-between w-[240px] shrink-0 p-4 rounded-xl bg-gradient-to-br from-red-950/40 via-neutral-950 to-black border border-white/10 relative overflow-hidden group/card">
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10 pointer-events-none" />
+                                <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-primary/20 rounded-full blur-2xl group-hover/card:bg-primary/30 transition-all duration-500 pointer-events-none" />
+                                
+                                <div className="relative z-20">
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/20 border border-primary/40 text-[10px] font-black text-primary uppercase tracking-wider mb-2">
+                                        <Sparkles className="w-3 h-3 text-amber-400" />
+                                        {currentCategory ? "COLECCIÓN" : seasonSettings.badge}
+                                    </span>
+                                    <h3 className="font-extrabold text-white text-base leading-tight">
+                                        {currentCategory ? currentCategory.nombre : seasonSettings.title}
+                                    </h3>
+                                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                                        {currentCategory
+                                            ? `Explorá las camisetas oficiales y versiones de ${currentCategory.nombre}.`
+                                            : seasonSettings.subtitle}
+                                    </p>
+                                </div>
+
+                                <div className="relative z-20 mt-4">
+                                    <Link
+                                        href={
+                                            currentCategory
+                                                ? `/catalogo?categoria=${encodeURIComponent(currentCategory.slug)}&temporada=${encodeURIComponent(seasonSettings.season)}`
+                                                : `/catalogo?temporada=${encodeURIComponent(seasonSettings.season)}`
+                                        }
+                                        onClick={closeMenu}
+                                        className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 px-3 rounded-xl bg-primary hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-primary/30 active:scale-95"
+                                    >
+                                        <span>{currentCategory ? `Ver ${currentCategory.nombre}` : seasonSettings.buttonText}</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     </motion.div>
@@ -237,14 +305,18 @@ export default function Header() {
     const [megaMenuPinned, setMegaMenuPinned] = useState(false);
     const [megaMenuHovered, setMegaMenuHovered] = useState(false);
     const [categorySheetOpen, setCategorySheetOpen] = useState(false);
-    const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-    const [mobileSearchValue, setMobileSearchValue] = useState("");
-    const [mounted, setMounted] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const headerRef = useRef<HTMLElement>(null);
 
     const prefersReducedMotion = usePrefersReducedMotion();
 
-    useEffect(() => { setMounted(true); }, []);
+    // Cerrar búsqueda al navegar
+    useEffect(() => {
+        setIsSearchOpen(false);
+    }, [pathname]);
+
+    // Total de prendas acumuladas (conteo real en carrito)
+    const totalQuantity = items.reduce((acc, item) => acc + (item.cantidad || 1), 0);
 
     // Medición dinámica de la altura del Header (con o sin banner de partidos)
     useEffect(() => {
@@ -267,7 +339,7 @@ export default function Header() {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    // Cerrar sheet con Escape
+    // Cerrar bottom sheet con tecla Escape
     useEffect(() => {
         if (!categorySheetOpen) return;
         const handleKey = (e: KeyboardEvent) => {
@@ -306,18 +378,15 @@ export default function Header() {
             }`}>
                 <MatchdayHeaderBanner />
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                    <div className="flex items-center justify-between h-16 md:h-[70px]">
+                    <div className="flex items-center justify-between h-16 md:h-[72px]">
 
-                        {/* LOGO */}
+                        {/* LOGO CON NAVEGACIÓN SPA Y PRIORIDAD LCP */}
                         <Link
                             href="/"
-                            className="flex items-center gap-3 group"
-                            onClick={(e) => {
-                                if (pathname !== "/") {
-                                    e.preventDefault();
-                                    document.body.style.opacity = "0.7";
-                                    document.body.style.transition = "opacity 0.3s ease-out";
-                                    setTimeout(() => { window.location.href = "/"; }, 150);
+                            className="flex items-center gap-3 group shrink-0"
+                            onClick={() => {
+                                if (pathname === "/") {
+                                    window.scrollTo({ top: 0, behavior: "smooth" });
                                 }
                             }}
                         >
@@ -326,6 +395,7 @@ export default function Header() {
                                 alt="90+5 Store"
                                 width={54}
                                 height={54}
+                                priority
                                 className="object-contain transition-all duration-300 group-hover:scale-105"
                             />
                             <div className="flex flex-col leading-none">
@@ -338,8 +408,16 @@ export default function Header() {
                             </div>
                         </Link>
 
-                        {/* NAV DESKTOP (≥1024px) */}
-                        <nav className="hidden lg:flex items-center gap-1">
+                        {/* NAVEGACIÓN UNIFICADA DESKTOP & TABLET (≥768px) - Desvanecimiento suave cuando el buscador está activo */}
+                        <motion.nav
+                            animate={{
+                                opacity: isSearchOpen ? 0 : 1,
+                                scale: isSearchOpen ? 0.95 : 1,
+                                pointerEvents: isSearchOpen ? "none" : "auto",
+                            }}
+                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                            className="hidden md:flex items-center gap-1"
+                        >
                             <LinkItem href="/" icon={Home} isActive={isActive("/")} prefersReducedMotion={prefersReducedMotion}>
                                 Inicio
                             </LinkItem>
@@ -350,58 +428,58 @@ export default function Header() {
                             <LinkItem href="/rastreo" icon={Package} isActive={isActive("/rastreo")} prefersReducedMotion={prefersReducedMotion}>
                                 Rastreo
                             </LinkItem>
-                        </nav>
+                        </motion.nav>
 
-                        {/* NAV TABLET (768px–1023px) */}
-                        <nav className="hidden md:flex lg:hidden items-center gap-1">
-                            <LinkItem href="/" icon={Home} isActive={isActive("/")} prefersReducedMotion={prefersReducedMotion}>
-                                Inicio
-                            </LinkItem>
-                            <CategoriesDropdown {...dropdownProps} isTablet />
-                            <LinkItem href="/catalogo" icon={Sparkles} isActive={isActive("/catalogo")} prefersReducedMotion={prefersReducedMotion}>
-                                Todos
-                            </LinkItem>
-                            <LinkItem href="/rastreo" icon={Package} isActive={isActive("/rastreo")} prefersReducedMotion={prefersReducedMotion}>
-                                Rastreo
-                            </LinkItem>
-                        </nav>
+                        {/* ACCIONES: BUSCADOR SPOTLIGHT + CARRITO */}
+                        <div className="flex items-center gap-1 sm:gap-2">
+                            {/* Trigger universal de búsqueda: Cross-fade y docking orgánico sin layout shift */}
+                            <SearchTrigger
+                                variant="responsive"
+                                isOpen={isSearchOpen}
+                                onOpenChange={setIsSearchOpen}
+                            />
 
-                        {/* BUSCAR MÓVIL (<768px) */}
-                        <button
-                            onClick={() => setMobileSearchOpen(true)}
-                            aria-label="Buscar"
-                            className="md:hidden relative p-2.5 rounded-xl text-gray-400 hover:text-white transition-all"
-                        >
-                            <Search className="w-5 h-5" />
-                        </button>
-
-                        {/* BUSCAR + CARRITO — visible en tablet y desktop */}
-                        <div className="hidden md:flex items-center gap-1">
-                        <SearchTrigger />
-                        <motion.button
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={openCart}
-                            aria-label="Carrito de compras"
-                            className="relative flex p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group"
-                        >
-                            <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            <div className="absolute inset-0 shadow-[0_8px_32px_rgba(229,9,20,0.15)] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            <ShoppingCart className="w-5 h-5 relative z-10 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] transition-all duration-300" />
-                            {items.length > 0 && (
-                                <motion.span
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    className="absolute -top-1 -right-1 bg-primary text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-[0_0_12px_rgba(229,9,20,0.6)]"
-                                >
-                                    {items.length}
-                                </motion.span>
-                            )}
-                        </motion.button>
+                            {/* Botón Carrito de Compras */}
+                            <motion.button
+                                whileHover={{ scale: 1.05, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={openCart}
+                                aria-label="Carrito de compras"
+                                className="relative flex p-2.5 sm:p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group cursor-pointer"
+                            >
+                                <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <div className="absolute inset-0 shadow-[0_8px_32px_rgba(229,9,20,0.15)] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <ShoppingCart className="w-5 h-5 relative z-10 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] transition-all duration-300" />
+                                {totalQuantity > 0 && (
+                                    <motion.span
+                                        key={totalQuantity}
+                                        initial={{ scale: 0.5, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                                        className="absolute -top-1 -right-1 bg-primary text-white text-[11px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow-[0_0_12px_rgba(229,9,20,0.7)]"
+                                    >
+                                        {totalQuantity}
+                                    </motion.span>
+                                )}
+                            </motion.button>
                         </div>
                     </div>
                 </div>
             </header>
+
+            {/* Ambient Soft Tint on Desktop (Sin blur, solo enfoque elegante al buscador) */}
+            <AnimatePresence>
+                {isSearchOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={() => setIsSearchOpen(false)}
+                        className="fixed inset-0 bg-black/25 z-40 hidden md:block"
+                    />
+                )}
+            </AnimatePresence>
 
             {/* ═══════════════════════════════════════
                 BOTTOM NAV MÓVIL (<768px)
@@ -430,7 +508,7 @@ export default function Header() {
                     <button
                         onClick={() => setCategorySheetOpen(true)}
                         aria-label="Ver categorías"
-                        className="flex flex-col items-center justify-center flex-1 h-full gap-1"
+                        className="flex flex-col items-center justify-center flex-1 h-full gap-1 cursor-pointer"
                     >
                         <div className="relative flex items-center justify-center">
                             {(isCategoryActive || categorySheetOpen) && <span className="absolute inset-0 bg-primary/35 blur-md rounded-xl scale-[1.8]" />}
@@ -480,17 +558,18 @@ export default function Header() {
                     </Link>
 
                     {/* Carrito */}
-                    <button onClick={openCart} aria-label="Carrito de compras" className="flex flex-col items-center justify-center flex-1 h-full gap-1">
+                    <button onClick={openCart} aria-label="Carrito de compras" className="flex flex-col items-center justify-center flex-1 h-full gap-1 cursor-pointer">
                         <div className="relative flex items-center justify-center">
                             <div className="relative px-5 py-1.5 rounded-xl flex items-center justify-center">
                                 <ShoppingCart className="w-5 h-5 text-gray-400" />
-                                {items.length > 0 && (
+                                {totalQuantity > 0 && (
                                     <motion.span
+                                        key={totalQuantity}
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
-                                        className="absolute -top-1.5 -right-1 bg-primary text-white text-[9px] font-black rounded-full w-[17px] h-[17px] flex items-center justify-center shadow-[0_0_8px_rgba(229,9,20,0.8)]"
+                                        className="absolute -top-1.5 -right-1 bg-primary text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center shadow-[0_0_8px_rgba(229,9,20,0.8)]"
                                     >
-                                        {items.length}
+                                        {totalQuantity}
                                     </motion.span>
                                 )}
                             </div>
@@ -534,7 +613,7 @@ export default function Header() {
                                     <button
                                         onClick={() => setCategorySheetOpen(false)}
                                         aria-label="Cerrar"
-                                        className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                                        className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -543,7 +622,6 @@ export default function Header() {
 
                             {/* Contenido scrollable */}
                             <div className="flex-1 overflow-y-auto p-5">
-
                                 <div className="grid grid-cols-2 gap-3">
                                     {!isLoading && categorias.map((categoria) => {
                                         const isSheetActive = categoria.slug === categoriaActual;
@@ -583,51 +661,6 @@ export default function Header() {
                     </>
                 )}
             </AnimatePresence>
-
-            {/* ═══════════════════════════════════════
-                MOBILE SEARCH OVERLAY (portaled to body)
-            ═══════════════════════════════════════ */}
-            {mounted && createPortal(
-                <AnimatePresence>
-                    {mobileSearchOpen && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.15 }}
-                            className="fixed inset-0 z-[200] md:hidden"
-                            onClick={() => {
-                                setMobileSearchOpen(false);
-                                setMobileSearchValue("");
-                            }}
-                        >
-                            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-                            <motion.div
-                                initial={{ y: -20 }}
-                                animate={{ y: 0 }}
-                                exit={{ y: -20 }}
-                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                className="relative top-3 mx-3"
-                                data-search-overlay
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <SearchBar
-                                    value={mobileSearchValue}
-                                    onChange={setMobileSearchValue}
-                                    onNavigate={() => {
-                                        setMobileSearchOpen(false);
-                                        setMobileSearchValue("");
-                                    }}
-                                    placeholder="Buscar equipos, ligas, productos..."
-                                    enableLiveResults
-                                    className="w-full"
-                                />
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>,
-                document.body
-            )}
         </>
     );
 }

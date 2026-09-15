@@ -8,16 +8,16 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = {
-  title: "Contacto",
+  title: "Conectar y Preguntas Frecuentes",
   description:
-    "Contáctanos por WhatsApp, correo o redes sociales. Atención personalizada para tu pedido de camisetas de fútbol en Honduras.",
+    "Atención personalizada 1 a 1 por WhatsApp (+504 3248-8860). Preguntas frecuentes sobre pedidos bajo encargo (3 a 5 semanas), envíos a todo Honduras vía Cargo Expreso (CAEX) y métodos de pago.",
   alternates: {
     canonical: `${SITE_URL}/conectar`,
   },
   openGraph: {
-    title: `Contacto | ${SITE_CONFIG.name}`,
+    title: `Conectar y Preguntas Frecuentes | ${SITE_CONFIG.name}`,
     description:
-      "Contáctanos por WhatsApp, correo o redes sociales. Atención personalizada para tu pedido de camisetas de fútbol en Honduras.",
+      "Atención personalizada 1 a 1 por WhatsApp (+504 3248-8860). Preguntas frecuentes sobre pedidos bajo encargo (3 a 5 semanas), envíos a todo Honduras vía Cargo Expreso (CAEX) y métodos de pago.",
     url: `${SITE_URL}/conectar`,
   },
 };

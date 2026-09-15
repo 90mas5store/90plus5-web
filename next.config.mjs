@@ -251,6 +251,7 @@ const nextConfig = {
   experimental: {
     optimizeCss: true, // Re-enabled con configuración mejorada
     optimizePackageImports: ['framer-motion', 'lucide-react'], // Optimizar imports grandes
+    serverComponentsExternalPackages: ['@sentry/nextjs', '@sentry/node', '@opentelemetry/api'],
   },
 
   /**

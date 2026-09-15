@@ -21,6 +21,7 @@ import {
     DollarSign,
     Bookmark,
     Sparkles,
+    Calendar,
 } from 'lucide-react';
 
 interface AdminBottomNavProps {
@@ -70,6 +71,7 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
             items: [
                 { label: 'Bancos & Pagos', href: '/admin/settings/bancos', icon: DollarSign },
                 { label: 'Tasa USD', href: '/admin/settings/tasa-cambio', icon: DollarSign },
+                { label: 'Temporada', href: '/admin/settings/temporada', icon: Calendar },
                 { label: 'Banners', href: '/admin/settings/banners', icon: LayoutTemplate },
                 { label: 'Especiales', href: '/admin/settings/special-banners', icon: Sparkles },
                 { label: 'Admins', href: '/admin/settings/admins', icon: Lock },

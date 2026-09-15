@@ -79,4 +79,14 @@ describe("SearchBar", () => {
         fireEvent.change(screen.getByRole("textbox"), { target: { value: "real" } });
         expect(onChange).toHaveBeenCalledWith("real");
     });
+
+    it("renders close button and triggers onClose when clicked", () => {
+        const onClose = vi.fn();
+        render(<SearchBar value="" onChange={vi.fn()} onClose={onClose} showCloseButton />);
+        const closeBtn = screen.getByRole("button", { name: /cerrar búsqueda/i });
+        expect(closeBtn).toBeInTheDocument();
+        fireEvent.click(closeBtn);
+        expect(onClose).toHaveBeenCalled();
+    });
 });
+

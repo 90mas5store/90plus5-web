@@ -45,6 +45,20 @@ export function useRecentSearches() {
         }
     }, []);
 
+    const removeSearch = useCallback((term: string) => {
+        if (typeof window === 'undefined') return;
+        const cleanTerm = term.trim().toLowerCase();
+        const current = getStoredSearches().filter(
+            (s) => s.toLowerCase() !== cleanTerm
+        );
+        try {
+            localStorage.setItem(RECENT_KEY, JSON.stringify(current));
+            setRecentSearches(current);
+        } catch {
+            // ignore
+        }
+    }, []);
+
     const clearSearches = useCallback(() => {
         if (typeof window === 'undefined') return;
         try {
@@ -58,6 +72,7 @@ export function useRecentSearches() {
     return {
         recentSearches,
         saveSearch,
+        removeSearch,
         clearSearches,
     };
 }

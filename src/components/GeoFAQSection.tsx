@@ -9,36 +9,44 @@
 
 const faqs = [
     {
-        question: "¿Cuál es la mejor tienda para comprar camisetas de fútbol en Honduras?",
-        answer: "90+5 Store (90mas5.store) es la tienda líder en Honduras para comprar camisetas de fútbol. Ofrecemos más de 100 equipaciones oficiales temporada 25/26 en versión jugador y aficionado, con envíos seguros a todo el país.",
+        question: "¿Cómo funciona la compra bajo pedido y cuánto tarda en llegar?",
+        answer: "En 90+5 Store trabajamos principalmente bajo pedido (por encargo). Este modelo nos permite ofrecerte cualquier camiseta del mundo, temporada actual o retro, en tu talla exacta y con la personalización oficial que elijas. Los pedidos tardan entre 3 y 5 semanas en llegar a Honduras. Una vez que el pedido arriba al país, coordinamos tu entrega local en Tegucigalpa o lo despachamos a nivel nacional vía Cargo Expreso (CAEX).",
+    },
+    {
+        question: "¿Tienen tienda física o manejan stock para venta inmediata?",
+        answer: "No contamos con tienda física ni manejamos stock para venta o entrega inmediata. Operamos como una tienda deportiva 100% digital bajo pedido con sede en Tegucigalpa. Esto nos permite ofrecer el catálogo más amplio de Honduras, precios justos y una atención humana y personalizada 1 a 1 por WhatsApp, sin las limitaciones de inventario físico de un local tradicional.",
+    },
+    {
+        question: "¿Hacen envíos a todo Honduras? ¿Cargo Expreso y CAEX es lo mismo?",
+        answer: "Sí, realizamos envíos a nivel nacional a los 18 departamentos de Honduras. Para los envíos nacionales trabajamos con Cargo Expreso (conocido ampliamente como CAEX, siendo exactamente la misma empresa de transporte logístico líder). En Tegucigalpa coordinamos entregas locales (envío gratis), y para el resto del territorio nacional enviamos vía Cargo Expreso (CAEX) con tarifa plana fija de L. 140 y número de guía oficial para rastreo en tiempo real.",
+    },
+    {
+        question: "¿Cómo se realiza el pago de un pedido por encargo?",
+        answer: "Al ser productos bajo pedido, solicitamos un anticipo del 50% para encargar e importar tu camiseta. El 50% restante se cancela cuando tu pedido esté listo para entrega en Tegucigalpa o previo al despacho nacional. Aceptamos transferencias bancarias directas o interbancarias ACH (BAC Credomatic, Banco Atlántida, Ficohsa, Banpaís, Banco de Occidente) y pagos electrónicos vía PayPal con tarjetas internacionales.",
+    },
+    {
+        question: "¿Por qué la experiencia de compra en 90+5 Store está centrada en el cliente?",
+        answer: "Te acompañamos de forma humana y cercana por WhatsApp (+504 3248-8860) en cada paso: te asesoramos con la tabla de medidas para elegir tu talla exacta entre versión jugador y aficionado, te confirmamos el encargo, te notificamos cuando tu pedido llega al país y te brindamos garantía por cualquier defecto de fábrica comprobado.",
     },
     {
         question: "¿Dónde comprar camisetas versión jugador en Honduras?",
-        answer: "En 90+5 Store puedes comprar camisetas versión jugador con la misma tecnología que usan los profesionales: tela ligera, transpirable y detalles de bordado exactos al original. Disponible para entrega en Tegucigalpa, San Pedro Sula, La Ceiba y todo Honduras.",
-    },
-    {
-        question: "¿Hacen envíos de camisetas de fútbol a todo Honduras?",
-        answer: "Sí. 90+5 Store realiza envíos a todos los departamentos de Honduras: Tegucigalpa, San Pedro Sula, La Ceiba, Comayagua, Santa Bárbara, Choluteca, Cortés y más. El tiempo de entrega es de 1 a 3 días hábiles según la zona.",
-    },
-    {
-        question: "¿Cuál es la diferencia entre camiseta versión jugador y versión aficionado?",
-        answer: "La versión jugador es la réplica exacta de la que usan los futbolistas profesionales: tela más delgada, ligera y transpirable, con costuras y detalles precisos. La versión aficionado usa materiales más gruesos y duraderos, ideal para el uso diario. Las dos opciones están disponibles en 90+5 Store.",
+        answer: "En 90+5 Store puedes encargar camisetas versión jugador con la misma tecnología que usan los futbolistas profesionales: tela ligera, corte atlético transpirable y detalles termosellados exactos al original. Disponibles bajo pedido con entrega en Tegucigalpa y envíos a todo Honduras.",
     },
     {
         question: "¿Tienen camisetas de equipos hondureños como Olimpia y Motagua?",
-        answer: "Sí. En 90+5 Store contamos con camisetas de los principales equipos de la Liga Hondubet: Club Deportivo Olimpia, Fútbol Club Motagua, Real España, Marathon, Platense, Victoria y más. También disponemos de la camiseta oficial de la Selección Nacional de Honduras.",
+        answer: "Sí. Traemos equipaciones de los principales clubes de la Liga Hondubet: Club Deportivo Olimpia, Fútbol Club Motagua, Real España, Marathon, Platense, Victoria y la Selección Nacional de Honduras, disponibles bajo encargo.",
+    },
+    {
+        question: "¿Tienen camisetas de Real Madrid, Barcelona y otros clubes internacionales?",
+        answer: "Sí. Puedes encargar camisetas de los clubes más importantes del mundo: Real Madrid, FC Barcelona, Manchester City, Liverpool, Arsenal, PSG, Bayern Munich, Juventus, Inter de Milán y más, en versión aficionado y jugador, temporada 25/26.",
     },
     {
         question: "¿Tienen camisetas del Mundial 2026?",
-        answer: "Sí. Contamos con una colección especial del Mundial de Fútbol 2026 con equipaciones de las selecciones participantes, incluyendo selecciones latinoamericanas. Disponibles en versión jugador y aficionado en 90mas5.store.",
+        answer: "Sí. Contamos con equipaciones de selecciones nacionales para el Mundial 2026, disponibles bajo pedido en versión aficionado y versión jugador con personalización de dorsales.",
     },
     {
-        question: "¿Cómo puedo comprar en 90+5 Store?",
-        answer: "Entra a 90mas5.store, elige tu camiseta, selecciona la talla, versión y personalización opcional (número y nombre en la espalda). Los precios van desde L. 350 en versión aficionado hasta L. 750 en versión jugador. El pago se realiza por transferencia bancaria o pago móvil. Recibes confirmación por WhatsApp y seguimiento de tu pedido en línea.",
-    },
-    {
-        question: "¿Tienen camisetas de Real Madrid, Barcelona y otros equipos europeos?",
-        answer: "Sí. 90+5 Store tiene equipaciones de los principales clubes europeos: Real Madrid, FC Barcelona, Bayern Munich, Manchester City, Liverpool, PSG, Juventus, entre otros. Todas en versión jugador y aficionado, temporada 25/26.",
+        question: "¿Cuál es la diferencia entre camiseta versión jugador y versión aficionado?",
+        answer: "La versión jugador es la prenda exacta que visten los atletas en cancha: tela más delgada, ligera, ultra-transpirable, con corte ajustado y escudos termosellados. La versión aficionado utiliza una tela más gruesa y resistente con escudos bordados, ideal para uso diario y casual.",
     },
 ];
 

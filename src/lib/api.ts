@@ -601,6 +601,24 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     season = params.season,
   } = params;
 
+  // 0️⃣ Resolución robusta de slugs para teamId y brandId (evita error UUID de Postgres)
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  let resolvedTeamId = teamId;
+  if (teamId && !UUID_REGEX.test(teamId)) {
+    try {
+      const { data: t } = await supabase.from('teams').select('id').or(`slug.eq.${teamId},name.ilike.%${teamId}%`).limit(1).maybeSingle();
+      if (t?.id) resolvedTeamId = t.id;
+    } catch { /* fallback */ }
+  }
+
+  let resolvedBrandId = brandId;
+  if (brandId && !UUID_REGEX.test(brandId)) {
+    try {
+      const { data: b } = await supabase.from('brands').select('id').or(`slug.eq.${brandId},name.ilike.%${brandId}%`).limit(1).maybeSingle();
+      if (b?.id) resolvedBrandId = b.id;
+    } catch { /* fallback */ }
+  }
+
   // 1️⃣ Revisar Caché (solo en el navegador — el servidor no puede limpiar este cache desde el cliente)
   const isClient = typeof window !== 'undefined';
   const cacheKey = JSON.stringify(params) + "_v15_strict_4tier_sort"; // 🔥 v15: Strict 4-tier sorting
@@ -648,8 +666,8 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         .in('id', ids)
         .eq("active", true);
 
-      if (teamId) fuzzyQuery = fuzzyQuery.eq('team_id', teamId);
-      if (brandId) fuzzyQuery = fuzzyQuery.eq('brand_id', brandId);
+      if (resolvedTeamId) fuzzyQuery = fuzzyQuery.eq('team_id', resolvedTeamId);
+      if (resolvedBrandId) fuzzyQuery = fuzzyQuery.eq('brand_id', resolvedBrandId);
       if (season) fuzzyQuery = fuzzyQuery.ilike('season', `%${season.trim()}%`);
 
       const { data: productsData, error: productsError } = await fuzzyQuery;
@@ -763,8 +781,8 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
       metadataQuery = metadataQuery.eq("league_id", leagueId);
     }
   }
-  if (teamId) metadataQuery = metadataQuery.eq('team_id', teamId);
-  if (brandId) metadataQuery = metadataQuery.eq('brand_id', brandId);
+  if (resolvedTeamId) metadataQuery = metadataQuery.eq('team_id', resolvedTeamId);
+  if (resolvedBrandId) metadataQuery = metadataQuery.eq('brand_id', resolvedBrandId);
 
   // 3. Ejecutar Query Ligera
   const { data: allMetadata, error: metaError } = await metadataQuery;

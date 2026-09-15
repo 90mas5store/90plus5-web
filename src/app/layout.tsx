@@ -32,27 +32,33 @@ const satoshi = localFont({
 export const metadata: Metadata = {
     metadataBase: new URL(SITE_URL),
     title: {
-        default: "90+5 Store | Camisetas de Fútbol y Ropa Deportiva en Honduras",
+        default: "90+5 Store | Tienda Deportiva en Tegucigalpa · Camisetas de Fútbol en Honduras",
         template: "%s | 90+5 Store",
     },
-    description: "Compra las mejores camisetas de fútbol temporada 25/26 versión jugador y aficionado. Envíos a todo Honduras. Real Madrid, Barcelona, Olimpia, Motagua y más. Calidad Premium Garantizada.",
+    description: "La tienda deportiva online líder en Honduras con sede en Tegucigalpa. Camisetas de fútbol oficiales 25/26 versión jugador y aficionado bajo pedido (3 a 5 semanas) y envíos a todo Honduras vía Cargo Expreso (CAEX). Experiencia 100% digital centrada en ti.",
     applicationName: SITE_CONFIG.name,
     authors: [{ name: SITE_CONFIG.name, url: SITE_URL }],
     keywords: [
-        "camisetas de fútbol honduras",
+        "tiendas deportivas en honduras",
         "tienda deportiva tegucigalpa",
-        "jerseys originales",
+        "tienda deportiva honduras",
+        "tienda deportiva online honduras",
+        "camisetas de fútbol honduras",
+        "camisetas de futbol tegucigalpa",
+        "comprar camisetas futbol honduras",
+        "camisetas versión jugador honduras",
+        "jerseys originales honduras",
         "ropa deportiva honduras",
-        "camisetas versión jugador",
-        "uniformes de futbol",
-        "real madrid",
-        "barcelona",
-        "premier league",
+        "uniformes de futbol honduras",
+        "envios a toda honduras",
+        "cargo expreso honduras",
+        "caex honduras",
         "liga nacional honduras",
         "olimpia",
         "motagua",
-        "comprar camisetas futbol",
-        "tienda 90 min"
+        "real madrid honduras",
+        "barcelona honduras",
+        "tienda 90 mas 5"
     ],
     referrer: "origin-when-cross-origin",
     icons: {
@@ -62,8 +68,8 @@ export const metadata: Metadata = {
     },
     manifest: "/manifest.json",
     openGraph: {
-        title: "90+5 Store | Camisetas de Fútbol Premium en Honduras",
-        description: "Encuentra las equipaciones oficiales 25/26 de tus equipos favoritos. Calidad versión jugador, envíos rápidos y seguros en todo Honduras.",
+        title: "90+5 Store | Tienda Deportiva Online en Honduras · Sede Tegucigalpa",
+        description: "Camisetas de fútbol oficiales 25/26 versión jugador y aficionado bajo pedido (3 a 5 semanas) con personalización y envíos seguros a toda Honduras vía Cargo Expreso (CAEX).",
         url: SITE_URL,
         siteName: SITE_CONFIG.name,
         locale: SITE_CONFIG.locale,
@@ -73,14 +79,14 @@ export const metadata: Metadata = {
                 url: "/og-image.jpg",
                 width: 1200,
                 height: 630,
-                alt: "90+5 Store - Colección de Camisetas de Fútbol",
+                alt: "90+5 Store - Tienda Deportiva en Honduras",
             },
         ],
     },
     twitter: {
         card: "summary_large_image",
-        title: "90+5 Store | #1 en Camisetas de Fútbol",
-        description: "El tiempo se rompe aquí. Las mejores equipaciones del mundo en Honduras. ⚽🔥",
+        title: "90+5 Store | Tienda Deportiva #1 en Honduras",
+        description: "Camisetas de fútbol bajo pedido (3-5 semanas) y envíos seguros a toda Honduras vía Cargo Expreso (CAEX). Atención personalizada 1 a 1. ⚽🔥",
         images: ["/og-image.jpg"],
         creator: SOCIAL_LINKS.twitterHandle,
     },
@@ -127,7 +133,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 "width": 512,
                                 "height": 512
                             },
-                            "description": "La mejor tienda de camisetas de fútbol en Honduras. Equipaciones oficiales temporada 25/26 en versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua, Bayern, y más. Envíos a todo Honduras.",
+                            "description": "La mejor tienda de camisetas de fútbol en Honduras con sede en Tegucigalpa. Especialistas en equipaciones oficiales temporada 25/26 bajo pedido (3 a 5 semanas) en versión jugador y aficionado. Envíos a todo Honduras vía Cargo Expreso (CAEX).",
                             "foundingDate": SITE_CONFIG.foundingDate,
                             "areaServed": {
                                 "@type": "Country",
@@ -152,27 +158,40 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         })
                     }}
                 />
-                {/* 🧠 JSON-LD: LocalBusiness (SportingGoodsStore) — clave para consultas "en Honduras" */}
+                {/* 🧠 JSON-LD: OnlineStore & SportingGoodsStore — fundamental para Google y motores de IA */}
                 <script
                     type="application/ld+json"
                     dangerouslySetInnerHTML={{
                         __html: JSON.stringify({
                             "@context": "https://schema.org",
-                            "@type": ["LocalBusiness", "SportingGoodsStore", "Store"],
+                            "@type": ["OnlineStore", "SportingGoodsStore", "Store"],
                             "name": SITE_CONFIG.name,
-                            "description": "Tienda online líder en Honduras especializada en camisetas de fútbol premium. Versión jugador y aficionado. Temporada 25/26. Envíos a todo Honduras.",
+                            "alternateName": ["90mas5 Store", "90+5", "Noventa más Cinco Store"],
+                            "description": "Tienda deportiva online líder en Honduras con sede de operaciones en Tegucigalpa. Especialistas en camisetas de fútbol oficiales temporada 25/26 en versión jugador y aficionado bajo pedido (3 a 5 semanas de llegada). Operación 100% digital sin tienda física ni stock para venta inmediata, ofreciendo el catálogo más amplio del país, atención personalizada 1 a 1 por WhatsApp, anticipo del 50% y envíos seguros a nivel nacional vía Cargo Expreso (CAEX).",
                             "url": SITE_URL,
                             "telephone": CONTACT.phone,
+                            "email": CONTACT.email,
                             "image": `${SITE_URL}/og-image.jpg`,
                             "logo": `${SITE_URL}/logo.svg`,
                             "priceRange": SITE_CONFIG.priceRange,
                             "currenciesAccepted": SITE_CONFIG.currency,
-                            "paymentAccepted": "Transferencia bancaria, Pago móvil",
+                            "paymentAccepted": "Transferencia bancaria directa / ACH (BAC Credomatic, Banco Atlántida, Ficohsa, Banpaís, Occidente), PayPal, Tarjetas de débito y crédito internacionales",
+                            "knowsAbout": [
+                                "Tiendas deportivas en Honduras",
+                                "Tienda deportiva en Tegucigalpa",
+                                "Camisetas de fútbol en Honduras",
+                                "Camisetas versión jugador",
+                                "Uniformes de fútbol personalizados",
+                                "Ropa deportiva en Honduras",
+                                "Envíos a toda Honduras",
+                                "Cargo Expreso CAEX Honduras"
+                            ],
                             "address": {
                                 "@type": "PostalAddress",
+                                "addressLocality": "Tegucigalpa",
+                                "addressRegion": "Francisco Morazán",
                                 "addressCountry": "HN",
-                                "addressRegion": "Honduras",
-                                "description": "Servicio de entrega a domicilio en todo Honduras"
+                                "description": "Sede logística en Tegucigalpa con cobertura y envíos a nivel nacional vía Cargo Expreso (CAEX)"
                             },
                             "areaServed": [
                                 { "@type": "City", "name": "Tegucigalpa" },
@@ -180,25 +199,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 { "@type": "City", "name": "La Ceiba" },
                                 { "@type": "City", "name": "Comayagua" },
                                 { "@type": "City", "name": "Choluteca" },
+                                { "@type": "City", "name": "El Progreso" },
                                 { "@type": "City", "name": "Santa Bárbara" },
+                                { "@type": "City", "name": "Danlí" },
+                                { "@type": "City", "name": "Juticalpa" },
+                                { "@type": "City", "name": "Roatán" },
+                                { "@type": "City", "name": "Siguatepeque" },
+                                { "@type": "City", "name": "Puerto Cortés" },
+                                { "@type": "City", "name": "Santa Rosa de Copán" },
                                 { "@type": "Country", "name": "Honduras" }
                             ],
                             "hasOfferCatalog": {
                                 "@type": "OfferCatalog",
-                                "name": "Camisetas de Fútbol",
-                                "description": "Catálogo de equipaciones de fútbol temporada 25/26. Real Madrid, Barcelona, Olimpia, Motagua, Bayern Munich, Liga Hondubet, Premier League, La Liga, Champions League y más.",
+                                "name": "Camisetas de Fútbol y Ropa Deportiva",
+                                "description": "Catálogo completo de equipaciones deportivas oficiales temporada 25/26. Real Madrid, Barcelona, Olimpia, Motagua, Bayern Munich, Liga Hondubet, Premier League, Selecciones y Colección Retro.",
                                 "itemListElement": [
-                                    { "@type": "ListItem", "position": 1, "name": "Camisetas versión jugador" },
-                                    { "@type": "ListItem", "position": 2, "name": "Camisetas versión aficionado" },
-                                    { "@type": "ListItem", "position": 3, "name": "Equipaciones Liga Hondubet" },
-                                    { "@type": "ListItem", "position": 4, "name": "Camisetas Mundial 2026" },
-                                    { "@type": "ListItem", "position": 5, "name": "Camisetas Retro" }
+                                    { "@type": "ListItem", "position": 1, "name": "Camisetas versión jugador con tecnología transpirable" },
+                                    { "@type": "ListItem", "position": 2, "name": "Camisetas versión aficionado con escudos bordados" },
+                                    { "@type": "ListItem", "position": 3, "name": "Equipaciones oficiales de la Liga Hondubet" },
+                                    { "@type": "ListItem", "position": 4, "name": "Camisetas oficiales del Mundial 2026" },
+                                    { "@type": "ListItem", "position": 5, "name": "Camisetas Retro y Clásicos del Fútbol" },
+                                    { "@type": "ListItem", "position": 6, "name": "Personalización oficial con tipografía de jugadores o nombre propio" }
                                 ]
                             },
                             "sameAs": [
                                 SOCIAL_LINKS.instagram,
                                 SOCIAL_LINKS.facebook,
-                                SOCIAL_LINKS.tiktok
+                                SOCIAL_LINKS.tiktok,
+                                SOCIAL_LINKS.whatsapp
                             ]
                         })
                     }}

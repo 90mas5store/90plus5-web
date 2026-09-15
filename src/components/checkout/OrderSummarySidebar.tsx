@@ -182,7 +182,7 @@ export default function OrderSummarySidebar({
                     )}
 
                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
-                        <span>Envío (CAEX)</span>
+                        <span>{shippingCost === 0 && formData.municipio ? 'Envío Local (Tegucigalpa)' : 'Envío Nacional (Cargo Expreso / CAEX)'}</span>
                         {shippingCost === 0 ? (
                             <span className="text-green-500">Gratis</span>
                         ) : (

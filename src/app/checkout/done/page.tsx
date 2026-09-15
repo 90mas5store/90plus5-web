@@ -151,7 +151,9 @@ function CheckoutDoneContent() {
 
                 {envio !== null && (
                   <div className="flex justify-between items-center pb-3 border-b border-white/5">
-                    <span className="text-gray-400 text-sm">Envío (CAEX)</span>
+                    <span className="text-gray-400 text-sm">
+                      {parseFloat(envio) === 0 ? "Envío Local (Tegucigalpa)" : "Envío Nacional (Cargo Expreso / CAEX)"}
+                    </span>
                     {parseFloat(envio) === 0 ? (
                       <span className="font-bold text-green-500">Gratis</span>
                     ) : (
@@ -431,7 +433,7 @@ function CheckoutDoneContent() {
                     🎉 <strong className="text-white">¡No necesitas enviar comprobante ni realizar transferencias adicionales!</strong> Tu pago fue recibido y registrado automáticamente en nuestro sistema.
                   </p>
                   <p className="text-xs text-gray-400">
-                    Ya estamos gestionando la preparación de tu pedido. Te notificaremos vía WhatsApp o correo electrónico tan pronto esté listo para envío.
+                    Tu pedido bajo encargo está en gestión (llegada estimada de 3 a 5 semanas). Te notificaremos vía WhatsApp cuando arribe al país para coordinar tu entrega o despacho.
                   </p>
                 </div>
 

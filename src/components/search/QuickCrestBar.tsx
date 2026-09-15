@@ -14,8 +14,11 @@ export default function QuickCrestBar({ topClubs, onSelectQuery }: QuickCrestBar
     if (topClubs.length === 0 && QUICK_SEARCH_CHIPS.length === 0) return null;
 
     return (
-        <div className="pt-2 pb-3 px-3 border-b border-white/5 space-y-3">
-            {/* Top Clubs Crests (1-Tap Search) */}
+        <div
+            className="pt-2 pb-3 px-3 border-b border-white/5 space-y-3"
+            onMouseDown={(e) => e.stopPropagation()}
+        >
+            {/* Top Clubs Crests (1-Tap Search Filter) */}
             {topClubs.length > 0 && (
                 <div>
                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 block mb-2 px-1">
@@ -25,7 +28,13 @@ export default function QuickCrestBar({ topClubs, onSelectQuery }: QuickCrestBar
                         {topClubs.map((club) => (
                             <button
                                 key={club.name}
-                                onClick={() => onSelectQuery(club.query)}
+                                type="button"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onSelectQuery(club.query);
+                                }}
                                 className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-primary/30 transition-all shrink-0 group active:scale-95 cursor-pointer"
                                 title={`Ver camisetas de ${club.name}`}
                             >
@@ -46,7 +55,13 @@ export default function QuickCrestBar({ topClubs, onSelectQuery }: QuickCrestBar
                 {QUICK_SEARCH_CHIPS.map((chip: QuickSearchChip) => (
                     <button
                         key={chip.label}
-                        onClick={() => onSelectQuery(chip.query, chip.href)}
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onSelectQuery(chip.query, chip.href);
+                        }}
                         className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-primary/20 text-[11px] font-bold text-gray-400 hover:text-white transition-all shrink-0 active:scale-95 cursor-pointer"
                     >
                         {chip.label}
