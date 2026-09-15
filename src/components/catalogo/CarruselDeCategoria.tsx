@@ -50,7 +50,7 @@ export default function CarruselDeCategoria({
   return (
     <section className="pb-4 md:pb-8 max-w-7xl mx-auto relative">
       {title && (
-        <h2 className="text-center text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4 px-4">
+        <h2 className="text-center text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-4 px-4">
           {title}
         </h2>
       )}
@@ -114,11 +114,12 @@ export default function CarruselDeCategoria({
                     }`}
                   />
 
-                  {/* Logo */}
+                  {/* Logo (decorativo ya que el nombre está debajo) */}
                   <div className="absolute inset-0 flex items-center justify-center p-3.5 md:p-4">
                     <Image
                       src={imagen}
-                      alt={nombre}
+                      alt=""
+                      aria-hidden="true"
                       width={48}
                       height={48}
                       unoptimized={imagen.endsWith(".svg")}
@@ -137,7 +138,7 @@ export default function CarruselDeCategoria({
                   className={`text-[10px] md:text-[11px] font-semibold tracking-wide text-center leading-tight max-w-[76px] md:max-w-[88px] line-clamp-2 transition-colors duration-300 ${
                     isSelected
                       ? "text-white"
-                      : "text-gray-500 group-hover:text-gray-300"
+                      : "text-gray-300 group-hover:text-white"
                   }`}
                 >
                   {nombre}

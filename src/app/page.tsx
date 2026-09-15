@@ -9,7 +9,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
     title: "90+5 Store | Tienda Deportiva en Tegucigalpa · Camisetas de Fútbol en Honduras",
-    description: "La mejor tienda deportiva online en Honduras con sede en Tegucigalpa. Camisetas oficiales 25/26 versión jugador y aficionado bajo pedido (3 a 5 semanas) y envíos seguros a toda Honduras vía Cargo Expreso (CAEX).",
+    description: "La mejor tienda deportiva online en Honduras  en Tegucigalpa. Camisetas oficiales 2026/27 versión jugador y aficionado bajo pedido (3 a 5 semanas) y envíos seguros a toda Honduras.",
     alternates: { canonical: SITE_URL },
 };
 
@@ -55,29 +55,13 @@ export default async function Home() {
         return isVisibleInHome && isActive;
     });
 
-    // Generar URL optimizada de Next.js Image para el preload
-    const heroPreloadUrl = firstBannerImage
-        ? `/_next/image?url=${encodeURIComponent(firstBannerImage)}&w=1920&q=75`
-        : null;
-
     return (
-        <>
-            {/* 🚀 Preload LCP hero image — se descarga antes de la hidratación de React */}
-            {heroPreloadUrl && (
-                <link
-                    rel="preload"
-                    as="image"
-                    href={heroPreloadUrl}
-                    fetchPriority="high"
-                />
-            )}
-            <HomeClient
-                initialDestacados={featuredData || []}
-                initialBanners={bannersData || []}
-                initialSpecialBanners={specialBannersData || []}
-                initialLigas={ligasProcesadas}
-                initialCategorias={configData?.categorias || []}
-            />
-        </>
+        <HomeClient
+            initialDestacados={featuredData || []}
+            initialBanners={bannersData || []}
+            initialSpecialBanners={specialBannersData || []}
+            initialLigas={ligasProcesadas}
+            initialCategorias={configData?.categorias || []}
+        />
     );
 }

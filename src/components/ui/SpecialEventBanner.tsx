@@ -31,6 +31,14 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
     const [videoFailedMap, setVideoFailedMap] = useState<Record<string, boolean>>({});
+    const [canLoadVideo, setCanLoadVideo] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+            const timer = setTimeout(() => setCanLoadVideo(true), 1500);
+            return () => clearTimeout(timer);
+        }
+    }, []);
 
     const banner = banners[currentIndex];
     const hasMultiple = banners.length > 1;
@@ -79,7 +87,7 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
                         transition={{ duration: 0.8, ease: "easeInOut" }}
                         className="absolute inset-0 z-0 bg-neutral-900"
                     >
-                        {banner.background_video_url && !videoFailed ? (
+                        {banner.background_video_url && canLoadVideo && !videoFailed ? (
                             <video
                                 key={`video-${banner.id}`}
                                 src={banner.background_video_url}
@@ -88,8 +96,10 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
                                 muted
                                 playsInline
                                 preload="none"
+                                aria-hidden="true"
+                                tabIndex={-1}
                                 poster={banner.background_image_url || undefined}
-                                className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90"
+                                className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90 pointer-events-none"
                                 onError={() => handleVideoError(banner.id)}
                             />
                         ) : banner.background_image_url ? (

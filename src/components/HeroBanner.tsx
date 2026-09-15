@@ -263,6 +263,14 @@ export default function HeroBanner({
     const [currentSlide, setCurrentSlide] = useState(0);
     const [parallaxOffset, setParallaxOffset] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+    const [canMountVideo, setCanMountVideo] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setCanMountVideo(true);
+        }, 1200);
+        return () => clearTimeout(timer);
+    }, []);
     // Ref en lugar de state para evitar setState síncrono en effect
     const isInitialMountRef = useRef(true);
 
@@ -501,7 +509,7 @@ export default function HeroBanner({
                 />
 
                 {/* 2. Video Layer - SUPERPUESTO */}
-                {currentSlideData.videoSrc && !videoError && !useFallbackImage && (
+                {currentSlideData.videoSrc && canMountVideo && !videoError && !useFallbackImage && (
                     <div
                         key={`video-${currentSlide}`}
                         className="absolute inset-0 z-10"
@@ -513,9 +521,9 @@ export default function HeroBanner({
                             loop
                             muted
                             playsInline
-                            preload="auto"
-                            aria-label="Video del hero"
-                            className="w-full h-full object-cover"
+                            preload="none" aria-hidden="true" tabIndex={-1}
+                            
+                            className="w-full h-full object-cover pointer-events-none"
                             onCanPlay={handleVideoLoad}
                             onError={handleVideoError}
                         >

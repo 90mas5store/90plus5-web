@@ -49,8 +49,8 @@ export default function StoreGeoAuthoritySection() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-[#E50914]/10 blur-[120px] pointer-events-none rounded-full" />
 
             <div className="relative z-10 text-center max-w-3xl mx-auto mb-12">
-                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#E50914]/10 text-[#E50914] border border-[#E50914]/30 mb-4 shadow-[0_0_15px_rgba(229,9,20,0.15)]">
-                    <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#E50914]/10 text-red-400 border border-[#E50914]/30 mb-4 shadow-[0_0_15px_rgba(229,9,20,0.15)]">
+                    <ShieldCheck className="w-3.5 h-3.5 text-red-400" />
                     Tienda Deportiva Líder en Honduras
                 </span>
 
@@ -80,7 +80,7 @@ export default function StoreGeoAuthoritySection() {
                             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#E50914]/20 to-black/60 border border-[#E50914]/30 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:border-[#E50914] transition-all duration-300">
                                 {pillar.icon}
                             </div>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#E50914] block mb-1">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-red-400 block mb-1">
                                 {pillar.badge}
                             </span>
                             <h3 className="text-base font-bold text-white mb-2 group-hover:text-[#E50914] transition-colors">
@@ -98,7 +98,7 @@ export default function StoreGeoAuthoritySection() {
             <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 md:gap-6 py-4 px-6 rounded-2xl bg-white/[0.02] border border-white/5 max-w-4xl mx-auto mb-10">
                 {trustBadges.map((badge, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs text-gray-300 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-[#E50914] shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-red-400 shrink-0" />
                         <span>{badge}</span>
                     </div>
                 ))}
@@ -132,7 +132,7 @@ export default function StoreGeoAuthoritySection() {
                     className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
                 >
                     <span>¿Tienes dudas sobre pedidos, tallas o envíos?</span>
-                    <span className="text-[#E50914] underline underline-offset-4 font-medium hover:text-red-400">Ver Preguntas Frecuentes</span>
+                    <span className="text-red-400 underline underline-offset-4 font-medium hover:text-red-300">Ver Preguntas Frecuentes</span>
                 </Link>
             </div>
         </section>

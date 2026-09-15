@@ -395,6 +395,8 @@ export async function GET(req?: NextRequest) {
       'usa.1',
       'uefa.europa',
       'conmebol.libertadores',
+      'conmebol.sudamericana',
+      'arg.1',
       'fifa.world',
       'concacaf.central.american.cup',
       'concacaf.champions',
@@ -418,11 +420,18 @@ export async function GET(req?: NextRequest) {
       Referer: 'https://www.espn.com/',
     };
 
+    const tzHonduras = 'America/Tegucigalpa';
+    const fmtYmd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tzHonduras }).replace(/-/g, '');
+    const yestDate = new Date(now - 24 * 3600 * 1000);
+    const tomDate = new Date(now + 24 * 3600 * 1000);
+    const dateRangeParam = `?dates=${fmtYmd(yestDate)}-${fmtYmd(tomDate)}`;
+
     const fetchPromises = leagues.map(async league => {
-      // Intentar primero con el endpoint web de ESPN (evita 403 en serverless/Vercel)
+      // Consultar ESPN con ventana de 3 días (ayer-hoy-mañana) para no perder partidos programados ni finalizados
       const endpoints = [
+        `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard${dateRangeParam}`,
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard${dateRangeParam}`,
         `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
       ];
 
       for (const url of endpoints) {

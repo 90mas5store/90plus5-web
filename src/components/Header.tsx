@@ -413,10 +413,9 @@ export default function Header() {
                             animate={{
                                 opacity: isSearchOpen ? 0 : 1,
                                 scale: isSearchOpen ? 0.95 : 1,
-                                pointerEvents: isSearchOpen ? "none" : "auto",
                             }}
                             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="hidden md:flex items-center gap-1"
+                            className={`hidden md:flex items-center gap-1 ${isSearchOpen ? 'pointer-events-none' : 'pointer-events-auto'}`}
                         >
                             <LinkItem href="/" icon={Home} isActive={isActive("/")} prefersReducedMotion={prefersReducedMotion}>
                                 Inicio

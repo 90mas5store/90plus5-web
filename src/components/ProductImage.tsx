@@ -49,7 +49,7 @@ function ProductImageComponent({
   height,
   className = "",
   priority = false,
-  quality = 85,
+  quality = 75,
   sizes,
   showSkeleton = true,
   onLoad,

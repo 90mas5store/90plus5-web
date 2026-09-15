@@ -173,7 +173,7 @@ export default function HomeClient({
                             >
                                 <ProductCard
                                     item={item}
-                                    priority={i < 4}
+                                    priority={false}
                                     enableGlow={!prefersReducedMotion}
                                     onPress={() => {
                                         toast.loading("Cargando personalización...");
