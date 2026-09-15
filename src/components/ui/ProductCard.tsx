@@ -123,8 +123,8 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                             {opponentAbbr && !liveMatch.isManual && (
                                 <span className="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold bg-black/80 text-white border border-white/20 whitespace-nowrap shadow-sm">
                                     {liveMatch.isUpcoming
-                                        ? `${liveMatch.isHome ? 'vs' : '@'} ${opponentAbbr} · ${liveMatch.startTime || 'Hoy'}`
-                                        : `${liveMatch.isHome ? 'vs' : '@'} ${opponentAbbr} · ${ourScore}-${theirScore}`
+                                        ? `vs ${opponentAbbr} · ${liveMatch.startTime || 'Hoy'}`
+                                        : `vs ${opponentAbbr} · ${ourScore}-${theirScore}`
                                     }
                                 </span>
                             )}

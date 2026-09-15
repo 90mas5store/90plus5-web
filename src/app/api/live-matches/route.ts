@@ -6,7 +6,7 @@ import type { LiveMatchData, MatchEventDetail, MatchStats } from '@/hooks/useLiv
 // ─────────────────────────────────────────────────────────────────────────────
 // CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE_KEY = 'live-matches:v5';
+const CACHE_KEY = 'live-matches:v6';
 const STALE_CACHE_KEY = 'live-matches:last-known-good';
 const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
 const STALE_CACHE_TTL_SECONDS = 86400; // 24 horas — respaldo ante caídas de ESPN
@@ -420,18 +420,11 @@ export async function GET(req?: NextRequest) {
       Referer: 'https://www.espn.com/',
     };
 
-    const tzHonduras = 'America/Tegucigalpa';
-    const fmtYmd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tzHonduras }).replace(/-/g, '');
-    const yestDate = new Date(now - 24 * 3600 * 1000);
-    const tomDate = new Date(now + 24 * 3600 * 1000);
-    const dateRangeParam = `?dates=${fmtYmd(yestDate)}-${fmtYmd(tomDate)}`;
-
     const fetchPromises = leagues.map(async league => {
-      // Consultar ESPN con ventana de 3 días (ayer-hoy-mañana) para no perder partidos programados ni finalizados
+      // Intentar primero con el endpoint web de ESPN (evita 403 en serverless/Vercel) y fallback a site.api
       const endpoints = [
-        `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard${dateRangeParam}`,
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard${dateRangeParam}`,
         `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
       ];
 
       for (const url of endpoints) {
