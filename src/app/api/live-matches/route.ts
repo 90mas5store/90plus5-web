@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Redis } from '@upstash/redis';
 import type { LiveMatchData, MatchEventDetail, MatchStats } from '@/hooks/useLiveMatches';
+import { translateTeamNameToSpanish, translateTeamShortName, translateTeamAbbr } from '@/lib/teamNames';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE_KEY = 'live-matches:v6';
+const CACHE_KEY = 'live-matches:v9';
 const STALE_CACHE_KEY = 'live-matches:last-known-good';
 const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
 const STALE_CACHE_TTL_SECONDS = 86400; // 24 horas — respaldo ante caídas de ESPN
@@ -76,6 +77,8 @@ const TEAM_ALIASES: Record<string, string[]> = {
   'argentina': ['argentina', 'la albiceleste'],
   'jamaica': ['jamaica'],
   'honduras': ['honduras', 'la h', 'los catrachos'],
+  'portugal': ['portugal', 'seleccion portuguesa', 'seleccao das quinas'],
+  'gales': ['wales', 'cymru', 'seleccion de gales'],
   // Clubes
   'real madrid': ['real madrid cf', 'real madrid', 'rmadrid', 'r madrid'],
   'atletico de madrid': ['atletico madrid', 'atletico de madrid', 'atl madrid', 'atletico', 'atl. madrid'],
@@ -565,22 +568,31 @@ export async function GET(req?: NextRequest) {
       const awayComp = competition.competitors?.find((c: any) => c.homeAway === 'away');
       if (!homeComp || !awayComp) continue;
 
-      const homeRawName = homeComp.team?.displayName || homeComp.team?.name || '';
-      const awayRawName = awayComp.team?.displayName || awayComp.team?.name || '';
+      const rawHomeOriginal = homeComp.team?.displayName || homeComp.team?.name || '';
+      const rawAwayOriginal = awayComp.team?.displayName || awayComp.team?.name || '';
 
-      const homeShortName = homeComp.team?.shortDisplayName || homeComp.team?.name || homeRawName;
-      const awayShortName = awayComp.team?.shortDisplayName || awayComp.team?.name || awayRawName;
+      const homeRawName = translateTeamNameToSpanish(rawHomeOriginal);
+      const awayRawName = translateTeamNameToSpanish(rawAwayOriginal);
 
-      const homeAbbr = (homeComp.team?.abbreviation || homeShortName.slice(0, 3)).toUpperCase();
-      const awayAbbr = (awayComp.team?.abbreviation || awayShortName.slice(0, 3)).toUpperCase();
+      const homeShortName = translateTeamShortName(homeRawName, homeComp.team?.shortDisplayName || homeComp.team?.name);
+      const awayShortName = translateTeamShortName(awayRawName, awayComp.team?.shortDisplayName || awayComp.team?.name);
+
+      const homeAbbr = translateTeamAbbr(homeRawName, homeComp.team?.abbreviation);
+      const awayAbbr = translateTeamAbbr(awayRawName, awayComp.team?.abbreviation);
 
       const homeScore = parseInt(homeComp.score ?? '0', 10);
       const awayScore = parseInt(awayComp.score ?? '0', 10);
 
       const homeNorm = normalizeTeamName(homeRawName);
       const awayNorm = normalizeTeamName(awayRawName);
-      const homeUuid = nameToUuid.get(homeNorm);
-      const awayUuid = nameToUuid.get(awayNorm);
+      const homeNormOrig = normalizeTeamName(rawHomeOriginal);
+      const awayNormOrig = normalizeTeamName(rawAwayOriginal);
+
+      const homeUuid = nameToUuid.get(homeNorm) || nameToUuid.get(homeNormOrig);
+      const awayUuid = nameToUuid.get(awayNorm) || nameToUuid.get(awayNormOrig);
+
+      // El Matchday y MatchCenter solo muestran partidos donde al menos uno de los rivales existe en la base de datos de la tienda
+      if (!homeUuid && !awayUuid) continue;
 
       const homeTeamInDb = homeUuid ? teamsData.find(t => t.id === homeUuid) : null;
       const awayTeamInDb = awayUuid ? teamsData.find(t => t.id === awayUuid) : null;
@@ -600,6 +612,15 @@ export async function GET(req?: NextRequest) {
 
       const venueName = competition.venue?.fullName || null;
       const venueCity = competition.venue?.address?.city || null;
+
+      // Reloj del partido en minutos numéricos para validación de coherencia temporal
+      let matchCurrentMinute: number | null = null;
+      if (cleanDisplayClock) {
+        const m = cleanDisplayClock.match(/^(\d+)/);
+        if (m) matchCurrentMinute = parseInt(m[1], 10);
+      } else if (event.status?.clock != null && !isNaN(event.status.clock) && event.status.clock > 0) {
+        matchCurrentMinute = Math.floor(event.status.clock / 60);
+      }
 
       // Incidencias del partido (Goles, Penales, Tarjetas, VAR y Goles Anulados)
       const parsedEvents: MatchEventDetail[] = [];
@@ -639,6 +660,33 @@ export async function GET(req?: NextRequest) {
             continue;
           }
 
+          // Validación de coherencia temporal:
+          // Si el partido está en juego (isLiveNow), no puede haber eventos con minuto superior al actual + 2
+          // (ej. ni había empezado o iba al 1' y salía tarjeta roja en el minuto 10).
+          const eventMinuteStr = d.clock?.displayValue || (d.clock?.value ? `${Math.floor(d.clock.value / 60)}'` : '');
+          const eventMinMatch = eventMinuteStr.match(/^(\d+)/);
+          const eventMinNum = eventMinMatch ? parseInt(eventMinMatch[1], 10) : null;
+          if (isLiveNow && matchCurrentMinute != null && eventMinNum != null) {
+            if (eventMinNum > matchCurrentMinute + 2) {
+              continue;
+            }
+          }
+          if (isUpcoming && !isLiveNow) {
+            continue;
+          }
+
+          const isHomeEvent = d.team?.id
+            ? String(d.team.id) === String(homeComp.id || homeComp.team?.id)
+            : false;
+          const isAwayEvent = d.team?.id
+            ? String(d.team.id) === String(awayComp.id || awayComp.team?.id)
+            : false;
+
+          // Si el evento tiene equipo pero no corresponde ni a local ni a visitante, descartar
+          if (d.team?.id && !isHomeEvent && !isAwayEvent) {
+            continue;
+          }
+
           let eventType: MatchEventDetail['type'] = 'goal';
           let eventText = 'Gol';
 
@@ -669,14 +717,11 @@ export async function GET(req?: NextRequest) {
           }
 
           const athlete = d.athletesInvolved?.[0];
-          const isHomeEvent = d.team?.id
-            ? String(d.team.id) === String(homeComp.id || homeComp.team?.id)
-            : false;
 
           parsedEvents.push({
             id: `${d.clock?.value || d.clock?.displayValue || Math.random()}-${athlete?.displayName || eventText}`,
             type: eventType,
-            minute: d.clock?.displayValue || (d.clock?.value ? `${Math.floor(d.clock.value / 60)}'` : ''),
+            minute: eventMinuteStr,
             text: eventText,
             teamId: d.team?.id ? String(d.team.id) : undefined,
             isHome: isHomeEvent,
@@ -701,18 +746,20 @@ export async function GET(req?: NextRequest) {
         }
       }
 
-      // Si el partido está en vivo o finalizado hoy, enriquecemos con summary endpoint de ESPN
-      // para capturar penales fallados, revisiones de VAR y goles anulados que ESPN omite en scoreboard details
-      if (event.id && (isLiveNow || isFinishedToday) && (homeUuid || awayUuid)) {
+      // Enriquecer con summary endpoint de ESPN para TODO partido en vivo o finalizado hoy:
+      // Captura penales fallados, revisiones de VAR y goles anulados con su motivo exacto
+      if (event.id && (isLiveNow || isFinishedToday)) {
         try {
           const sumLeague = event._leagueSlug || 'mex.1';
           const sumUrl = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${sumLeague}/summary?event=${event.id}`;
           const sumRes = await fetch(sumUrl, {
             headers: ESPN_HEADERS,
-            signal: AbortSignal.timeout(2200),
+            signal: AbortSignal.timeout(2400),
           });
           if (sumRes.ok) {
             const sumData = await sumRes.json();
+
+            // 1. KeyEvents (Penales, tarjetas, goles)
             if (Array.isArray(sumData.keyEvents)) {
               for (const k of sumData.keyEvents) {
                 const kType = (k.type?.text || '').toLowerCase();
@@ -727,6 +774,15 @@ export async function GET(req?: NextRequest) {
                 }
 
                 const kClock = k.clock?.displayValue || (k.clock?.value ? `${Math.floor(k.clock.value / 60)}'` : '');
+                if (!kClock) continue;
+
+                // Validación temporal
+                const kMinMatch = kClock.match(/^(\d+)/);
+                if (isLiveNow && matchCurrentMinute != null && kMinMatch) {
+                  const kmNum = parseInt(kMinMatch[1], 10);
+                  if (kmNum > matchCurrentMinute + 2) continue;
+                }
+
                 // Evitar duplicados con parsedEvents
                 const alreadyExists = parsedEvents.some(
                   pe => pe.minute === kClock && (
@@ -774,13 +830,108 @@ export async function GET(req?: NextRequest) {
                 });
               }
             }
+
+            // 2. Commentary: Goles Anulados por VAR y motivos (Offside, Mano, etc.)
+            if (Array.isArray(sumData.commentary)) {
+              for (const c of sumData.commentary) {
+                const play = c.play;
+                const txt = (c.text || play?.text || '').trim();
+                const lower = txt.toLowerCase();
+                const playTypeId = String(play?.type?.id || '');
+                const playType = (play?.type?.type || '').toLowerCase();
+
+                const isOverturnedGoal =
+                  playTypeId === '175' ||
+                  playType.includes('deleted-after-review') ||
+                  lower.includes('goal overturned by var') ||
+                  lower.includes('goal is ruled out after a var review') ||
+                  lower.includes('gol anulado tras') ||
+                  lower.includes('gol anulado por');
+
+                const isVarDecisionNoGoal =
+                  playTypeId === '172' ||
+                  lower.includes('var decision: no goal') ||
+                  lower.includes('decisión var: no gol');
+
+                if (isOverturnedGoal || isVarDecisionNoGoal) {
+                  const clock = c.time?.displayValue || play?.clock?.displayValue || (c.time?.value ? `${Math.floor(c.time.value / 60)}'` : '');
+                  if (!clock) continue;
+
+                  // Coherencia temporal
+                  const commMinMatch = clock.match(/^(\d+)/);
+                  if (isLiveNow && matchCurrentMinute != null && commMinMatch) {
+                    const cNum = parseInt(commMinMatch[1], 10);
+                    if (cNum > matchCurrentMinute + 2) continue;
+                  }
+
+                  const athlete = play?.participants?.[0]?.athlete || c.participants?.[0]?.athlete;
+                  const pName = athlete?.displayName || txt.match(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)+)/)?.[1] || 'Jugador';
+                  const jerseyFromMap = athlete?.id ? athleteJerseyMap.get(String(athlete.id)) : (pName ? athleteJerseyMap.get(pName) : undefined);
+
+                  const teamDisplayName = play?.team?.displayName || c.team?.displayName || '';
+                  const isHomeEvt = teamDisplayName
+                    ? teamDisplayName.toLowerCase().includes(homeRawName.toLowerCase()) || homeRawName.toLowerCase().includes(teamDisplayName.toLowerCase())
+                    : true;
+
+                  // Motivo de anulación
+                  let reason = 'Revisión VAR';
+                  if (lower.includes('offside') || lower.includes('fuera de juego')) {
+                    reason = 'Fuera de Juego';
+                  } else if (lower.includes('handball') || lower.includes('hand ball') || lower.includes('mano')) {
+                    reason = 'Mano';
+                  } else if (lower.includes('foul') || lower.includes('falta')) {
+                    reason = 'Falta Previa';
+                  }
+
+                  // 1) Mantener el gol original marcado en el min X (con flag disallowed)
+                  const existingGoalIndex = parsedEvents.findIndex(
+                    pe => pe.minute === clock && (pe.type === 'goal' || pe.type === 'penalty-goal') &&
+                          (pe.playerName.toLowerCase().includes(pName.toLowerCase().split(' ')[0]) || pName.toLowerCase().includes(pe.playerName.toLowerCase().split(' ')[0]))
+                  );
+                  if (existingGoalIndex >= 0) {
+                    parsedEvents[existingGoalIndex].disallowed = true;
+                  } else {
+                    parsedEvents.push({
+                      id: `goal-disallowed-${clock}-${pName}`,
+                      type: 'goal',
+                      minute: clock,
+                      text: 'Gol',
+                      teamId: isHomeEvt ? (homeComp.id ? String(homeComp.id) : undefined) : (awayComp.id ? String(awayComp.id) : undefined),
+                      isHome: isHomeEvt,
+                      playerName: pName,
+                      jersey: jerseyFromMap,
+                      disallowed: true,
+                    });
+                  }
+
+                  // 2) Agregar la incidencia de Gol Anulado por VAR en el min X
+                  const existingDisallowed = parsedEvents.some(
+                    pe => pe.minute === clock && pe.type === 'disallowed-goal'
+                  );
+                  if (!existingDisallowed) {
+                    parsedEvents.push({
+                      id: `disallowed-${clock}-${pName}`,
+                      type: 'disallowed-goal',
+                      minute: clock,
+                      text: `Gol Anulado - ${reason}`,
+                      teamId: isHomeEvt ? (homeComp.id ? String(homeComp.id) : undefined) : (awayComp.id ? String(awayComp.id) : undefined),
+                      isHome: isHomeEvt,
+                      playerName: pName,
+                      jersey: jerseyFromMap,
+                      disallowed: true,
+                    });
+                  }
+                }
+              }
+            }
           }
         } catch {
           // Continuar sin summary si falla
         }
       }
 
-      // Ordenar incidencias cronológicamente por minuto de juego (19', 35', 43', 45', 45'+6'...)
+      // Ordenar incidencias cronológicamente:
+      // Minuto menor a mayor (10', 22', 59'...). Si coinciden en minuto, 'goal' va antes que 'disallowed-goal'.
       parsedEvents.sort((a, b) => {
         const getMinVal = (str?: string) => {
           if (!str) return 0;
@@ -788,7 +939,11 @@ export async function GET(req?: NextRequest) {
           if (!m) return 0;
           return parseInt(m[1], 10) * 100 + parseInt(m[2] || '0', 10);
         };
-        return getMinVal(a.minute) - getMinVal(b.minute);
+        const diff = getMinVal(a.minute) - getMinVal(b.minute);
+        if (diff !== 0) return diff;
+        if (a.type === 'goal' && b.type === 'disallowed-goal') return -1;
+        if (a.type === 'disallowed-goal' && b.type === 'goal') return 1;
+        return 0;
       });
 
       // Estadísticas del partido (Posesión, Tiros)

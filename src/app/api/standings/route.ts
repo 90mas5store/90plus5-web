@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { translateTeamNameToSpanish, translateTeamShortName } from '@/lib/teamNames';
 
 let redis: Redis | null = null;
 function getRedis(): Redis | null {
@@ -48,11 +49,15 @@ function parseAndSortEntries(entries: any[]): StandingRow[] {
     const getStatDisplay = (name: string) =>
       entry.stats?.find((s: any) => s.name === name)?.displayValue ?? '0';
 
+    const rawName = entry.team?.displayName || entry.team?.name || 'Club';
+    const translatedName = translateTeamNameToSpanish(rawName);
+    const translatedShort = translateTeamShortName(translatedName, entry.team?.shortDisplayName || entry.team?.abbreviation || 'Club');
+
     return {
       rank: Number(getStat('rank') || 0),
       teamId: String(entry.team?.id || ''),
-      teamName: entry.team?.displayName || entry.team?.name || 'Club',
-      teamShort: entry.team?.shortDisplayName || entry.team?.abbreviation || 'Club',
+      teamName: translatedName,
+      teamShort: translatedShort,
       logo: entry.team?.logos?.[0]?.href || null,
       gamesPlayed: Number(getStat('gamesPlayed') || 0),
       wins: Number(getStat('wins') || 0),
@@ -82,8 +87,8 @@ export async function GET(req: NextRequest) {
   const league = searchParams.get('league') || 'esp.1';
   const teamParam = (searchParams.get('team') || '').toLowerCase().trim();
 
-  // Cache v3 con orden garantizado, soporte para conferencias/grupos y multi-endpoint ESPN
-  const cacheKey = `standings:v3:${league}`;
+  // Cache v4 con nombres localizados al español y orden estricto
+  const cacheKey = `standings:v4:${league}`;
   const client = getRedis();
 
   let groups: StandingGroup[] = [];

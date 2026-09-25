@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "@/lib/motion";
 import MatchCenterModal from "@/components/match/MatchCenterModal";
 
 import { resolveMatchColors } from "@/lib/teamColors";
+import { translateTeamNameToSpanish, translateTeamShortName } from "@/lib/teamNames";
 
 function TeamShield({ src, alt, color, isWhite }: { src?: string | null; alt: string; color: string; isWhite?: boolean }) {
   const [error, setError] = useState(false);
@@ -79,23 +80,23 @@ export default function MatchdayHeroTakeover() {
   }, [activeEntries.length, currentIndex]);
 
   useEffect(() => {
-    if (activeEntries.length <= 1 || isPaused) return;
+    if (activeEntries.length <= 1 || isPaused || isModalOpen) return;
 
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % activeEntries.length);
     }, 8500);
 
     return () => clearInterval(timer);
-  }, [activeEntries.length, isPaused]);
+  }, [activeEntries.length, isPaused, isModalOpen]);
 
   if (activeEntries.length === 0) return null;
 
   // ORDEN ESTRICTO: LOCAL A LA IZQUIERDA, VISITA A LA DERECHA
   const matchItems = activeEntries.map(([id, match]) => {
-    const homeName = match.homeTeam;
-    const awayName = match.awayTeam;
-    const homeShort = match.homeShortTeam || match.homeTeam;
-    const awayShort = match.awayShortTeam || match.awayTeam;
+    const homeName = translateTeamNameToSpanish(match.homeTeam);
+    const awayName = translateTeamNameToSpanish(match.awayTeam);
+    const homeShort = translateTeamShortName(homeName, match.homeShortTeam);
+    const awayShort = translateTeamShortName(awayName, match.awayShortTeam);
     const homeScore = match.homeScore;
     const awayScore = match.awayScore;
     const homeLogo = match.homeLogo;
@@ -142,6 +143,7 @@ export default function MatchdayHeroTakeover() {
   const goals = match.events?.filter((e) => e.type === "goal") || [];
 
   const handleOpenMatchCenter = () => {
+    setIsPaused(true);
     setSelectedMatch(match);
     setIsModalOpen(true);
   };
@@ -151,7 +153,8 @@ export default function MatchdayHeroTakeover() {
       <section
         className="relative w-full overflow-hidden bg-black text-white pt-[68px] md:pt-[76px] pb-6 sm:pb-8 border-b border-[#E50914]/30 shadow-[0_20px_70px_rgba(229,9,20,0.25)]"
         onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
+        onMouseLeave={() => { if (!isModalOpen) setIsPaused(false); }}
+        onTouchStart={() => setIsPaused(true)}
       >
         {/* Atmósfera Estadio con Luces Dinámicas */}
         <div
@@ -449,7 +452,10 @@ export default function MatchdayHeroTakeover() {
       {/* MODAL MATCH CENTER */}
       <MatchCenterModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setIsPaused(false);
+        }}
         match={selectedMatch}
       />
     </>

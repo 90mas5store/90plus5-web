@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Sparkles, ArrowRight, Flame, Trophy, Radio, Clock } from "lucide-react";
 import { useLiveMatches, LiveMatchData, LiveGoalAlert } from "@/hooks/useLiveMatches";
 import MatchCenterModal from "@/components/match/MatchCenterModal";
+import { translateTeamNameToSpanish, translateTeamAbbr } from "@/lib/teamNames";
 
 export default function MatchdayHeaderBanner() {
   const pathname = usePathname();
@@ -107,15 +108,17 @@ export default function MatchdayHeaderBanner() {
 
   // ORDEN ESTRICTO: LOCAL A LA IZQUIERDA, VISITA A LA DERECHA
   const matchItems = activeEntries.map(([id, match]) => {
-    const homeAbbr = match.homeAbbr || match.homeShortTeam?.slice(0, 3).toUpperCase() || match.homeTeam.slice(0, 3).toUpperCase();
-    const awayAbbr = match.awayAbbr || match.awayShortTeam?.slice(0, 3).toUpperCase() || match.awayTeam.slice(0, 3).toUpperCase();
+    const homeName = translateTeamNameToSpanish(match.homeTeam);
+    const awayName = translateTeamNameToSpanish(match.awayTeam);
+    const homeAbbr = match.homeAbbr ? translateTeamAbbr(homeName, match.homeAbbr) : translateTeamAbbr(homeName, match.homeShortTeam);
+    const awayAbbr = match.awayAbbr ? translateTeamAbbr(awayName, match.awayAbbr) : translateTeamAbbr(awayName, match.awayShortTeam);
     const homeScore = match.homeScore;
     const awayScore = match.awayScore;
 
     const hasHomeInDb = Boolean(match.hasHomeTeamInDb || match.homeTeamId);
     const hasAwayInDb = Boolean(match.hasAwayTeamInDb || match.awayTeamId);
 
-    const storeTeamName = hasHomeInDb ? match.homeTeam : hasAwayInDb ? match.awayTeam : match.homeTeam;
+    const storeTeamName = hasHomeInDb ? homeName : hasAwayInDb ? awayName : homeName;
     const storeTeamId = hasHomeInDb ? (match.homeTeamId || id) : hasAwayInDb ? match.awayTeamId : null;
 
     return {
@@ -163,7 +166,7 @@ export default function MatchdayHeaderBanner() {
 
                 <div className="flex items-center gap-1.5 font-black text-white text-xs sm:text-sm truncate">
                   <span className="text-amber-400 font-bold drop-shadow-[0_0_10px_rgba(245,158,11,0.4)] truncate">
-                    {currentGoal.scoringTeam}
+                    {translateTeamNameToSpanish(currentGoal.scoringTeam)}
                   </span>
                   {currentGoal.scoringPlayer && (
                     <span className="text-gray-300 font-medium text-[11px] sm:text-xs truncate">
@@ -176,9 +179,9 @@ export default function MatchdayHeaderBanner() {
 
               {/* Marcador actual en el Takeover */}
               <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-black/80 border border-white/20 font-mono font-black text-white text-[11px] sm:text-sm shrink-0">
-                <span>{currentGoal.homeTeam.slice(0, 3).toUpperCase()}</span>
+                <span>{translateTeamAbbr(currentGoal.homeTeam)}</span>
                 <span className="text-amber-400 mx-1">{currentGoal.homeScore}:{currentGoal.awayScore}</span>
-                <span>{currentGoal.awayTeam.slice(0, 3).toUpperCase()}</span>
+                <span>{translateTeamAbbr(currentGoal.awayTeam)}</span>
               </div>
             </div>
 
@@ -193,7 +196,7 @@ export default function MatchdayHeaderBanner() {
               </button>
 
               <Link
-                href={`/catalogo?query=${encodeURIComponent(currentGoal.scoringTeam)}`}
+                href={`/catalogo?query=${encodeURIComponent(translateTeamNameToSpanish(currentGoal.scoringTeam))}`}
                 className="flex-1 sm:flex-none text-center inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 cursor-pointer active:scale-95"
               >
                 <span>Camiseta 10% OFF</span>

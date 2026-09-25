@@ -122,7 +122,7 @@ describe('Live Matches API Endpoint (/api/live-matches)', () => {
     const data = await response.json();
 
     expect(data['spain-id']).toBeDefined();
-    expect(data['spain-id'].homeTeam).toBe('Spain');
+    expect(data['spain-id'].homeTeam).toBe('España');
     expect(data['spain-id'].homeTeamDbName).toBe('España');
     expect(data['spain-id'].homeScore).toBe(1);
   });

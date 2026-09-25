@@ -7,6 +7,7 @@ import ProductImage from "../../components/ProductImage";
 import TeamLogo from "../../components/TeamLogo";
 import { Product } from "../../lib/types";
 import type { LiveMatchData } from "../../hooks/useLiveMatches";
+import { translateTeamNameToSpanish, translateTeamAbbr } from "@/lib/teamNames";
 
 // Tipos para las props del componente
 interface ProductCardProps {
@@ -54,10 +55,12 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
     const isLive = !!liveMatch || (trending_until ? new Date(trending_until) > new Date() : false);
 
     // Datos del marcador cuando viene de la API
-    const opponent = liveMatch ? (liveMatch.isHome ? liveMatch.awayTeam : liveMatch.homeTeam) : null;
-    const opponentAbbr = liveMatch
-        ? (liveMatch.isHome ? liveMatch.awayAbbr : liveMatch.homeAbbr) || (opponent ? opponent.slice(0, 3).toUpperCase() : null)
+    const rawOpponent = liveMatch ? (liveMatch.isHome ? liveMatch.awayTeam : liveMatch.homeTeam) : null;
+    const opponent = rawOpponent ? translateTeamNameToSpanish(rawOpponent) : null;
+    const rawOpponentAbbr = liveMatch
+        ? (liveMatch.isHome ? liveMatch.awayAbbr : liveMatch.homeAbbr) || (rawOpponent ? rawOpponent.slice(0, 3).toUpperCase() : null)
         : null;
+    const opponentAbbr = rawOpponent ? translateTeamAbbr(rawOpponent, rawOpponentAbbr) : null;
     const ourScore = liveMatch ? (liveMatch.isHome ? liveMatch.homeScore : liveMatch.awayScore) : null;
     const theirScore = liveMatch ? (liveMatch.isHome ? liveMatch.awayScore : liveMatch.homeScore) : null;
 
@@ -111,13 +114,12 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                 <div className="absolute top-3 right-3 md:top-4 md:right-4 z-20 flex flex-col gap-1 items-end">
                     {isLive && liveMatch && (
                         <>
-                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold text-white shadow-md ${
-                                liveMatch.isFinished
+                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold text-white shadow-md ${liveMatch.isFinished
                                     ? 'bg-amber-600 shadow-[0_0_10px_rgba(217,119,6,0.6)]'
                                     : liveMatch.isUpcoming
-                                    ? 'bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)]'
-                                    : 'bg-primary shadow-[0_0_10px_rgba(229,9,20,0.6)] animate-pulse'
-                            }`}>
+                                        ? 'bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)]'
+                                        : 'bg-primary shadow-[0_0_10px_rgba(229,9,20,0.6)] animate-pulse'
+                                }`}>
                                 {liveMatch.isFinished ? '🏆 FINAL' : liveMatch.isUpcoming ? '📅 PRÓXIMO' : '⚡ EN VIVO'}
                             </span>
                             {opponentAbbr && !liveMatch.isManual && (

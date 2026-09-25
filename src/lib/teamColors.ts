@@ -33,6 +33,9 @@ const KNOWN_TEAM_COLORS: Record<string, { primary: string; alternate: string }> 
   'ac milan': { primary: '#FB090B', alternate: '#111111' },
   'paris saint germain': { primary: '#004170', alternate: '#DA291C' },
   'psg': { primary: '#004170', alternate: '#DA291C' },
+  'portugal': { primary: '#DA291C', alternate: '#0D6938' },
+  'wales': { primary: '#E70000', alternate: '#174A3F' },
+  'gales': { primary: '#E70000', alternate: '#174A3F' },
 };
 
 export function hexToRgb(hex: string): [number, number, number] | null {

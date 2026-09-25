@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "@/lib/motion";
 import type { LiveMatchData, MatchEventDetail } from "@/hooks/useLiveMatches";
 import type { StandingRow } from "@/app/api/standings/route";
 import { resolveMatchColors } from "@/lib/teamColors";
+import { translateTeamNameToSpanish } from "@/lib/teamNames";
 
 interface MatchCenterModalProps {
   isOpen: boolean;
@@ -57,15 +58,21 @@ function getResolvedLeagueSlug(match: LiveMatchData | null): string {
 function getEventVisual(evt: MatchEventDetail): { icon: string; label: string } {
   switch (evt.type) {
     case 'goal':
-      return { icon: '⚽', label: evt.text || 'Gol' };
+      return {
+        icon: '⚽',
+        label: evt.disallowed ? (evt.text ? `${evt.text} (Anulado por VAR)` : 'Gol (Anulado por VAR)') : (evt.text || 'Gol')
+      };
     case 'penalty-goal':
-      return { icon: '🎯', label: 'Gol de Penal' };
+      return {
+        icon: '🎯',
+        label: evt.disallowed ? 'Gol de Penal (Anulado por VAR)' : 'Gol de Penal'
+      };
     case 'penalty-miss':
       return { icon: '❌', label: 'Penal Fallado' };
     case 'own-goal':
       return { icon: '⚽', label: 'Autogol' };
     case 'disallowed-goal':
-      return { icon: '🚫', label: 'Gol Anulado (VAR)' };
+      return { icon: '🚫', label: evt.text || 'Gol Anulado (VAR)' };
     case 'var':
       return { icon: '📺', label: evt.text || 'Revisión VAR' };
     case 'red-card':
@@ -131,7 +138,18 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
             m.awayTeam.toLowerCase() === initialMatch.awayTeam.toLowerCase()
         );
         if (updated && isMounted) {
-          setCurrentMatch(updated);
+          setCurrentMatch((prev) => {
+            if (!prev) return updated;
+            // Comparar si hubo cambios reales para no invalidar el render tree ni provocar parpadeos
+            const scoreChanged = prev.homeScore !== updated.homeScore || prev.awayScore !== updated.awayScore;
+            const clockChanged = prev.displayClock !== updated.displayClock || prev.minute !== updated.minute;
+            const statusChanged = prev.isFinished !== updated.isFinished || prev.isHalftime !== updated.isHalftime;
+            const eventsChanged = (prev.events?.length || 0) !== (updated.events?.length || 0);
+            if (scoreChanged || clockChanged || statusChanged || eventsChanged) {
+              return updated;
+            }
+            return prev;
+          });
         }
       } catch {
         // fallo silencioso de red
@@ -194,8 +212,8 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
   if (!isOpen || !activeMatch || !mounted || !portalTarget) return null;
 
   // ORDEN ESTRICTO: LOCAL A LA IZQUIERDA, VISITA A LA DERECHA
-  const homeName = activeMatch.homeShortTeam || activeMatch.homeTeam;
-  const awayName = activeMatch.awayShortTeam || activeMatch.awayTeam;
+  const homeName = translateTeamNameToSpanish(activeMatch.homeShortTeam || activeMatch.homeTeam);
+  const awayName = translateTeamNameToSpanish(activeMatch.awayShortTeam || activeMatch.awayTeam);
   const homeLogo = activeMatch.homeLogo;
   const awayLogo = activeMatch.awayLogo;
   const homeScore = activeMatch.homeScore;
@@ -491,19 +509,21 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
           transition={{ type: "spring", damping: 28, stiffness: 350 }}
           className="relative w-full max-w-2xl lg:max-w-6xl xl:max-w-7xl bg-[#07070a] border-t sm:border border-white/20 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_120px_rgba(0,0,0,0.98)] overflow-hidden z-10 text-white my-0 sm:my-auto max-h-[94vh] sm:max-h-[92vh] flex flex-col transition-all duration-300"
         >
-          {/* Resplandor con Colores Reales de los Clubes */}
+          {/* Resplandor con Colores Reales de los Clubes (Aceleración GPU + blur adaptable para evitar pérdida de color o parpadeos en móviles) */}
           <div
-            className="absolute -top-32 -left-32 w-[28rem] h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[140px] pointer-events-none transition-colors duration-1000"
+            className="absolute -top-24 -left-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[60px] sm:blur-[100px] lg:blur-[140px] pointer-events-none transform-gpu will-change-transform"
             style={{
               backgroundColor: homeColor,
               opacity: isHomeWhite ? 0.22 : 0.35,
+              transform: "translate3d(0, 0, 0)",
             }}
           />
           <div
-            className="absolute -top-32 -right-32 w-[28rem] h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[140px] pointer-events-none transition-colors duration-1000"
+            className="absolute -top-24 -right-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[60px] sm:blur-[100px] lg:blur-[140px] pointer-events-none transform-gpu will-change-transform"
             style={{
               backgroundColor: awayColor,
               opacity: isAwayWhite ? 0.22 : 0.35,
+              transform: "translate3d(0, 0, 0)",
             }}
           />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.06)_0%,_transparent_75%)] pointer-events-none" />
@@ -637,17 +657,23 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                               <div className="flex justify-end items-center min-w-0">
                                 {isHome ? (
                                   <div
-                                    className="flex items-center gap-1.5 sm:gap-2 text-right bg-gradient-to-l from-white/[0.08] to-transparent border-r-2 pr-2 sm:pr-3 py-1 sm:py-1.5 pl-1.5 sm:pl-2 rounded-l-xl transition-all group-hover:from-white/[0.12] max-w-full"
-                                    style={{ borderRightColor: homeColor }}
+                                    className={`flex items-center gap-1.5 sm:gap-2 text-right bg-gradient-to-l ${
+                                      evt.disallowed ? 'from-red-950/20 via-white/[0.04]' : 'from-white/[0.08]'
+                                    } to-transparent border-r-2 pr-2 sm:pr-3 py-1 sm:py-1.5 pl-1.5 sm:pl-2 rounded-l-xl transition-all group-hover:from-white/[0.12] max-w-full`}
+                                    style={{ borderRightColor: evt.type === 'disallowed-goal' ? '#EF4444' : homeColor }}
                                   >
                                     <div className="flex flex-col min-w-0">
-                                      <span className="text-[11px] sm:text-sm font-black text-white truncate">
+                                      <span className={`text-[11px] sm:text-sm font-black truncate ${
+                                        evt.disallowed && evt.type === 'goal' ? 'text-gray-400 line-through decoration-red-500/70' : 'text-white'
+                                      }`}>
                                         {playerTitle}
                                       </span>
-                                      <span className="text-[9px] sm:text-[10px] text-gray-400 font-medium leading-tight">
+                                      <span className={`text-[9px] sm:text-[10px] font-medium leading-tight ${
+                                        evt.type === 'disallowed-goal' ? 'text-red-400 font-bold' : evt.disallowed ? 'text-amber-400/90 font-semibold' : 'text-gray-400'
+                                      }`}>
                                         {label}
                                       </span>
-                                      {(evt.type === 'goal' || evt.type === 'penalty-goal') && (
+                                      {(evt.type === 'goal' || evt.type === 'penalty-goal') && !evt.disallowed && (
                                         <Link
                                           href={`/catalogo?query=${encodeURIComponent(homeName)}`}
                                           className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] text-amber-400/90 hover:text-amber-300 font-bold underline decoration-amber-500/40 hover:decoration-amber-400 mt-0.5"
@@ -674,20 +700,26 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                               <div className="flex justify-start items-center min-w-0">
                                 {!isHome ? (
                                   <div
-                                    className="flex items-center gap-1.5 sm:gap-2 text-left bg-gradient-to-r from-white/[0.08] to-transparent border-l-2 pl-2 sm:pl-3 py-1 sm:py-1.5 pr-1.5 sm:pr-2 rounded-r-xl transition-all group-hover:to-white/[0.12] max-w-full"
-                                    style={{ borderLeftColor: awayColor }}
+                                    className={`flex items-center gap-1.5 sm:gap-2 text-left bg-gradient-to-r ${
+                                      evt.disallowed ? 'from-red-950/20 via-white/[0.04]' : 'from-white/[0.08]'
+                                    } to-transparent border-l-2 pl-2 sm:pl-3 py-1 sm:py-1.5 pr-1.5 sm:pr-2 rounded-r-xl transition-all group-hover:to-white/[0.12] max-w-full`}
+                                    style={{ borderLeftColor: evt.type === 'disallowed-goal' ? '#EF4444' : awayColor }}
                                   >
                                     <span className="text-sm sm:text-lg shrink-0 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
                                       {icon}
                                     </span>
                                     <div className="flex flex-col min-w-0">
-                                      <span className="text-[11px] sm:text-sm font-black text-white truncate">
+                                      <span className={`text-[11px] sm:text-sm font-black truncate ${
+                                        evt.disallowed && evt.type === 'goal' ? 'text-gray-400 line-through decoration-red-500/70' : 'text-white'
+                                      }`}>
                                         {playerTitle}
                                       </span>
-                                      <span className="text-[9px] sm:text-[10px] text-gray-400 font-medium leading-tight">
+                                      <span className={`text-[9px] sm:text-[10px] font-medium leading-tight ${
+                                        evt.type === 'disallowed-goal' ? 'text-red-400 font-bold' : evt.disallowed ? 'text-amber-400/90 font-semibold' : 'text-gray-400'
+                                      }`}>
                                         {label}
                                       </span>
-                                      {(evt.type === 'goal' || evt.type === 'penalty-goal') && (
+                                      {(evt.type === 'goal' || evt.type === 'penalty-goal') && !evt.disallowed && (
                                         <Link
                                           href={`/catalogo?query=${encodeURIComponent(awayName)}`}
                                           className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] text-amber-400/90 hover:text-amber-300 font-bold underline decoration-amber-500/40 hover:decoration-amber-400 mt-0.5"
@@ -892,11 +924,12 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                         </thead>
                         <tbody className="divide-y divide-white/[0.04]">
                           {currentStandings.map((row) => {
+                            const translatedRowTeamName = translateTeamNameToSpanish(row.teamName);
                             const isMatchTeam =
-                              row.teamName.toLowerCase().includes(homeName.toLowerCase()) ||
-                              homeName.toLowerCase().includes(row.teamName.toLowerCase()) ||
-                              row.teamName.toLowerCase().includes(awayName.toLowerCase()) ||
-                              awayName.toLowerCase().includes(row.teamName.toLowerCase());
+                              translatedRowTeamName.toLowerCase().includes(homeName.toLowerCase()) ||
+                              homeName.toLowerCase().includes(translatedRowTeamName.toLowerCase()) ||
+                              translatedRowTeamName.toLowerCase().includes(awayName.toLowerCase()) ||
+                              awayName.toLowerCase().includes(translatedRowTeamName.toLowerCase());
 
                             return (
                               <tr
@@ -929,12 +962,12 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
                                       src={row.logo}
-                                      alt={row.teamName}
+                                      alt={translatedRowTeamName}
                                       className="w-4 h-4 object-contain shrink-0"
                                     />
                                   )}
                                   <span className="truncate max-w-[140px] sm:max-w-[170px] text-xs">
-                                    {row.teamName}
+                                    {translatedRowTeamName}
                                   </span>
                                 </td>
                                 <td className="py-2.5 px-2 text-center font-mono text-gray-400">

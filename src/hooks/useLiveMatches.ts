@@ -22,6 +22,7 @@ export interface MatchEventDetail {
   playerName: string;
   playerShortName?: string;
   jersey?: string;
+  disallowed?: boolean;
 }
 
 export interface MatchStats {
