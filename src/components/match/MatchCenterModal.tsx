@@ -1,10 +1,22 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { X, Flame, Trophy, Sparkles, MapPin, Shirt, ArrowRight, Shield, Activity, Award, Share2 } from "lucide-react";
-import { motion, AnimatePresence } from "@/lib/motion";
+import {
+  X,
+  Flame,
+  Trophy,
+  Sparkles,
+  MapPin,
+  Shirt,
+  ArrowRight,
+  Shield,
+  Activity,
+  Award,
+  Share2,
+} from "lucide-react";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import type { LiveMatchData, MatchEventDetail } from "@/hooks/useLiveMatches";
 import type { StandingRow } from "@/app/api/standings/route";
 import { resolveMatchColors } from "@/lib/teamColors";
@@ -16,19 +28,11 @@ interface MatchCenterModalProps {
   match: LiveMatchData | null;
 }
 
-// Limpiar y formatear el minuto de juego de forma precisa (ej. "90+7'") sin apóstrofes dobles ni espacios
+// Limpiar y formatear el minuto de juego de forma precisa (ej. "90+7'")
 function formatMatchMinute(rawMinute?: string | null): string {
   if (!rawMinute) return "•";
   const clean = rawMinute.replace(/['"´`\s]+/g, '').trim();
   return clean ? `${clean}'` : "•";
-}
-
-function formatGroupName(name?: string | null): string {
-  if (!name) return '';
-  if (name === 'Eastern Conference') return 'Conferencia Este';
-  if (name === 'Western Conference') return 'Conferencia Oeste';
-  if (name === 'League Phase') return 'Fase de Liga';
-  return name;
 }
 
 function getResolvedLeagueSlug(match: LiveMatchData | null): string {
@@ -84,6 +88,11 @@ function getEventVisual(evt: MatchEventDetail): { icon: string; label: string } 
   }
 }
 
+// Función de proyección de momentum física exacta de Apple (§6 apple-design skill)
+function projectMomentum(initialVelocity: number, decelerationRate = 0.998): number {
+  return (initialVelocity / 1000) * decelerationRate / (1 - decelerationRate);
+}
+
 interface StandingGroupData {
   groupName?: string;
   groups?: { name: string; standings: StandingRow[] }[];
@@ -97,6 +106,8 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
   const [standingsByLeague, setStandingsByLeague] = useState<Record<string, StandingGroupData>>({});
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
   const [loadingStandings, setLoadingStandings] = useState(false);
+
+  const dragControls = useDragControls();
 
   useEffect(() => {
     setMounted(true);
@@ -122,7 +133,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
     };
   }, [isOpen, onClose]);
 
-  // 1. ACTUALIZACIÓN EN TIEMPO REAL: mientras el modal esté abierto, refrescar datos cada 10s
+  // Actualización en tiempo real cada 10s
   useEffect(() => {
     if (!isOpen || !initialMatch) return;
 
@@ -140,7 +151,6 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
         if (updated && isMounted) {
           setCurrentMatch((prev) => {
             if (!prev) return updated;
-            // Comparar si hubo cambios reales para no invalidar el render tree ni provocar parpadeos
             const scoreChanged = prev.homeScore !== updated.homeScore || prev.awayScore !== updated.awayScore;
             const clockChanged = prev.displayClock !== updated.displayClock || prev.minute !== updated.minute;
             const statusChanged = prev.isFinished !== updated.isFinished || prev.isHalftime !== updated.isHalftime;
@@ -163,7 +173,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
     };
   }, [isOpen, initialMatch]);
 
-  // 2. CARGA EN SEGUNDO PLANO DE LA TABLA: en cuanto abre el modal, pre-cargar la liga y conferencia correctas
+  // Carga de clasificación
   const activeMatch = currentMatch || initialMatch;
   const currentLeagueSlug = getResolvedLeagueSlug(activeMatch);
   const teamSearchParam = activeMatch?.homeTeam || activeMatch?.awayTeam || '';
@@ -171,8 +181,6 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
 
   useEffect(() => {
     if (!isOpen || !currentLeagueSlug) return;
-
-    // Si ya está en caché local para esta liga y equipo, no re-consultar
     if (standingsByLeague[teamCacheKey]) return;
 
     setLoadingStandings(true);
@@ -211,7 +219,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
   const portalTarget = typeof document !== 'undefined' ? document.body : null;
   if (!isOpen || !activeMatch || !mounted || !portalTarget) return null;
 
-  // ORDEN ESTRICTO: LOCAL A LA IZQUIERDA, VISITA A LA DERECHA
+  // Local izquierda, Visita derecha
   const homeName = translateTeamNameToSpanish(activeMatch.homeShortTeam || activeMatch.homeTeam);
   const awayName = translateTeamNameToSpanish(activeMatch.awayShortTeam || activeMatch.awayTeam);
   const homeLogo = activeMatch.homeLogo;
@@ -219,7 +227,6 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
   const homeScore = activeMatch.homeScore;
   const awayScore = activeMatch.awayScore;
 
-  // Colores auténticos y resolución de choques: Real Madrid y Olimpia mantienen su blanco puro #FFFFFF
   const { homeColor, awayColor, isHomeWhite, isAwayWhite } = resolveMatchColors({
     homeColor: activeMatch.homeColor,
     awayColor: activeMatch.awayColor,
@@ -238,15 +245,15 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
   const homePossPct = Math.round((rawHomePoss / totalPoss) * 100);
   const awayPossPct = 100 - homePossPct;
 
-  // 3. CRONOLOGÍA INVERSA: lo más reciente ARRIBA
+  // Cronología inversa
   const rawEvents = activeMatch.events || [];
   const events = [...rawEvents].reverse();
 
-  // Filtrado de camisetas disponibles en catálogo
+  // Camisetas en catálogo
   const hasHomeInDb = Boolean(activeMatch.hasHomeTeamInDb || activeMatch.homeTeamId);
   const hasAwayInDb = Boolean(activeMatch.hasAwayTeamInDb || activeMatch.awayTeamId);
 
-  // Tabla correspondiente a la liga y conferencia del partido actual (ORDEN 100% GARANTIZADO)
+  // Clasificación
   const leagueData = currentLeagueSlug ? standingsByLeague[teamCacheKey] : undefined;
   const currentGroups = leagueData?.groups || [];
   const activeGroup = currentGroups[selectedGroupIndex];
@@ -287,12 +294,16 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  // Apple Design - Scoreboard Card con transluminiscencia y relieve óptico
   const scoreboardNode = (
-    <div className="bg-gradient-to-b from-white/[0.06] to-white/[0.02] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
+    <div className="relative overflow-hidden rounded-3xl bg-white/[0.04] backdrop-blur-2xl border border-white/[0.08] p-4 sm:p-6 shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
+      {/* Light-catching hairline (reflejo de luz en el borde superior, §12 Apple Design) */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
       {/* Píldora de Torneo, Sede y Botón Compartir (En Desktop) */}
       <div className="hidden sm:flex flex-wrap items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/[0.08] border border-white/15 text-xs font-black uppercase tracking-wider text-gray-200 shadow-sm">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/10 text-xs font-bold uppercase tracking-wider text-gray-200 shadow-sm">
             {activeMatch.isFinished ? (
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
             ) : activeMatch.isUpcoming ? (
@@ -304,7 +315,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
           </span>
 
           {activeMatch.venueName && (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[10px] text-gray-400 font-medium">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/[0.03] border border-white/5 text-[10px] text-gray-400 font-medium tracking-normal">
               <MapPin className="w-3 h-3 text-gray-500" />
               <span>{activeMatch.venueName}{activeMatch.venueCity ? `, ${activeMatch.venueCity}` : ''}</span>
             </span>
@@ -314,7 +325,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
         <button
           type="button"
           onClick={handleShareWhatsApp}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all hover:scale-105 cursor-pointer shadow-sm ml-auto"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-300 border border-emerald-500/25 backdrop-blur-md text-xs font-semibold transition-all cursor-pointer shadow-sm ml-auto"
           title="Compartir resultado en WhatsApp"
         >
           <Share2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -327,12 +338,12 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
         {/* EQUIPO LOCAL (IZQUIERDA) */}
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
           <div
-            className="relative w-14 h-14 sm:w-20 sm:h-20 lg:w-22 lg:h-22 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex items-center justify-center border border-white/15 shadow-2xl transition-transform duration-300 hover:scale-105"
+            className="relative w-14 h-14 sm:w-20 sm:h-20 lg:w-22 lg:h-22 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex items-center justify-center border border-white/15 shadow-xl transition-transform duration-200 active:scale-95 hover:scale-105"
             style={{
               backgroundColor: isHomeWhite ? "rgba(255, 255, 255, 0.12)" : `${homeColor}18`,
               boxShadow: isHomeWhite
-                ? "0 10px 35px rgba(255, 255, 255, 0.25)"
-                : `0 12px 35px ${homeColor}35`,
+                ? "0 10px 30px rgba(255, 255, 255, 0.2)"
+                : `0 10px 30px ${homeColor}30`,
             }}
           >
             {!homeLogo ? (
@@ -343,11 +354,11 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                 src={homeLogo}
                 alt={homeName}
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-contain filter drop-shadow-[0_6px_15px_rgba(0,0,0,0.7)]"
+                className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
               />
             )}
           </div>
-          <span className="text-xs sm:text-base font-black text-white tracking-tight line-clamp-2 max-w-[100px] sm:max-w-none text-center">
+          <span className="text-xs sm:text-base font-bold text-white tracking-tight line-clamp-2 max-w-[100px] sm:max-w-none text-center">
             {homeName}
           </span>
         </div>
@@ -356,37 +367,37 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
         <div className="flex flex-col items-center justify-center px-1 sm:px-2">
           {activeMatch.isUpcoming ? (
             <div className="flex flex-col items-center gap-1">
-              <span className="text-2xl sm:text-5xl lg:text-6xl font-black text-blue-400 font-mono tracking-widest drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]">
+              <span className="text-2xl sm:text-5xl lg:text-6xl font-black text-blue-400 font-mono tracking-tighter tabular-nums drop-shadow-[0_0_20px_rgba(59,130,246,0.4)]">
                 VS
               </span>
-              <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-[10px] sm:text-xs font-bold whitespace-nowrap">
+              <span className="px-3 py-1 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/20 text-[10px] sm:text-xs font-semibold whitespace-nowrap">
                 {activeMatch.startTime || "Próximamente"}
               </span>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-              <div className="flex items-center gap-2 sm:gap-4 text-3xl sm:text-5xl lg:text-6xl font-black font-mono tracking-tight text-white drop-shadow-[0_10px_25px_rgba(0,0,0,0.8)]">
+              <div className="flex items-center gap-2 sm:gap-4 text-3xl sm:text-5xl lg:text-6xl font-black font-mono tracking-tighter tabular-nums text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
                 <span className={activeMatch.isFinished ? "text-amber-400" : "text-white"}>
                   {homeScore}
                 </span>
-                <span className="text-gray-600 font-extralight opacity-50">:</span>
+                <span className="text-gray-500 font-light opacity-60">:</span>
                 <span className={activeMatch.isFinished ? "text-amber-400" : "text-white"}>
                   {awayScore}
                 </span>
               </div>
 
               {activeMatch.isHalftime ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] sm:text-xs font-mono font-bold shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 sm:py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] sm:text-xs font-mono font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                   ENTRETIEMPO
                 </span>
               ) : isLive && (activeMatch.displayClock || activeMatch.minute) ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-red-600/20 text-red-400 border border-red-500/40 text-[10px] sm:text-xs font-mono font-black animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-500 animate-ping" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 sm:py-1 rounded-full bg-red-600/15 text-red-400 border border-red-500/30 text-[10px] sm:text-xs font-mono font-black shadow-[0_0_12px_rgba(239,68,68,0.25)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
                   {activeMatch.displayClock || `${activeMatch.minute}'`} EN VIVO
                 </span>
               ) : (
-                <span className="px-3 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs text-gray-300 font-bold uppercase tracking-widest">
+                <span className="px-3 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs text-gray-300 font-bold uppercase tracking-wider">
                   {activeMatch.isFinished ? "Finalizado" : "En Juego"}
                 </span>
               )}
@@ -397,12 +408,12 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
         {/* EQUIPO VISITANTE (DERECHA) */}
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
           <div
-            className="relative w-14 h-14 sm:w-20 sm:h-20 lg:w-22 lg:h-22 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex items-center justify-center border border-white/15 shadow-2xl transition-transform duration-300 hover:scale-105"
+            className="relative w-14 h-14 sm:w-20 sm:h-20 lg:w-22 lg:h-22 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex items-center justify-center border border-white/15 shadow-xl transition-transform duration-200 active:scale-95 hover:scale-105"
             style={{
               backgroundColor: isAwayWhite ? "rgba(255, 255, 255, 0.12)" : `${awayColor}18`,
               boxShadow: isAwayWhite
-                ? "0 10px 35px rgba(255, 255, 255, 0.25)"
-                : `0 12px 35px ${awayColor}35`,
+                ? "0 10px 30px rgba(255, 255, 255, 0.2)"
+                : `0 10px 30px ${awayColor}30`,
             }}
           >
             {!awayLogo ? (
@@ -413,11 +424,11 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                 src={awayLogo}
                 alt={awayName}
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-contain filter drop-shadow-[0_6px_15px_rgba(0,0,0,0.7)]"
+                className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
               />
             )}
           </div>
-          <span className="text-xs sm:text-base font-black text-white tracking-tight line-clamp-2 max-w-[100px] sm:max-w-none text-center">
+          <span className="text-xs sm:text-base font-bold text-white tracking-tight line-clamp-2 max-w-[100px] sm:max-w-none text-center">
             {awayName}
           </span>
         </div>
@@ -425,20 +436,21 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
     </div>
   );
 
+  // Banner comercial Apple Style
   const commercialNode = (
     <div>
       {(hasHomeInDb || hasAwayInDb) ? (
-        <div className="bg-gradient-to-b from-white/[0.05] to-white/[0.01] border border-white/10 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3.5">
+        <div className="relative overflow-hidden rounded-3xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 shadow-lg space-y-3.5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(229,9,20,0.3)]">
+            <div className="w-10 h-10 rounded-2xl bg-red-600/15 border border-red-500/30 flex items-center justify-center shrink-0">
               <Shirt className="w-5 h-5 text-red-500" />
             </div>
             <div>
-              <h5 className="text-xs sm:text-sm font-black text-white">
+              <h5 className="text-xs sm:text-sm font-bold text-white tracking-tight">
                 Camisetas Oficiales del Partido
               </h5>
               <p className="text-[10px] text-gray-400">
-                Personalización de dorsal disponible · Envíos a toda Honduras
+                Personalización oficial disponible · Envíos a toda Honduras
               </p>
             </div>
           </div>
@@ -450,7 +462,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                   ? `/catalogo?equipo=${encodeURIComponent(activeMatch.homeTeamId)}`
                   : `/catalogo?query=${encodeURIComponent(homeName)}`}
                 onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-2xl bg-[#E50914] hover:bg-red-700 text-white text-xs font-black flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-[0_0_20px_rgba(229,9,20,0.4)] cursor-pointer"
+                className="flex-1 px-4 py-2.5 rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.98] text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-[0_4px_16px_rgba(229,9,20,0.35)] cursor-pointer"
               >
                 <span>Camiseta {homeName}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -463,7 +475,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                   ? `/catalogo?equipo=${encodeURIComponent(activeMatch.awayTeamId)}`
                   : `/catalogo?query=${encodeURIComponent(awayName)}`}
                 onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-black flex items-center justify-center gap-2 transition-all hover:scale-105 cursor-pointer"
+                className="flex-1 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-[0.98] border border-white/15 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer backdrop-blur-md"
               >
                 <span>Camiseta {awayName}</span>
                 <ArrowRight className="w-4 h-4 text-gray-300" />
@@ -472,14 +484,14 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
           </div>
         </div>
       ) : (
-        <div className="bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/10 rounded-3xl p-4 sm:p-5 shadow-xl flex items-center justify-between gap-4">
-          <span className="text-xs text-gray-400">
+        <div className="rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 shadow-lg flex items-center justify-between gap-4">
+          <span className="text-xs text-gray-400 font-medium">
             Descubre miles de camisetas de las mejores ligas del mundo
           </span>
           <Link
             href="/catalogo"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-[#E50914] hover:bg-red-700 text-white text-xs font-black flex items-center gap-2 transition-all hover:scale-105 cursor-pointer shrink-0"
+            className="px-4 py-2 rounded-xl bg-[#E50914] hover:bg-red-700 active:scale-[0.98] text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 shadow-md"
           >
             <span>Ver Catálogo</span>
             <ArrowRight className="w-4 h-4" />
@@ -492,47 +504,81 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
   return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 overflow-hidden">
-        {/* Backdrop de Estadio */}
+        {/* Scrim / Fondo translúcido con desenfoque de profundidad (Apple Materials §12) */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/90 backdrop-blur-2xl transition-opacity"
+          className="fixed inset-0 bg-black/75 backdrop-blur-md transition-opacity"
         />
 
-        {/* Modal Principal */}
+        {/* Modal Principal con Física de Resortes y Drag to Dismiss (§4, §5, §6 Apple Design) */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.94, y: 30 }}
+          drag="y"
+          dragControls={dragControls}
+          dragListener={false}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0.05, bottom: 0.75 }}
+          onDragEnd={(_, info) => {
+            // Apple Momentum Projection: calcula si el arrastre o el 'flick' proyectan fuera del umbral
+            const projectedY = info.offset.y + projectMomentum(info.velocity.y);
+            if (projectedY > 160 || info.offset.y > 100 || info.velocity.y > 450) {
+              onClose();
+            }
+          }}
+          initial={{ opacity: 0, scale: 0.96, y: 40 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.94, y: 30 }}
-          transition={{ type: "spring", damping: 28, stiffness: 350 }}
-          className="relative w-full max-w-2xl lg:max-w-6xl xl:max-w-7xl bg-[#07070a] border-t sm:border border-white/20 rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_120px_rgba(0,0,0,0.98)] overflow-hidden z-10 text-white my-0 sm:my-auto max-h-[94vh] sm:max-h-[92vh] flex flex-col transition-all duration-300"
+          exit={{ opacity: 0, scale: 0.96, y: 40 }}
+          transition={{
+            type: "spring",
+            damping: 30,
+            stiffness: 340,
+            mass: 0.8,
+          }}
+          className="relative w-full max-w-2xl lg:max-w-6xl xl:max-w-7xl bg-[#0b0c10]/85 backdrop-blur-3xl border-t sm:border border-white/[0.12] rounded-t-[2.2rem] sm:rounded-[2.5rem] shadow-[0_32px_96px_rgba(0,0,0,0.92)] overflow-hidden z-10 text-white my-0 sm:my-auto max-h-[94vh] sm:max-h-[92vh] flex flex-col will-change-transform"
         >
-          {/* Resplandor con Colores Reales de los Clubes (Aceleración GPU + blur adaptable para evitar pérdida de color o parpadeos en móviles) */}
+          {/* Hairline luminoso superior (Apple glass specular highlight) */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none z-20" />
+
+          {/* Resplandor ambiental de los clubes (Aceleración GPU + blur adaptable) */}
           <div
-            className="absolute -top-24 -left-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[60px] sm:blur-[100px] lg:blur-[140px] pointer-events-none transform-gpu will-change-transform"
+            className="absolute -top-24 -left-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[70px] sm:blur-[110px] pointer-events-none transform-gpu will-change-transform opacity-30"
             style={{
               backgroundColor: homeColor,
-              opacity: isHomeWhite ? 0.22 : 0.35,
               transform: "translate3d(0, 0, 0)",
             }}
           />
           <div
-            className="absolute -top-24 -right-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[60px] sm:blur-[100px] lg:blur-[140px] pointer-events-none transform-gpu will-change-transform"
+            className="absolute -top-24 -right-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[70px] sm:blur-[110px] pointer-events-none transform-gpu will-change-transform opacity-30"
             style={{
               backgroundColor: awayColor,
-              opacity: isAwayWhite ? 0.22 : 0.35,
               transform: "translate3d(0, 0, 0)",
             }}
           />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.06)_0%,_transparent_75%)] pointer-events-none" />
 
-          {/* BARRA SUPERIOR MÓVIL (LIMPIA, SIN COLISIONES DE BOTONES) */}
-          <div className="sm:hidden flex items-center justify-between px-4 pt-3.5 pb-2.5 border-b border-white/10 shrink-0 bg-white/[0.03]">
+          {/* ────── INDICADOR DE ARRASTRE APPLE (GRAB HANDLE PILL) ────── */}
+          <div
+            className="w-full flex flex-col items-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none select-none z-30 shrink-0 group"
+            onPointerDown={(e) => dragControls.start(e)}
+          >
+            <div className="w-10 h-1.5 rounded-full bg-white/25 group-hover:bg-white/40 group-active:bg-white/60 transition-colors shadow-sm" />
+          </div>
+
+          {/* ────── BARRA SUPERIOR MÓVIL (PERMITE DESLIZAR HACIA ABAJO) ────── */}
+          <div
+            className="sm:hidden flex items-center justify-between px-4 pb-2.5 pt-1 border-b border-white/[0.08] shrink-0 bg-white/[0.02] touch-none select-none"
+            onPointerDown={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.tagName !== 'BUTTON' && !target.closest('button') && target.tagName !== 'A' && !target.closest('a')) {
+                dragControls.start(e);
+              }
+            }}
+          >
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-gray-200 truncate max-w-[160px]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-200 truncate max-w-[160px]">
                 {activeMatch.leagueName || "MATCHDAY"}
               </span>
             </div>
@@ -540,7 +586,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
               <button
                 type="button"
                 onClick={handleShareWhatsApp}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold active:scale-95 transition-transform"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 text-[10px] font-semibold active:scale-95 transition-transform"
                 title="Compartir en WhatsApp"
               >
                 <Share2 className="w-3 h-3 text-emerald-400" />
@@ -548,56 +594,68 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
               </button>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-gray-300 hover:text-white active:scale-90 transition-all cursor-pointer"
+                className="w-7 h-7 rounded-full bg-white/10 active:scale-90 border border-white/15 flex items-center justify-center text-white/80 active:text-white transition-all cursor-pointer backdrop-blur-md"
                 aria-label="Cerrar modal"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          {/* BOTÓN CERRAR EN DESKTOP (FLOTANTE ARRIBA A LA DERECHA) */}
+          {/* BOTÓN CERRAR EN DESKTOP (FROSTED GLASS CIRCLE) */}
           <button
             onClick={onClose}
-            className="hidden sm:flex absolute top-4 right-4 z-30 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 items-center justify-center text-gray-300 hover:text-white transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg"
+            className="hidden sm:flex absolute top-4 right-4 z-30 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 border border-white/15 items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer shadow-lg backdrop-blur-md"
             aria-label="Cerrar modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
 
           {/* ──────── CUERPO DEL MODAL CON UN SOLO DESPLAZAMIENTO FLUIDO ──────── */}
-          <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 md:px-8 pt-4 sm:pt-6 pb-8 scrollbar-thin scrollbar-thumb-white/20 overscroll-contain">
+          <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 md:px-8 pt-3 sm:pt-4 pb-8 scrollbar-thin scrollbar-thumb-white/20 overscroll-contain">
             {/* SCOREBOARD EN MÓVIL (< lg) */}
             <div className="block lg:hidden mb-4">
               {scoreboardNode}
             </div>
 
-            {/* SWITCHER DE PESTAÑAS EN MÓVIL (< lg) */}
+            {/* APPLE SEGMENTED CONTROL (PESTAÑAS EN MÓVIL) CON PÍLDORA DESLIZANTE DE RESORTE */}
             {currentLeagueSlug && (
               <div className="flex lg:hidden justify-center mb-4 shrink-0 px-1">
-                <div className="grid grid-cols-2 p-1 bg-black/60 border border-white/10 rounded-2xl gap-1 w-full max-w-sm">
+                <div className="relative grid grid-cols-2 p-1 bg-white/[0.06] backdrop-blur-xl border border-white/10 rounded-full w-full max-w-sm">
                   <button
+                    type="button"
                     onClick={() => setActiveTab('match')}
-                    className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all cursor-pointer ${
-                      activeTab === 'match'
-                        ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-600/30"
-                        : "text-gray-400 hover:text-white"
-                    }`}
+                    className="relative z-10 flex items-center justify-center gap-1.5 py-2 text-xs transition-colors cursor-pointer select-none active:scale-[0.98]"
                   >
-                    <Activity className="w-3.5 h-3.5 shrink-0" />
-                    <span>En Vivo & Stats</span>
+                    {activeTab === 'match' && (
+                      <motion.div
+                        layoutId="appleSegmentedPill"
+                        className="absolute inset-0 rounded-full bg-white/15 backdrop-blur-md border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                        transition={{ type: "spring", damping: 26, stiffness: 360 }}
+                      />
+                    )}
+                    <Activity className={`w-3.5 h-3.5 z-10 ${activeTab === 'match' ? 'text-white' : 'text-gray-400'}`} />
+                    <span className={`z-10 text-xs font-bold tracking-tight ${activeTab === 'match' ? 'text-white' : 'text-gray-400'}`}>
+                      En Vivo & Stats
+                    </span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => setActiveTab('standings')}
-                    className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all cursor-pointer ${
-                      activeTab === 'standings'
-                        ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-600/30"
-                        : "text-gray-400 hover:text-white"
-                    }`}
+                    className="relative z-10 flex items-center justify-center gap-1.5 py-2 text-xs transition-colors cursor-pointer select-none active:scale-[0.98]"
                   >
-                    <Award className="w-3.5 h-3.5 shrink-0" />
-                    <span>Clasificación</span>
+                    {activeTab === 'standings' && (
+                      <motion.div
+                        layoutId="appleSegmentedPill"
+                        className="absolute inset-0 rounded-full bg-white/15 backdrop-blur-md border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                        transition={{ type: "spring", damping: 26, stiffness: 360 }}
+                      />
+                    )}
+                    <Award className={`w-3.5 h-3.5 z-10 ${activeTab === 'standings' ? 'text-white' : 'text-gray-400'}`} />
+                    <span className={`z-10 text-xs font-bold tracking-tight ${activeTab === 'standings' ? 'text-white' : 'text-gray-400'}`}>
+                      Clasificación
+                    </span>
                   </button>
                 </div>
               </div>
@@ -614,14 +672,14 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                 </div>
 
                 {/* CRONOLOGÍA */}
-                <div className="bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/10 rounded-3xl p-3.5 sm:p-6 relative overflow-hidden shadow-xl">
+                <div className="relative overflow-hidden rounded-3xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-3.5 sm:p-6 shadow-xl">
                   <div className="flex items-center justify-between mb-3 sm:mb-4">
-                    <span className="text-[11px] font-black uppercase text-gray-300 tracking-wider flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold uppercase text-gray-300 tracking-wider flex items-center gap-1.5">
                       <Activity className="w-3.5 h-3.5 text-red-500 animate-pulse" />
                       Incidencias & Cronología
                     </span>
                     {isLive ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-600/20 text-red-400 border border-red-500/30 text-[10px] font-black uppercase tracking-wider">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-600/15 text-red-400 border border-red-500/25 text-[10px] font-bold uppercase tracking-wider">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
                         En directo
                       </span>
@@ -633,13 +691,13 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                   </div>
 
                   {events.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-gray-500 italic">
+                    <div className="py-8 text-center text-xs text-gray-400 italic">
                       No hay goles ni incidencias disciplinarias registradas todavía.
                     </div>
                   ) : (
                     <div className="relative py-2 sm:py-3">
                       {/* Eje Vertical Central */}
-                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent -translate-x-1/2 pointer-events-none" />
+                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent -translate-x-1/2 pointer-events-none" />
 
                       <div className="space-y-2.5 sm:space-y-4">
                         {events.map((evt: MatchEventDetail) => {
@@ -658,12 +716,12 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                                 {isHome ? (
                                   <div
                                     className={`flex items-center gap-1.5 sm:gap-2 text-right bg-gradient-to-l ${
-                                      evt.disallowed ? 'from-red-950/20 via-white/[0.04]' : 'from-white/[0.08]'
-                                    } to-transparent border-r-2 pr-2 sm:pr-3 py-1 sm:py-1.5 pl-1.5 sm:pl-2 rounded-l-xl transition-all group-hover:from-white/[0.12] max-w-full`}
+                                      evt.disallowed ? 'from-red-950/20 via-white/[0.03]' : 'from-white/[0.06]'
+                                    } to-transparent border-r-2 pr-2 sm:pr-3 py-1 sm:py-1.5 pl-1.5 sm:pl-2 rounded-l-xl transition-all group-hover:from-white/[0.1] max-w-full`}
                                     style={{ borderRightColor: evt.type === 'disallowed-goal' ? '#EF4444' : homeColor }}
                                   >
                                     <div className="flex flex-col min-w-0">
-                                      <span className={`text-[11px] sm:text-sm font-black truncate ${
+                                      <span className={`text-[11px] sm:text-sm font-bold truncate ${
                                         evt.disallowed && evt.type === 'goal' ? 'text-gray-400 line-through decoration-red-500/70' : 'text-white'
                                       }`}>
                                         {playerTitle}
@@ -676,7 +734,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                                       {(evt.type === 'goal' || evt.type === 'penalty-goal') && !evt.disallowed && (
                                         <Link
                                           href={`/catalogo?query=${encodeURIComponent(homeName)}`}
-                                          className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] text-amber-400/90 hover:text-amber-300 font-bold underline decoration-amber-500/40 hover:decoration-amber-400 mt-0.5"
+                                          className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] text-amber-400/90 hover:text-amber-300 font-bold underline decoration-amber-500/40 hover:decoration-amber-400 mt-0.5 active:scale-95"
                                         >
                                           <span>👕 Camiseta 10% OFF</span>
                                         </Link>
@@ -691,8 +749,8 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                                 )}
                               </div>
 
-                              {/* MINUTO CON PLENO PROTAGONISMO */}
-                              <div className="z-10 px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-neutral-900/90 border border-white/25 text-[10px] sm:text-xs font-mono font-black text-white shadow-[0_0_15px_rgba(0,0,0,0.8)] tracking-tight shrink-0 text-center min-w-[2.2rem] sm:min-w-[3.4rem]">
+                              {/* MINUTO */}
+                              <div className="z-10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-neutral-900/90 border border-white/20 text-[10px] sm:text-xs font-mono font-bold text-white shadow-md tracking-tight shrink-0 text-center min-w-[2.2rem] sm:min-w-[3.4rem]">
                                 {minuteDisplay}
                               </div>
 
@@ -701,15 +759,15 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                                 {!isHome ? (
                                   <div
                                     className={`flex items-center gap-1.5 sm:gap-2 text-left bg-gradient-to-r ${
-                                      evt.disallowed ? 'from-red-950/20 via-white/[0.04]' : 'from-white/[0.08]'
-                                    } to-transparent border-l-2 pl-2 sm:pl-3 py-1 sm:py-1.5 pr-1.5 sm:pr-2 rounded-r-xl transition-all group-hover:to-white/[0.12] max-w-full`}
+                                      evt.disallowed ? 'from-red-950/20 via-white/[0.03]' : 'from-white/[0.06]'
+                                    } to-transparent border-l-2 pl-2 sm:pl-3 py-1 sm:py-1.5 pr-1.5 sm:pr-2 rounded-r-xl transition-all group-hover:to-white/[0.1] max-w-full`}
                                     style={{ borderLeftColor: evt.type === 'disallowed-goal' ? '#EF4444' : awayColor }}
                                   >
                                     <span className="text-sm sm:text-lg shrink-0 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
                                       {icon}
                                     </span>
                                     <div className="flex flex-col min-w-0">
-                                      <span className={`text-[11px] sm:text-sm font-black truncate ${
+                                      <span className={`text-[11px] sm:text-sm font-bold truncate ${
                                         evt.disallowed && evt.type === 'goal' ? 'text-gray-400 line-through decoration-red-500/70' : 'text-white'
                                       }`}>
                                         {playerTitle}
@@ -722,7 +780,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                                       {(evt.type === 'goal' || evt.type === 'penalty-goal') && !evt.disallowed && (
                                         <Link
                                           href={`/catalogo?query=${encodeURIComponent(awayName)}`}
-                                          className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] text-amber-400/90 hover:text-amber-300 font-bold underline decoration-amber-500/40 hover:decoration-amber-400 mt-0.5"
+                                          className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] text-amber-400/90 hover:text-amber-300 font-bold underline decoration-amber-500/40 hover:decoration-amber-400 mt-0.5 active:scale-95"
                                         >
                                           <span>👕 Camiseta 10% OFF</span>
                                         </Link>
@@ -743,43 +801,43 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
 
                 {/* POSESIÓN DE BALÓN */}
                 {activeMatch.stats?.possession && (
-                  <div className="bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/10 rounded-3xl p-4 sm:p-5 space-y-3 shadow-xl">
+                  <div className="rounded-3xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 space-y-3 shadow-xl">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span
-                          className="w-3 h-3 rounded-full border border-white/30"
+                          className="w-3 h-3 rounded-full border border-white/20"
                           style={{
                             backgroundColor: homeColor,
-                            boxShadow: isHomeWhite ? "0 0 10px rgba(255, 255, 255, 0.8)" : `0 0 10px ${homeColor}`,
+                            boxShadow: isHomeWhite ? "0 0 10px rgba(255, 255, 255, 0.7)" : `0 0 10px ${homeColor}`,
                           }}
                         />
-                        <span className="text-xl sm:text-2xl font-black font-mono text-white">
+                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white">
                           {rawHomePoss}%
                         </span>
-                        <span className="text-xs text-gray-300 font-bold hidden sm:inline">{homeName}</span>
+                        <span className="text-xs text-gray-300 font-semibold hidden sm:inline">{homeName}</span>
                       </div>
 
-                      <span className="text-xs uppercase tracking-widest text-gray-400 font-black">
+                      <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">
                         Posesión
                       </span>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-300 font-bold hidden sm:inline">{awayName}</span>
-                        <span className="text-xl sm:text-2xl font-black font-mono text-white">
+                        <span className="text-xs text-gray-300 font-semibold hidden sm:inline">{awayName}</span>
+                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white">
                           {rawAwayPoss}%
                         </span>
                         <span
-                          className="w-3 h-3 rounded-full border border-white/30"
+                          className="w-3 h-3 rounded-full border border-white/20"
                           style={{
                             backgroundColor: awayColor,
-                            boxShadow: isAwayWhite ? "0 0 10px rgba(255, 255, 255, 0.8)" : `0 0 10px ${awayColor}`,
+                            boxShadow: isAwayWhite ? "0 0 10px rgba(255, 255, 255, 0.7)" : `0 0 10px ${awayColor}`,
                           }}
                         />
                       </div>
                     </div>
 
                     {/* Barra de Posesión Bicolor */}
-                    <div className="w-full h-3.5 bg-neutral-900 rounded-full overflow-hidden flex p-0.5 border border-white/15 shadow-inner">
+                    <div className="w-full h-3 bg-neutral-900 rounded-full overflow-hidden flex p-0.5 border border-white/10 shadow-inner">
                       <div
                         className="h-full rounded-l-full transition-all duration-700"
                         style={{
@@ -804,11 +862,11 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                 {activeMatch.stats && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {activeMatch.stats.shotsOnTarget && (
-                      <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3 text-center flex flex-col justify-center">
-                        <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">
+                      <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl p-3 text-center flex flex-col justify-center">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
                           Tiros a Puerta
                         </span>
-                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black">
+                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black tabular-nums">
                           <span style={{ color: homeColor }}>{activeMatch.stats.shotsOnTarget.home}</span>
                           <span className="text-gray-600 text-xs">-</span>
                           <span style={{ color: awayColor }}>{activeMatch.stats.shotsOnTarget.away}</span>
@@ -817,11 +875,11 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                     )}
 
                     {activeMatch.stats.totalShots && (
-                      <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3 text-center flex flex-col justify-center">
-                        <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">
+                      <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl p-3 text-center flex flex-col justify-center">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
                           Tiros Totales
                         </span>
-                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black">
+                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black tabular-nums">
                           <span style={{ color: homeColor }}>{activeMatch.stats.totalShots.home}</span>
                           <span className="text-gray-600 text-xs">-</span>
                           <span style={{ color: awayColor }}>{activeMatch.stats.totalShots.away}</span>
@@ -830,11 +888,11 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                     )}
 
                     {activeMatch.stats.corners && (
-                      <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3 text-center flex flex-col justify-center">
-                        <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">
+                      <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl p-3 text-center flex flex-col justify-center">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
                           Córners
                         </span>
-                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black">
+                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black tabular-nums">
                           <span style={{ color: homeColor }}>{activeMatch.stats.corners.home}</span>
                           <span className="text-gray-600 text-xs">-</span>
                           <span style={{ color: awayColor }}>{activeMatch.stats.corners.away}</span>
@@ -843,11 +901,11 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                     )}
 
                     {activeMatch.stats.fouls && (
-                      <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3 text-center flex flex-col justify-center">
-                        <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">
+                      <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl p-3 text-center flex flex-col justify-center">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
                           Faltas
                         </span>
-                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black">
+                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black tabular-nums">
                           <span style={{ color: homeColor }}>{activeMatch.stats.fouls.home}</span>
                           <span className="text-gray-600 text-xs">-</span>
                           <span style={{ color: awayColor }}>{activeMatch.stats.fouls.away}</span>
@@ -865,32 +923,32 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
 
               {/* ────── COLUMNA DERECHA (5 COLS EN PC): TABLA DE CLASIFICACIÓN & CAMISETAS ────── */}
               <div className={`lg:col-span-5 space-y-6 ${activeTab === 'standings' ? 'block' : 'hidden lg:block'}`}>
-                {/* TABLA DE POSICIONES (DESDE ARRIBA) */}
-                <div className="bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/10 rounded-3xl p-4 sm:p-5 shadow-xl space-y-4">
+                {/* TABLA DE POSICIONES */}
+                <div className="rounded-3xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 shadow-xl space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Award className="w-4 h-4 text-amber-400" />
-                      <h4 className="text-xs sm:text-sm font-black text-white tracking-wide">
+                      <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">
                         {leagueData?.groupName || "Tabla de Posiciones"}
                       </h4>
                     </div>
                     {currentLeagueSlug && (
-                      <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+                      <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
                         {currentLeagueSlug.toUpperCase()}
                       </span>
                     )}
                   </div>
 
-                  {/* Selector de Grupos/Conferencias (ej: Conferencia Este / Oeste en MLS, Grupos UCL) */}
+                  {/* Selector de Grupos/Conferencias */}
                   {currentGroups.length > 1 && (
-                    <div className="flex flex-wrap gap-1.5 p-1 bg-black/40 rounded-2xl border border-white/10">
+                    <div className="flex flex-wrap gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/10">
                       {currentGroups.map((grp, idx) => (
                         <button
                           key={grp.name || idx}
                           onClick={() => setSelectedGroupIndex(idx)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
                             selectedGroupIndex === idx
-                              ? "bg-red-600 text-white shadow-md shadow-red-600/30 font-black"
+                              ? "bg-white/20 text-white font-bold shadow-sm"
                               : "text-gray-400 hover:text-white"
                           }`}
                         >
@@ -900,20 +958,20 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                     </div>
                   )}
 
-                  {/* Tabla fluida sin scroll interno anidado */}
+                  {/* Tabla fluida */}
                   {loadingStandings ? (
                     <div className="py-16 flex flex-col items-center justify-center gap-3">
                       <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
                       <span className="text-xs text-gray-400 font-medium">Cargando clasificación...</span>
                     </div>
                   ) : currentStandings.length === 0 ? (
-                    <div className="py-12 text-center text-xs text-gray-500 italic">
+                    <div className="py-12 text-center text-xs text-gray-400 italic">
                       No hay datos de clasificación disponibles para esta competición.
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
-                        <thead className="border-b border-white/15 text-[10px] text-gray-400 uppercase font-black">
+                        <thead className="border-b border-white/10 text-[10px] text-gray-400 uppercase font-bold tracking-wider">
                           <tr>
                             <th className="py-2.5 px-2 text-center w-8">#</th>
                             <th className="py-2.5 px-3">Club</th>
@@ -936,18 +994,18 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                                 key={row.teamName}
                                 className={`transition-colors ${
                                   isMatchTeam
-                                    ? "bg-red-600/15 font-bold text-white"
+                                    ? "bg-white/[0.08] font-bold text-white"
                                     : "hover:bg-white/[0.03] text-gray-300"
                                 }`}
                               >
-                                <td className="py-2.5 px-2 text-center font-mono text-xs">
+                                <td className="py-2.5 px-2 text-center font-mono text-xs tabular-nums">
                                   {row.rank > 0 ? (
                                     <span
                                       className={`inline-block w-5 h-5 leading-5 rounded-full text-[10px] ${
                                         row.rank <= 4
-                                          ? "bg-blue-600/30 text-blue-400 font-black border border-blue-500/30"
+                                          ? "bg-blue-500/20 text-blue-300 font-bold border border-blue-400/30"
                                           : row.rank <= 8
-                                          ? "bg-amber-600/30 text-amber-400 font-bold border border-amber-500/30"
+                                          ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-400/30"
                                           : "text-gray-400"
                                       }`}
                                     >
@@ -966,17 +1024,17 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                                       className="w-4 h-4 object-contain shrink-0"
                                     />
                                   )}
-                                  <span className="truncate max-w-[140px] sm:max-w-[170px] text-xs">
+                                  <span className="truncate max-w-[140px] sm:max-w-[170px] text-xs font-medium">
                                     {translatedRowTeamName}
                                   </span>
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono text-gray-400">
+                                <td className="py-2.5 px-2 text-center font-mono text-gray-400 tabular-nums">
                                   {row.gamesPlayed}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono text-gray-400">
+                                <td className="py-2.5 px-2 text-center font-mono text-gray-400 tabular-nums">
                                   {row.pointDifferential}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-black text-white">
+                                <td className="py-2.5 px-2 text-center font-mono font-bold text-white tabular-nums">
                                   {row.points}
                                 </td>
                               </tr>
@@ -988,7 +1046,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                   )}
                 </div>
 
-                {/* BANNER COMERCIAL EN PC (DEBAJO DE LA TABLA DE CLASIFICACIÓN EN LA DERECHA) */}
+                {/* BANNER COMERCIAL EN PC */}
                 <div className="hidden lg:block">
                   {commercialNode}
                 </div>
