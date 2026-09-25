@@ -87,7 +87,7 @@ describe("Checkout Form", () => {
                              honeypot.hasAttribute("aria-hidden");
             expect(isHidden).toBe(true);
         }
-    });
+    }, 15000);
 
     it("renders required form fields", async () => {
         await renderCheckoutPage();

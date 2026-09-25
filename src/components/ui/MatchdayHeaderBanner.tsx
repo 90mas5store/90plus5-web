@@ -148,28 +148,28 @@ export default function MatchdayHeaderBanner() {
 
   return (
     <>
-      <div className="relative z-30 w-full bg-[#09090b]/95 backdrop-blur-xl border-b border-[#E50914]/40 overflow-hidden shadow-[0_8px_30px_rgba(229,9,20,0.35)] whitespace-nowrap">
+      <div className="relative z-30 w-full bg-[#09090b]/80 backdrop-blur-2xl border-b border-white/[0.08] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap">
         {currentGoal ? (
-          /* TAKEOVER DE GOL EN VIVO: ADAPTATIVO EN MÓVIL Y ESCRITORIO (SIN CORTES) */
-          <div className="w-full bg-gradient-to-r from-red-950/95 via-neutral-950 to-amber-950/95 border-y border-amber-500/50 py-2 px-3 sm:px-6 shadow-[0_0_30px_rgba(245,158,11,0.35)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 animate-in fade-in duration-300">
+          /* TAKEOVER DE GOL EN VIVO: Apple Live Alert Banner (§12 Materials & Depth) */
+          <div className="w-full bg-gradient-to-r from-red-950/70 via-[#0c0d12]/95 to-amber-950/70 backdrop-blur-3xl border-y border-amber-500/30 py-2.5 px-4 sm:px-6 shadow-[0_12px_40px_rgba(0,0,0,0.7)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
             {/* Info Gol */}
-            <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4 min-w-0">
+            <div className="flex items-center justify-between sm:justify-start gap-2.5 sm:gap-4 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-red-600 text-white font-black uppercase text-[10px] sm:text-xs tracking-wider shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse shrink-0">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-red-600 text-white font-bold text-[10px] sm:text-xs tracking-tight shadow-[0_2px_10px_rgba(239,68,68,0.5)] border-t border-white/30 shrink-0">
                   <span>⚽ ¡GOL!</span>
                   {goalQueue.length > 1 && (
-                    <span className="bg-black/50 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-normal">
+                    <span className="bg-black/40 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-medium">
                       1/{goalQueue.length}
                     </span>
                   )}
                 </span>
 
-                <div className="flex items-center gap-1.5 font-black text-white text-xs sm:text-sm truncate">
-                  <span className="text-amber-400 font-bold drop-shadow-[0_0_10px_rgba(245,158,11,0.4)] truncate">
+                <div className="flex items-center gap-1.5 font-bold text-white text-xs sm:text-sm tracking-tight truncate">
+                  <span className="text-amber-300 drop-shadow-[0_0_8px_rgba(245,158,11,0.3)] truncate">
                     {translateTeamNameToSpanish(currentGoal.scoringTeam)}
                   </span>
                   {currentGoal.scoringPlayer && (
-                    <span className="text-gray-300 font-medium text-[11px] sm:text-xs truncate">
+                    <span className="text-white/70 font-normal text-[11px] sm:text-xs truncate">
                       · {currentGoal.jersey ? `${currentGoal.jersey}. ` : ''}{currentGoal.scoringPlayer}
                       {currentGoal.minute ? ` (${currentGoal.minute})` : ''}
                     </span>
@@ -177,27 +177,27 @@ export default function MatchdayHeaderBanner() {
                 </div>
               </div>
 
-              {/* Marcador actual en el Takeover */}
-              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-black/80 border border-white/20 font-mono font-black text-white text-[11px] sm:text-sm shrink-0">
+              {/* Marcador actual con números tabulares Apple */}
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/60 border border-white/15 font-mono tabular-nums font-bold text-white text-[11px] sm:text-xs shrink-0 shadow-sm">
                 <span>{translateTeamAbbr(currentGoal.homeTeam)}</span>
                 <span className="text-amber-400 mx-1">{currentGoal.homeScore}:{currentGoal.awayScore}</span>
                 <span>{translateTeamAbbr(currentGoal.awayTeam)}</span>
               </div>
             </div>
 
-            {/* Acciones de Gol (Siempre visibles sin requerir swipe en móvil) */}
+            {/* Acciones de Gol — Cápsulas Apple con respuesta táctil inmediata */}
             <div className="flex items-center justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => handleOpenMatch(currentGoal.matchData)}
-                className="flex-1 sm:flex-none text-center px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95"
+                className="flex-1 sm:flex-none text-center px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-xs transition-all cursor-pointer shadow-sm active:scale-95 backdrop-blur-md"
               >
                 Match Center →
               </button>
 
               <Link
                 href={`/catalogo?query=${encodeURIComponent(translateTeamNameToSpanish(currentGoal.scoringTeam))}`}
-                className="flex-1 sm:flex-none text-center inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 cursor-pointer active:scale-95"
+                className="flex-1 sm:flex-none text-center inline-flex items-center justify-center gap-1 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs tracking-tight transition-all shadow-[0_4px_16px_rgba(229,9,20,0.4)] border-t border-white/30 cursor-pointer active:scale-95"
               >
                 <span>Camiseta 10% OFF</span>
                 <ArrowRight className="w-3 h-3" />
@@ -206,7 +206,7 @@ export default function MatchdayHeaderBanner() {
               <button
                 type="button"
                 onClick={() => setGoalQueue(prev => prev.slice(1))}
-                className="p-1 rounded-lg text-gray-400 hover:text-white transition-colors cursor-pointer text-xs ml-0.5"
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer text-xs ml-1 active:scale-90"
                 title="Siguiente / Cerrar"
               >
                 ✕
@@ -215,11 +215,11 @@ export default function MatchdayHeaderBanner() {
           </div>
         ) : !isMultiple ? (
           /* MODO 1 SOLO PARTIDO */
-          <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex flex-row items-center justify-between gap-3 overflow-x-auto scrollbar-none">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-row items-center justify-between gap-3 overflow-x-auto scrollbar-none">
             <MatchCapsule item={matchItems[0]} onOpenMatch={handleOpenMatch} />
 
             <div className="flex items-center gap-3 shrink-0">
-              <span className="hidden md:inline-flex text-xs font-semibold text-gray-300 items-center gap-1.5">
+              <span className="hidden md:inline-flex text-xs font-medium text-white/70 items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 <span>Cupón <code className="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">MATCHDAY</code>: 10% OFF</span>
               </span>
@@ -229,32 +229,35 @@ export default function MatchdayHeaderBanner() {
                   href={matchItems[0].storeTeamId
                     ? `/catalogo?equipo=${encodeURIComponent(matchItems[0].storeTeamId)}`
                     : `/catalogo?query=${encodeURIComponent(matchItems[0].storeTeamName)}`}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#E50914] hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider transition-all hover:scale-105 shadow-md shadow-red-600/30 whitespace-nowrap cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs tracking-tight shadow-[0_4px_16px_rgba(229,9,20,0.4)] border-t border-white/25 active:scale-95 whitespace-nowrap cursor-pointer transition-all"
                 >
-                  <span>Ver Camiseta Oficial</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Ver Camiseta</span>
+                  <ArrowRight className="w-3 h-3" />
                 </Link>
               )}
             </div>
           </div>
         ) : (
-          /* MODO TICKER DE MÚLTIPLES PARTIDOS */
+          /* MODO TICKER DE MÚLTIPLES PARTIDOS: Apple Live Activities */
           <div className="relative flex items-center py-2 group">
-            {/* Título fijo en el extremo izquierdo (Compacto en móvil) */}
-            <div className="absolute left-0 top-0 bottom-0 z-20 flex items-center px-2.5 sm:px-5 bg-gradient-to-r from-[#09090b] via-[#09090b]/95 to-transparent pr-4 sm:pr-6">
-              <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#E50914] text-white text-[10px] sm:text-xs font-black uppercase tracking-wider shadow-[0_0_20px_rgba(229,9,20,0.8)] animate-pulse whitespace-nowrap">
-                <Radio className="w-3 h-3" />
-                <span className="hidden sm:inline">JORNADA EN VIVO</span>
-                <span className="inline sm:hidden">EN VIVO</span>
+            {/* Título fijo en el extremo izquierdo estilo Dynamic Island */}
+            <div className="absolute left-0 top-0 bottom-0 z-20 flex items-center px-3 sm:px-5 bg-gradient-to-r from-[#09090b] via-[#09090b]/90 to-transparent pr-5 sm:pr-8">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.08] border border-white/15 backdrop-blur-md text-white text-[10px] sm:text-xs font-bold tracking-tight shadow-sm whitespace-nowrap">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                <span className="hidden sm:inline">Jornada en Vivo</span>
+                <span className="inline sm:hidden">En Vivo</span>
               </span>
             </div>
 
             {/* Track Marquee de Partidos */}
-            <div className="animate-marquee pl-28 sm:pl-56 space-x-3 sm:space-x-6 flex items-center whitespace-nowrap">
+            <div className="animate-marquee pl-32 sm:pl-56 space-x-3 sm:space-x-5 flex items-center whitespace-nowrap">
               {loopList.map((item, idx) => (
                 <div key={`${item.id}-${idx}`} className="shrink-0 flex items-center gap-3">
                   <MatchCapsule item={item} onOpenMatch={handleOpenMatch} />
-                  <span className="text-gray-700 font-bold">•</span>
+                  <span className="text-white/20 font-bold">•</span>
                 </div>
               ))}
             </div>
@@ -298,24 +301,18 @@ function MatchCapsule({
     <button
       type="button"
       onClick={() => onOpenMatch(match)}
-      className={`inline-flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 rounded-2xl border transition-all hover:scale-105 whitespace-nowrap shrink-0 cursor-pointer shadow-md ${
-        isFinished
-          ? "bg-amber-950/40 border-amber-500/40 text-amber-100 hover:border-amber-400"
-          : isUpcoming
-          ? "bg-blue-950/40 border-blue-500/40 text-blue-100 hover:border-blue-400"
-          : "bg-red-950/40 border-red-500/40 text-white hover:border-red-500 hover:shadow-[0_0_15px_rgba(229,9,20,0.3)]"
-      }`}
+      className="inline-flex items-center gap-2.5 px-3 sm:px-3.5 py-1 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/[0.09] hover:border-white/20 active:scale-96 transition-all duration-200 backdrop-blur-md shadow-sm whitespace-nowrap shrink-0 cursor-pointer select-none"
     >
-      {/* Badge Estado */}
+      {/* Badge Estado Estilo Apple Pill */}
       <span
-        className={`px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 ${
+        className={`px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold tracking-tight flex items-center gap-1 shrink-0 ${
           isFinished
-            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
             : match.isHalftime
-            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
             : isUpcoming
-            ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
-            : "bg-red-600 text-white shadow-sm"
+            ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+            : "bg-[#E50914] text-white shadow-[0_2px_8px_rgba(229,9,20,0.5)]"
         }`}
       >
         {isFinished ? (
@@ -327,26 +324,26 @@ function MatchCapsule({
         ) : (
           <Flame className="w-2.5 h-2.5 fill-white" />
         )}
-        <span>{isFinished ? "FINAL" : match.isHalftime ? "ENTRETIEMPO" : isUpcoming ? "PRÓXIMO" : "EN VIVO"}</span>
+        <span>{isFinished ? "FINAL" : match.isHalftime ? "MT" : isUpcoming ? "PRÓX" : "VIVO"}</span>
       </span>
 
       {/* Enfrentamiento: LOCAL vs VISITA */}
-      <div className="flex items-center gap-1.5 text-xs sm:text-sm font-black">
-        <span className={hasHomeInDb ? "text-white underline decoration-red-500 decoration-2 underline-offset-4" : "text-gray-300"}>
+      <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold tracking-tight">
+        <span className={hasHomeInDb ? "text-white underline decoration-red-500/80 decoration-2 underline-offset-4" : "text-white/80"}>
           {homeAbbr}
         </span>
 
         {isUpcoming ? (
-          <span className="text-gray-500 font-normal px-1">vs</span>
+          <span className="text-white/40 font-normal px-0.5 text-xs">vs</span>
         ) : (
-          <span className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/10 font-mono font-black text-white">
+          <span className="px-1.5 py-0.5 rounded-full bg-black/60 border border-white/10 font-mono tabular-nums font-bold text-white text-xs">
             <span className={isFinished ? "text-amber-400" : "text-white"}>{homeScore}</span>
-            <span className="text-gray-500 mx-1">:</span>
+            <span className="text-white/40 mx-0.5">:</span>
             <span className={isFinished ? "text-amber-400" : "text-white"}>{awayScore}</span>
           </span>
         )}
 
-        <span className={hasAwayInDb ? "text-white underline decoration-red-500 decoration-2 underline-offset-4" : "text-gray-300"}>
+        <span className={hasAwayInDb ? "text-white underline decoration-red-500/80 decoration-2 underline-offset-4" : "text-white/80"}>
           {awayAbbr}
         </span>
       </div>
@@ -355,15 +352,15 @@ function MatchCapsule({
       {isFinished ? (
         <span className="text-[10px] text-amber-400/90 font-mono font-bold">FT</span>
       ) : isUpcoming ? (
-        <span className="text-[10px] text-blue-300 font-mono font-bold">{match.startTime || "Hoy"}</span>
+        <span className="text-[10px] text-blue-300 font-mono font-medium">{match.startTime || "Hoy"}</span>
       ) : !match.isHalftime && (match.displayClock || match.minute) ? (
-        <span className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-gray-200 font-mono font-black animate-pulse">
+        <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] text-white/90 font-mono font-bold animate-pulse">
           {match.displayClock || `${match.minute}'`}
         </span>
       ) : null}
 
-      <span className="text-[10px] text-gray-400 group-hover:text-white transition-colors ml-0.5">
-        Ver Match Center →
+      <span className="text-[10px] text-white/40 group-hover:text-white/80 transition-colors ml-0.5 font-medium">
+        Match Center →
       </span>
     </button>
   );

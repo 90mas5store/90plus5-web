@@ -124,24 +124,23 @@ export default function SearchTrigger({
                                         type="button"
                                         onClick={() => setIsOpen(true)}
                                         aria-label="Buscar productos"
-                                        className={`xl:hidden relative p-2.5 sm:p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group cursor-pointer ${className}`}
+                                        className={`xl:hidden relative w-10 h-10 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-90 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white transition-all shadow-sm cursor-pointer ${className}`}
                                     >
-                                        <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                        <Search className="w-5 h-5 relative z-10 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] transition-all duration-300" />
+                                        <Search className="w-4 h-4" />
                                     </button>
 
-                                    {/* Pill en escritorio grande (≥1280px) */}
+                                    {/* Pill Spotlight en escritorio grande (≥1280px) */}
                                     <button
                                         type="button"
                                         onClick={() => setIsOpen(true)}
                                         aria-label="Buscar productos"
-                                        className={`hidden xl:flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-primary/40 text-gray-400 hover:text-white transition-all duration-300 group cursor-pointer shadow-inner w-[240px] 2xl:w-[280px] ${className}`}
+                                        className={`hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.10] active:scale-98 border border-white/10 hover:border-white/25 text-white/60 hover:text-white transition-all duration-200 backdrop-blur-md shadow-sm cursor-pointer w-[240px] 2xl:w-[270px] ${className}`}
                                     >
-                                        <Search className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors duration-300 shrink-0" />
-                                        <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors truncate flex-1 text-left">
+                                        <Search className="w-3.5 h-3.5 text-white/50 group-hover:text-white transition-colors shrink-0" />
+                                        <span className="text-xs text-white/50 group-hover:text-white/80 transition-colors truncate flex-1 text-left tracking-tight">
                                             {placeholder}
                                         </span>
-                                        <kbd className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-medium text-gray-400 bg-white/5 group-hover:bg-primary/20 group-hover:text-primary border border-white/10 group-hover:border-primary/40 rounded transition-all">
+                                        <kbd className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded-md bg-white/10 text-white/70 border border-white/15 shadow-sm">
                                             {shortcutKey}
                                         </kbd>
                                     </button>
@@ -151,13 +150,13 @@ export default function SearchTrigger({
                                     type="button"
                                     onClick={() => setIsOpen(true)}
                                     aria-label="Buscar productos"
-                                    className={`flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-primary/40 text-gray-400 hover:text-white transition-all duration-300 group cursor-pointer shadow-inner ${className}`}
+                                    className={`flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.10] active:scale-98 border border-white/10 hover:border-white/25 text-white/60 hover:text-white transition-all duration-200 backdrop-blur-md shadow-sm cursor-pointer ${className}`}
                                 >
-                                    <Search className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors duration-300 shrink-0" />
-                                    <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors truncate flex-1 text-left">
+                                    <Search className="w-3.5 h-3.5 text-white/50 group-hover:text-white transition-colors shrink-0" />
+                                    <span className="text-xs text-white/50 group-hover:text-white/80 transition-colors truncate flex-1 text-left tracking-tight">
                                         {placeholder}
                                     </span>
-                                    <kbd className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-medium text-gray-400 bg-white/5 border border-white/10 rounded">
+                                    <kbd className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded-md bg-white/10 text-white/70 border border-white/15 shadow-sm">
                                         {shortcutKey}
                                     </kbd>
                                 </button>
@@ -166,10 +165,9 @@ export default function SearchTrigger({
                                     type="button"
                                     onClick={() => setIsOpen(true)}
                                     aria-label="Buscar productos"
-                                    className={`relative p-2.5 sm:p-3 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group cursor-pointer ${className}`}
+                                    className={`relative w-10 h-10 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-90 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white transition-all shadow-sm cursor-pointer ${className}`}
                                 >
-                                    <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                    <Search className="w-5 h-5 relative z-10 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] transition-all duration-300" />
+                                    <Search className="w-4 h-4" />
                                 </button>
                             )}
                         </motion.div>
@@ -184,10 +182,9 @@ export default function SearchTrigger({
                 type="button"
                 onClick={() => setIsOpen(true)}
                 aria-label="Buscar productos"
-                className={`md:hidden relative p-2.5 rounded-2xl text-gray-400 hover:text-white transition-all duration-300 group cursor-pointer ${className}`}
+                className={`md:hidden relative w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-90 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white transition-all shadow-sm cursor-pointer ${className}`}
             >
-                <div className="absolute inset-0 bg-white/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <Search className="w-5 h-5 relative z-10 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] transition-all duration-300" />
+                <Search className="w-4 h-4" />
             </button>
 
             {/* ═══════════════════════════════════════════════════════════════
@@ -203,7 +200,7 @@ export default function SearchTrigger({
                                 animate={{ y: 0, opacity: 1 }}
                                 exit={{ y: -80, opacity: 0 }}
                                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                                className="md:hidden fixed top-0 left-0 right-0 z-[120] bg-[#0a0a0a] border-b border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.85)]"
+                                className="md:hidden fixed top-0 left-0 right-0 z-[120] bg-[#0c0d12]/95 backdrop-blur-3xl border-b border-white/12 shadow-[0_16px_40px_rgba(0,0,0,0.85)]"
                                 style={{
                                     paddingTop: 'env(safe-area-inset-top, 0px)',
                                 }}
@@ -214,7 +211,7 @@ export default function SearchTrigger({
                                         type="button"
                                         onClick={handleClose}
                                         aria-label="Volver y cerrar búsqueda"
-                                        className="p-2 -ml-1 text-gray-400 hover:text-white active:scale-95 transition-all rounded-xl cursor-pointer"
+                                        className="p-2 text-white/60 hover:text-white active:scale-90 transition-all rounded-full cursor-pointer"
                                     >
                                         <ArrowLeft className="w-5 h-5" />
                                     </button>
@@ -239,7 +236,7 @@ export default function SearchTrigger({
                                         type="button"
                                         onClick={handleClose}
                                         aria-label="Cancelar búsqueda"
-                                        className="px-2.5 py-1.5 text-xs font-bold text-gray-400 hover:text-white active:scale-95 transition-all uppercase tracking-wider shrink-0 cursor-pointer"
+                                        className="px-2.5 py-1.5 text-xs font-semibold text-white/60 hover:text-white active:scale-95 transition-all tracking-tight shrink-0 cursor-pointer"
                                     >
                                         Cancelar
                                     </button>

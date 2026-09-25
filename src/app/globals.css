@@ -6,6 +6,12 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  touch-action: manipulation;
+}
+
+button, a, [role="button"], input, select {
+  touch-action: manipulation;
 }
 
 section[id] {
@@ -47,13 +53,20 @@ img {
 }
 
 /* 🙈 Utility to hide scrollbar cross-browser */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.scrollbar-hide,
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.scrollbar-hide::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar,
+*::-webkit-scrollbar[data-no-scroll] {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* ✨ Custom Scrollbar Premium — solo en dispositivos con puntero */

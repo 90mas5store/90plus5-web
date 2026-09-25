@@ -13,6 +13,7 @@ export default function TeamLogo({
   src,
   alt,
   size = 40,
+  className = "",
 }: TeamLogoProps) {
   if (!src) return null;
 
@@ -22,8 +23,7 @@ export default function TeamLogo({
       alt={alt}
       width={size}
       height={size}
-      className="object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]"
+      className={`object-contain max-w-full max-h-full drop-shadow-[0_0_10px_rgba(255,255,255,0.1)] ${className}`}
     />
   );
 }
-

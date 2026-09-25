@@ -1,7 +1,8 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
-import { motion, AnimatePresence } from "@/lib/motion";
+import { motion } from "@/lib/motion";
 import Image from "next/image";
+import { Sparkles } from "lucide-react";
 
 interface CategoryItem {
   nombre?: string;
@@ -48,35 +49,68 @@ export default function CarruselDeCategoria({
   if (!items || items.length === 0) return null;
 
   return (
-    <section className="pb-4 md:pb-8 max-w-7xl mx-auto relative">
+    <section className="pb-4 md:pb-6 max-w-7xl mx-auto relative select-none">
       {title && (
-        <h2 className="text-center text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-4 px-4">
-          {title}
-        </h2>
+        <div className="flex items-center justify-between px-4 sm:px-6 md:px-8 mb-3">
+          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">
+            {title}
+          </span>
+          {selected && (
+            <button
+              onClick={() => onSelect("")}
+              className="text-[11px] text-red-400 hover:text-red-300 font-semibold tracking-wide transition-colors cursor-pointer"
+            >
+              Mostrar todas
+            </button>
+          )}
+        </div>
       )}
 
       <div className="relative">
-        {/* Gradiente fade izquierdo */}
+        {/* Gradiente fade izquierdo Apple Style */}
         <div
-          className={`absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
+          className={`absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
         />
 
-        {/* Gradiente fade derecho */}
+        {/* Gradiente fade derecho Apple Style */}
         <div
-          className={`absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
+          className={`absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
         />
 
-        {/* Scrollable Container */}
+        {/* Apple Segmented Filter Rail (Cápsulas de vidrio horizontales) */}
         <div
           ref={scrollRef}
-          className="flex gap-5 md:gap-7 overflow-x-auto scrollbar-hide px-6 md:px-8 py-2 scroll-smooth"
+          className="flex gap-2 sm:gap-2.5 overflow-x-auto scrollbar-hide px-4 sm:px-6 md:px-8 py-1.5 overscroll-x-contain items-center justify-start"
           role="tablist"
           aria-label="Ligas disponibles"
         >
+          {/* Opción 'Todas las Ligas' */}
+          <button
+            role="tab"
+            aria-selected={!selected}
+            onClick={() => onSelect("")}
+            className={`relative shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
+              !selected
+                ? "text-white"
+                : "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-white/70 hover:text-white"
+            }`}
+          >
+            {!selected && (
+              <motion.div
+                layoutId="activeLeagueCapsule"
+                className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-xl border border-white/30 shadow-[0_2px_12px_rgba(255,255,255,0.15)]"
+                transition={{ type: "spring", damping: 26, stiffness: 350 }}
+              />
+            )}
+            <Sparkles className={`w-3.5 h-3.5 relative z-10 ${!selected ? 'text-amber-400' : 'text-gray-400'}`} />
+            <span className="relative z-10 tracking-tight">Todas</span>
+          </button>
+
+          {/* Ligas en cápsulas translúcidas */}
           {items.map((item) => {
             const nombre = item.nombre || item.Liga;
             const imagen =
@@ -89,73 +123,44 @@ export default function CarruselDeCategoria({
             const isSelected = selected === nombre;
 
             return (
-              <motion.button
+              <button
                 key={nombre}
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => onSelect(nombre)}
-                whileTap={{ scale: 0.92 }}
-                className="flex-shrink-0 flex flex-col items-center gap-2 group outline-none"
+                className={`relative shrink-0 flex items-center gap-2.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
+                  isSelected
+                    ? "text-white"
+                    : "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-white/70 hover:text-white"
+                }`}
               >
-                {/* Avatar circular */}
-                <div
-                  className={`relative w-[68px] h-[68px] md:w-20 md:h-20 rounded-full transition-all duration-400 ease-out ${
-                    isSelected
-                      ? "ring-[2.5px] ring-[#E50914] ring-offset-2 ring-offset-black shadow-[0_0_20px_rgba(229,9,20,0.35)]"
-                      : "ring-[1.5px] ring-white/10 ring-offset-1 ring-offset-black group-hover:ring-white/30"
-                  }`}
-                >
-                  {/* Fondo interior */}
-                  <div
-                    className={`absolute inset-0 rounded-full transition-colors duration-300 ${
-                      isSelected
-                        ? "bg-gradient-to-br from-[#1a0505] to-[#0a0a0a]"
-                        : "bg-[#0e0e0e] group-hover:bg-[#141414]"
-                    }`}
+                {/* Píldora activa deslizante con física de resortes Apple */}
+                {isSelected && (
+                  <motion.div
+                    layoutId="activeLeagueCapsule"
+                    className="absolute inset-0 rounded-full bg-[#E50914] shadow-[0_4px_18px_rgba(229,9,20,0.45)] border border-red-400/40"
+                    transition={{ type: "spring", damping: 26, stiffness: 350 }}
                   />
+                )}
 
-                  {/* Logo (decorativo ya que el nombre está debajo) */}
-                  <div className="absolute inset-0 flex items-center justify-center p-3.5 md:p-4">
-                    <Image
-                      src={imagen}
-                      alt=""
-                      aria-hidden="true"
-                      width={48}
-                      height={48}
-                      unoptimized={imagen.endsWith(".svg")}
-                      className={`object-contain w-full h-full transition-all duration-400 ${
-                        isSelected
-                          ? "brightness-110 drop-shadow-[0_0_8px_rgba(229,9,20,0.3)] scale-105"
-                          : "brightness-75 group-hover:brightness-100 drop-shadow-[0_0_6px_rgba(255,255,255,0.1)]"
-                      }`}
-                      sizes="(max-width: 768px) 68px, 80px"
-                    />
-                  </div>
+                {/* Logo normalizado */}
+                <div className="relative z-10 w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center shrink-0">
+                  <Image
+                    src={imagen}
+                    alt=""
+                    aria-hidden="true"
+                    width={20}
+                    height={20}
+                    unoptimized={imagen.endsWith(".svg")}
+                    className="w-full h-full object-contain filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+                  />
                 </div>
 
-                {/* Nombre */}
-                <span
-                  className={`text-[10px] md:text-[11px] font-semibold tracking-wide text-center leading-tight max-w-[76px] md:max-w-[88px] line-clamp-2 transition-colors duration-300 ${
-                    isSelected
-                      ? "text-white"
-                      : "text-gray-300 group-hover:text-white"
-                  }`}
-                >
+                {/* Nombre de Liga en Cápsula */}
+                <span className="relative z-10 tracking-tight whitespace-nowrap">
                   {nombre}
                 </span>
-
-                {/* Indicador dot activo */}
-                <AnimatePresence>
-                  {isSelected && (
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      className="w-1 h-1 rounded-full bg-[#E50914] shadow-[0_0_6px_rgba(229,9,20,0.6)]"
-                    />
-                  )}
-                </AnimatePresence>
-              </motion.button>
+              </button>
             );
           })}
         </div>

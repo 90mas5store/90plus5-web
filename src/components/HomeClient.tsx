@@ -149,13 +149,20 @@ export default function HomeClient({
             </div>
 
             {/* ⭐ DESTACADOS */}
-            <section id="destacados" className="py-6 md:py-10 px-4 max-w-7xl mx-auto">
-                <h2 className="text-center text-3xl md:text-4xl font-bold text-primary mb-6 md:mb-8 drop-shadow-[0_0_20px_rgba(229,9,20,0.4)]">
-                    {ligaSeleccionada
-                        ? `Destacados de ${ligaSeleccionada}`
-                        : "Destacados 90+5"}
-                </h2>
-
+            <section id="destacados" className="py-8 md:py-14 px-4 max-w-7xl mx-auto">
+                <div className="text-center mb-8 md:mb-12">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/10 text-white/60 text-[11px] font-bold uppercase tracking-wider mb-2.5">
+                        <span>Colección Oficial</span>
+                    </div>
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
+                        {ligaSeleccionada
+                            ? `Destacados de ${ligaSeleccionada}`
+                            : "Destacados 90+5"}
+                    </h2>
+                    <p className="text-white/50 text-xs sm:text-sm font-medium mt-1.5 max-w-md mx-auto">
+                        Camisetas oficiales 2025/26 · Calidad garantizada · Envíos a toda Honduras
+                    </p>
+                </div>
 
                 <AnimatePresence mode="wait">
                     <m.div
@@ -188,7 +195,7 @@ export default function HomeClient({
                         <m.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="flex justify-center mt-16"
+                            className="flex justify-center mt-12 md:mt-16"
                         >
                             <MainButton
                                 onClick={() => {
@@ -209,18 +216,18 @@ export default function HomeClient({
 
                                     router.push(url);
                                 }}
-                                className="group relative px-8 py-4 bg-gradient-to-r from-[#E50914] to-[#b00710] text-white rounded-full font-bold tracking-wider uppercase text-sm shadow-[0_0_20px_rgba(229,9,20,0.4)] hover:shadow-[0_0_35px_rgba(229,9,20,0.6)] hover:scale-105 transition-all duration-300 flex items-center gap-2"
+                                className="group relative px-8 py-3.5 bg-[#E50914] hover:bg-red-700 active:scale-[0.98] text-white rounded-full font-bold text-xs sm:text-sm tracking-tight shadow-[0_8px_30px_rgba(229,9,20,0.4)] transition-all duration-200 flex items-center gap-2 cursor-pointer"
                             >
                                 <span>Ver colección completa {ligaSeleccionada}</span>
                                 <svg
                                     aria-hidden="true"
                                     xmlns="http://www.w3.org/2000/svg"
-                                    width="20"
-                                    height="20"
+                                    width="18"
+                                    height="18"
                                     viewBox="0 0 24 24"
                                     fill="none"
                                     stroke="currentColor"
-                                    strokeWidth="2"
+                                    strokeWidth="2.2"
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     className="group-hover:translate-x-1 transition-transform"
