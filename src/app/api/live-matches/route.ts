@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { Redis } from '@upstash/redis';
 import type { LiveMatchData, MatchEventDetail, MatchStats } from '@/hooks/useLiveMatches';
 import { translateTeamNameToSpanish, translateTeamShortName, translateTeamAbbr } from '@/lib/teamNames';
+import { getActiveLeagueSlugs } from '@/lib/matchdayLeagues';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
@@ -410,45 +411,7 @@ export async function GET(req?: NextRequest) {
 
   // ── 2. ESPN: partidos en tiempo real ──────────────────────────────────────
   try {
-    const leagues = [
-      'esp.1',
-      'eng.1',
-      'uefa.champions',
-      'ita.1',
-      'ger.1',
-      'fra.1',
-      'hon.1',
-      'mex.1',
-      'usa.1',
-      'uefa.europa',
-      'conmebol.libertadores',
-      'conmebol.sudamericana',
-      'arg.1',
-      'arg.copa',
-      'esp.copa_del_rey',
-      'eng.fa',
-      'eng.league_cup',
-      'ita.coppa_italia',
-      'ger.dfb_pokal',
-      'fra.coupe_de_france',
-      'por.1',
-      'bra.1',
-      'fifa.cwc',
-      'uefa.super_cup',
-      'fifa.world',
-      'concacaf.central.american.cup',
-      'concacaf.champions',
-      'concacaf.nations.league',
-      'concacaf.gold',
-      'fifa.worldq.concacaf',
-      'fifa.worldq.conmebol',
-      'fifa.worldq.uefa',
-      'conmebol.america',
-      'uefa.euro',
-      'uefa.nations',
-      'uefa.euroq',
-      'fifa.friendly',
-    ];
+    const leagues = await getActiveLeagueSlugs();
 
     const ESPN_HEADERS = {
       Accept: 'application/json, text/plain, */*',

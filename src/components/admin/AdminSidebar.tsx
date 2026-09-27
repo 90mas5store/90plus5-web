@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut, LayoutDashboard, Package, FileSpreadsheet, Shirt, Users, Tag, Trophy, Shield, LayoutTemplate, Lock, Activity, Trash2, Scissors, DollarSign, Bookmark, Sparkles, Calendar } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, FileSpreadsheet, Shirt, Users, Tag, Trophy, Shield, LayoutTemplate, Lock, Activity, Trash2, Scissors, DollarSign, Bookmark, Sparkles, Calendar, Radio } from 'lucide-react';
 
 interface AdminSidebarProps {
     userEmail?: string;
@@ -111,6 +111,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                     { label: 'Bancos & Formas de Pago', href: '/admin/settings/bancos', icon: DollarSign },
                     { label: 'Tasa de Cambio (USD)', href: '/admin/settings/tasa-cambio', icon: DollarSign },
                     { label: 'Temporada & Header', href: '/admin/settings/temporada', icon: Calendar },
+                    { label: 'Torneos Matchday (ESPN)', href: '/admin/settings/torneos', icon: Radio },
                     { label: 'Banners Home', href: '/admin/settings/banners', icon: LayoutTemplate },
                     { label: 'Banners Especiales', href: '/admin/settings/special-banners', icon: Sparkles },
                     { label: 'Administradores', href: '/admin/settings/admins', icon: Lock },

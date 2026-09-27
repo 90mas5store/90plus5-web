@@ -1,3 +1,4 @@
+
 import { createClient } from "@supabase/supabase-js";
 import { Product, Brand, Config, SupabaseRawProduct } from "./types";
 import { getLeagueLogoUrl } from "./leagueLogos";
