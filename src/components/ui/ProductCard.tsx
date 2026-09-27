@@ -148,7 +148,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
             )}
 
             {/* 📝 Content Wrapper — Posicionamiento estático sin saltos ni descolocaciones (§7 Spatial Consistency) */}
-            <div className="absolute inset-x-0 bottom-0 z-10 p-3.5 sm:p-4 pb-3.5 sm:pb-4 flex flex-col justify-end">
+            <div className="absolute inset-x-0 bottom-0 z-10 p-3 sm:p-4 pb-3 sm:pb-4 flex flex-col justify-end">
                 <h3 className="text-sm sm:text-base md:text-lg font-bold text-white leading-tight tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] line-clamp-1">
                     {displayName}
                 </h3>
@@ -162,21 +162,22 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                 )}
 
                 {/* Fila inferior: Precio en Cápsula y Botón "Personalizar" con emergencia fluida al hover */}
-                <div className="mt-2.5 flex items-center justify-between gap-2 h-7 sm:h-8">
-                    {/* Cápsula de Precio Apple con Números Tabulares */}
-                    <div className="inline-flex items-center px-2.5 py-1 bg-white/[0.08] backdrop-blur-md border border-white/15 rounded-full shadow-sm">
-                        <span className="text-white font-mono font-bold text-[11px] sm:text-xs md:text-sm tabular-nums tracking-tight">
-                            L {precio.toLocaleString("es-HN")}
+                <div className="mt-2.5 flex items-center justify-between gap-1.5 sm:gap-2 h-7 sm:h-8">
+                    {/* Cápsula de Precio Apple con Números Tabulares: Siempre en la misma fila sin partirse */}
+                    <div className="inline-flex items-center shrink-0 whitespace-nowrap px-2 sm:px-2.5 py-1 bg-white/[0.08] backdrop-blur-md border border-white/15 rounded-full shadow-sm">
+                        <span className="text-white font-mono font-bold text-[10.5px] sm:text-xs md:text-sm tabular-nums tracking-tight whitespace-nowrap flex items-center gap-1">
+                            <span>L</span>
+                            <span>{precio.toLocaleString("es-HN")}</span>
                         </span>
                     </div>
 
                     {/* Botón Personalizar Apple Style: Emerge suavemente en el hover sin desplazar el texto, con háptica táctil */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white text-[11px] sm:text-xs font-bold shadow-[0_4px_16px_rgba(229,9,20,0.45)] border-t border-white/30 backdrop-blur-md
+                    <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white text-[10.5px] sm:text-xs font-bold shadow-[0_4px_16px_rgba(229,9,20,0.45)] border-t border-white/30 backdrop-blur-md
                         opacity-90 max-sm:opacity-100 sm:opacity-0 sm:translate-y-1.5 sm:group-hover:opacity-100 sm:group-hover:translate-y-0
-                        transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 cursor-pointer">
+                        transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 cursor-pointer shrink-0">
                         <Shirt className="w-3 h-3 shrink-0" />
                         <span className="tracking-tight">Personalizar</span>
-                        <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform duration-200 shrink-0" />
+                        <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform duration-200 shrink-0 hidden sm:inline-block" />
                     </div>
                 </div>
             </div>

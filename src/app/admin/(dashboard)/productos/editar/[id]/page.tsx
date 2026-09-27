@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { clearProductCache } from '@/lib/api';
-import { revalidateProduct } from '@/app/admin/actions';
+import { revalidateProduct, syncFeaturedOrderAction } from '@/app/admin/actions';
 import { Save, ArrowLeft, Loader2, Trash2 } from 'lucide-react';
 import { buildProductSlug, generateUniqueSlug, sanitizeSlugPart } from '@/lib/utils/slug';
 import Link from 'next/link';
@@ -99,6 +99,7 @@ export default function EditProductPage() {
     const [teamPlayers, setTeamPlayers] = useState<AdminPlayer[]>([]);
     const [newPlayer, setNewPlayer] = useState({ name: '', number: '' });
     const [addingPlayer, setAddingPlayer] = useState(false);
+    const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
 
     // Slug Auto-Generación & Unicidad
     const [isAutoSlug, setIsAutoSlug] = useState(false);
@@ -150,7 +151,7 @@ export default function EditProductPage() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [teamsRes, leaguesRes, catsRes, sizesRes, patchesRes, brandsRes, variantsRes] =
+                const [teamsRes, leaguesRes, catsRes, sizesRes, patchesRes, brandsRes, variantsRes, featuredRes] =
                     await Promise.all([
                         supabase.from('teams').select('id, name').order('name'),
                         supabase.from('leagues').select('id, name').order('name'),
@@ -163,6 +164,12 @@ export default function EditProductPage() {
                         supabase.from('patches').select('id, name, category_id').eq('active', true).order('name'),
                         supabase.from('brands').select('id, name').eq('active', true).is('deleted_at', null).order('name'),
                         supabase.from('product_variants').select('version'),
+                        supabase
+                            .from('products')
+                            .select('id, name, sort_order, teams(name)')
+                            .eq('featured', true)
+                            .is('deleted_at', null)
+                            .order('sort_order', { ascending: true }),
                     ]);
 
                 setTeams(teamsRes.data || []);
@@ -171,6 +178,7 @@ export default function EditProductPage() {
                 setAllSizes(sizesRes.data || []);
                 setAllPatches(patchesRes.data || []);
                 setBrands(brandsRes.data || []);
+                setFeaturedProducts(featuredRes.data || []);
 
                 if (variantsRes.data) {
                     const dbVersions = Array.from(
@@ -443,6 +451,12 @@ export default function EditProductPage() {
             const { error } = await supabase.from('products').delete().eq('id', id);
             if (error) throw error;
 
+            // Reorganizar destacados si este producto era destacado
+            await syncFeaturedOrderAction({
+                targetProductId: id,
+                isFeatured: false,
+            });
+
             clearProductCache();
             await revalidateProduct(formData.slug);
             toast.success('Producto eliminado exitosamente');
@@ -585,6 +599,13 @@ export default function EditProductPage() {
                 }
             }
 
+            // Sincronizar orden único de destacados con desplazamiento automático
+            await syncFeaturedOrderAction({
+                targetProductId: id,
+                targetOrder: formData.sort_order,
+                isFeatured: formData.featured,
+            });
+
             clearProductCache();
             await revalidateProduct(cleanSlug);
             toast.success('Producto actualizado exitosamente');
@@ -664,6 +685,8 @@ export default function EditProductPage() {
                         setIsAutoSlug={setIsAutoSlug}
                         slugChecking={slugChecking}
                         slugIsUnique={slugIsUnique}
+                        featuredProducts={featuredProducts}
+                        currentProductId={id}
                     />
 
                     {/* Plantilla de Jugadores (Dorsales) */}

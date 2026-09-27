@@ -88,9 +88,32 @@ export default function MatchdayHeaderBanner() {
   const activeEntries = Array.from(uniqueMatchMap.values()).sort((a, b) => {
     const matchA = a[1];
     const matchB = b[1];
-    const scoreA = (!matchA.isFinished && !matchA.isUpcoming) ? 3 : matchA.isFinished ? 2 : 1;
-    const scoreB = (!matchB.isFinished && !matchB.isUpcoming) ? 3 : matchB.isFinished ? 2 : 1;
-    return scoreB - scoreA;
+
+    // 1. Prioridad de Estado: EN VIVO (3) > PRÓXIMO (2) > FINALIZADO (1)
+    const getStatusScore = (m: LiveMatchData) => {
+      if (!m.isFinished && !m.isUpcoming) return 3; // En juego ahora
+      if (m.isUpcoming) return 2;                    // Próximo a jugarse hoy
+      return 1;                                      // Ya finalizado
+    };
+
+    const scoreDiff = getStatusScore(matchB) - getStatusScore(matchA);
+    if (scoreDiff !== 0) return scoreDiff;
+
+    // 2. Si ambos son PRÓXIMOS: Orden cronológico ascendente (el más temprano del día primero)
+    if (matchA.isUpcoming && matchB.isUpcoming) {
+      const timeA = matchA.eventTimestamp || (matchA.rawDate ? new Date(matchA.rawDate).getTime() : 0);
+      const timeB = matchB.eventTimestamp || (matchB.rawDate ? new Date(matchB.rawDate).getTime() : 0);
+      if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+    }
+
+    // 3. Si ambos son FINALIZADOS: El más recientemente finalizado primero
+    if (matchA.isFinished && matchB.isFinished) {
+      const timeA = matchA.eventTimestamp || (matchA.rawDate ? new Date(matchA.rawDate).getTime() : 0);
+      const timeB = matchB.eventTimestamp || (matchB.rawDate ? new Date(matchB.rawDate).getTime() : 0);
+      if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+    }
+
+    return 0;
   });
 
   const currentGoal = goalQueue[0] || null;

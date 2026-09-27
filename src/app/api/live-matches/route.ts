@@ -14,7 +14,7 @@ const STALE_CACHE_TTL_SECONDS = 86400; // 24 horas — respaldo ante caídas de 
 const MEMORY_CACHE_TTL_MS = 30_000;
 
 // Caché en memoria para instancias Serverless cálidas
-let memoryCache: { data: Record<string, LiveMatchData>; timestamp: number } | null = null;
+let memoryCache: { data: Record<string, LiveMatchData>; timestamp: number; dateStr?: string } | null = null;
 
 let redis: Redis | null = null;
 let redisDisabledUntil = 0;
@@ -206,8 +206,19 @@ function formatMatchTime(dateStr?: string | null): string {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(req?: NextRequest) {
   const now = Date.now();
+  const tz = 'America/Tegucigalpa';
+  const todayDateStr = new Date(now).toLocaleDateString('en-CA', { timeZone: tz });
+  const todayYmd = todayDateStr.replace(/-/g, '');
+  const CACHE_KEY = `live-matches:v11:${todayYmd}`;
+  const STALE_CACHE_KEY = `live-matches:stale:${todayYmd}`;
+
   const isDebug = req ? req.nextUrl.searchParams.get('debug') === '1' : false;
   const client = getRedis();
+
+  // Si cambió el día (ej. pasadas las 12:00 am en Honduras), descartar memoria anterior
+  if (memoryCache && memoryCache.dateStr && memoryCache.dateStr !== todayDateStr) {
+    memoryCache = null;
+  }
 
   // ── 0. Intentar responder desde caché en memoria local (ultrarrápido, ~0ms) ─
   if (process.env.NODE_ENV !== 'test' && !isDebug && memoryCache) {
@@ -424,10 +435,10 @@ export async function GET(req?: NextRequest) {
     };
 
     const fetchPromises = leagues.map(async league => {
-      // Intentar primero con el endpoint web de ESPN (evita 403 en serverless/Vercel) y fallback a site.api
+      // Consultar la cartelera correspondiente a la fecha actual de Honduras (evita partidos viejos de ayer o rondas pasadas)
       const endpoints = [
-        `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`,
+        `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${todayYmd}`,
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${todayYmd}`,
       ];
 
       for (const url of endpoints) {
@@ -551,7 +562,10 @@ export async function GET(req?: NextRequest) {
       // Ventana de visibilidad: estrictamente partidos de HOY (horario Honduras) o en vivo en este momento
       const isLiveNow = state === 'in';
       const isUpcoming = state === 'pre' && isSameDayToday;
-      const isFinishedToday = state === 'post' && (elapsedMinutes <= 12 * 60 || (isSameDayToday && elapsedMinutes <= 18 * 60));
+      const isFinishedToday = state === 'post' && (
+        (isSameDayToday && elapsedMinutes <= 18 * 60) ||
+        (!isSameDayToday && elapsedMinutes <= 90) // Solo prórroga de 90 min si el juego terminó en la medianoche
+      );
       if (!isUpcoming && !isLiveNow && !isFinishedToday) continue;
 
       const rawComp =
@@ -999,6 +1013,8 @@ export async function GET(req?: NextRequest) {
           isFinished: isFinishedToday,
           isUpcoming,
           startTime: startTimeText,
+          rawDate: eventDateStr,
+          eventTimestamp: eventTimestamp || (eventDateStr ? new Date(eventDateStr).getTime() : null),
           homeLogo: homeLogoUrl,
           awayLogo: awayLogoUrl,
           hasHomeTeamInDb: !!homeUuid,
@@ -1113,7 +1129,7 @@ export async function GET(req?: NextRequest) {
 
   // ── 5. Guardar en memoria local y en Redis si hay datos ──────────────────
   if (Object.keys(result).length > 0) {
-    memoryCache = { data: result, timestamp: now };
+    memoryCache = { data: result, timestamp: now, dateStr: todayDateStr };
 
     if (client && Date.now() >= redisDisabledUntil) {
       Promise.race([

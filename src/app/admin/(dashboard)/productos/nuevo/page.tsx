@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { clearProductCache } from '@/lib/api';
-import { revalidateProduct } from '@/app/admin/actions';
+import { revalidateProduct, syncFeaturedOrderAction } from '@/app/admin/actions';
 import { Save, ArrowLeft, Loader2 } from 'lucide-react';
 import { buildProductSlug, generateUniqueSlug, sanitizeSlugPart } from '@/lib/utils/slug';
 import Link from 'next/link';
@@ -93,6 +93,7 @@ export default function CreateProductPage() {
     const [teamPlayers, setTeamPlayers] = useState<AdminPlayer[]>([]);
     const [newPlayer, setNewPlayer] = useState({ name: '', number: '' });
     const [addingPlayer, setAddingPlayer] = useState(false);
+    const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
 
     // Slug Auto-Generación & Unicidad
     const [isAutoSlug, setIsAutoSlug] = useState(true);
@@ -144,7 +145,7 @@ export default function CreateProductPage() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [teamsRes, leaguesRes, catsRes, sizesRes, patchesRes, brandsRes, variantsRes] =
+                const [teamsRes, leaguesRes, catsRes, sizesRes, patchesRes, brandsRes, variantsRes, featuredRes] =
                     await Promise.all([
                         supabase.from('teams').select('id, name').order('name'),
                         supabase.from('leagues').select('id, name').order('name'),
@@ -157,6 +158,12 @@ export default function CreateProductPage() {
                         supabase.from('patches').select('id, name, category_id').eq('active', true).order('name'),
                         supabase.from('brands').select('id, name').eq('active', true).is('deleted_at', null).order('name'),
                         supabase.from('product_variants').select('version'),
+                        supabase
+                            .from('products')
+                            .select('id, name, sort_order, teams(name)')
+                            .eq('featured', true)
+                            .is('deleted_at', null)
+                            .order('sort_order', { ascending: true }),
                     ]);
 
                 setTeams(teamsRes.data || []);
@@ -165,6 +172,7 @@ export default function CreateProductPage() {
                 setAllSizes(sizesRes.data || []);
                 setAllPatches(patchesRes.data || []);
                 setBrands(brandsRes.data || []);
+                setFeaturedProducts(featuredRes.data || []);
 
                 if (variantsRes.data) {
                     const dbVersions = Array.from(
@@ -441,6 +449,15 @@ export default function CreateProductPage() {
                 }
             }
 
+            // Sincronizar orden único de destacados con desplazamiento automático
+            if (formData.featured) {
+                await syncFeaturedOrderAction({
+                    targetProductId: createdId,
+                    targetOrder: formData.sort_order,
+                    isFeatured: true,
+                });
+            }
+
             clearProductCache();
             await revalidateProduct(cleanSlug);
             toast.success('Producto creado exitosamente');
@@ -506,6 +523,7 @@ export default function CreateProductPage() {
                         setIsAutoSlug={setIsAutoSlug}
                         slugChecking={slugChecking}
                         slugIsUnique={slugIsUnique}
+                        featuredProducts={featuredProducts}
                     />
 
                     {/* Plantilla de Jugadores (Dorsales) */}

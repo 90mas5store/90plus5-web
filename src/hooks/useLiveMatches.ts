@@ -53,6 +53,8 @@ export interface LiveMatchData {
   isFinished?: boolean;
   isUpcoming?: boolean;
   startTime?: string | null;
+  rawDate?: string | null;
+  eventTimestamp?: number | null;
   homeLogo?: string | null;
   awayLogo?: string | null;
   hasHomeTeamInDb?: boolean;

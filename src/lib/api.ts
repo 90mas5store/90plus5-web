@@ -117,7 +117,64 @@ export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product 
   };
 }
 
+/** ⚡ Obtener productos por lista de IDs de equipos (para Matchday y filtros especiales) */
+export async function fetchProductsByTeamIds(teamIds: string[]): Promise<Product[]> {
+  if (!teamIds || teamIds.length === 0) return [];
+  try {
+    const { data, error } = await supabase
+      .from("products")
+      .select(`
+        id,
+        name,
+        slug,
+        image_url,
+        featured,
+        sort_order,
+        team_id,
+        category_id,
+        league_id,
+        brand_id,
+        trending_until,
+        season,
+        allows_customization,
+        teams(
+          id,
+          name,
+          logo_url
+        ),
+        brands(
+          name,
+          slug,
+          logo_url
+        ),
+        product_variants(
+          id,
+          version,
+          price,
+          active,
+          original_price,
+          active_original_price
+        ),
+        product_leagues(
+          league_id
+        )
+      `)
+      .eq("active", true)
+      .in("team_id", teamIds)
+      .order("featured", { ascending: false })
+      .order("sort_order", { ascending: true });
 
+    if (error) {
+      console.error("Error fetching matchday products by team IDs:", error);
+      return [];
+    }
+
+    return (data || []).map(adaptSupabaseProductToProduct);
+  } catch (err) {
+    console.error("Error in fetchProductsByTeamIds:", err);
+    return [];
+  }
+}
 
 async function fetchFeaturedFromSupabase(): Promise<Product[]> {
   const { data, error } = await supabase

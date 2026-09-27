@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
     Search, Plus, Shirt, LayoutGrid, List as ListIcon,
@@ -11,7 +11,7 @@ import Link from 'next/link'
 import useToastMessage from '@/hooks/useToastMessage'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
 import { useAdminRole } from '@/hooks/useAdminRole'
-import { setProductTrending } from '@/app/admin/actions'
+import { setProductTrending, syncFeaturedOrderAction } from '@/app/admin/actions'
 
 // Tipos adaptados para la vista
 type ProductView = {
@@ -25,6 +25,8 @@ type ProductView = {
     league?: { name: string; id: string }
     category?: { name: string; id: string }
     active: boolean
+    featured?: boolean
+    sort_order?: number
     season?: string | null
     gender?: string | null
     trending_until?: string | null
@@ -47,7 +49,7 @@ export default function ProductsPage() {
     const [filterLeague, setFilterLeague] = useState('all')
     const [filterGender, setFilterGender] = useState('all')
     const [filterSeason, setFilterSeason] = useState('all')
-    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'featured'>('all')
     const [showFiltersModal, setShowFiltersModal] = useState(false)
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
     const [duplicating, setDuplicating] = useState<string | null>(null)
@@ -81,6 +83,8 @@ export default function ProductsPage() {
                     slug,
                     image_url,
                     active,
+                    featured,
+                    sort_order,
                     category_id,
                     league_id,
                     brand_id,
@@ -119,6 +123,8 @@ export default function ProductsPage() {
                     league: { id: p.league_id || '', name: leaguesMap.get(p.league_id) || 'General' },
                     category: { id: p.category_id || '', name: categoriesMap.get(p.category_id) || 'Sin categoría' },
                     active: p.active !== false,
+                    featured: p.featured ?? false,
+                    sort_order: p.sort_order ?? 0,
                     season: p.season || null,
                     gender: p.gender || null,
                     trending_until: p.trending_until || null,
@@ -166,6 +172,7 @@ export default function ProductsPage() {
         try {
             const { error } = await supabase.from('products').update({ deleted_at: new Date().toISOString() }).eq('id', id)
             if (error) throw error
+            await syncFeaturedOrderAction({ targetProductId: id, isFeatured: false })
             setProducts(prev => prev.filter(p => p.id !== id))
             toast.success('Producto movido a la papelera')
         } catch (err: unknown) {
@@ -281,22 +288,30 @@ export default function ProductsPage() {
         return <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" title="Activo" />
     }
 
-    // Filtrado
-    const filteredProducts = products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-            (p.team?.name || '').toLowerCase().includes(search.toLowerCase()) ||
-            (p.brand?.name || '').toLowerCase().includes(search.toLowerCase())
-        const matchesCategory = filterCategory === 'all' || p.category?.id === filterCategory
-        const matchesLeague = filterLeague === 'all' || p.league?.id === filterLeague
-        const matchesStatus =
-            filterStatus === 'all' ||
-            (filterStatus === 'active' && p.active) ||
-            (filterStatus === 'inactive' && !p.active)
-        const matchesGender = filterGender === 'all' || p.gender === filterGender
-        const matchesSeason = filterSeason === 'all' || p.season === filterSeason
+    // Filtrado y Orden
+    const filteredProducts = useMemo(() => {
+        const list = products.filter(p => {
+            const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+                (p.team?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+                (p.brand?.name || '').toLowerCase().includes(search.toLowerCase())
+            const matchesCategory = filterCategory === 'all' || p.category?.id === filterCategory
+            const matchesLeague = filterLeague === 'all' || p.league?.id === filterLeague
+            const matchesStatus =
+                filterStatus === 'all' ||
+                (filterStatus === 'active' && p.active) ||
+                (filterStatus === 'inactive' && !p.active) ||
+                (filterStatus === 'featured' && p.featured)
+            const matchesGender = filterGender === 'all' || p.gender === filterGender
+            const matchesSeason = filterSeason === 'all' || p.season === filterSeason
 
-        return matchesSearch && matchesCategory && matchesLeague && matchesStatus && matchesGender && matchesSeason
-    })
+            return matchesSearch && matchesCategory && matchesLeague && matchesStatus && matchesGender && matchesSeason
+        })
+
+        if (filterStatus === 'featured') {
+            return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        }
+        return list
+    }, [products, search, filterCategory, filterLeague, filterStatus, filterGender, filterSeason])
 
     return (
         <div className="space-y-4 md:space-y-8 animate-in fade-in duration-500">
@@ -375,11 +390,12 @@ export default function ProductsPage() {
                                     {/* Estado */}
                                     <div>
                                         <label className="block text-xs font-bold uppercase text-gray-500 mb-1.5">Estado</label>
-                                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive' | 'featured')}
                                             className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-primary/50">
                                             <option value="all">Todos los estados</option>
-                                            <option value="active">Activos</option>
-                                            <option value="inactive">Inactivos</option>
+                                            <option value="active">Solo Activos</option>
+                                            <option value="inactive">Solo Inactivos</option>
+                                            <option value="featured">⭐ Destacados en Home</option>
                                         </select>
                                     </div>
 
@@ -492,6 +508,11 @@ export default function ProductsPage() {
                                             {product.trending_until && new Date(product.trending_until) > new Date() && (
                                                 <span className="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-primary text-white animate-pulse w-fit">
                                                     ⚡ EN VIVO
+                                                </span>
+                                            )}
+                                            {product.featured && (
+                                                <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 w-fit flex items-center gap-1 shadow-sm backdrop-blur-md">
+                                                    ⭐ #{product.sort_order ?? 0}
                                                 </span>
                                             )}
                                         </div>
@@ -654,6 +675,11 @@ export default function ProductsPage() {
                                                         <div>
                                                             <div className="flex items-center gap-2">
                                                                 <p className="font-bold text-white group-hover:text-primary transition-colors">{product.name}</p>
+                                                                {product.featured && (
+                                                                    <span className="text-[10px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                                        ⭐ #{product.sort_order ?? 0}
+                                                                    </span>
+                                                                )}
                                                                 {product.season && (
                                                                     <span className="text-[10px] font-bold text-gray-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
                                                                         {product.season}

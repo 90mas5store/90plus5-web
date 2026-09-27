@@ -31,6 +31,7 @@ function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product {
         precio: basePrice,
         imagen: raw.image_url,
         destacado: raw.featured ?? false,
+        allows_customization: raw.allows_customization ?? false,
         team_id: raw.team_id,
         category_id: raw.category_id,
         league_id: raw.league_id,
@@ -39,6 +40,8 @@ function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product {
         brand_name: brand?.name ?? null,
         brand_logo: brand?.logo_url ?? null,
         sort_order: raw.sort_order || 0,
+        trending_until: raw.trending_until || null,
+        season: raw.season || undefined,
         product_variants: variants.map(v => ({
             id: v.id,
             version: v.version,
@@ -49,41 +52,49 @@ function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product {
         })),
     };
 }
+
+const COMMON_PRODUCT_SELECT = `
+    id,
+    name,
+    slug,
+    image_url,
+    featured,
+    sort_order,
+    team_id,
+    category_id,
+    league_id,
+    brand_id,
+    trending_until,
+    season,
+    allows_customization,
+    teams(
+        id,
+        name,
+        logo_url
+    ),
+    brands(
+        name,
+        slug,
+        logo_url
+    ),
+    product_variants(
+        id,
+        version,
+        price,
+        active,
+        original_price,
+        active_original_price
+    ),
+    product_leagues(
+        league_id
+    )
+`;
+
 /** ⭐ Obtener productos destacados (Server Side) - USA SORT_ORDER MANUAL */
 export async function getFeaturedServer(): Promise<Product[]> {
     const { data, error } = await supabase
         .from("products")
-        .select(`
-            id,
-            name,
-            slug,
-            image_url,
-            featured,
-            sort_order,
-            team_id,
-            category_id,
-            league_id,
-            brand_id,
-            teams(
-                id,
-                name,
-                logo_url
-            ),
-            brands(
-                name,
-                slug,
-                logo_url
-            ),
-            product_variants(
-                id,
-                version,
-                price,
-                active
-            ),
-            product_leagues(
-                league_id
-            )
-        `)
+        .select(COMMON_PRODUCT_SELECT)
         .eq("active", true)
         .eq("featured", true)
         .order("sort_order", { ascending: true });
@@ -93,8 +104,86 @@ export async function getFeaturedServer(): Promise<Product[]> {
         return [];
     }
 
-    // ✅ NO aplicamos sort - respetamos el orden de la BD
     return data.map(adaptSupabaseProductToProduct);
+}
+
+/** 🔥 Obtener productos más vendidos basados en compras reales (Server Side) */
+export async function getBestSellersServer(): Promise<Product[]> {
+    try {
+        const { data: salesData } = await supabase
+            .from("order_items")
+            .select("product_id")
+            .not("product_id", "is", null);
+
+        const counts = new Map<string, number>();
+        for (const row of salesData || []) {
+            if (row.product_id) {
+                counts.set(row.product_id, (counts.get(row.product_id) || 0) + 1);
+            }
+        }
+
+        const topIds = [...counts.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 12)
+            .map(([id]) => id);
+
+        if (topIds.length === 0) {
+            return getFeaturedServer();
+        }
+
+        const { data, error } = await supabase
+            .from("products")
+            .select(COMMON_PRODUCT_SELECT)
+            .in("id", topIds)
+            .eq("active", true);
+
+        if (error || !data) return [];
+
+        const adapted = data.map(adaptSupabaseProductToProduct);
+        adapted.sort((a, b) => topIds.indexOf(a.id) - topIds.indexOf(b.id));
+        return adapted;
+    } catch (err) {
+        console.error("Error fetching best sellers:", err);
+        return [];
+    }
+}
+
+/** 🆕 Obtener novedades / recién agregados (Server Side) */
+export async function getNewArrivalsServer(): Promise<Product[]> {
+    try {
+        const { data, error } = await supabase
+            .from("products")
+            .select(COMMON_PRODUCT_SELECT)
+            .eq("active", true)
+            .order("created_at", { ascending: false })
+            .limit(12);
+
+        if (error || !data) return [];
+        return data.map(adaptSupabaseProductToProduct);
+    } catch (err) {
+        console.error("Error fetching new arrivals:", err);
+        return [];
+    }
+}
+
+/** 🏷️ Obtener productos con descuento / liquidación (Server Side) */
+export async function getOnSaleServer(): Promise<Product[]> {
+    try {
+        const { data, error } = await supabase
+            .from("products")
+            .select(COMMON_PRODUCT_SELECT)
+            .eq("active", true)
+            .order("created_at", { ascending: false });
+
+        if (error || !data) return [];
+        const adapted = data.map(adaptSupabaseProductToProduct);
+        return adapted.filter(p =>
+            p.product_variants?.some(v => v.active && v.active_original_price && (v.original_price ?? 0) > v.price)
+        );
+    } catch (err) {
+        console.error("Error fetching on sale products:", err);
+        return [];
+    }
 }
 
 /** ⚙️ Obtener configuración global (Server Side) */

@@ -1,6 +1,14 @@
 import { Suspense } from "react";
 import HomeClient from "../components/HomeClient";
-import { getBannersServer, getConfigServer, getFeaturedServer, getSpecialBannersServer } from "../lib/api-server";
+import {
+    getBannersServer,
+    getConfigServer,
+    getFeaturedServer,
+    getBestSellersServer,
+    getNewArrivalsServer,
+    getOnSaleServer,
+    getSpecialBannersServer
+} from "../lib/api-server";
 import { Metadata } from "next";
 import { SITE_URL } from "@/lib/config/site";
 
@@ -9,15 +17,25 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
     title: "90+5 Store | Tienda Deportiva en Tegucigalpa · Camisetas de Fútbol en Honduras",
-    description: "La mejor tienda deportiva online en Honduras  en Tegucigalpa. Camisetas oficiales 2026/27 versión jugador y aficionado bajo pedido (3 a 5 semanas) y envíos seguros a toda Honduras.",
+    description: "La mejor tienda deportiva online en Honduras en Tegucigalpa. Camisetas oficiales versión jugador y aficionado bajo pedido y envíos seguros a toda Honduras.",
     alternates: { canonical: SITE_URL },
 };
 
 export default async function Home() {
     // 🚀 Cargar datos en PARALELO desde el servidor
-    // Esto elimina el tiempo de espera de red en el cliente (Waterfall)
-    const [featuredData, configData, bannersData, specialBannersData] = await Promise.all([
+    const [
+        featuredData,
+        bestSellersData,
+        newArrivalsData,
+        onSaleData,
+        configData,
+        bannersData,
+        specialBannersData
+    ] = await Promise.all([
         getFeaturedServer(),
+        getBestSellersServer(),
+        getNewArrivalsServer(),
+        getOnSaleServer(),
         getConfigServer(),
         getBannersServer(),
         getSpecialBannersServer()
@@ -58,6 +76,9 @@ export default async function Home() {
     return (
         <HomeClient
             initialDestacados={featuredData || []}
+            initialBestSellers={bestSellersData || []}
+            initialNewArrivals={newArrivalsData || []}
+            initialOnSale={onSaleData || []}
             initialBanners={bannersData || []}
             initialSpecialBanners={specialBannersData || []}
             initialLigas={ligasProcesadas}

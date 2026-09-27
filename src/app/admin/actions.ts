@@ -354,6 +354,104 @@ export async function revalidateBannersAction() {
 }
 
 /**
+ * Sincroniza y garantiza ordenamiento único con corrimiento automático de productos destacados.
+ * Si un producto toma la posición N (ej. 0), los demás se desplazan correlativamente (+1).
+ */
+export async function syncFeaturedOrderAction(params: {
+    targetProductId?: string | null;
+    targetOrder?: number;
+    isFeatured: boolean;
+}) {
+    const authClient = await createClient()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
+    if (authError || !user) {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    const supabase = createAdminClient()
+
+    // 1. Obtener todos los productos destacados activos (y no eliminados)
+    const { data: featuredProducts, error } = await supabase
+        .from('products')
+        .select('id, name, sort_order, created_at')
+        .eq('featured', true)
+        .is('deleted_at', null)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true })
+
+    if (error) {
+        console.error('Error fetching featured products in syncFeaturedOrderAction:', error)
+        return { success: false, error: error.message }
+    }
+
+    const targetId = params.targetProductId
+    const isTargetFeatured = Boolean(params.isFeatured)
+    const rawOrder = Number(params.targetOrder)
+    const requestedOrder = isNaN(rawOrder) ? 0 : Math.max(0, Math.floor(rawOrder))
+
+    // Remover targetId de la lista existente para insertarlo limpiamente en su nueva posición
+    const listWithoutTarget = (featuredProducts || []).filter(p => p.id !== targetId)
+
+    let finalOrderedList: { id: string; sort_order?: number }[] = []
+
+    if (isTargetFeatured && targetId) {
+        // Determinamos el índice donde debe insertarse:
+        // Si pide 0 -> va al inicio (índice 0) y los demás se desplazan hacia abajo (+1)
+        // Si pide un número mayor a la longitud de la lista -> va al final
+        const insertIndex = Math.min(requestedOrder, listWithoutTarget.length)
+        
+        finalOrderedList = [...listWithoutTarget]
+        finalOrderedList.splice(insertIndex, 0, { id: targetId })
+    } else {
+        // Si no es destacado, la lista queda sin el target
+        finalOrderedList = [...listWithoutTarget]
+    }
+
+    // Actualizar sort_order de cada producto para que sea su índice único (0, 1, 2, 3...)
+    const updates: PromiseLike<any>[] = []
+    
+    finalOrderedList.forEach((item, index) => {
+        const previousItem = (featuredProducts || []).find(p => p.id === item.id)
+        if (!previousItem || previousItem.sort_order !== index) {
+            updates.push(
+                supabase
+                    .from('products')
+                    .update({ sort_order: index, featured: true })
+                    .eq('id', item.id)
+            )
+        }
+    })
+
+    // Si el target no es destacado pero estaba en featured en la BD, desmarcarlo
+    if (!isTargetFeatured && targetId) {
+        updates.push(
+            supabase
+                .from('products')
+                .update({ featured: false })
+                .eq('id', targetId)
+        )
+    }
+
+    if (updates.length > 0) {
+        const results = await Promise.allSettled(updates)
+        const failed = results.filter(r => r.status === 'rejected')
+        if (failed.length > 0) {
+            console.error('Algunas actualizaciones de orden fallaron:', failed)
+        }
+    }
+
+    revalidatePath('/')
+    revalidatePath('/catalogo')
+    revalidatePath('/admin/productos')
+
+    const assignedOrder = isTargetFeatured && targetId
+        ? finalOrderedList.findIndex(p => p.id === targetId)
+        : null
+
+    return { success: true, assignedOrder }
+}
+
+/**
  * Elimina permanentemente un pedido y todos sus registros relacionados.
  * ⚠️ Esta acción es irreversible.
  *
