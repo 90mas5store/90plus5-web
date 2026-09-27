@@ -103,6 +103,13 @@ const TEAM_ALIASES: Record<string, string[]> = {
   'marathon': ['marathon', 'cd marathon', 'club deportivo marathon', 'marathón', 'cd marathón'],
   'boca juniors': ['boca', 'boca juniors', 'ca boca juniors'],
   'river plate': ['river plate', 'river', 'ca river plate'],
+  'racing club': ['racing club', 'racing', 'racing club de avellaneda'],
+  'independiente': ['independiente', 'ca independiente'],
+  'san lorenzo': ['san lorenzo', 'san lorenzo de almagro'],
+  'flamengo': ['flamengo', 'cr flamengo'],
+  'palmeiras': ['palmeiras', 'se palmeiras'],
+  'corinthians': ['corinthians', 'sc corinthians'],
+  'sao paulo': ['sao paulo', 'sao paulo fc', 'são paulo'],
   'america': ['club america', 'america', 'ca america'],
   'chivas': ['guadalajara', 'chivas', 'chivas guadalajara'],
   'al nassr': ['al nassr', 'al-nassr', 'al nassr fc'],
@@ -143,20 +150,26 @@ function formatCompetitionName(rawName?: string | null): string | null {
   if (lower.includes('champions league') || lower.includes('champions-league') || lower.includes('ucl')) return 'UEFA Champions League';
   if (lower.includes('europa league') || lower.includes('europa-league') || lower.includes('uel')) return 'UEFA Europa League';
   if (lower.includes('conference league') || lower.includes('conference-league')) return 'UEFA Conference League';
-  if (lower.includes('copa del rey') || lower.includes('copa-del-rey')) return 'Copa del Rey';
+  if (lower.includes('copa argentina') || lower.includes('arg.copa')) return 'Copa Argentina';
+  if (lower.includes('copa del rey') || lower.includes('copa-del-rey') || lower.includes('esp.copa_del_rey')) return 'Copa del Rey';
   if (lower.includes('laliga') || lower.includes('la liga') || lower.includes('spanish primera')) return 'LaLiga Española';
   if (lower.includes('premier league') || lower.includes('premier-league') || lower.includes('epl')) return 'Premier League';
   if (lower.includes('serie a') || lower.includes('serie-a')) return 'Serie A Italia';
   if (lower.includes('bundesliga')) return 'Bundesliga Alemania';
   if (lower.includes('ligue 1') || lower.includes('ligue-1')) return 'Ligue 1 Francia';
+  if (lower.includes('primeira liga') || lower.includes('por.1') || lower.includes('portuguese')) return 'Liga Portugal';
+  if (lower.includes('brasileirao') || lower.includes('bra.1') || lower.includes('brazilian')) return 'Brasileirão';
   if (lower.includes('champions_cup') || lower.includes('champions cup') || lower.includes('concacaf.champions')) return 'CONCACAF Champions Cup';
   if (lower.includes('concacaf')) return 'CONCACAF Champions Cup';
   if (lower.includes('libertadores')) return 'Copa Libertadores';
   if (lower.includes('sudamericana')) return 'Copa Sudamericana';
-  if (lower.includes('fa cup') || lower.includes('fa-cup')) return 'FA Cup';
-  if (lower.includes('carabao') || lower.includes('efl cup')) return 'Carabao Cup';
-  if (lower.includes('coppa italia')) return 'Coppa Italia';
-  if (lower.includes('dfb')) return 'Copa de Alemania';
+  if (lower.includes('fa cup') || lower.includes('fa-cup') || lower.includes('eng.fa')) return 'FA Cup';
+  if (lower.includes('carabao') || lower.includes('efl cup') || lower.includes('eng.league_cup')) return 'Carabao Cup';
+  if (lower.includes('coppa italia') || lower.includes('ita.coppa_italia')) return 'Coppa Italia';
+  if (lower.includes('dfb') || lower.includes('ger.dfb_pokal')) return 'Copa de Alemania (DFB-Pokal)';
+  if (lower.includes('coupe de france') || lower.includes('fra.coupe_de_france')) return 'Copa de Francia';
+  if (lower.includes('cwc') || lower.includes('club world cup') || lower.includes('fifa.cwc')) return 'Mundial de Clubes FIFA';
+  if (lower.includes('super cup') || lower.includes('supercup') || lower.includes('uefa.super_cup')) return 'Supercopa de Europa';
   if (lower.includes('mls') || lower.includes('major league soccer')) return 'MLS';
   if (lower.includes('liga mx')) return 'Liga MX';
   if (lower.includes('friendly') || lower.includes('amistoso')) return 'Amistoso Internacional';
@@ -209,7 +222,7 @@ export async function GET(req?: NextRequest) {
   const tz = 'America/Tegucigalpa';
   const todayDateStr = new Date(now).toLocaleDateString('en-CA', { timeZone: tz });
   const todayYmd = todayDateStr.replace(/-/g, '');
-  const CACHE_KEY = `live-matches:v11:${todayYmd}`;
+  const CACHE_KEY = `live-matches:v12:${todayYmd}`;
   const STALE_CACHE_KEY = `live-matches:stale:${todayYmd}`;
 
   const isDebug = req ? req.nextUrl.searchParams.get('debug') === '1' : false;
@@ -411,6 +424,17 @@ export async function GET(req?: NextRequest) {
       'conmebol.libertadores',
       'conmebol.sudamericana',
       'arg.1',
+      'arg.copa',
+      'esp.copa_del_rey',
+      'eng.fa',
+      'eng.league_cup',
+      'ita.coppa_italia',
+      'ger.dfb_pokal',
+      'fra.coupe_de_france',
+      'por.1',
+      'bra.1',
+      'fifa.cwc',
+      'uefa.super_cup',
       'fifa.world',
       'concacaf.central.american.cup',
       'concacaf.champions',
