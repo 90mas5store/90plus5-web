@@ -85,6 +85,7 @@ export default function CatalogHeroContainer({
     if (dynamicSlides.length > 0) {
         return (
             <HeroBanner
+                key="catalog-carousel"
                 slides={dynamicSlides}
                 slideInterval={5000}
                 className="min-h-[55dvh] md:min-h-[60dvh] mb-4"
@@ -98,6 +99,7 @@ export default function CatalogHeroContainer({
 
     return (
         <HeroBanner
+            key={`catalog-hero-${categorySlug || leagueSlug || "default"}`}
             categorySlug={categorySlug || leagueSlug || "default"}
             className="min-h-[55dvh] md:min-h-[60dvh] mb-4"
             alt={categoryName || "Catálogo 90+5 Store"}

@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useState, memo } from "react";
-import { motion } from "@/lib/motion";
 
 type ProductImageProps = {
   src?: string;
@@ -23,22 +22,10 @@ type ProductImageProps = {
   loading?: "eager" | "lazy";
 };
 
-// Skeleton loader para imágen de producto
+// Skeleton loader para imagen de producto (CSS puro acelerado por GPU sin consumir JS main-thread)
 function ImageSkeleton({ className }: { className?: string }) {
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 ${className}`}>
-      <motion.div
-        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
-        animate={{
-          x: ["-100%", "100%"],
-        }}
-        transition={{
-          duration: 1.5,
-          repeat: Infinity,
-          ease: "linear",
-        }}
-      />
-    </div>
+    <div className={`relative overflow-hidden bg-white/[0.04] animate-pulse ${className}`} />
   );
 }
 

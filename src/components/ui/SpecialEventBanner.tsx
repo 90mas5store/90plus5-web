@@ -68,7 +68,7 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
     return (
         <section
             className={`px-4 max-w-7xl mx-auto relative z-10 ${
-                hasMatchdayHero ? "mt-12 sm:mt-16 md:mt-20 mb-10 md:mb-16" : "-mt-6 md:-mt-10 mb-8"
+                "mt-6 md:mt-8 mb-8 md:mb-12"
             }`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -107,6 +107,7 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
                                 src={banner.background_image_url}
                                 alt={banner.title}
                                 fill
+                                sizes="(max-width: 768px) 100vw, 1280px"
                                 className="object-cover opacity-60 brightness-75"
                             />
                         ) : null}

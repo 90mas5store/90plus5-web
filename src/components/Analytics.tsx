@@ -47,11 +47,11 @@ export default function Analytics() {
             {process.env.NEXT_PUBLIC_GA_ID && (
                 <>
                     <Script
-                        strategy="afterInteractive"
+                        strategy="lazyOnload"
                         src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
                     />
                     <Script
-                        strategy="afterInteractive"
+                        strategy="lazyOnload"
                         id="google-analytics"
                         dangerouslySetInnerHTML={{
                             __html: `
@@ -70,7 +70,7 @@ export default function Analytics() {
             {/* --- FACEBOOK PIXEL --- */}
             {process.env.NEXT_PUBLIC_FB_PIXEL_ID && (
                 <Script
-                    strategy="afterInteractive"
+                    strategy="lazyOnload"
                     id="facebook-pixel"
                     dangerouslySetInnerHTML={{
                         __html: `
@@ -82,6 +82,7 @@ export default function Analytics() {
                         t.src=v;s=b.getElementsByTagName(e)[0];
                         s.parentNode.insertBefore(t,s)}(window, document,'script',
                         'https://connect.facebook.net/en_US/fbevents.js');
+                        fbq('set', 'autoConfig', false, '${process.env.NEXT_PUBLIC_FB_PIXEL_ID}');
                         fbq('init', '${process.env.NEXT_PUBLIC_FB_PIXEL_ID}');
                         fbq('track', 'PageView');
                         `,

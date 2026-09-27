@@ -38,6 +38,7 @@ export default function HomeBannerContainer({ initialBanners }: HomeBannerContai
     if (slides.length === 0) {
         return (
             <HeroBanner
+                key="home-hero-fallback"
                 categorySlug="home"
                 className="min-h-[35dvh] md:min-h-[55dvh]"
                 alt="90+5 Store Hero"
@@ -49,6 +50,7 @@ export default function HomeBannerContainer({ initialBanners }: HomeBannerContai
 
     return (
         <HeroBanner
+            key="home-carousel"
             slides={slides}
             slideInterval={6000}
             className="min-h-[35dvh] md:min-h-[55dvh]"

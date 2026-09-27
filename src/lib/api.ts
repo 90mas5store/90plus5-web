@@ -1,5 +1,6 @@
 import { Product, Brand, Config, ShippingZone, SupabaseRawProduct } from "./types";
 import { supabase } from "./supabase/client";
+import { getLeagueLogoUrl } from "./leagueLogos";
 
 export type SortOption =
   | "relevance"
@@ -269,7 +270,7 @@ async function fetchConfigFromSupabase(): Promise<Config> {
     id: league.id,
     nombre: league.name,
     slug: league.slug,
-    imagen: league.image_url ?? "",
+    imagen: getLeagueLogoUrl(league.slug as string, league.name as string, league.image_url as string),
     category_id: league.category_id,
     active: (league.active as boolean) ?? true,
     show_in_home: true,

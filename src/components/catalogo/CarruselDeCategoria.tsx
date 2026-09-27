@@ -93,7 +93,7 @@ export default function CarruselDeCategoria({
             role="tab"
             aria-selected={!selected}
             onClick={() => onSelect("")}
-            className={`relative shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
+            className={`relative shrink-0 flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
               !selected
                 ? "text-white"
                 : "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-white/70 hover:text-white"
@@ -128,7 +128,7 @@ export default function CarruselDeCategoria({
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => onSelect(nombre)}
-                className={`relative shrink-0 flex items-center gap-2.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
+                className={`relative shrink-0 flex items-center gap-2.5 px-3.5 py-2 sm:px-4 sm:py-2 min-h-[44px] rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
                   isSelected
                     ? "text-white"
                     : "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-white/70 hover:text-white"
@@ -151,7 +151,6 @@ export default function CarruselDeCategoria({
                     aria-hidden="true"
                     width={20}
                     height={20}
-                    unoptimized={imagen.endsWith(".svg")}
                     className="w-full h-full object-contain filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
                   />
                 </div>

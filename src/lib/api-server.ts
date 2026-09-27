@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Product, Brand, Config, SupabaseRawProduct } from "./types";
+import { getLeagueLogoUrl } from "./leagueLogos";
 
 // ✅ Cliente seguro para Server Components (solo necesita URL + ANON KEY para datos públicos)
 const supabase = createClient(
@@ -227,7 +228,7 @@ export async function getConfigServer(): Promise<Config> {
         id: league.id,
         nombre: league.name,
         slug: league.slug,
-        imagen: league.image_url ?? "",
+        imagen: getLeagueLogoUrl(league.slug as string, league.name as string, league.image_url as string),
         category_id: league.category_id,
         active: (league.active as boolean) ?? true,
         show_in_home: true,

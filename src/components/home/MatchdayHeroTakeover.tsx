@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Flame, Trophy, Sparkles, ArrowRight, Shield, BarChart3, Radio, Shirt, Clock } from "lucide-react";
 import { useLiveMatches, LiveMatchData } from "@/hooks/useLiveMatches";
 import { motion, AnimatePresence } from "@/lib/motion";
@@ -32,11 +33,11 @@ function TeamShield({ src, alt, color, isWhite }: { src?: string | null; alt: st
       {/* Specular hairline superior */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none" />
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={src}
         alt={alt}
-        referrerPolicy="no-referrer"
+        width={112}
+        height={112}
         onError={() => setError(true)}
         className="w-full h-full object-contain filter drop-shadow-[0_6px_16px_rgba(0,0,0,0.7)]"
       />
@@ -222,7 +223,7 @@ export default function MatchdayHeroTakeover() {
                     <button
                       key={item.id}
                       onClick={() => setCurrentIndex(idx)}
-                      className={`relative shrink-0 transition-all duration-200 px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-2.5 cursor-pointer active:scale-95 ${
+                      className={`relative shrink-0 transition-all duration-200 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-bold flex items-center gap-2.5 cursor-pointer active:scale-95 ${
                         isActive
                           ? "text-white shadow-lg"
                           : "text-white/60 hover:text-white hover:bg-white/[0.06]"
@@ -240,8 +241,9 @@ export default function MatchdayHeroTakeover() {
                       {/* Mini Escudos / Nombres */}
                       <div className="relative z-10 flex items-center gap-1.5">
                         {item.homeLogo && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.homeLogo} alt="" className="w-4 h-4 object-contain shrink-0" />
+                          <div className="w-4 h-4 relative shrink-0">
+                            <Image src={item.homeLogo} alt="" width={16} height={16} className="w-full h-full object-contain" />
+                          </div>
                         )}
                         <span className="font-bold text-white">{item.homeShort}</span>
                       </div>
@@ -260,8 +262,9 @@ export default function MatchdayHeroTakeover() {
                       <div className="relative z-10 flex items-center gap-1.5">
                         <span className="font-bold text-white">{item.awayShort}</span>
                         {item.awayLogo && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.awayLogo} alt="" className="w-4 h-4 object-contain shrink-0" />
+                          <div className="w-4 h-4 relative shrink-0">
+                            <Image src={item.awayLogo} alt="" width={16} height={16} className="w-full h-full object-contain" />
+                          </div>
                         )}
                       </div>
 
@@ -349,10 +352,10 @@ export default function MatchdayHeroTakeover() {
                 {/* EQUIPO LOCAL */}
                 <div className="flex flex-col items-center text-center gap-2.5 w-full">
                   <TeamShield src={homeLogo} alt={homeName} color={homeColor} isWhite={isHomeWhite} />
-                  <h3 className="text-base sm:text-2xl md:text-3xl font-black text-white tracking-tight line-clamp-1 drop-shadow-md">
+                  <h2 className="text-base sm:text-2xl md:text-3xl font-black text-white tracking-tight line-clamp-1 drop-shadow-md">
                     <span className="hidden sm:inline">{homeName}</span>
                     <span className="inline sm:hidden">{homeShort}</span>
-                  </h3>
+                  </h2>
                 </div>
 
                 {/* CENTRO: MARCADOR DIGITAL */}
@@ -402,10 +405,10 @@ export default function MatchdayHeroTakeover() {
                 {/* EQUIPO VISITANTE */}
                 <div className="flex flex-col items-center text-center gap-2.5 w-full">
                   <TeamShield src={awayLogo} alt={awayName} color={awayColor} isWhite={isAwayWhite} />
-                  <h3 className="text-base sm:text-2xl md:text-3xl font-black text-white tracking-tight line-clamp-1 drop-shadow-md">
+                  <h2 className="text-base sm:text-2xl md:text-3xl font-black text-white tracking-tight line-clamp-1 drop-shadow-md">
                     <span className="hidden sm:inline">{awayName}</span>
                     <span className="inline sm:hidden">{awayShort}</span>
-                  </h3>
+                  </h2>
                 </div>
               </div>
 
@@ -424,7 +427,7 @@ export default function MatchdayHeroTakeover() {
                           href={activeItem.homeTeamId
                             ? `/catalogo?equipo=${encodeURIComponent(activeItem.homeTeamId)}`
                             : `/catalogo?query=${encodeURIComponent(homeName)}`}
-                          className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.97] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2 cursor-pointer text-center"
+                          className="px-4 sm:px-5 py-2.5 sm:py-3 min-h-[44px] rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.97] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2 cursor-pointer text-center"
                         >
                           <Shirt className="w-4 h-4 shrink-0" />
                           <span className="truncate">Camiseta {homeShort}</span>
@@ -437,7 +440,7 @@ export default function MatchdayHeroTakeover() {
                           href={activeItem.awayTeamId
                             ? `/catalogo?equipo=${encodeURIComponent(activeItem.awayTeamId)}`
                             : `/catalogo?query=${encodeURIComponent(awayName)}`}
-                          className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-[0.97] border border-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all backdrop-blur-md flex items-center justify-center gap-2 cursor-pointer text-center"
+                          className="px-4 sm:px-5 py-2.5 sm:py-3 min-h-[44px] rounded-2xl bg-white/10 hover:bg-white/15 active:scale-[0.97] border border-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all backdrop-blur-md flex items-center justify-center gap-2 cursor-pointer text-center"
                         >
                           <Shirt className="w-4 h-4 text-gray-300 shrink-0" />
                           <span className="truncate">Camiseta {awayShort}</span>
@@ -451,7 +454,7 @@ export default function MatchdayHeroTakeover() {
                   {!activeItem.hasHomeInDb && !activeItem.hasAwayInDb && (
                     <Link
                       href="/catalogo"
-                      className="px-5 py-2.5 sm:py-3 rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.97] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2"
+                      className="px-5 py-2.5 sm:py-3 min-h-[44px] rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.97] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2"
                     >
                       <span>Ver Catálogo</span>
                       <ArrowRight className="w-4 h-4" />
@@ -461,7 +464,7 @@ export default function MatchdayHeroTakeover() {
                   {/* BOTÓN MATCH CENTER */}
                   <button
                     onClick={handleOpenMatchCenter}
-                    className="px-5 py-2.5 sm:py-3 rounded-2xl bg-white/[0.08] hover:bg-white/15 active:scale-[0.97] border border-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg backdrop-blur-md"
+                    className="px-5 py-2.5 sm:py-3 min-h-[44px] rounded-2xl bg-white/[0.08] hover:bg-white/15 active:scale-[0.97] border border-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg backdrop-blur-md"
                   >
                     <BarChart3 className="w-4 h-4 text-red-500 shrink-0" />
                     <span>Match Center</span>

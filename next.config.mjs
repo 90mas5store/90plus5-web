@@ -77,7 +77,7 @@ const nextConfig = {
     ],
     // 🎨 Permitir SVG en el componente Image (necesario para logos de bancos)
     dangerouslyAllowSVG: true,
-    contentDispositionType: 'attachment',
+    contentDispositionType: 'inline',
 
     // 🚀 OPTIMIZACIONES DE IMAGEN (Lighthouse recommendations)
     formats: ['image/avif', 'image/webp'], // AVIF primero (mejor compresión)
@@ -101,6 +101,10 @@ const nextConfig = {
           {
             key: 'X-DNS-Prefetch-Control',
             value: 'on'
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
           },
           {
             key: 'X-Content-Type-Options',

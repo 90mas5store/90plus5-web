@@ -66,7 +66,6 @@ export default function EquipoFilter({ teams, selected, onSelect, leagueName }: 
                       alt={team.name}
                       fill
                       className="object-contain"
-                      unoptimized={team.logo_url.endsWith(".svg")}
                       sizes="20px"
                     />
                   ) : (

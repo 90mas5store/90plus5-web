@@ -279,14 +279,20 @@ export default function HeroBanner({
     // ============================================
 
     // Slugs que tienen video en /public/heroes/
-    const SLUGS_WITH_VIDEO = ['mundial2026'];
+    const SLUGS_WITH_VIDEO = ['mundial2026', 'mundial-2026', 'mundial'];
+
+    // Normalizar slug de categoría para mapear variantes como mundial-2026 -> mundial2026
+    const cleanCategorySlug = categorySlug?.toLowerCase().trim();
+    const normalizedHeroSlug = cleanCategorySlug === 'mundial-2026' || cleanCategorySlug === 'mundial'
+        ? 'mundial2026'
+        : cleanCategorySlug;
 
     const preparedSlides: HeroSlide[] = slides && slides.length > 0
         ? slides
         : [{
-            imageSrc: imageSrc || (categorySlug ? `/heroes/${categorySlug.toLowerCase()}.jpg` : fallbackImage),
-            videoSrc: videoSrc || (categorySlug && SLUGS_WITH_VIDEO.includes(categorySlug.toLowerCase())
-                ? `/heroes/${categorySlug.toLowerCase()}.mp4`
+            imageSrc: imageSrc || (normalizedHeroSlug ? `/heroes/${normalizedHeroSlug}.jpg` : fallbackImage),
+            videoSrc: videoSrc || (cleanCategorySlug && SLUGS_WITH_VIDEO.includes(cleanCategorySlug)
+                ? `/heroes/mundial2026.mp4`
                 : undefined),
             title: title,
             subtitle: subtitle,
@@ -294,13 +300,14 @@ export default function HeroBanner({
             imagePositionMobile: imagePositionMobile,
         }];
 
-    const currentSlideData = preparedSlides[currentSlide];
+    const safeCurrentSlide = (currentSlide >= 0 && currentSlide < preparedSlides.length) ? currentSlide : 0;
+    const currentSlideData = preparedSlides[safeCurrentSlide] || preparedSlides[0] || {};
 
     // Determinar si mostramos video
-    const showVideo = !!currentSlideData.videoSrc && !videoError;
+    const showVideo = !!currentSlideData?.videoSrc && !videoError;
 
     // Determinar la imagen final (si el video falla o no hay video)
-    const finalImageSrc = useFallbackImage ? fallbackImage : (currentSlideData.imageSrc || fallbackImage);
+    const finalImageSrc = useFallbackImage ? fallbackImage : (currentSlideData?.imageSrc || fallbackImage);
 
 
 
@@ -328,6 +335,13 @@ export default function HeroBanner({
         return () => clearTimeout(id);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categorySlug, imageSrc, videoSrc, slides]);
+
+    // Asegurar que si preparedSlides cambia de longitud, currentSlide no quede desfasado
+    useEffect(() => {
+        if (currentSlide >= preparedSlides.length) {
+            setCurrentSlide(0);
+        }
+    }, [currentSlide, preparedSlides.length]);
 
     // ============================================
     // 📸 PREPARAR SLIDES
@@ -395,8 +409,10 @@ export default function HeroBanner({
         // Delay preload so it doesn't compete with the LCP hero image
         const timer = setTimeout(() => {
             adjacentCategories.forEach((category) => {
+                const clean = category.toLowerCase().trim();
+                const normalized = clean === 'mundial-2026' || clean === 'mundial' ? 'mundial2026' : clean;
                 const img = new window.Image();
-                img.src = `/heroes/${category.toLowerCase()}.jpg`;
+                img.src = `/heroes/${normalized}.jpg`;
             });
         }, 2000);
         return () => clearTimeout(timer);
@@ -489,8 +505,8 @@ export default function HeroBanner({
             <div className="absolute inset-0">
                 {/* 1. Base Image Layer - SIEMPRE VISIBLE - SIN ANIMACIONES */}
                 <style dangerouslySetInnerHTML={{ __html: `
-                    .hero-img-${currentSlide} { object-position: ${currentSlideData.imagePositionMobile || 'center center'}; }
-                    @media (min-width: 768px) { .hero-img-${currentSlide} { object-position: ${currentSlideData.imagePositionDesktop || 'center center'}; } }
+                    .hero-img-${safeCurrentSlide} { object-position: ${currentSlideData?.imagePositionMobile || 'center center'}; }
+                    @media (min-width: 768px) { .hero-img-${safeCurrentSlide} { object-position: ${currentSlideData?.imagePositionDesktop || 'center center'}; } }
                 ` }} />
                 <Image
                     key={finalImageSrc}
@@ -501,7 +517,7 @@ export default function HeroBanner({
                     quality={75}
                     loading="eager"
                     fetchPriority="high"
-                    className={`object-cover z-0 hero-img-${currentSlide}`}
+                    className={`object-cover z-0 hero-img-${safeCurrentSlide}`}
                     onLoad={handleImageLoad}
                     onError={handleImageError}
                     sizes="100vw"
@@ -509,9 +525,9 @@ export default function HeroBanner({
                 />
 
                 {/* 2. Video Layer - SUPERPUESTO */}
-                {currentSlideData.videoSrc && canMountVideo && !videoError && !useFallbackImage && (
+                {currentSlideData?.videoSrc && canMountVideo && !videoError && !useFallbackImage && (
                     <div
-                        key={`video-${currentSlide}`}
+                        key={`video-${safeCurrentSlide}`}
                         className="absolute inset-0 z-10"
                         style={{ opacity: isVideoReady ? 1 : 0, transition: 'opacity 0.5s ease' }}
                     >
@@ -528,8 +544,8 @@ export default function HeroBanner({
                             onError={handleVideoError}
                         >
                             <source
-                                src={currentSlideData.videoSrc}
-                                type={currentSlideData.videoSrc?.endsWith(".webm") ? "video/webm" : "video/mp4"}
+                                src={currentSlideData?.videoSrc}
+                                type={currentSlideData?.videoSrc?.endsWith(".webm") ? "video/webm" : "video/mp4"}
                             />
                         </video>
                     </div>
@@ -556,11 +572,11 @@ export default function HeroBanner({
 
             {/* Overlay Text + CTA Button */}
             <HeroOverlayText
-                title={currentSlideData.title}
-                subtitle={currentSlideData.subtitle}
-                buttonText={currentSlideData.buttonText}
-                showButton={currentSlideData.showButton}
-                link={currentSlideData.link}
+                title={currentSlideData?.title}
+                subtitle={currentSlideData?.subtitle}
+                buttonText={currentSlideData?.buttonText}
+                showButton={currentSlideData?.showButton}
+                link={currentSlideData?.link}
             />
 
             {/* Slide Indicators */}
