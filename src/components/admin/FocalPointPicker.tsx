@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Image as ImageIcon } from "lucide-react";
 
 export function parseFocalPoint(v: string): { x: number; y: number } {
@@ -23,6 +23,14 @@ interface FocalPointPickerProps {
 export default function FocalPointPicker({ imageUrl, value, onChange, label, aspectRatio }: FocalPointPickerProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
+    const [currentSrc, setCurrentSrc] = useState(imageUrl);
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+        setCurrentSrc(imageUrl);
+        setHasError(false);
+    }, [imageUrl]);
+
     const { x, y } = parseFocalPoint(value || "50% 50%");
 
     const updateFromPointer = (clientX: number, clientY: number) => {
@@ -31,6 +39,14 @@ export default function FocalPointPicker({ imageUrl, value, onChange, label, asp
         const nx = Math.round(Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)));
         const ny = Math.round(Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)));
         onChange(`${nx}% ${ny}%`);
+    };
+
+    const handleImgError = () => {
+        if (currentSrc && currentSrc !== "/heroes/default.jpg") {
+            setCurrentSrc("/heroes/default.jpg");
+        } else {
+            setHasError(true);
+        }
     };
 
     return (
@@ -51,11 +67,12 @@ export default function FocalPointPicker({ imageUrl, value, onChange, label, asp
                 onTouchMove={e => { if (isDragging.current) updateFromPointer(e.touches[0].clientX, e.touches[0].clientY); }}
                 onTouchEnd={() => { isDragging.current = false; }}
             >
-                {imageUrl ? (
+                {currentSrc && !hasError ? (
                     <img
-                        src={imageUrl}
+                        src={currentSrc}
                         alt=""
                         draggable={false}
+                        onError={handleImgError}
                         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                         style={{ objectPosition: `${x}% ${y}%` }}
                     />

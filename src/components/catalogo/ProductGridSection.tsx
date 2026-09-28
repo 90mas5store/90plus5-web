@@ -70,7 +70,7 @@ export default function ProductGridSection({
                                 isLoading={loadingMore}
                                 className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold uppercase tracking-widest text-sm backdrop-blur-md transition-all flex items-center gap-2 cursor-pointer"
                             >
-                                <span>{loadingMore ? 'Cargando...' : 'Cargar más camisetas'}</span>
+                                <span>{loadingMore ? 'Cargando...' : 'Cargar más prendas'}</span>
                                 {!loadingMore && <ArrowDown className="w-4 h-4" />}
                             </MainButton>
                         </div>

@@ -189,7 +189,7 @@ export default function BentoSpotlightProduct({
                         {allows_customization && (
                             <div className="flex items-center gap-2">
                                 <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                                <span>Personalizable con dorsal y nombre de tu ídolo</span>
+                                <span>Personalizala con tu número y nombre favorito</span>
                             </div>
                         )}
                         <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export default function BentoSpotlightProduct({
                         onClick={onPress ? () => onPress(product) : undefined}
                         className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-primary to-red-600 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-[0_4px_20px_rgba(245,158,11,0.3)] hover:shadow-[0_6px_25px_rgba(229,9,20,0.5)] hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer"
                     >
-                        <span>Personalizar</span>
+                        <span>Personalizala</span>
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </Link>
                 </div>

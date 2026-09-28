@@ -25,15 +25,37 @@ export default function StickyMobileBuyBar({
 
     useEffect(() => {
         const handleScroll = () => {
-            // Show after scrolling past 380px on mobile
-            if (window.scrollY > 380) {
-                setIsVisible(true);
-            } else {
+            const scrollY = window.scrollY;
+
+            // No mostrar si el usuario está arriba en el hero/galería
+            if (scrollY < 350) {
                 setIsVisible(false);
+                return;
             }
+
+            // Ocultar si el botón principal de acción está visible en pantalla (evita duplicidad)
+            const mainActionBtn = document.getElementById('main-add-to-cart');
+            if (mainActionBtn) {
+                const rect = mainActionBtn.getBoundingClientRect();
+                if (rect.top < window.innerHeight - 20 && rect.bottom > 20) {
+                    setIsVisible(false);
+                    return;
+                }
+            }
+
+            // Ocultar si el usuario llegó al fondo (productos relacionados o footer)
+            const scrollBottom = window.innerHeight + window.scrollY;
+            const docHeight = document.documentElement.scrollHeight;
+            if (scrollBottom >= docHeight - 450) {
+                setIsVisible(false);
+                return;
+            }
+
+            setIsVisible(true);
         };
 
         window.addEventListener('scroll', handleScroll, { passive: true });
+        handleScroll();
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
@@ -41,23 +63,26 @@ export default function StickyMobileBuyBar({
         <AnimatePresence>
             {isVisible && (
                 <motion.div
-                    initial={{ y: 100, opacity: 0 }}
+                    initial={{ y: '100%', opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 100, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                    className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-0 left-0 right-0 z-40 lg:hidden bg-neutral-950/95 backdrop-blur-xl border-t border-white/10 px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.8)]"
+                    exit={{ y: '100%', opacity: 0 }}
+                    transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+                    className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-[#0a0b0e]/95 backdrop-blur-2xl border-t border-white/15 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] shadow-[0_-12px_40px_rgba(0,0,0,0.85)]"
                 >
+                    {/* Specular Top Highlight */}
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none" />
+
                     <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
                         {/* Mini Info */}
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             {producto.imagen && (
-                                <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 p-1 shrink-0 relative overflow-hidden flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/10 p-0.5 shrink-0 relative overflow-hidden flex items-center justify-center shadow-inner">
                                     <Image
                                         src={producto.imagen}
                                         alt={producto.equipo}
                                         fill
                                         className="object-contain p-0.5"
-                                        sizes="44px"
+                                        sizes="40px"
                                     />
                                 </div>
                             )}
@@ -67,36 +92,38 @@ export default function StickyMobileBuyBar({
                                         {producto.equipo}
                                     </span>
                                     {tallaSeleccionada && (
-                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-primary/20 text-primary border border-primary/30 shrink-0">
+                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-extrabold bg-primary/20 text-primary border border-primary/30 shrink-0">
                                             {tallaSeleccionada.label}
                                         </span>
                                     )}
                                 </div>
-                                <div className="text-sm font-black text-white">
-                                    L{' '}
-                                    {precioConRecargo > 0
-                                        ? precioConRecargo.toLocaleString('es-HN', {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                          })
-                                        : 'Consultar'}
+                                <div className="text-sm font-black text-white flex items-baseline gap-1 mt-0.5">
+                                    <span className="text-xs font-bold text-amber-400">L</span>
+                                    <span className="font-mono tabular-nums">
+                                        {precioConRecargo > 0
+                                            ? precioConRecargo.toLocaleString('es-HN', {
+                                                  minimumFractionDigits: 2,
+                                                  maximumFractionDigits: 2,
+                                              })
+                                            : 'Consultar'}
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Quick Buy Button */}
+                        {/* Quick Buy Button con Bisel Specular */}
                         <button
                             type="button"
                             onClick={onAddToCart}
                             disabled={isAdding || precioConRecargo <= 0}
-                            className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-800 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_0_15px_rgba(229,9,20,0.4)] transition-all shrink-0 cursor-pointer"
+                            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-primary to-rose-600 border-t border-white/30 hover:opacity-95 active:scale-95 disabled:bg-neutral-800 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-[0_4px_20px_rgba(229,9,20,0.4)] transition-all shrink-0 cursor-pointer min-h-[42px]"
                         >
                             {isAdding ? (
-                                <CheckCircle2 className="w-4 h-4 animate-pulse" />
+                                <CheckCircle2 className="w-4 h-4 animate-spin shrink-0" />
                             ) : (
-                                <ShoppingBag className="w-4 h-4" />
+                                <ShoppingBag className="w-4 h-4 shrink-0" />
                             )}
-                            <span>{isAdding ? 'Agregando...' : 'Comprar'}</span>
+                            <span>{isAdding ? 'Agregando...' : 'Pedir'}</span>
                         </button>
                     </div>
                 </motion.div>

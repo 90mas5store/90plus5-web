@@ -415,7 +415,7 @@ export default function MatchdayHeroTakeover() {
               {/* ──────── 3. BOTONES DE ACCIÓN APPLE STYLE ──────── */}
               <div className="mt-6 pt-5 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-xs text-white/60 text-center sm:text-left font-medium">
-                  Vive la emoción del partido vistiendo los colores oficiales.
+                  Ponete la camiseta y viví la emoción del partido con los colores oficiales.
                 </p>
 
                 <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
@@ -456,7 +456,7 @@ export default function MatchdayHeroTakeover() {
                       href="/catalogo"
                       className="px-5 py-2.5 sm:py-3 min-h-[44px] rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.97] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2"
                     >
-                      <span>Ver Catálogo</span>
+                      <span>Mirá el Catálogo</span>
                       <ArrowRight className="w-4 h-4" />
                     </Link>
                   )}

@@ -1,12 +1,22 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { motion } from "@/lib/motion";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { BUSINESS_LOGIC } from "@/lib/constants";
 
 export default function WhatsAppButton() {
+    const pathname = usePathname();
     const phoneNumber = BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER;
     const message = "Hola, estoy interesado en una camiseta. ¿Me ayudan?";
+
+    // Ocultar en páginas de producto (tienen su propio botón inline contextual) y checkout
+    const isProductPage = pathname?.startsWith("/producto");
+    const isCheckout = pathname?.startsWith("/checkout");
+
+    if (isProductPage || isCheckout) {
+        return null;
+    }
 
     const handleClick = () => {
         const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
@@ -20,13 +30,13 @@ export default function WhatsAppButton() {
             animate={{ scale: 1, opacity: 1 }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            className="fixed bottom-[calc(5.25rem_+_env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6 z-40 p-3 md:p-4 bg-[#25D366] text-white rounded-full shadow-[0_4px_20px_rgba(37,211,102,0.4)] hover:shadow-[0_4px_30px_rgba(37,211,102,0.6)] active:scale-95 transition-all flex items-center justify-center group"
+            className="fixed bottom-[calc(5.75rem_+_env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6 z-40 p-3 md:p-4 bg-[#25D366] text-white rounded-full shadow-[0_4px_20px_rgba(37,211,102,0.4)] hover:shadow-[0_4px_30px_rgba(37,211,102,0.6)] active:scale-95 transition-all flex items-center justify-center group"
             aria-label="Contactar por WhatsApp"
         >
             <WhatsAppIcon className="w-6 h-6 md:w-8 md:h-8" />
 
-            {/* Tooltip opcional */}
-            <span className="absolute right-full mr-4 px-3 py-1 bg-black/80 backdrop-blur-md text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            {/* Tooltip opcional en Desktop */}
+            <span className="hidden md:block absolute right-full mr-4 px-3 py-1 bg-black/80 backdrop-blur-md text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                 ¿Ayuda con tu talla?
             </span>
         </motion.button>

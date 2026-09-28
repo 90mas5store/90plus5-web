@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Edit, Trash2, Search, X, Save, Loader2, Trophy, Tag, ChevronLeft, ChevronRight, Monitor, Smartphone } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, X, Save, Loader2, Trophy, Tag, ChevronLeft, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import useToastMessage from '@/hooks/useToastMessage'
 import { useAdminRole } from '@/hooks/useAdminRole'
@@ -11,7 +11,6 @@ import { revalidateConfig } from '@/app/admin/actions'
 import ImageUpload from '@/components/admin/ImageUpload'
 import { motion, AnimatePresence } from '@/lib/motion'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
-import FocalPointPicker from '@/components/admin/FocalPointPicker'
 
 const PAGE_SIZE = 20
 
@@ -65,8 +64,6 @@ export default function LeaguesPage() {
         show_in_home: true,
         sort_order: 0,
         season: '',
-        hero_image_position_desktop: '50% 40%',
-        hero_image_position_mobile: '50% 50%'
     })
 
     const fetchLeagues = useCallback(async (p = page) => {
@@ -113,8 +110,6 @@ export default function LeaguesPage() {
                 show_in_home: editingLeague.show_in_home ?? editingLeague.show_on_home ?? true,
                 sort_order: editingLeague.sort_order || 0,
                 season: editingLeague.season || '',
-                hero_image_position_desktop: editingLeague.hero_image_position_desktop || '50% 40%',
-                hero_image_position_mobile: editingLeague.hero_image_position_mobile || '50% 50%'
             })
         } else {
             setFormData({
@@ -126,8 +121,6 @@ export default function LeaguesPage() {
                 show_in_home: true,
                 sort_order: leagues.length + 1,
                 season: '',
-                hero_image_position_desktop: '50% 40%',
-                hero_image_position_mobile: '50% 50%'
             })
         }
     }, [editingLeague, isModalOpen, leagues.length])
@@ -147,11 +140,8 @@ export default function LeaguesPage() {
                 category_id: formData.category_id || null,
                 active: formData.active,
                 show_in_home: formData.show_in_home,
-                show_on_home: formData.show_in_home,
                 sort_order: formData.sort_order,
                 season: formData.season,
-                hero_image_position_desktop: formData.hero_image_position_desktop,
-                hero_image_position_mobile: formData.hero_image_position_mobile
             }
 
             if (editingLeague) {
@@ -515,41 +505,6 @@ export default function LeaguesPage() {
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                                             ))}
                                         </select>
-                                    </div>
-                                </div>
-
-                                {/* Punto focal del hero */}
-                                <div className="rounded-2xl border border-white/10 overflow-hidden">
-                                    <div className="px-4 py-3 bg-white/[0.03] flex items-center gap-2">
-                                        <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Punto Focal — Hero Banner</span>
-                                    </div>
-                                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Monitor size={13} className="text-gray-500" />
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Desktop</span>
-                                            </div>
-                                            <FocalPointPicker
-                                                label="Desktop"
-                                                imageUrl={formData.slug ? `/heroes/${formData.slug}.jpg` : undefined}
-                                                value={formData.hero_image_position_desktop}
-                                                onChange={v => setFormData(prev => ({ ...prev, hero_image_position_desktop: v }))}
-                                                aspectRatio="16/5"
-                                            />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Smartphone size={13} className="text-gray-500" />
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile</span>
-                                            </div>
-                                            <FocalPointPicker
-                                                label="Mobile"
-                                                imageUrl={formData.slug ? `/heroes/${formData.slug}.jpg` : undefined}
-                                                value={formData.hero_image_position_mobile}
-                                                onChange={v => setFormData(prev => ({ ...prev, hero_image_position_mobile: v }))}
-                                                aspectRatio="4/3"
-                                            />
-                                        </div>
                                     </div>
                                 </div>
                             </div>

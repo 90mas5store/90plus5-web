@@ -1,8 +1,6 @@
-import { Suspense } from "react";
 import HomeClient from "../components/HomeClient";
 import {
     getBannersServer,
-    getConfigServer,
     getFeaturedServer,
     getBestSellersServer,
     getNewArrivalsServer,
@@ -28,7 +26,6 @@ export default async function Home() {
         bestSellersData,
         newArrivalsData,
         onSaleData,
-        configData,
         bannersData,
         specialBannersData
     ] = await Promise.all([
@@ -36,42 +33,9 @@ export default async function Home() {
         getBestSellersServer(),
         getNewArrivalsServer(),
         getOnSaleServer(),
-        getConfigServer(),
         getBannersServer(),
         getSpecialBannersServer()
     ]);
-
-    // 🚀 Preload hero image: el browser descarga antes de que React hidrate
-    const firstBannerImage = bannersData?.[0]?.image_url as string | undefined;
-
-    const normalize = (s: string) =>
-        (s || "").toString().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
-
-    // Procesar ligas (Lógica servida directamente ya procesada)
-    let ligasProcesadas: import('@/lib/types').League[] = [];
-    if (configData?.ligas?.length) {
-        ligasProcesadas = configData.ligas;
-    } else {
-        // Fallback legacy (si no hay config, inferir de destacados - poco probable con la nueva API)
-        const ligasUnicas = [
-            ...new Set(
-                (featuredData || []).map((p) => (p as any).liga).filter(Boolean)
-            ),
-        ].map((l) => ({
-            id: normalize(l as string),
-            nombre: l as string,
-            slug: normalize(l as string),
-            imagen: ""
-        }));
-        ligasProcesadas = ligasUnicas;
-    }
-
-    // Filtrar ligas visibles en Home y activas (configurables desde el panel de administración)
-    ligasProcesadas = ligasProcesadas.filter(l => {
-        const isVisibleInHome = l.show_in_home ?? l.show_on_home ?? true;
-        const isActive = l.active ?? true;
-        return isVisibleInHome && isActive;
-    });
 
     return (
         <HomeClient
@@ -81,8 +45,6 @@ export default async function Home() {
             initialOnSale={onSaleData || []}
             initialBanners={bannersData || []}
             initialSpecialBanners={specialBannersData || []}
-            initialLigas={ligasProcesadas}
-            initialCategorias={configData?.categorias || []}
         />
     );
 }

@@ -228,10 +228,11 @@ async function fetchFeaturedFromSupabase(): Promise<Product[]> {
 
 
 async function fetchConfigFromSupabase(): Promise<Config> {
-  // 1️⃣ Traemos categorías y ligas en paralelo
+  // 1️⃣ Traemos categorías, ligas y conteos de inventario en paralelo
   const [
     { data: categories, error: catError },
     { data: leagues, error: leagueError },
+    { data: leagueCountsData },
   ] = await Promise.all([
     supabase
       .from("categories")
@@ -244,6 +245,12 @@ async function fetchConfigFromSupabase(): Promise<Config> {
       .select("id,name,slug,image_url,category_id,active")
       .eq("active", true)
       .order("sort_order", { ascending: true }),
+
+    supabase
+      .from("products")
+      .select("league_id")
+      .eq("active", true)
+      .not("league_id", "is", null),
   ]);
 
   if (catError) {
@@ -253,6 +260,14 @@ async function fetchConfigFromSupabase(): Promise<Config> {
   if (leagueError) {
     console.warn("Error fetching leagues (using fallback):", leagueError);
   }
+
+  // Mapa de faceted counts por liga
+  const countsMap = new Map<string, number>();
+  (leagueCountsData ?? []).forEach((row: { league_id: string | null }) => {
+    if (row.league_id) {
+      countsMap.set(row.league_id, (countsMap.get(row.league_id) || 0) + 1);
+    }
+  });
 
   // 2️⃣ Adaptamos categorías al shape que espera el frontend
   const adaptedCategorias = (categories ?? []).map((cat: Record<string, unknown>) => ({
@@ -265,7 +280,7 @@ async function fetchConfigFromSupabase(): Promise<Config> {
     hero_image_position_mobile: cat.hero_image_position_mobile || "50% 50%",
   }));
 
-  // 3️⃣ Adaptamos ligas al shape que espera el frontend
+  // 3️⃣ Adaptamos ligas con conteo real de prendas
   const adaptedLigas = (leagues ?? []).map((league: Record<string, unknown>) => ({
     id: league.id,
     nombre: league.name,
@@ -275,6 +290,7 @@ async function fetchConfigFromSupabase(): Promise<Config> {
     active: (league.active as boolean) ?? true,
     show_in_home: true,
     show_on_home: true,
+    product_count: countsMap.get(league.id as string) || 0,
     hero_image_position_desktop: (league.hero_image_position_desktop as string) || "50% 40%",
     hero_image_position_mobile: (league.hero_image_position_mobile as string) || "50% 50%",
   }));
@@ -691,25 +707,58 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
 
   // Lógica bifurcada: Búsqueda con typos (RPC) vs Navegación normal (Standard)
 
-  // A) Búsqueda Inteligente (Fuzzy)
+  // A) Búsqueda Inteligente (Fuzzy con Fallback de Resiliencia)
   if (searchQuery) {
     const from = (page - 1) * limit;
 
-    // 1. Obtener IDs relevantes tolerando errores
-    const { data: fuzzyIds, error: rpcError } = await supabase.rpc('search_fuzzy_products', {
-      search_term: searchQuery,
-      p_category_id: categoryId || null,
-      p_league_id: leagueId || null,
-      p_limit: limit,
-      p_offset: from
-    });
+    // 1. Obtener IDs relevantes tolerando errores ortográficos (RPC PostgreSQL)
+    let ids: string[] = [];
+    try {
+      const { data: fuzzyIds, error: rpcError } = await supabase.rpc('search_fuzzy_products', {
+        search_term: searchQuery,
+        p_category_id: categoryId || null,
+        p_league_id: leagueId || null,
+        p_limit: limit,
+        p_offset: from
+      });
 
-    if (rpcError) {
-      console.error("Fuzzy search error:", rpcError);
-      // Fallback a búsqueda normal si falla el RPC (ej: no creado aun)
-    } else if (fuzzyIds && fuzzyIds.length > 0) {
-      // 2. Traer el detalle completo de esos IDs
-      const ids = fuzzyIds.map((item: Record<string, unknown>) => item.id);
+      if (!rpcError && fuzzyIds && fuzzyIds.length > 0) {
+        ids = fuzzyIds.map((item: Record<string, unknown>) => item.id as string);
+      }
+    } catch (err) {
+      console.warn("Fuzzy search RPC exception:", err);
+    }
+
+    // 2. Fallback Inteligente: Si el RPC no arrojó resultados o falló, buscar coincidencias directas
+    if (ids.length === 0) {
+      const cleanTerm = searchQuery.trim().toLowerCase();
+      try {
+        let fallbackQuery = supabase
+          .from("products")
+          .select("id")
+          .eq("active", true);
+
+        if (categoryId) fallbackQuery = fallbackQuery.eq("category_id", categoryId);
+        if (leagueId) fallbackQuery = fallbackQuery.eq("league_id", leagueId);
+        if (resolvedTeamId) fallbackQuery = fallbackQuery.eq("team_id", resolvedTeamId);
+        if (resolvedBrandId) fallbackQuery = fallbackQuery.eq("brand_id", resolvedBrandId);
+        if (season) fallbackQuery = fallbackQuery.ilike("season", `%${season.trim()}%`);
+
+        fallbackQuery = fallbackQuery
+          .or(`name.ilike.%${cleanTerm}%,description.ilike.%${cleanTerm}%,slug.ilike.%${cleanTerm}%`)
+          .range(from, from + limit - 1);
+
+        const { data: fallbackData } = await fallbackQuery;
+        if (fallbackData && fallbackData.length > 0) {
+          ids = fallbackData.map((p: { id: string }) => p.id);
+        }
+      } catch (fbErr) {
+        console.warn("Search fallback exception:", fbErr);
+      }
+    }
+
+    if (ids.length > 0) {
+      // 3. Traer el detalle completo de esos IDs
 
       let fuzzyQuery = supabase
         .from("products")

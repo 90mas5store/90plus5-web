@@ -50,6 +50,7 @@ export interface League {
   active?: boolean;
   show_in_home?: boolean;
   show_on_home?: boolean;
+  product_count?: number;
   hero_image_position_desktop?: string;
   hero_image_position_mobile?: string;
 }

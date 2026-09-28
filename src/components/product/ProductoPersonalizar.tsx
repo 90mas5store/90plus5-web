@@ -102,16 +102,16 @@ export default function ProductoPersonalizar({
     const isLiveManual = !liveMatch && !!product.trending_until && new Date(product.trending_until) > new Date();
     const showLiveBanner = !!liveMatch || isLiveManual;
 
-    const getAuraColors = (liga: string | undefined) => {
-        if (!liga) return 'from-primary/20 via-black to-black';
+    const getAuraGlow = (liga: string | undefined) => {
+        if (!liga) return 'bg-primary/20';
         const map: Record<string, string> = {
-            Barcelona: 'from-[#004D98]/30 via-black to-[#A50044]/30',
-            'Real Madrid': 'from-white/5 via-black to-[#A899CA]/10',
-            PSG: 'from-[#004170]/30 via-black to-[#DA291C]/30',
-            'Manchester United': 'from-[#DA291C]/30 via-black to-[#FBE122]/20',
-            Olimpia: 'from-white/10 via-black to-primary/30',
+            Barcelona: 'bg-[#004D98]/25',
+            'Real Madrid': 'bg-[#A899CA]/15',
+            PSG: 'bg-[#004170]/25',
+            'Manchester United': 'bg-[#DA291C]/25',
+            Olimpia: 'bg-primary/20',
         };
-        return map[liga] || 'from-primary/25 via-black to-black';
+        return map[liga] || 'bg-primary/20';
     };
 
     if (loading) return <ProductCustomizationSkeleton />;
@@ -120,33 +120,39 @@ export default function ProductoPersonalizar({
         <motion.main
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
             style={{ paddingTop: 'calc(var(--header-height, 4.5rem) + 1.25rem)' }}
-            className={`min-h-dvh text-white pb-20 px-4 md:px-8 relative overflow-hidden bg-gradient-to-b ${getAuraColors(
-                producto.liga
-            )}`}
+            className="min-h-dvh text-white pb-24 px-4 sm:px-6 md:px-8 relative overflow-hidden bg-[#07080b]"
         >
-            <HeatmapBackground liga={producto.liga} opacity={0.1} />
+            {/* 🌟 Apple Atmospheric Ambient Glows (§12 Materials & Depth) */}
+            <div className={`absolute top-0 left-1/4 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-[140px] pointer-events-none opacity-40 ${getAuraGlow(producto.liga)}`} />
+            <div className="absolute top-1/3 right-0 w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none opacity-20 bg-primary/25" />
+            <div className="absolute bottom-1/4 left-0 w-[450px] h-[450px] rounded-full blur-[150px] pointer-events-none opacity-15 bg-white/10" />
+
+            <HeatmapBackground liga={producto.liga} opacity={0.06} />
 
             <div className="max-w-7xl mx-auto relative z-10">
-                {/* 🧭 Breadcrumb o botón Volver */}
-                <div className="mb-6 flex items-center gap-4">
+                {/* 🧭 Navegación Apple Frosted Pill */}
+                <div className="mb-6 flex items-center gap-3">
                     <button
                         onClick={() => router.back()}
                         aria-label="Regresar"
-                        className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-all group shrink-0 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] active:scale-95 border border-white/10 text-white/80 hover:text-white transition-all backdrop-blur-md cursor-pointer text-xs font-semibold shadow-sm group shrink-0"
                     >
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                        <span>Volver</span>
                     </button>
-                    {breadcrumb ?? (
-                        <span className="text-sm font-bold uppercase tracking-widest text-gray-400">
-                            Regresar
-                        </span>
+                    {breadcrumb && (
+                        <>
+                            <div className="h-4 w-px bg-white/10 shrink-0" />
+                            <div className="overflow-hidden min-w-0">{breadcrumb}</div>
+                        </>
                     )}
                 </div>
 
-                <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
-                    {/* 🖼️ SECCIÓN IZQUIERDA: GALERÍA DE IMÁGENES */}
-                    <div className="lg:col-span-7 flex flex-col gap-3">
+                <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-12 items-start">
+                    {/* 🖼️ SECCIÓN IZQUIERDA: GALERÍA DE IMÁGENES (Sticky en Desktop) */}
+                    <div className="lg:col-span-7 lg:sticky lg:top-24 flex flex-col gap-4">
                         <ProductGalleryViewer
                             galleryImages={galleryImages}
                             activeImageIdx={activeImageIdx}
@@ -180,8 +186,14 @@ export default function ProductoPersonalizar({
                         />
                     </div>
 
-                    {/* ⚙️ SECCIÓN DERECHA: PERSONALIZACIÓN */}
-                    <div className="lg:col-span-5 flex flex-col gap-4">
+                    {/* ⚙️ SECCIÓN DERECHA: APPLE STUDIO CONFIGURATOR */}
+                    <div className="lg:col-span-5 flex flex-col gap-5 p-5 sm:p-7 rounded-[2.2rem] bg-gradient-to-b from-[#13151c]/90 via-[#0e0f14]/90 to-[#090a0d]/90 backdrop-blur-2xl border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.6)] relative overflow-hidden">
+                        {/* 🌟 Specular Top Highlight */}
+                        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
+
+                        {/* Ambient Subtle Glow */}
+                        <div className="absolute -top-24 -right-24 w-60 h-60 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+
                         {/* Encabezado e Info de Producto — solo en desktop */}
                         <ProductHeaderInfo
                             producto={producto}
@@ -193,7 +205,7 @@ export default function ProductoPersonalizar({
                             isMobile={false}
                         />
 
-                        <div className="h-px bg-gradient-to-r from-white/10 to-transparent" />
+                        <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
                         {/* Selectores de Versión, Talla, Parche y Dorsal */}
                         <ProductCustomizerOptions
@@ -235,7 +247,7 @@ export default function ProductoPersonalizar({
                     </div>
                 </div>
 
-                {/* 🔗 PRODUCTOS RELACIONADOS (Poster Style) */}
+                {/* 🔗 PRODUCTOS RELACIONADOS (Official Apple ProductCard Grid) */}
                 <RelatedProductsSection
                     products={initialRelated}
                     onProductClick={() => {}}
@@ -253,3 +265,4 @@ export default function ProductoPersonalizar({
         </motion.main>
     );
 }
+

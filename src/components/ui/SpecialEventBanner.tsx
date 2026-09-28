@@ -67,9 +67,7 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
 
     return (
         <section
-            className={`px-4 max-w-7xl mx-auto relative z-10 ${
-                "mt-6 md:mt-8 mb-8 md:mb-12"
-            }`}
+            className="px-4 max-w-7xl mx-auto relative z-10 mt-6 md:mt-8 mb-3 md:mb-4"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >

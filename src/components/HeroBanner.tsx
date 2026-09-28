@@ -281,16 +281,35 @@ export default function HeroBanner({
     // Slugs que tienen video en /public/heroes/
     const SLUGS_WITH_VIDEO = ['mundial2026', 'mundial-2026', 'mundial'];
 
+    // Slugs con archivo dedicado en /public/heroes/
+    const SLUGS_WITH_HERO_IMAGE = [
+        'mundial2026',
+        'mundial-2026',
+        'mundial',
+        'futbol',
+        'retro',
+        'streetwear-retro',
+        'tenis',
+        'formula1',
+        'home',
+        'default',
+        'uefa',
+    ];
+
     // Normalizar slug de categoría para mapear variantes como mundial-2026 -> mundial2026
     const cleanCategorySlug = categorySlug?.toLowerCase().trim();
     const normalizedHeroSlug = cleanCategorySlug === 'mundial-2026' || cleanCategorySlug === 'mundial'
         ? 'mundial2026'
         : cleanCategorySlug;
 
+    const defaultHeroImage = (normalizedHeroSlug && SLUGS_WITH_HERO_IMAGE.includes(normalizedHeroSlug))
+        ? `/heroes/${normalizedHeroSlug}.jpg`
+        : fallbackImage;
+
     const preparedSlides: HeroSlide[] = slides && slides.length > 0
         ? slides
         : [{
-            imageSrc: imageSrc || (normalizedHeroSlug ? `/heroes/${normalizedHeroSlug}.jpg` : fallbackImage),
+            imageSrc: imageSrc || defaultHeroImage,
             videoSrc: videoSrc || (cleanCategorySlug && SLUGS_WITH_VIDEO.includes(cleanCategorySlug)
                 ? `/heroes/mundial2026.mp4`
                 : undefined),
@@ -411,8 +430,10 @@ export default function HeroBanner({
             adjacentCategories.forEach((category) => {
                 const clean = category.toLowerCase().trim();
                 const normalized = clean === 'mundial-2026' || clean === 'mundial' ? 'mundial2026' : clean;
-                const img = new window.Image();
-                img.src = `/heroes/${normalized}.jpg`;
+                if (SLUGS_WITH_HERO_IMAGE.includes(normalized)) {
+                    const img = new window.Image();
+                    img.src = `/heroes/${normalized}.jpg`;
+                }
             });
         }, 2000);
         return () => clearTimeout(timer);

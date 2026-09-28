@@ -5,11 +5,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 // Persiste en memoria durante la sesión SPA (no se resetea entre navegaciones)
 const _homeAlreadyMounted = { value: false };
 import { m, AnimatePresence } from "@/lib/motion";
-import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
-import MainButton from "./ui/MainButton";
-import { useCart } from "@/context/CartContext";
-import { Product, Config, Category, SpecialBanner } from "@/lib/types";
+import { Product, SpecialBanner } from "@/lib/types";
 import { fetchProductsByTeamIds } from "@/lib/api";
 import useToastMessage from "@/hooks/useToastMessage";
 import ProductCard from "./ui/ProductCard";
@@ -18,26 +14,11 @@ import { usePrefetch, useProductPrefetch } from "@/hooks/usePrefetch";
 import { usePrefersReducedMotion } from "@/hooks/useOptimization";
 import SpecialEventBanner from "./ui/SpecialEventBanner";
 import HomeBannerContainer from "./HomeBannerContainer";
-import MatchdayHeaderBanner from "./ui/MatchdayHeaderBanner";
 import MatchdayHeroTakeover from "./home/MatchdayHeroTakeover";
 import StoreGeoAuthoritySection from "./home/StoreGeoAuthoritySection";
 
 import BentoSpotlightProduct from "./home/BentoSpotlightProduct";
 import { Star, Flame, Sparkles, Tag, Zap, LayoutGrid } from "lucide-react";
-
-// 🏗️ Carga dinámica de componentes pesados
-const CarruselDeCategoria = dynamic(() => import("./catalogo/CarruselDeCategoria"), {
-    ssr: false,
-    loading: () => <div className="h-40 animate-pulse bg-white/5 rounded-3xl" />
-});
-
-// 🎞️ Animaciones coherentes con Catálogo
-const fadeInItem = (i = 0) => ({
-    initial: { opacity: 0, y: 20, scale: 0.98 },
-    animate: { opacity: 1, y: 0, scale: 1 },
-    exit: { opacity: 0, y: 10, scale: 0.97 },
-    transition: { delay: i * 0.05, duration: 0.5, ease: "easeOut" as const },
-});
 
 interface HomeClientProps {
     initialDestacados: Product[];
@@ -46,8 +27,8 @@ interface HomeClientProps {
     initialOnSale?: Product[];
     initialBanners: Record<string, unknown>[];
     initialSpecialBanners: SpecialBanner[];
-    initialLigas: import('@/lib/types').League[];
-    initialCategorias: Category[];
+    initialLigas?: import('@/lib/types').League[];
+    initialCategorias?: import('@/lib/types').Category[];
 }
 
 export default function HomeClient({
@@ -56,11 +37,8 @@ export default function HomeClient({
     initialNewArrivals = [],
     initialOnSale = [],
     initialBanners,
-    initialSpecialBanners,
-    initialLigas,
-    initialCategorias
+    initialSpecialBanners
 }: HomeClientProps) {
-    const router = useRouter();
     usePrefetch();
     const { matches: liveMatches, isLoaded: liveMatchesLoaded } = useLiveMatchesData();
 
@@ -70,10 +48,8 @@ export default function HomeClient({
     const [newArrivals] = useState<Product[]>(initialNewArrivals || []);
     const [onSale] = useState<Product[]>(initialOnSale || []);
     const [banners] = useState<Record<string, unknown>[]>(initialBanners || []);
-    const [ligas] = useState<import('@/lib/types').League[]>(initialLigas || []);
-    const [categorias] = useState<Category[]>(initialCategorias || []);
 
-    // ⚡ Camisetas cargadas en tiempo real para todos los clubes en Matchday
+    // ⚡ Prendas cargadas en tiempo real para todos los clubes en Matchday
     const [matchdayProducts, setMatchdayProducts] = useState<Product[]>([]);
 
     useEffect(() => {
@@ -97,8 +73,6 @@ export default function HomeClient({
     type ViewMode = 'showcase' | 'grid';
     const [viewMode, setViewMode] = useState<ViewMode>('showcase');
 
-    // State for interactions
-    const [ligaSeleccionada, setLigaSeleccionada] = useState<string | null>(null);
     const prefersReducedMotion = usePrefersReducedMotion();
     const toast = useToastMessage();
 
@@ -108,7 +82,7 @@ export default function HomeClient({
         _homeAlreadyMounted.value = true;
     }, []);
 
-    // Conteo de camisetas y equipos jugando hoy para badge en Matchday
+    // Conteo de prendas y equipos jugando hoy para badge en Matchday
     const matchdayCount = useMemo(() => {
         const uniqueMap = new Map<string, Product>();
         matchdayProducts.forEach((p) => uniqueMap.set(p.id, p));
@@ -122,25 +96,16 @@ export default function HomeClient({
         return Object.keys(liveMatches).length;
     }, [matchdayProducts, destacados, bestSellers, newArrivals, onSale, liveMatches]);
 
-    // === Funciones de utilidad ===
-    const normalize = (s: string) =>
-        (s || "")
-            .toString()
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/\p{Diacritic}/gu, "");
-
-    // 🔍 Filtrado por Pestaña Activa y Liga (PRESERVANDO ORDEN ORIGINAL DE CADA TAB)
+    // 🔍 Filtrado por Pestaña Activa (PRESERVANDO ORDEN ORIGINAL DE CADA TAB)
     const currentTabProducts = useMemo(() => {
-        let baseList: Product[] = [];
         if (activeTab === 'destacados') {
-            baseList = destacados;
+            return destacados;
         } else if (activeTab === 'bestsellers') {
-            baseList = (bestSellers.length > 0 ? bestSellers : destacados).slice(0, 12);
+            return (bestSellers.length > 0 ? bestSellers : destacados).slice(0, 12);
         } else if (activeTab === 'new') {
-            baseList = (newArrivals.length > 0 ? newArrivals : destacados).slice(0, 12);
+            return (newArrivals.length > 0 ? newArrivals : destacados).slice(0, 12);
         } else if (activeTab === 'onsale') {
-            baseList = onSale;
+            return onSale;
         } else if (activeTab === 'matchday') {
             const uniqueMap = new Map<string, Product>();
             matchdayProducts.forEach((p) => uniqueMap.set(p.id, p));
@@ -152,21 +117,10 @@ export default function HomeClient({
                 }
             });
 
-            baseList = Array.from(uniqueMap.values());
+            return Array.from(uniqueMap.values());
         }
-
-        if (!ligaSeleccionada) return baseList;
-
-        const selectedLeagueObj = ligas.find((l) => normalize(l.nombre) === normalize(ligaSeleccionada));
-        return baseList.filter((item) => {
-            if (selectedLeagueObj?.id) {
-                if (item.league_ids?.includes(selectedLeagueObj.id)) return true;
-                if (item.league_id === selectedLeagueObj.id) return true;
-            }
-            const itemLiga = (item as any).liga || "";
-            return normalize(itemLiga) === normalize(ligaSeleccionada);
-        });
-    }, [activeTab, destacados, bestSellers, newArrivals, onSale, matchdayProducts, liveMatches, ligaSeleccionada, ligas]);
+        return destacados;
+    }, [activeTab, destacados, bestSellers, newArrivals, onSale, matchdayProducts, liveMatches]);
 
     // 🚀 Precargar rutas de productos cuando estén disponibles
     useProductPrefetch(currentTabProducts.slice(0, 4));
@@ -200,45 +154,15 @@ export default function HomeClient({
                 hasMatchdayHero={liveMatchesLoaded && Object.keys(liveMatches).length > 0}
             />
 
-            {/* 🏆 LIGAS */}
-            <div id="ligas">
-                <CarruselDeCategoria
-                    title="Ligas disponibles"
-                    items={ligas.map((l) => ({
-                        nombre: l.nombre,
-                        imagen: l.imagen || "/logos/ligas/placeholder.svg",
-                    }))}
-                    selected={ligaSeleccionada}
-                    onSelect={(nombre: string) => {
-                        const nuevaLiga = ligaSeleccionada === nombre ? null : nombre;
-                        setLigaSeleccionada(nuevaLiga);
-
-                        // 🎯 Scroll automático suave al seleccionar liga
-                        if (nuevaLiga) {
-                            setTimeout(() => {
-                                const element = document.getElementById('ligas');
-                                if (element) {
-                                    const yOffset = -80;
-                                    const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                                    window.scrollTo({ top: y, behavior: 'smooth' });
-                                }
-                            }, 100);
-                        }
-                    }}
-                />
-            </div>
-
             {/* ⭐ CATÁLOGO PRINCIPAL CON PESTAÑAS INTELIGENTES */}
-            <section id="destacados" className="py-8 md:py-14 px-4 max-w-7xl mx-auto">
+            <section id="destacados" className="pt-2 md:pt-4 pb-8 md:pb-12 px-4 max-w-7xl mx-auto">
                 {/* Header Dinámico */}
                 <div className="text-center mb-6 md:mb-8">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/10 text-white/60 text-[11px] font-bold uppercase tracking-wider mb-2.5">
                         <span>Colección Oficial</span>
                     </div>
                     <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
-                        {ligaSeleccionada
-                            ? `${activeTab === 'bestsellers' ? 'Más Vendidos de' : activeTab === 'new' ? 'Novedades de' : activeTab === 'onsale' ? 'Ofertas de' : 'Colección de'} ${ligaSeleccionada}`
-                            : activeTab === 'destacados'
+                        {activeTab === 'destacados'
                             ? 'Selección 90+5'
                             : activeTab === 'bestsellers'
                             ? 'Los Más Vendidos'
@@ -249,11 +173,11 @@ export default function HomeClient({
                             : 'Matchday · En Juego Hoy'}
                     </h2>
                     <p className="text-white/50 text-xs sm:text-sm font-medium mt-1.5 max-w-md mx-auto">
-                        {activeTab === 'destacados' && 'Camisetas con orden exclusivo de curaduría · Calidad garantizada · Envíos a toda Honduras'}
-                        {activeTab === 'bestsellers' && 'Las camisetas favoritas y más solicitadas por nuestros clientes en todo el país'}
-                        {activeTab === 'new' && 'Nuevos ingresos, drops exclusivos y camisetas recién añadidas al catálogo'}
+                        {activeTab === 'destacados' && 'Prendas destacadas y piezas exclusivas · Calidad garantizada · Envíos a toda Honduras'}
+                        {activeTab === 'bestsellers' && 'Las prendas favoritas y más pedidas en todo el país'}
+                        {activeTab === 'new' && 'Nuevos ingresos, drops exclusivos y prendas recién añadidas'}
                         {activeTab === 'onsale' && 'Precios especiales por liquidación'}
-                        {activeTab === 'matchday' && 'Camisetas oficiales de los clubes y selecciones con partido en el día'}
+                        {activeTab === 'matchday' && 'Prendas oficiales de los clubes y selecciones que juegan hoy'}
                     </p>
                 </div>
 
@@ -333,14 +257,14 @@ export default function HomeClient({
                             <div className="space-y-1.5">
                                 <h3 className="text-lg font-bold text-white">No hay partidos en juego hoy</h3>
                                 <p className="text-xs sm:text-sm text-gray-400">
-                                    Vuelve en día de Champions o fin de semana de liga para ver en tiempo real las camisetas de los clubes disputando partidos.
+                                    Volvé en día de Champions o fin de semana de liga para ver en vivo las prendas de los clubes que están jugando.
                                 </p>
                             </div>
                             <button
                                 onClick={() => setActiveTab('destacados')}
                                 className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer"
                             >
-                                Explorar Selección 90+5
+                                Mirá la Selección 90+5
                             </button>
                         </m.div>
                     )}
@@ -360,14 +284,14 @@ export default function HomeClient({
                             <div className="space-y-1.5">
                                 <h3 className="text-lg font-bold text-white">Pronto nuevas ofertas</h3>
                                 <p className="text-xs sm:text-sm text-gray-400">
-                                    Actualmente todas nuestras camisetas cuentan con precio regular.
+                                    Por ahora todas nuestras prendas tienen precio regular.
                                 </p>
                             </div>
                             <button
                                 onClick={() => setActiveTab('new')}
                                 className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer"
                             >
-                                Ver Recién Agregados
+                                Mirá lo recién agregado
                             </button>
                         </m.div>
                     )}
@@ -375,7 +299,7 @@ export default function HomeClient({
                     {/* Caso con Productos Disponibles */}
                     {currentTabProducts.length > 0 && (
                         <m.div
-                            key={`${activeTab}-${ligaSeleccionada || "all"}-${viewMode}`}
+                            key={`${activeTab}-${viewMode}`}
                             initial={isFirstMount.current ? { opacity: 0 } : false}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
@@ -422,54 +346,6 @@ export default function HomeClient({
                                     </div>
                                 ))
                             )}
-                        </m.div>
-                    )}
-
-                    {ligaSeleccionada && (
-                        <m.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex justify-center mt-12 md:mt-16"
-                        >
-                            <MainButton
-                                onClick={() => {
-                                    const selectedLeagueObj = ligas.find((l) => normalize(l.nombre) === normalize(ligaSeleccionada));
-                                    const categoryObj = selectedLeagueObj?.category_id
-                                        ? categorias.find((c) => c.id === selectedLeagueObj.category_id)
-                                        : null;
-
-                                    const catSlug = categoryObj?.slug;
-                                    const leagueSlug = selectedLeagueObj?.slug || encodeURIComponent(ligaSeleccionada || "");
-
-                                    let url = "/catalogo";
-                                    if (catSlug) {
-                                        url += `?categoria=${catSlug}&liga=${leagueSlug}`;
-                                    } else {
-                                        url += `?query=${encodeURIComponent(ligaSeleccionada || "")}`;
-                                    }
-
-                                    router.push(url);
-                                }}
-                                className="group relative px-8 py-3.5 bg-[#E50914] hover:bg-red-700 active:scale-[0.98] text-white rounded-full font-bold text-xs sm:text-sm tracking-tight shadow-[0_8px_30px_rgba(229,9,20,0.4)] transition-all duration-200 flex items-center gap-2 cursor-pointer"
-                            >
-                                <span>Ver colección completa {ligaSeleccionada}</span>
-                                <svg
-                                    aria-hidden="true"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="18"
-                                    height="18"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="group-hover:translate-x-1 transition-transform"
-                                >
-                                    <path d="M5 12h14" />
-                                    <path d="m12 5 7 7-7 7" />
-                                </svg>
-                            </MainButton>
                         </m.div>
                     )}
                 </AnimatePresence>

@@ -51,7 +51,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="relative bg-gradient-to-b from-[#0A0A0A]/95 to-black border-t border-white/10 py-8 md:py-12 text-gray-300">
+    <footer className="relative bg-gradient-to-b from-[#0A0A0A]/95 to-black border-t border-white/10 pt-8 pb-28 md:py-12 text-gray-300">
       {/* 🔥 Aura superior */}
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#E50914]/40 to-transparent" />
 

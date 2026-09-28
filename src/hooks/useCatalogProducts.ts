@@ -130,10 +130,12 @@ export function useCatalogProducts({
                 } else {
                     setProductos(data);
                     if (shouldScrollOnFilter.current && contentRef.current) {
-                        const yOffset = -85;
+                        const headerHeight = typeof window !== 'undefined'
+                            ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 72)
+                            : 72;
                         const element = contentRef.current;
-                        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                        window.scrollTo({ top: y, behavior: 'smooth' });
+                        const y = element.getBoundingClientRect().top + window.pageYOffset - (headerHeight + 16);
+                        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
                         shouldScrollOnFilter.current = false;
                     }
                 }

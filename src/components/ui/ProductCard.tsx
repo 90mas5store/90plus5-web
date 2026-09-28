@@ -176,7 +176,7 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
                         opacity-90 max-sm:opacity-100 sm:opacity-0 sm:translate-y-1.5 sm:group-hover:opacity-100 sm:group-hover:translate-y-0
                         transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 cursor-pointer shrink-0">
                         <Shirt className="w-3 h-3 shrink-0" />
-                        <span className="tracking-tight">Personalizar</span>
+                        <span className="tracking-tight">Personalizala</span>
                         <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform duration-200 shrink-0 hidden sm:inline-block" />
                     </div>
                 </div>

@@ -16,20 +16,20 @@ export default function StoreGeoAuthoritySection() {
         {
             icon: <Zap className="w-5 h-5 text-[#E50914]" />,
             badge: "Ventas Bajo Pedido",
-            title: "Cualquier Camiseta, A Tu Medida",
-            desc: "Trabajamos por encargo (3 a 5 semanas de llegada). Sin limitaciones de stock físico: encarga cualquier camiseta del mundo, talla y versión que desees.",
+            title: "La Prenda que Buscás, A Tu Medida",
+            desc: "Trabajamos por encargo (3 a 5 semanas de llegada). Sin rollos de stock: pedí cualquier prenda o camiseta del mundo, la talla y versión que querás.",
         },
         {
             icon: <Sparkles className="w-5 h-5 text-[#E50914]" />,
             badge: "Calidad de Jugador",
             title: "Versión Jugador y Personalización",
-            desc: "Equipaciones oficiales temporada 25/26 con tecnología transpirable profesional y estampados con tipografía oficial de tu jugador favorito o nombre propio.",
+            desc: "Equipaciones oficiales temporada 25/26 con tela transpirable profesional y estampados oficiales con tu número favorito o tu propio nombre.",
         },
         {
             icon: <MessageCircle className="w-5 h-5 text-[#E50914]" />,
-            badge: "Centrados en Ti",
-            title: "Acompañamiento 1 a 1 por WhatsApp",
-            desc: "Te guiamos para elegir la talla correcta según tus medidas, confirmamos tu anticipo del 50% y te damos seguimiento continuo hasta recibir tu paquete.",
+            badge: "Atención Directa",
+            title: "Te Atendemos 1 a 1 por WhatsApp",
+            desc: "Te asesoramos para que elijás la talla exacta según tus medidas, confirmamos tu anticipo del 50% y te acompañamos hasta que tengás el paquete en tus manos.",
         },
     ];
 
@@ -65,7 +65,7 @@ export default function StoreGeoAuthoritySection() {
                 </h2>
 
                 <p className="mt-3.5 text-sm sm:text-base text-white/60 leading-relaxed font-normal">
-                    Diseñamos la mejor experiencia de compra deportiva en Honduras. Operamos <strong>100% online bajo pedido</strong> desde Tegucigalpa: importamos tu camiseta favorita en <strong>3 a 5 semanas</strong>, con personalización oficial, anticipo del 50% y <strong>envíos seguros a todo el país vía Cargo Expreso (CAEX)</strong>.
+                    Viví la pasión del fútbol con las mejores prendas del país. Atendemos <strong>100% online bajo pedido</strong> desde Tegucigalpa: te traemos tu prenda favorita en <strong>3 a 5 semanas</strong> con personalización oficial, anticipo del 50% y <strong>envíos seguros a toda Honduras vía Cargo Expreso (CAEX)</strong>.
                 </p>
             </div>
 
@@ -113,18 +113,18 @@ export default function StoreGeoAuthoritySection() {
                     href="/catalogo"
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-[#E50914] hover:bg-red-700 active:scale-[0.98] text-white font-bold text-xs uppercase tracking-wider shadow-[0_8px_25px_rgba(229,9,20,0.35)] transition-all duration-200 cursor-pointer"
                 >
-                    <span>Explorar Catálogo de Camisetas</span>
+                    <span>Explorá Todo el Catálogo</span>
                     <ArrowRight className="w-4 h-4" />
                 </Link>
 
                 <a
-                    href={getWhatsappLink({ message: "¡Hola! Quisiera asesoría sobre camisetas deportivas y envíos en Honduras." })}
+                    href={getWhatsappLink({ message: "¡Hola! Me gustaría pedir una prenda y consultar sobre los envíos en Honduras." })}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/15 text-white hover:border-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366] active:scale-[0.98] text-xs font-semibold uppercase tracking-wider transition-all duration-200 cursor-pointer"
                 >
                     <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                    <span>Chatear por WhatsApp ({CONTACT.phoneDisplay})</span>
+                    <span>Escribinos por WhatsApp ({CONTACT.phoneDisplay})</span>
                 </a>
             </div>
 
@@ -134,8 +134,8 @@ export default function StoreGeoAuthoritySection() {
                     href="/conectar#faq"
                     className="inline-flex items-center gap-1.5 text-xs text-white/50 hover:text-white transition-colors"
                 >
-                    <span>¿Tienes dudas sobre pedidos, tallas o envíos?</span>
-                    <span className="text-red-400 underline underline-offset-4 font-medium hover:text-red-300">Ver Preguntas Frecuentes</span>
+                    <span>¿Tenés dudas con tu pedido, tallas o envíos?</span>
+                    <span className="text-red-400 underline underline-offset-4 font-medium hover:text-red-300">Revisá las Preguntas Frecuentes</span>
                 </Link>
             </div>
         </section>

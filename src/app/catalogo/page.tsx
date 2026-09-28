@@ -7,9 +7,8 @@ import { getConfig, getCatalogPaginated } from "../../lib/api";
 import { createAdminClient } from "../../lib/supabase/admin";
 import { SITE_URL, SITE_CONFIG, SOCIAL_LINKS } from "@/lib/config/site";
 
-// Siempre renderizar dinámico: desactiva el Data Cache de Next.js para
-// los fetches de Supabase, garantizando que cada recarga trae datos frescos.
-export const dynamic = 'force-dynamic';
+// ⚡ ISR & Edge Caching: Servido en <50ms con revalidación en segundo plano y on-demand desde /admin
+export const revalidate = 60;
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await Promise.resolve(searchParams);
@@ -53,12 +52,16 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       customDesc = `Explora la colección oficial de ${displayName} en Honduras. Envíos express a Tegucigalpa, San Pedro Sula y todo el país.`;
     }
   } else if (ligaParam && config?.ligas) {
+    const normalizedLeague = normalize(ligaParam);
     const lObj = config.ligas.find(
-      (l) => (l.slug && l.slug === ligaParam) || normalize(l.nombre) === normalize(ligaParam)
+      (l) => (l.slug && normalize(l.slug) === normalizedLeague) || normalize(l.nombre) === normalizedLeague
     );
     displayName = lObj?.nombre;
   } else if (categoriaParam && config?.categorias) {
-    const cObj = config.categorias.find((c) => c.slug === categoriaParam);
+    const normalizedCat = normalize(categoriaParam);
+    const cObj = config.categorias.find(
+      (c) => (c.slug && normalize(c.slug) === normalizedCat) || normalize(c.nombre) === normalizedCat
+    );
     displayName = cObj?.nombre;
   } else if (queryParam) {
     displayName = `Resultados para "${queryParam}"`;
@@ -66,7 +69,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   const titleStr = displayName || 'Catálogo';
   const finalTitle = customTitle || `${titleStr} | ${SITE_CONFIG.name} Honduras`;
-  const finalDesc = customDesc || `Explora nuestra colección de ${titleStr}: versión jugador y aficionado. Real Madrid, Barcelona, Olimpia, Motagua y más. Envíos a todo Honduras.`;
+  const finalDesc = customDesc || `Explora nuestra colección de ${titleStr}: prendas oficiales, indumentaria deportiva y accesorios en Honduras. Envíos a todo el país.`;
 
   // Canonical dinámico: páginas filtradas tienen su propio canonical para SEO por keyword
   const canonicalUrl = equipoParam
@@ -141,21 +144,19 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   let categoryId: string | undefined;
   if (categoriaSlug && config?.categorias) {
-    const cat = config.categorias.find((c) => c.slug === categoriaSlug);
+    const normalizedCat = normalize(categoriaSlug);
+    const cat = config.categorias.find(
+      (c) => (c.slug && normalize(c.slug) === normalizedCat) || normalize(c.nombre) === normalizedCat
+    );
     if (cat) categoryId = cat.id;
   }
 
   let leagueId: string | undefined;
   if (ligaParam && config?.ligas) {
-    // Intentar match por slug exacto primero
-    let lObj = config.ligas.find((l) => l.slug && l.slug === ligaParam);
-
-    // Si no, match por nombre normalizado (legacy)
-    if (!lObj) {
-      const normalizedParam = normalize(ligaParam);
-      lObj = config.ligas.find((l) => normalize(l.nombre) === normalizedParam);
-    }
-
+    const normalizedLeague = normalize(ligaParam);
+    const lObj = config.ligas.find(
+      (l) => (l.slug && normalize(l.slug) === normalizedLeague) || normalize(l.nombre) === normalizedLeague
+    );
     if (lObj) leagueId = lObj.id;
   }
 

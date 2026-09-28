@@ -263,8 +263,11 @@ export default function CatalogoContent({
     const handleSelectLeague = useCallback((leagueName: string) => {
         const nuevaLiga = ligaSeleccionada === leagueName ? null : leagueName;
         setLigaSeleccionada(nuevaLiga);
-        if (nuevaLiga) {
+        // Solo hacer auto-scroll si el usuario ya bajó viendo productos
+        if (nuevaLiga && typeof window !== 'undefined' && window.scrollY > 300) {
             shouldScrollOnFilter.current = true;
+        } else {
+            shouldScrollOnFilter.current = false;
         }
         const lObj = ligas.find((l) => normalizeText(l.nombre) === normalizeText(nuevaLiga));
         handleSync({ liga: lObj?.slug || nuevaLiga || null, equipo: null, marca: null });
@@ -276,50 +279,80 @@ export default function CatalogoContent({
         const newBrand = marcaSeleccionada === brandId ? null : brandId;
         setMarcaSeleccionada(newBrand);
         setEquipoSeleccionado(null);
-        shouldScrollOnFilter.current = false;
+        if (newBrand && typeof window !== 'undefined' && window.scrollY > 300) {
+            shouldScrollOnFilter.current = true;
+        } else {
+            shouldScrollOnFilter.current = false;
+        }
         handleSync({ marca: newBrand, equipo: null });
     }, [categoryBrands, marcaSeleccionada, shouldScrollOnFilter, handleSync]);
 
     const handleClearAll = useCallback(() => {
+        setCategoriaSeleccionada(null);
         setLigaSeleccionada(null);
         setEquipoSeleccionado(null);
         setMarcaSeleccionada(null);
         setCatalogFilters(DEFAULT_FILTERS);
         clearAllFilters();
-    }, [setLigaSeleccionada, clearAllFilters]);
+    }, [setCategoriaSeleccionada, setLigaSeleccionada, clearAllFilters]);
+
+    const handleSelectCategory = useCallback((slug: string) => {
+        if (!slug) {
+            handleClearAll();
+            return;
+        }
+        setCategoriaSeleccionada(slug);
+        setLigaSeleccionada(null);
+        setEquipoSeleccionado(null);
+        setMarcaSeleccionada(null);
+        handleSync({ categoria: slug, liga: null, equipo: null, marca: null });
+    }, [setCategoriaSeleccionada, setLigaSeleccionada, handleSync, handleClearAll]);
+
+    const handleClearLeague = useCallback(() => {
+        setLigaSeleccionada(null);
+        setEquipoSeleccionado(null);
+        handleSync({ liga: null, equipo: null });
+    }, [setLigaSeleccionada, handleSync]);
 
     // 🚀 Prefetch
     usePrefetch();
     useProductPrefetch(productos.slice(0, 4));
 
     return (
-        <main className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden">
+        <main
+            className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden"
+            style={{ paddingTop: 'calc(var(--header-height, 4.5rem) + 0.25rem)' }}
+        >
+            {/* Ancla para scroll respetando el header fijo */}
+            <div ref={contentRef} className="scroll-mt-[calc(var(--header-height,4.5rem)+1rem)]" />
+
             {/* SEO: h1 semántico */}
             <h1 className="sr-only">
                 {selectedCategoryObj?.nombre || ligaSeleccionada
-                    ? `Camisetas de Fútbol — ${selectedCategoryObj?.nombre || ligaSeleccionada}`
-                    : 'Catálogo de Camisetas de Fútbol en Honduras'}
+                    ? `Prendas y Colecciones — ${selectedCategoryObj?.nombre || ligaSeleccionada}`
+                    : 'Catálogo de Ropa y Prendas Deportivas en Honduras'}
             </h1>
 
-            {/* HERO */}
+            {/* HEADER DE CONTEXTO / BANNER (Apple Design) */}
             <CatalogHeroContainer
                 categorySlug={categoriaSeleccionada}
                 leagueSlug={ligaParam}
-                categoryName={selectedCategoryObj?.nombre || ligaSeleccionada || undefined}
+                categoryName={selectedCategoryObj?.nombre || undefined}
+                leagueName={selectedLeagueObj?.nombre || ligaSeleccionada || undefined}
                 adjacentCategories={adjacentCategories}
                 prefersReducedMotion={prefersReducedMotion}
-                imagePositionDesktop={
-                    selectedCategoryObj?.hero_image_position_desktop ||
-                    selectedLeagueObj?.hero_image_position_desktop
-                }
-                imagePositionMobile={
-                    selectedCategoryObj?.hero_image_position_mobile ||
-                    selectedLeagueObj?.hero_image_position_mobile
-                }
+                imagePositionDesktop={selectedCategoryObj?.hero_image_position_desktop}
+                imagePositionMobile={selectedCategoryObj?.hero_image_position_mobile}
+                totalProducts={totalProducts}
+                leagueLogo={selectedLeagueObj?.imagen}
+                categoryIcon={selectedCategoryObj?.icon_url}
+                teamName={fetchedTeamName || equipoSeleccionado}
+                brandName={marcaSeleccionada}
+                onClearFilter={handleClearAll}
+                onClearLeague={handleClearLeague}
             />
 
             {/* FILTROS AVANZADOS */}
-            <div ref={contentRef} />
             <CatalogFilterPanel
                 showGender={showGenderFilter}
                 filters={catalogFilters}
@@ -336,10 +369,9 @@ export default function CatalogoContent({
                 }}
             />
 
-            {/* CARRUSEL DE LIGAS / MARCAS Y TÍTULO MÓVIL */}
+            {/* CARRUSEL DE LIGAS / MARCAS */}
             <CategoryCarouselSection
                 currentCarrusel={currentCarrusel}
-                selectedCategoryObj={selectedCategoryObj}
                 ligaSeleccionada={ligaSeleccionada}
                 marcaSeleccionada={marcaSeleccionada}
                 categoryBrands={categoryBrands}

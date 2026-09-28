@@ -209,7 +209,9 @@ function CategoriesDropdown({
                             <div className="flex-1 pr-1">
                                 <div className="grid grid-cols-2 gap-2.5">
                                     {!isLoading && categorias.map((categoria) => {
-                                        const isActive = categoria.slug === categoriaActual;
+                                        const isActive =
+                                            categoria.slug?.toLowerCase() === categoriaActual?.toLowerCase() ||
+                                            categoria.nombre?.toLowerCase() === categoriaActual?.toLowerCase();
                                         return (
                                             <Link
                                                 key={categoria.id}
@@ -300,6 +302,7 @@ function CategoriesDropdown({
 export default function Header() {
     const { items, openCart } = useCart();
     const pathname = usePathname();
+    const isProductPage = pathname?.startsWith('/producto');
     const searchParams = useSearchParams();
     const categoriaActual = searchParams.get("categoria");
 
@@ -350,7 +353,11 @@ export default function Header() {
     };
 
     const isCategoryActive = !!(pathname?.startsWith("/catalogo") && categoriaActual);
-    const currentCategory = categorias.find(c => c.slug === categoriaActual);
+    const currentCategory = categorias.find(
+        (c) =>
+            c.slug?.toLowerCase() === categoriaActual?.toLowerCase() ||
+            c.nombre?.toLowerCase() === categoriaActual?.toLowerCase()
+    );
 
     const dropdownProps: CatDropdownProps = {
         categorias, isLoading, categoriaActual, isCategoryActive, currentCategory,
@@ -468,93 +475,95 @@ export default function Header() {
                 BOTTOM NAV MÓVIL: FLOATING ISLAND DOCK (iOS 18 / visionOS style)
                 4 pestañas limpias con hit targets generosos (Carrito y Buscador accesibles arriba)
             ═══════════════════════════════════════ */}
-            <nav
-                className="fixed bottom-4 inset-x-4 sm:inset-x-8 z-40 md:hidden max-w-sm mx-auto pointer-events-none select-none"
-                style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
-                aria-label="Navegación principal"
-            >
-                <div className="relative flex items-center h-16 px-2 rounded-full bg-[#121319]/92 backdrop-blur-3xl border border-white/20 shadow-[0_12px_40px_rgba(0,0,0,0.85)] pointer-events-auto">
-                    {/* Specular hairline superior del dock */}
-                    <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent pointer-events-none" />
+            {!isProductPage && (
+                <nav
+                    className="fixed bottom-4 inset-x-4 sm:inset-x-8 z-40 md:hidden max-w-sm mx-auto pointer-events-none select-none"
+                    style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                    aria-label="Navegación principal"
+                >
+                    <div className="relative flex items-center h-[58px] px-2 rounded-full bg-[#121319]/92 backdrop-blur-3xl border border-white/20 shadow-[0_12px_40px_rgba(0,0,0,0.85)] pointer-events-auto">
+                        {/* Specular hairline superior del dock */}
+                        <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent pointer-events-none" />
 
-                    {/* Inicio */}
-                    <Link href="/" className="flex flex-col items-center justify-center flex-1 h-full gap-1 relative active:scale-90 transition-transform duration-100">
-                        {isActive("/") && (
-                            <motion.div
-                                layoutId="mobileActiveTabPill"
-                                className="absolute inset-1.5 bg-white/[0.14] border border-white/20 rounded-full shadow-sm"
-                                transition={{ type: "spring", damping: 28, stiffness: 350 }}
-                            />
-                        )}
-                        <Home className={`w-5 h-5 relative z-10 transition-colors ${isActive("/") ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-white/50'}`} />
-                        <span className={`text-[10px] tracking-tight relative z-10 transition-colors ${isActive("/") ? 'font-bold text-white' : 'font-medium text-white/50'}`}>
-                            Inicio
-                        </span>
-                    </Link>
+                        {/* Inicio */}
+                        <Link href="/" className="flex flex-col items-center justify-center flex-1 h-full gap-0.5 relative active:scale-90 transition-transform duration-100">
+                            {isActive("/") && (
+                                <motion.div
+                                    layoutId="mobileActiveTabPill"
+                                    className="absolute inset-1 bg-white/[0.14] border border-white/20 rounded-full shadow-sm"
+                                    transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                                />
+                            )}
+                            <Home className={`w-5 h-5 relative z-10 transition-colors ${isActive("/") ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-white/50'}`} />
+                            <span className={`text-[10px] leading-tight tracking-tight relative z-10 transition-colors ${isActive("/") ? 'font-bold text-white' : 'font-medium text-white/50'}`}>
+                                Inicio
+                            </span>
+                        </Link>
 
-                    {/* Categorías */}
-                    <button
-                        onClick={() => {
-                            triggerHaptic(12);
-                            setCategoryTrayOpen(prev => !prev);
-                        }}
-                        aria-label="Ver categorías"
-                        className="flex flex-col items-center justify-center flex-1 h-full gap-1 relative active:scale-90 transition-transform duration-100 cursor-pointer"
-                    >
-                        {(isCategoryActive || categoryTrayOpen) && (
-                            <motion.div
-                                layoutId="mobileActiveTabPill"
-                                className="absolute inset-1.5 bg-white/[0.14] border border-white/20 rounded-full shadow-sm"
-                                transition={{ type: "spring", damping: 28, stiffness: 350 }}
-                            />
-                        )}
-                        {isCategoryActive && currentCategory?.icon_url ? (
-                            <Image
-                                src={currentCategory.icon_url}
-                                alt={currentCategory.nombre}
-                                width={20}
-                                height={20}
-                                className="w-5 h-5 object-contain brightness-0 invert relative z-10 drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-                            />
-                        ) : (
-                            <Grid3x3 className={`w-5 h-5 relative z-10 transition-colors ${(isCategoryActive || categoryTrayOpen) ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-white/50'}`} />
-                        )}
-                        <span className={`text-[10px] tracking-tight relative z-10 max-w-[76px] truncate transition-colors ${(isCategoryActive || categoryTrayOpen) ? 'font-bold text-white' : 'font-medium text-white/50'}`}>
-                            {isCategoryActive && currentCategory ? currentCategory.nombre : 'Categorías'}
-                        </span>
-                    </button>
+                        {/* Categorías */}
+                        <button
+                            onClick={() => {
+                                triggerHaptic(12);
+                                setCategoryTrayOpen(prev => !prev);
+                            }}
+                            aria-label="Ver categorías"
+                            className="flex flex-col items-center justify-center flex-1 h-full gap-0.5 relative active:scale-90 transition-transform duration-100 cursor-pointer"
+                        >
+                            {(isCategoryActive || categoryTrayOpen) && (
+                                <motion.div
+                                    layoutId="mobileActiveTabPill"
+                                    className="absolute inset-1 bg-white/[0.14] border border-white/20 rounded-full shadow-sm"
+                                    transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                                />
+                            )}
+                            {isCategoryActive && currentCategory?.icon_url ? (
+                                <Image
+                                    src={currentCategory.icon_url}
+                                    alt={currentCategory.nombre}
+                                    width={20}
+                                    height={20}
+                                    className="w-5 h-5 object-contain brightness-0 invert relative z-10 drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+                                />
+                            ) : (
+                                <Grid3x3 className={`w-5 h-5 relative z-10 transition-colors ${(isCategoryActive || categoryTrayOpen) ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-white/50'}`} />
+                            )}
+                            <span className={`text-[10px] leading-tight tracking-tight relative z-10 max-w-[76px] truncate transition-colors ${(isCategoryActive || categoryTrayOpen) ? 'font-bold text-white' : 'font-medium text-white/50'}`}>
+                                {isCategoryActive && currentCategory ? currentCategory.nombre : 'Categorías'}
+                            </span>
+                        </button>
 
-                    {/* Todos */}
-                    <Link href="/catalogo" className="flex flex-col items-center justify-center flex-1 h-full gap-1 relative active:scale-90 transition-transform duration-100">
-                        {isActive("/catalogo") && (
-                            <motion.div
-                                layoutId="mobileActiveTabPill"
-                                className="absolute inset-1.5 bg-white/[0.14] border border-white/20 rounded-full shadow-sm"
-                                transition={{ type: "spring", damping: 28, stiffness: 350 }}
-                            />
-                        )}
-                        <Sparkles className={`w-5 h-5 relative z-10 transition-colors ${isActive("/catalogo") ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-white/50'}`} />
-                        <span className={`text-[10px] tracking-tight relative z-10 transition-colors ${isActive("/catalogo") ? 'font-bold text-white' : 'font-medium text-white/50'}`}>
-                            Todos
-                        </span>
-                    </Link>
+                        {/* Todos */}
+                        <Link href="/catalogo" className="flex flex-col items-center justify-center flex-1 h-full gap-0.5 relative active:scale-90 transition-transform duration-100">
+                            {isActive("/catalogo") && (
+                                <motion.div
+                                    layoutId="mobileActiveTabPill"
+                                    className="absolute inset-1 bg-white/[0.14] border border-white/20 rounded-full shadow-sm"
+                                    transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                                />
+                            )}
+                            <Sparkles className={`w-5 h-5 relative z-10 transition-colors ${isActive("/catalogo") ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-white/50'}`} />
+                            <span className={`text-[10px] leading-tight tracking-tight relative z-10 transition-colors ${isActive("/catalogo") ? 'font-bold text-white' : 'font-medium text-white/50'}`}>
+                                Todos
+                            </span>
+                        </Link>
 
-                    {/* Rastreo */}
-                    <Link href="/rastreo" className="flex flex-col items-center justify-center flex-1 h-full gap-1 relative active:scale-90 transition-transform duration-100">
-                        {isActive("/rastreo") && (
-                            <motion.div
-                                layoutId="mobileActiveTabPill"
-                                className="absolute inset-1.5 bg-white/[0.14] border border-white/20 rounded-full shadow-sm"
-                                transition={{ type: "spring", damping: 28, stiffness: 350 }}
-                            />
-                        )}
-                        <Package className={`w-5 h-5 relative z-10 transition-colors ${isActive("/rastreo") ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-white/50'}`} />
-                        <span className={`text-[10px] tracking-tight relative z-10 transition-colors ${isActive("/rastreo") ? 'font-bold text-white' : 'font-medium text-white/50'}`}>
-                            Rastreo
-                        </span>
-                    </Link>
-                </div>
-            </nav>
+                        {/* Rastreo */}
+                        <Link href="/rastreo" className="flex flex-col items-center justify-center flex-1 h-full gap-0.5 relative active:scale-90 transition-transform duration-100">
+                            {isActive("/rastreo") && (
+                                <motion.div
+                                    layoutId="mobileActiveTabPill"
+                                    className="absolute inset-1 bg-white/[0.14] border border-white/20 rounded-full shadow-sm"
+                                    transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                                />
+                            )}
+                            <Package className={`w-5 h-5 relative z-10 transition-colors ${isActive("/rastreo") ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-white/50'}`} />
+                            <span className={`text-[10px] leading-tight tracking-tight relative z-10 transition-colors ${isActive("/rastreo") ? 'font-bold text-white' : 'font-medium text-white/50'}`}>
+                                Rastreo
+                            </span>
+                        </Link>
+                    </div>
+                </nav>
+            )}
 
             {/* ═══════════════════════════════════════
                 BANDEJA DE CRISTAL ANCLADA AL DOCK (Apple Bottom Tray §7, §12)
@@ -636,7 +645,9 @@ export default function Header() {
                                 {/* Grid de Píldoras de Categorías en 2 Columnas Limpias */}
                                 <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto scrollbar-hide no-scrollbar pr-0.5">
                                     {!isLoading && categorias.map((categoria) => {
-                                        const isCatActive = categoria.slug === categoriaActual;
+                                        const isCatActive =
+                                            categoria.slug?.toLowerCase() === categoriaActual?.toLowerCase() ||
+                                            categoria.nombre?.toLowerCase() === categoriaActual?.toLowerCase();
                                         return (
                                             <Link
                                                 key={categoria.id}

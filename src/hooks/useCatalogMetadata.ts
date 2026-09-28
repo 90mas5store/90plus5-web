@@ -16,6 +16,7 @@ export interface ExtendedLeague {
     id: string | null;
     category_id?: string | null;
     slug?: string;
+    product_count?: number;
     hero_image_position_desktop?: string;
     hero_image_position_mobile?: string;
 }
@@ -70,8 +71,9 @@ export function useCatalogMetadata({
         setCategoriaSeleccionada(categoriaParam || null);
 
         if (ligaParam && ligas.length > 0) {
+            const normParam = normalizeText(ligaParam);
             const foundLeague = ligas.find(
-                (l) => (l.slug && l.slug === ligaParam) || normalizeText(l.nombre) === normalizeText(ligaParam)
+                (l) => (l.slug && normalizeText(l.slug) === normParam) || normalizeText(l.nombre) === normParam
             );
             setLigaSeleccionada(foundLeague ? foundLeague.nombre : null);
         } else {
@@ -81,14 +83,26 @@ export function useCatalogMetadata({
 
     // Objetos memoizados
     const selectedCategoryObj = useMemo(() => {
-        if (!config?.categorias) return null;
-        return config.categorias.find((c) => c.slug === categoriaSeleccionada);
+        if (!config?.categorias || !categoriaSeleccionada) return null;
+        const normSelected = normalizeText(categoriaSeleccionada);
+        return (
+            config.categorias.find(
+                (c) =>
+                    (c.slug && normalizeText(c.slug) === normSelected) ||
+                    normalizeText(c.nombre) === normSelected
+            ) || null
+        );
     }, [config, categoriaSeleccionada]);
 
     const selectedLeagueObj = useMemo(() => {
         if (!ligaSeleccionada) return null;
-        const lObj = ligas.find((l) => normalizeText(l.nombre) === normalizeText(ligaSeleccionada));
-        if (!lObj && ligaParam && normalizeText(ligaParam) === normalizeText(ligaSeleccionada)) {
+        const normSelected = normalizeText(ligaSeleccionada);
+        const lObj = ligas.find(
+            (l) =>
+                (l.slug && normalizeText(l.slug) === normSelected) ||
+                normalizeText(l.nombre) === normSelected
+        );
+        if (!lObj && ligaParam && normalizeText(ligaParam) === normSelected) {
             return { id: null, nombre: ligaParam, imagen: null, slug: ligaParam } as ExtendedLeague;
         }
         return lObj;
@@ -136,6 +150,15 @@ export function useCatalogMetadata({
             ligasDisponibles = ligas.filter((l) => l.category_id === selectedCategoryObj.id);
         }
 
+        // Priorizar en el carrusel las ligas que tienen inventario activo disponible
+        ligasDisponibles = [...ligasDisponibles].sort((a, b) => {
+            const countA = a.product_count ?? 0;
+            const countB = b.product_count ?? 0;
+            if (countA > 0 && countB === 0) return -1;
+            if (countB > 0 && countA === 0) return 1;
+            return 0;
+        });
+
         if (ligasDisponibles.length > 0) {
             return {
                 type: 'liga' as const,
@@ -143,6 +166,7 @@ export function useCatalogMetadata({
                 items: ligasDisponibles.map((l) => ({
                     nombre: l.nombre,
                     imagen: l.imagen || FALLBACK_PLACEHOLDER_IMAGE,
+                    slug: l.slug,
                 })),
             };
         }
