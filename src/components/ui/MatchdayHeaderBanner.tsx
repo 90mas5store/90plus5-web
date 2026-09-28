@@ -4,9 +4,11 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sparkles, ArrowRight, Flame, Trophy, Radio, Clock } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useLiveMatches, LiveMatchData, LiveGoalAlert } from "@/hooks/useLiveMatches";
-import MatchCenterModal from "@/components/match/MatchCenterModal";
 import { translateTeamNameToSpanish, translateTeamAbbr } from "@/lib/teamNames";
+
+const MatchCenterModal = dynamic(() => import("@/components/match/MatchCenterModal"), { ssr: false });
 
 export default function MatchdayHeaderBanner() {
   const pathname = usePathname();

@@ -243,7 +243,16 @@ function startGlobalPolling() {
     });
   }
 
-  globalFetchMatches();
+  // Defer initial fetch so it doesn't collide with the first paint and hydration
+  if (typeof window !== 'undefined') {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(() => globalFetchMatches(), { timeout: 2500 });
+    } else {
+      setTimeout(globalFetchMatches, 1500);
+    }
+  } else {
+    globalFetchMatches();
+  }
 }
 
 export function useLiveMatchesData(): {

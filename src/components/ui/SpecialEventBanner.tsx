@@ -153,6 +153,7 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
                                             src={banner.logo_url}
                                             alt={banner.title}
                                             fill
+                                            sizes="(max-width: 768px) 36px, 80px"
                                             className="object-contain"
                                         />
                                     </div>
@@ -190,6 +191,7 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
                                         src={banner.decoration_image_url}
                                         alt=""
                                         fill
+                                        sizes="(max-width: 768px) 112px, 400px"
                                         className="object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]"
                                     />
                                 </div>

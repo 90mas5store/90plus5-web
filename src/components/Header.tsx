@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ShoppingCart, Home, Grid3x3, Sparkles, Package, X, ArrowRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "@/lib/motion";
 import { useCart } from "../context/CartContext";
 import { useCategories } from "../hooks/useCategories";
 import { useState, useEffect, useRef } from "react";

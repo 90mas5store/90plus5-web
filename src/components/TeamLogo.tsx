@@ -23,6 +23,7 @@ export default function TeamLogo({
       alt={alt}
       width={size}
       height={size}
+      style={{ width: "auto", height: "auto" }}
       className={`object-contain max-w-full max-h-full drop-shadow-[0_0_10px_rgba(255,255,255,0.1)] ${className}`}
     />
   );

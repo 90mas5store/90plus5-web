@@ -128,7 +128,7 @@ export default function PaymentMethodSection({
                                         <div className="flex items-center gap-2 mb-1">
                                             {bank.logo && (
                                                 <div className="relative w-5 h-5 shrink-0 rounded overflow-hidden">
-                                                    <Image src={bank.logo} alt={bank.banco} fill className="object-contain" />
+                                                    <Image src={bank.logo} alt={bank.banco} fill sizes="20px" className="object-contain" />
                                                 </div>
                                             )}
                                             <span className="font-black text-xs text-white uppercase">{bank.banco}</span>

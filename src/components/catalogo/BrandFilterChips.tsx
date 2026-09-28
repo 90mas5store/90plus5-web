@@ -46,6 +46,7 @@ export default function BrandFilterChips({
                                         src={brand.logo_url}
                                         alt={brand.name}
                                         fill
+                                        sizes="20px"
                                         className="object-contain"
                                     />
                                 </div>

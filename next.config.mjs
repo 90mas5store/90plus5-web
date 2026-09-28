@@ -255,7 +255,14 @@ const nextConfig = {
    */
   experimental: {
     optimizeCss: true, // Re-enabled con configuración mejorada
-    optimizePackageImports: ['framer-motion', 'lucide-react'], // Optimizar imports grandes
+    optimizePackageImports: [
+      'framer-motion',
+      'lucide-react',
+      '@paypal/react-paypal-js',
+      'canvas-confetti',
+      'clsx',
+      'tailwind-merge',
+    ], // Optimizar imports grandes
     serverComponentsExternalPackages: ['@sentry/nextjs', '@sentry/node', '@opentelemetry/api'],
   },
 

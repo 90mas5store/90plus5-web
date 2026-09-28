@@ -1,26 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
-import {
-  X,
-  Flame,
-  Trophy,
-  Sparkles,
-  MapPin,
-  Shirt,
-  ArrowRight,
-  Shield,
-  Activity,
-  Award,
-  Share2,
-} from "lucide-react";
+import { X, Activity, Award, Share2 } from "lucide-react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import type { LiveMatchData, MatchEventDetail } from "@/hooks/useLiveMatches";
+import type { LiveMatchData } from "@/hooks/useLiveMatches";
 import type { StandingRow } from "@/app/api/standings/route";
 import { resolveMatchColors } from "@/lib/teamColors";
 import { translateTeamNameToSpanish } from "@/lib/teamNames";
+
+import { getResolvedLeagueSlug, projectMomentum } from "./matchUtils";
+import { MatchScoreboard } from "./MatchScoreboard";
+import { MatchTimeline } from "./MatchTimeline";
+import { MatchStats } from "./MatchStats";
+import { MatchStandings, type StandingGroupData } from "./MatchStandings";
+import { MatchCommercialBanner } from "./MatchCommercialBanner";
 
 interface MatchCenterModalProps {
   isOpen: boolean;
@@ -28,80 +22,13 @@ interface MatchCenterModalProps {
   match: LiveMatchData | null;
 }
 
-// Limpiar y formatear el minuto de juego de forma precisa (ej. "90+7'")
-function formatMatchMinute(rawMinute?: string | null): string {
-  if (!rawMinute) return "•";
-  const clean = rawMinute.replace(/['"´`\s]+/g, '').trim();
-  return clean ? `${clean}'` : "•";
-}
-
-function getResolvedLeagueSlug(match: LiveMatchData | null): string {
-  if (!match) return 'mex.1';
-  if (match.leagueSlug && match.leagueSlug.trim()) return match.leagueSlug;
-  const name = (match.leagueName || '').toLowerCase();
-  if (name.includes('liga mx') || name.includes('mexic') || name.includes('apertura') || name.includes('clausura')) return 'mex.1';
-  if (name.includes('la liga') || name.includes('laliga') || name.includes('españ') || name.includes('spain')) return 'esp.1';
-  if (name.includes('premier') || name.includes('england') || name.includes('inglaterra')) return 'eng.1';
-  if (name.includes('serie a') || name.includes('ital')) return 'ita.1';
-  if (name.includes('bundesliga') || name.includes('aleman')) return 'ger.1';
-  if (name.includes('ligue 1') || name.includes('francia')) return 'fra.1';
-  if (name.includes('mls') || name.includes('major league')) return 'usa.1';
-  if (name.includes('honduras') || name.includes('liga nacional')) return 'hon.1';
-  if (name.includes('champions') || name.includes('ucl')) return 'uefa.champions';
-
-  const combined = `${match.homeTeam || ''} ${match.awayTeam || ''}`.toLowerCase();
-  if (combined.includes('america') || combined.includes('cruz azul') || combined.includes('chivas') || combined.includes('tigres') || combined.includes('monterrey') || combined.includes('toluca') || combined.includes('pumas') || combined.includes('atlas')) return 'mex.1';
-  if (combined.includes('real madrid') || combined.includes('barcelona') || combined.includes('atletico') || combined.includes('sevilla') || combined.includes('betis')) return 'esp.1';
-  if (combined.includes('arsenal') || combined.includes('city') || combined.includes('liverpool') || combined.includes('chelsea') || combined.includes('united') || combined.includes('tottenham')) return 'eng.1';
-  if (combined.includes('olimpia') || combined.includes('motagua') || combined.includes('marathon') || combined.includes('real españa') || combined.includes('espana')) return 'hon.1';
-  if (combined.includes('inter miami') || combined.includes('lafc') || combined.includes('galaxy') || combined.includes('nashville')) return 'usa.1';
-
-  return 'mex.1';
-}
-
-function getEventVisual(evt: MatchEventDetail): { icon: string; label: string } {
-  switch (evt.type) {
-    case 'goal':
-      return {
-        icon: '⚽',
-        label: evt.disallowed ? (evt.text ? `${evt.text} (Anulado por VAR)` : 'Gol (Anulado por VAR)') : (evt.text || 'Gol')
-      };
-    case 'penalty-goal':
-      return {
-        icon: '🎯',
-        label: evt.disallowed ? 'Gol de Penal (Anulado por VAR)' : 'Gol de Penal'
-      };
-    case 'penalty-miss':
-      return { icon: '❌', label: 'Penal Fallado' };
-    case 'own-goal':
-      return { icon: '⚽', label: 'Autogol' };
-    case 'disallowed-goal':
-      return { icon: '🚫', label: evt.text || 'Gol Anulado (VAR)' };
-    case 'var':
-      return { icon: '📺', label: evt.text || 'Revisión VAR' };
-    case 'red-card':
-      return { icon: '🟥', label: 'Tarjeta Roja' };
-    case 'yellow-card':
-      return { icon: '🟨', label: 'Tarjeta Amarilla' };
-    default:
-      return { icon: '⚽', label: evt.text || 'Incidencia' };
-  }
-}
-
-// Función de proyección de momentum física exacta de Apple (§6 apple-design skill)
-function projectMomentum(initialVelocity: number, decelerationRate = 0.998): number {
-  return (initialVelocity / 1000) * decelerationRate / (1 - decelerationRate);
-}
-
-interface StandingGroupData {
-  groupName?: string;
-  groups?: { name: string; standings: StandingRow[] }[];
-  standings: StandingRow[];
-}
-
-export default function MatchCenterModal({ isOpen, onClose, match: initialMatch }: MatchCenterModalProps) {
+export default function MatchCenterModal({
+  isOpen,
+  onClose,
+  match: initialMatch,
+}: MatchCenterModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'match' | 'standings'>('match');
+  const [activeTab, setActiveTab] = useState<"match" | "standings">("match");
   const [currentMatch, setCurrentMatch] = useState<LiveMatchData | null>(initialMatch);
   const [standingsByLeague, setStandingsByLeague] = useState<Record<string, StandingGroupData>>({});
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
@@ -113,12 +40,12 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
     setMounted(true);
   }, []);
 
-  // Sincronizar partido inicial
+  // Sincronizar partido inicial al cambiar de prop
   useEffect(() => {
     setCurrentMatch(initialMatch);
   }, [initialMatch]);
 
-  // Cerrar con Escape
+  // Cerrar con Escape y bloquear scroll del body
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -133,28 +60,32 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
     };
   }, [isOpen, onClose]);
 
-  // Actualización en tiempo real cada 10s
+  // Actualización en tiempo real cada 10s (restringido a cambios reales)
   useEffect(() => {
     if (!isOpen || !initialMatch) return;
 
-    let isMounted = true;
+    let isSubscribed = true;
     const updateLiveMatch = async () => {
       try {
-        const res = await fetch('/api/live-matches', { cache: 'no-store' });
-        if (!res.ok || !isMounted) return;
+        const res = await fetch("/api/live-matches", { cache: "no-store" });
+        if (!res.ok || !isSubscribed) return;
         const data = await res.json();
         const updated = Object.values(data as Record<string, LiveMatchData>).find(
           (m) =>
             m.homeTeam.toLowerCase() === initialMatch.homeTeam.toLowerCase() &&
             m.awayTeam.toLowerCase() === initialMatch.awayTeam.toLowerCase()
         );
-        if (updated && isMounted) {
+        if (updated && isSubscribed) {
           setCurrentMatch((prev) => {
             if (!prev) return updated;
-            const scoreChanged = prev.homeScore !== updated.homeScore || prev.awayScore !== updated.awayScore;
-            const clockChanged = prev.displayClock !== updated.displayClock || prev.minute !== updated.minute;
-            const statusChanged = prev.isFinished !== updated.isFinished || prev.isHalftime !== updated.isHalftime;
+            const scoreChanged =
+              prev.homeScore !== updated.homeScore || prev.awayScore !== updated.awayScore;
+            const clockChanged =
+              prev.displayClock !== updated.displayClock || prev.minute !== updated.minute;
+            const statusChanged =
+              prev.isFinished !== updated.isFinished || prev.isHalftime !== updated.isHalftime;
             const eventsChanged = (prev.events?.length || 0) !== (updated.events?.length || 0);
+
             if (scoreChanged || clockChanged || statusChanged || eventsChanged) {
               return updated;
             }
@@ -162,37 +93,46 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
           });
         }
       } catch {
-        // fallo silencioso de red
+        // Fallo silencioso de red
       }
     };
 
     const interval = setInterval(updateLiveMatch, 10_000);
     return () => {
-      isMounted = false;
+      isSubscribed = false;
       clearInterval(interval);
     };
   }, [isOpen, initialMatch]);
 
-  // Carga de clasificación
+  // Partido activo (enriquecido con polling o inicial)
   const activeMatch = currentMatch || initialMatch;
   const currentLeagueSlug = getResolvedLeagueSlug(activeMatch);
-  const teamSearchParam = activeMatch?.homeTeam || activeMatch?.awayTeam || '';
+  const teamSearchParam = activeMatch?.homeTeam || activeMatch?.awayTeam || "";
   const teamCacheKey = `${currentLeagueSlug}:${teamSearchParam}`;
 
+  // Carga de clasificación
   useEffect(() => {
     if (!isOpen || !currentLeagueSlug) return;
     if (standingsByLeague[teamCacheKey]) return;
 
     setLoadingStandings(true);
-    fetch(`/api/standings?league=${encodeURIComponent(currentLeagueSlug)}&team=${encodeURIComponent(teamSearchParam)}`)
+    fetch(
+      `/api/standings?league=${encodeURIComponent(currentLeagueSlug)}&team=${encodeURIComponent(
+        teamSearchParam
+      )}`
+    )
       .then((r) => r.json())
       .then((data) => {
         if (data.standings && Array.isArray(data.standings)) {
-          const parsedGroups: { name: string; standings: StandingRow[] }[] = Array.isArray(data.groups)
+          const parsedGroups: { name: string; standings: StandingRow[] }[] = Array.isArray(
+            data.groups
+          )
             ? data.groups.map((g: any) => ({
                 name: g.name,
                 standings: [...(g.standings || [])].sort((a: StandingRow, b: StandingRow) =>
-                  a.rank > 0 && b.rank > 0 && a.rank !== b.rank ? a.rank - b.rank : b.points - a.points
+                  a.rank > 0 && b.rank > 0 && a.rank !== b.rank
+                    ? a.rank - b.rank
+                    : b.points - a.points
                 ),
               }))
             : [];
@@ -216,290 +156,64 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
       .finally(() => setLoadingStandings(false));
   }, [isOpen, currentLeagueSlug, teamSearchParam, teamCacheKey, standingsByLeague]);
 
-  const portalTarget = typeof document !== 'undefined' ? document.body : null;
-  if (!isOpen || !activeMatch || !mounted || !portalTarget) return null;
+  const homeName = useMemo(
+    () => (activeMatch ? translateTeamNameToSpanish(activeMatch.homeShortTeam || activeMatch.homeTeam) : ""),
+    [activeMatch]
+  );
+  const awayName = useMemo(
+    () => (activeMatch ? translateTeamNameToSpanish(activeMatch.awayShortTeam || activeMatch.awayTeam) : ""),
+    [activeMatch]
+  );
 
-  // Local izquierda, Visita derecha
-  const homeName = translateTeamNameToSpanish(activeMatch.homeShortTeam || activeMatch.homeTeam);
-  const awayName = translateTeamNameToSpanish(activeMatch.awayShortTeam || activeMatch.awayTeam);
-  const homeLogo = activeMatch.homeLogo;
-  const awayLogo = activeMatch.awayLogo;
-  const homeScore = activeMatch.homeScore;
-  const awayScore = activeMatch.awayScore;
+  const colors = useMemo(() => {
+    if (!activeMatch) return { homeColor: "#EF4444", awayColor: "#3B82F6", isHomeWhite: false, isAwayWhite: false };
+    return resolveMatchColors({
+      homeColor: activeMatch.homeColor,
+      awayColor: activeMatch.awayColor,
+      homeAltColor: activeMatch.homeAltColor,
+      awayAltColor: activeMatch.awayAltColor,
+      homeTeamName: activeMatch.homeTeam,
+      awayTeamName: activeMatch.awayTeam,
+    });
+  }, [activeMatch]);
 
-  const { homeColor, awayColor, isHomeWhite, isAwayWhite } = resolveMatchColors({
-    homeColor: activeMatch.homeColor,
-    awayColor: activeMatch.awayColor,
-    homeAltColor: activeMatch.homeAltColor,
-    awayAltColor: activeMatch.awayAltColor,
-    homeTeamName: activeMatch.homeTeam,
-    awayTeamName: activeMatch.awayTeam,
-  });
+  const isLive = Boolean(activeMatch && !activeMatch.isFinished && !activeMatch.isUpcoming);
 
-  const isLive = !activeMatch.isFinished && !activeMatch.isUpcoming;
+  const events = useMemo(() => {
+    if (!activeMatch?.events) return [];
+    return [...activeMatch.events].reverse();
+  }, [activeMatch?.events]);
 
-  // Posesión
-  const rawHomePoss = parseInt(activeMatch.stats?.possession?.home || "50", 10) || 50;
-  const rawAwayPoss = parseInt(activeMatch.stats?.possession?.away || "50", 10) || 50;
-  const totalPoss = rawHomePoss + rawAwayPoss || 100;
-  const homePossPct = Math.round((rawHomePoss / totalPoss) * 100);
-  const awayPossPct = 100 - homePossPct;
+  const hasHomeInDb = Boolean(activeMatch?.hasHomeTeamInDb || activeMatch?.homeTeamId);
+  const hasAwayInDb = Boolean(activeMatch?.hasAwayTeamInDb || activeMatch?.awayTeamId);
 
-  // Cronología inversa
-  const rawEvents = activeMatch.events || [];
-  const events = [...rawEvents].reverse();
-
-  // Camisetas en catálogo
-  const hasHomeInDb = Boolean(activeMatch.hasHomeTeamInDb || activeMatch.homeTeamId);
-  const hasAwayInDb = Boolean(activeMatch.hasAwayTeamInDb || activeMatch.awayTeamId);
-
-  // Clasificación
   const leagueData = currentLeagueSlug ? standingsByLeague[teamCacheKey] : undefined;
-  const currentGroups = leagueData?.groups || [];
-  const activeGroup = currentGroups[selectedGroupIndex];
-  const rawRows = activeGroup?.standings || leagueData?.standings || [];
 
-  const currentStandings = [...rawRows].sort((a, b) => {
-    if (a.rank > 0 && b.rank > 0 && a.rank !== b.rank) {
-      return a.rank - b.rank;
-    }
-    if (b.points !== a.points) {
-      return b.points - a.points;
-    }
-    const diffA = parseInt(a.pointDifferential, 10) || 0;
-    const diffB = parseInt(b.pointDifferential, 10) || 0;
-    return diffB - diffA;
-  });
-
-  const handleShareWhatsApp = () => {
+  const handleShareWhatsApp = useCallback(() => {
     if (!activeMatch) return;
     const timeStatus = activeMatch.isFinished
-      ? 'Finalizado'
+      ? "Finalizado"
       : activeMatch.isHalftime
-      ? 'Entretiempo'
+      ? "Entretiempo"
       : activeMatch.isUpcoming
-      ? `Inicia ${activeMatch.startTime || 'hoy'}`
-      : activeMatch.displayClock || `${activeMatch.minute || ''}' EN VIVO`;
+      ? `Inicia ${activeMatch.startTime || "hoy"}`
+      : activeMatch.displayClock || `${activeMatch.minute || ""}' EN VIVO`;
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://90mas5.com';
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://90mas5.com";
     const storeUrl = `${origin}/catalogo?match=${encodeURIComponent(homeName)}`;
 
     const text = `🔥 ¡Sigue el partido en vivo en 90+5 Store!
-⚽ *${homeName} ${homeScore} - ${awayScore} ${awayName}* (${timeStatus})
-🏆 ${activeMatch.leagueName || 'Matchday'}
+⚽ *${homeName} ${activeMatch.homeScore} - ${activeMatch.awayScore} ${awayName}* (${timeStatus})
+🏆 ${activeMatch.leagueName || "Matchday"}
 
 👕 Mira las camisetas oficiales con 10% OFF usando el código *MATCHDAY* aquí:
 👉 ${storeUrl}`;
 
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-  };
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+  }, [activeMatch, homeName, awayName]);
 
-  // Apple Design - Scoreboard Card con transluminiscencia y relieve óptico
-  const scoreboardNode = (
-    <div className="relative overflow-hidden rounded-3xl bg-white/[0.04] backdrop-blur-2xl border border-white/[0.08] p-4 sm:p-6 shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
-      {/* Light-catching hairline (reflejo de luz en el borde superior, §12 Apple Design) */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
-
-      {/* Píldora de Torneo, Sede y Botón Compartir (En Desktop) */}
-      <div className="hidden sm:flex flex-wrap items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/10 text-xs font-bold uppercase tracking-wider text-gray-200 shadow-sm">
-            {activeMatch.isFinished ? (
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
-            ) : activeMatch.isUpcoming ? (
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            ) : (
-              <Flame className="w-3.5 h-3.5 text-red-500 fill-red-500 animate-pulse" />
-            )}
-            <span>{activeMatch.leagueName || "MATCHDAY"}</span>
-          </span>
-
-          {activeMatch.venueName && (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/[0.03] border border-white/5 text-[10px] text-gray-400 font-medium tracking-normal">
-              <MapPin className="w-3 h-3 text-gray-500" />
-              <span>{activeMatch.venueName}{activeMatch.venueCity ? `, ${activeMatch.venueCity}` : ''}</span>
-            </span>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={handleShareWhatsApp}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-300 border border-emerald-500/25 backdrop-blur-md text-xs font-semibold transition-all cursor-pointer shadow-sm ml-auto"
-          title="Compartir resultado en WhatsApp"
-        >
-          <Share2 className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Compartir en WhatsApp</span>
-        </button>
-      </div>
-
-      {/* Marcador Principal con Escudos */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-6 py-1">
-        {/* EQUIPO LOCAL (IZQUIERDA) */}
-        <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
-          <div
-            className="relative w-14 h-14 sm:w-20 sm:h-20 lg:w-22 lg:h-22 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex items-center justify-center border border-white/15 shadow-xl transition-transform duration-200 active:scale-95 hover:scale-105"
-            style={{
-              backgroundColor: isHomeWhite ? "rgba(255, 255, 255, 0.12)" : `${homeColor}18`,
-              boxShadow: isHomeWhite
-                ? "0 10px 30px rgba(255, 255, 255, 0.2)"
-                : `0 10px 30px ${homeColor}30`,
-            }}
-          >
-            {!homeLogo ? (
-              <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-gray-500" />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={homeLogo}
-                alt={homeName}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
-              />
-            )}
-          </div>
-          <span className="text-xs sm:text-base font-bold text-white tracking-tight line-clamp-2 max-w-[100px] sm:max-w-none text-center">
-            {homeName}
-          </span>
-        </div>
-
-        {/* MARCADOR DIGITAL (CENTRO) */}
-        <div className="flex flex-col items-center justify-center px-1 sm:px-2">
-          {activeMatch.isUpcoming ? (
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-2xl sm:text-5xl lg:text-6xl font-black text-blue-400 font-mono tracking-tighter tabular-nums drop-shadow-[0_0_20px_rgba(59,130,246,0.4)]">
-                VS
-              </span>
-              <span className="px-3 py-1 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/20 text-[10px] sm:text-xs font-semibold whitespace-nowrap">
-                {activeMatch.startTime || "Próximamente"}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-              <div className="flex items-center gap-2 sm:gap-4 text-3xl sm:text-5xl lg:text-6xl font-black font-mono tracking-tighter tabular-nums text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.7)]">
-                <span className={activeMatch.isFinished ? "text-amber-400" : "text-white"}>
-                  {homeScore}
-                </span>
-                <span className="text-gray-500 font-light opacity-60">:</span>
-                <span className={activeMatch.isFinished ? "text-amber-400" : "text-white"}>
-                  {awayScore}
-                </span>
-              </div>
-
-              {activeMatch.isHalftime ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 sm:py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] sm:text-xs font-mono font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  ENTRETIEMPO
-                </span>
-              ) : isLive && (activeMatch.displayClock || activeMatch.minute) ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 sm:py-1 rounded-full bg-red-600/15 text-red-400 border border-red-500/30 text-[10px] sm:text-xs font-mono font-black shadow-[0_0_12px_rgba(239,68,68,0.25)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-                  {activeMatch.displayClock || `${activeMatch.minute}'`} EN VIVO
-                </span>
-              ) : (
-                <span className="px-3 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs text-gray-300 font-bold uppercase tracking-wider">
-                  {activeMatch.isFinished ? "Finalizado" : "En Juego"}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* EQUIPO VISITANTE (DERECHA) */}
-        <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
-          <div
-            className="relative w-14 h-14 sm:w-20 sm:h-20 lg:w-22 lg:h-22 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex items-center justify-center border border-white/15 shadow-xl transition-transform duration-200 active:scale-95 hover:scale-105"
-            style={{
-              backgroundColor: isAwayWhite ? "rgba(255, 255, 255, 0.12)" : `${awayColor}18`,
-              boxShadow: isAwayWhite
-                ? "0 10px 30px rgba(255, 255, 255, 0.2)"
-                : `0 10px 30px ${awayColor}30`,
-            }}
-          >
-            {!awayLogo ? (
-              <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-gray-500" />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={awayLogo}
-                alt={awayName}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
-              />
-            )}
-          </div>
-          <span className="text-xs sm:text-base font-bold text-white tracking-tight line-clamp-2 max-w-[100px] sm:max-w-none text-center">
-            {awayName}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Banner comercial Apple Style
-  const commercialNode = (
-    <div>
-      {(hasHomeInDb || hasAwayInDb) ? (
-        <div className="relative overflow-hidden rounded-3xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 shadow-lg space-y-3.5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-red-600/15 border border-red-500/30 flex items-center justify-center shrink-0">
-              <Shirt className="w-5 h-5 text-red-500" />
-            </div>
-            <div>
-              <h5 className="text-xs sm:text-sm font-bold text-white tracking-tight">
-                Camisetas Oficiales del Partido
-              </h5>
-              <p className="text-[10px] text-gray-400">
-                Personalización oficial disponible · Envíos a toda Honduras
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch gap-2.5 pt-0.5">
-            {hasHomeInDb && (
-              <Link
-                href={activeMatch.homeTeamId
-                  ? `/catalogo?equipo=${encodeURIComponent(activeMatch.homeTeamId)}`
-                  : `/catalogo?query=${encodeURIComponent(homeName)}`}
-                onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.98] text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-[0_4px_16px_rgba(229,9,20,0.35)] cursor-pointer"
-              >
-                <span>Camiseta {homeName}</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            )}
-
-            {hasAwayInDb && (
-              <Link
-                href={activeMatch.awayTeamId
-                  ? `/catalogo?equipo=${encodeURIComponent(activeMatch.awayTeamId)}`
-                  : `/catalogo?query=${encodeURIComponent(awayName)}`}
-                onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-[0.98] border border-white/15 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer backdrop-blur-md"
-              >
-                <span>Camiseta {awayName}</span>
-                <ArrowRight className="w-4 h-4 text-gray-300" />
-              </Link>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 shadow-lg flex items-center justify-between gap-4">
-          <span className="text-xs text-gray-400 font-medium">
-            Descubre miles de camisetas de las mejores ligas del mundo
-          </span>
-          <Link
-            href="/catalogo"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-[#E50914] hover:bg-red-700 active:scale-[0.98] text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 shadow-md"
-          >
-            <span>Ver Catálogo</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      )}
-    </div>
-  );
+  const portalTarget = typeof document !== "undefined" ? document.body : null;
+  if (!isOpen || !activeMatch || !mounted || !portalTarget) return null;
 
   return createPortal(
     <AnimatePresence>
@@ -522,7 +236,6 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={{ top: 0.05, bottom: 0.75 }}
           onDragEnd={(_, info) => {
-            // Apple Momentum Projection: calcula si el arrastre o el 'flick' proyectan fuera del umbral
             const projectedY = info.offset.y + projectMomentum(info.velocity.y);
             if (projectedY > 160 || info.offset.y > 100 || info.velocity.y > 450) {
               onClose();
@@ -546,19 +259,19 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
           <div
             className="absolute -top-24 -left-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[70px] sm:blur-[110px] pointer-events-none transform-gpu will-change-transform opacity-30"
             style={{
-              backgroundColor: homeColor,
+              backgroundColor: colors.homeColor,
               transform: "translate3d(0, 0, 0)",
             }}
           />
           <div
             className="absolute -top-24 -right-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[70px] sm:blur-[110px] pointer-events-none transform-gpu will-change-transform opacity-30"
             style={{
-              backgroundColor: awayColor,
+              backgroundColor: colors.awayColor,
               transform: "translate3d(0, 0, 0)",
             }}
           />
 
-          {/* ────── INDICADOR DE ARRASTRE APPLE (GRAB HANDLE PILL) ────── */}
+          {/* Indicador de arrastre Apple (Grab Handle Pill) */}
           <div
             className="w-full flex flex-col items-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none select-none z-30 shrink-0 group"
             onPointerDown={(e) => dragControls.start(e)}
@@ -566,12 +279,17 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
             <div className="w-10 h-1.5 rounded-full bg-white/25 group-hover:bg-white/40 group-active:bg-white/60 transition-colors shadow-sm" />
           </div>
 
-          {/* ────── BARRA SUPERIOR MÓVIL (PERMITE DESLIZAR HACIA ABAJO) ────── */}
+          {/* Barra superior móvil con botón compartir y cerrar */}
           <div
             className="sm:hidden flex items-center justify-between px-4 pb-2.5 pt-1 border-b border-white/[0.08] shrink-0 bg-white/[0.02] touch-none select-none"
             onPointerDown={(e) => {
               const target = e.target as HTMLElement;
-              if (target.tagName !== 'BUTTON' && !target.closest('button') && target.tagName !== 'A' && !target.closest('a')) {
+              if (
+                target.tagName !== "BUTTON" &&
+                !target.closest("button") &&
+                target.tagName !== "A" &&
+                !target.closest("a")
+              ) {
                 dragControls.start(e);
               }
             }}
@@ -593,6 +311,7 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
                 <span>Compartir</span>
               </button>
               <button
+                type="button"
                 onClick={onClose}
                 className="w-7 h-7 rounded-full bg-white/10 active:scale-90 border border-white/15 flex items-center justify-center text-white/80 active:text-white transition-all cursor-pointer backdrop-blur-md"
                 aria-label="Cerrar modal"
@@ -602,8 +321,9 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
             </div>
           </div>
 
-          {/* BOTÓN CERRAR EN DESKTOP (FROSTED GLASS CIRCLE) */}
+          {/* Botón cerrar en Desktop (Frosted glass circle) */}
           <button
+            type="button"
             onClick={onClose}
             className="hidden sm:flex absolute top-4 right-4 z-30 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 border border-white/15 items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer shadow-lg backdrop-blur-md"
             aria-label="Cerrar modal"
@@ -611,49 +331,74 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
             <X className="w-4 h-4" />
           </button>
 
-          {/* ──────── CUERPO DEL MODAL CON UN SOLO DESPLAZAMIENTO FLUIDO ──────── */}
+          {/* Cuerpo con scroll fluido */}
           <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 md:px-8 pt-3 sm:pt-4 pb-8 scrollbar-thin scrollbar-thumb-white/20 overscroll-contain">
-            {/* SCOREBOARD EN MÓVIL (< lg) */}
+            {/* Scoreboard en móvil (< lg) */}
             <div className="block lg:hidden mb-4">
-              {scoreboardNode}
+              <MatchScoreboard
+                match={activeMatch}
+                homeName={homeName}
+                awayName={awayName}
+                homeColor={colors.homeColor}
+                awayColor={colors.awayColor}
+                isHomeWhite={colors.isHomeWhite}
+                isAwayWhite={colors.isAwayWhite}
+                onShareWhatsApp={handleShareWhatsApp}
+              />
             </div>
 
-            {/* APPLE SEGMENTED CONTROL (PESTAÑAS EN MÓVIL) CON PÍLDORA DESLIZANTE DE RESORTE */}
+            {/* Apple Segmented Control (Pestañas en móvil) */}
             {currentLeagueSlug && (
               <div className="flex lg:hidden justify-center mb-4 shrink-0 px-1">
                 <div className="relative grid grid-cols-2 p-1 bg-white/[0.06] backdrop-blur-xl border border-white/10 rounded-full w-full max-w-sm">
                   <button
                     type="button"
-                    onClick={() => setActiveTab('match')}
+                    onClick={() => setActiveTab("match")}
                     className="relative z-10 flex items-center justify-center gap-1.5 py-2 text-xs transition-colors cursor-pointer select-none active:scale-[0.98]"
                   >
-                    {activeTab === 'match' && (
+                    {activeTab === "match" && (
                       <motion.div
                         layoutId="appleSegmentedPill"
                         className="absolute inset-0 rounded-full bg-white/15 backdrop-blur-md border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
                         transition={{ type: "spring", damping: 26, stiffness: 360 }}
                       />
                     )}
-                    <Activity className={`w-3.5 h-3.5 z-10 ${activeTab === 'match' ? 'text-white' : 'text-gray-400'}`} />
-                    <span className={`z-10 text-xs font-bold tracking-tight ${activeTab === 'match' ? 'text-white' : 'text-gray-400'}`}>
+                    <Activity
+                      className={`w-3.5 h-3.5 z-10 ${
+                        activeTab === "match" ? "text-white" : "text-gray-400"
+                      }`}
+                    />
+                    <span
+                      className={`z-10 text-xs font-bold tracking-tight ${
+                        activeTab === "match" ? "text-white" : "text-gray-400"
+                      }`}
+                    >
                       En Vivo & Stats
                     </span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setActiveTab('standings')}
+                    onClick={() => setActiveTab("standings")}
                     className="relative z-10 flex items-center justify-center gap-1.5 py-2 text-xs transition-colors cursor-pointer select-none active:scale-[0.98]"
                   >
-                    {activeTab === 'standings' && (
+                    {activeTab === "standings" && (
                       <motion.div
                         layoutId="appleSegmentedPill"
                         className="absolute inset-0 rounded-full bg-white/15 backdrop-blur-md border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
                         transition={{ type: "spring", damping: 26, stiffness: 360 }}
                       />
                     )}
-                    <Award className={`w-3.5 h-3.5 z-10 ${activeTab === 'standings' ? 'text-white' : 'text-gray-400'}`} />
-                    <span className={`z-10 text-xs font-bold tracking-tight ${activeTab === 'standings' ? 'text-white' : 'text-gray-400'}`}>
+                    <Award
+                      className={`w-3.5 h-3.5 z-10 ${
+                        activeTab === "standings" ? "text-white" : "text-gray-400"
+                      }`}
+                    />
+                    <span
+                      className={`z-10 text-xs font-bold tracking-tight ${
+                        activeTab === "standings" ? "text-white" : "text-gray-400"
+                      }`}
+                    >
                       Clasificación
                     </span>
                   </button>
@@ -661,402 +406,103 @@ export default function MatchCenterModal({ isOpen, onClose, match: initialMatch 
               </div>
             )}
 
-            {/* ──────── GRID DE 2 COLUMNAS (PC) / CONTENIDO SEGÚN PESTAÑA (MÓVIL) ──────── */}
+            {/* Grid principal de 2 columnas en Desktop / Tabs en móvil */}
             <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
-
-              {/* ────── COLUMNA IZQUIERDA (7 COLS EN PC): MARCADOR, CRONOLOGÍA & ESTADÍSTICAS ────── */}
-              <div className={`lg:col-span-7 space-y-5 sm:space-y-6 ${activeTab === 'match' ? 'block' : 'hidden lg:block'}`}>
-                {/* MARCADOR EN PC (PARTE SUPERIOR IZQUIERDA) */}
+              {/* Columna Izquierda (7 cols): Marcador, Cronología & Estadísticas */}
+              <div
+                className={`lg:col-span-7 space-y-5 sm:space-y-6 ${
+                  activeTab === "match" ? "block" : "hidden lg:block"
+                }`}
+              >
+                {/* Marcador en Desktop */}
                 <div className="hidden lg:block">
-                  {scoreboardNode}
+                  <MatchScoreboard
+                    match={activeMatch}
+                    homeName={homeName}
+                    awayName={awayName}
+                    homeColor={colors.homeColor}
+                    awayColor={colors.awayColor}
+                    isHomeWhite={colors.isHomeWhite}
+                    isAwayWhite={colors.isAwayWhite}
+                    onShareWhatsApp={handleShareWhatsApp}
+                  />
                 </div>
 
-                {/* CRONOLOGÍA */}
-                <div className="relative overflow-hidden rounded-3xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-3.5 sm:p-6 shadow-xl">
-                  <div className="flex items-center justify-between mb-3 sm:mb-4">
-                    <span className="text-[11px] font-bold uppercase text-gray-300 tracking-wider flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5 text-red-500 animate-pulse" />
-                      Incidencias & Cronología
-                    </span>
-                    {isLive ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-600/15 text-red-400 border border-red-500/25 text-[10px] font-bold uppercase tracking-wider">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-                        En directo
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-gray-400 font-mono font-medium">
-                        {events.length} incidencias
-                      </span>
-                    )}
-                  </div>
+                {/* Cronología */}
+                <MatchTimeline
+                  events={events}
+                  isLive={isLive}
+                  homeName={homeName}
+                  awayName={awayName}
+                  homeColor={colors.homeColor}
+                  awayColor={colors.awayColor}
+                />
 
-                  {events.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-gray-400 italic">
-                      No hay goles ni incidencias disciplinarias registradas todavía.
-                    </div>
-                  ) : (
-                    <div className="relative py-2 sm:py-3">
-                      {/* Eje Vertical Central */}
-                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent -translate-x-1/2 pointer-events-none" />
+                {/* Estadísticas de juego y posesión */}
+                <MatchStats
+                  stats={activeMatch.stats}
+                  homeName={homeName}
+                  awayName={awayName}
+                  homeColor={colors.homeColor}
+                  awayColor={colors.awayColor}
+                  isHomeWhite={colors.isHomeWhite}
+                  isAwayWhite={colors.isAwayWhite}
+                />
 
-                      <div className="space-y-2.5 sm:space-y-4">
-                        {events.map((evt: MatchEventDetail) => {
-                          const isHome = evt.isHome;
-                          const minuteDisplay = formatMatchMinute(evt.minute);
-                          const { icon, label } = getEventVisual(evt);
-                          const playerTitle = evt.jersey ? `${evt.jersey}. ${evt.playerName}` : evt.playerName;
-
-                          return (
-                            <div
-                              key={evt.id}
-                              className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 sm:gap-4 group"
-                            >
-                              {/* INCIDENCIA LOCAL (IZQUIERDA) */}
-                              <div className="flex justify-end items-center min-w-0">
-                                {isHome ? (
-                                  <div
-                                    className={`flex items-center gap-1.5 sm:gap-2 text-right bg-gradient-to-l ${
-                                      evt.disallowed ? 'from-red-950/20 via-white/[0.03]' : 'from-white/[0.06]'
-                                    } to-transparent border-r-2 pr-2 sm:pr-3 py-1 sm:py-1.5 pl-1.5 sm:pl-2 rounded-l-xl transition-all group-hover:from-white/[0.1] max-w-full`}
-                                    style={{ borderRightColor: evt.type === 'disallowed-goal' ? '#EF4444' : homeColor }}
-                                  >
-                                    <div className="flex flex-col min-w-0">
-                                      <span className={`text-[11px] sm:text-sm font-bold truncate ${
-                                        evt.disallowed && evt.type === 'goal' ? 'text-gray-400 line-through decoration-red-500/70' : 'text-white'
-                                      }`}>
-                                        {playerTitle}
-                                      </span>
-                                      <span className={`text-[9px] sm:text-[10px] font-medium leading-tight ${
-                                        evt.type === 'disallowed-goal' ? 'text-red-400 font-bold' : evt.disallowed ? 'text-amber-400/90 font-semibold' : 'text-gray-400'
-                                      }`}>
-                                        {label}
-                                      </span>
-                                      {(evt.type === 'goal' || evt.type === 'penalty-goal') && !evt.disallowed && (
-                                        <Link
-                                          href={`/catalogo?query=${encodeURIComponent(homeName)}`}
-                                          className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] text-amber-400/90 hover:text-amber-300 font-bold underline decoration-amber-500/40 hover:decoration-amber-400 mt-0.5 active:scale-95"
-                                        >
-                                          <span>👕 Camiseta 10% OFF</span>
-                                        </Link>
-                                      )}
-                                    </div>
-                                    <span className="text-sm sm:text-lg shrink-0 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-                                      {icon}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div />
-                                )}
-                              </div>
-
-                              {/* MINUTO */}
-                              <div className="z-10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-neutral-900/90 border border-white/20 text-[10px] sm:text-xs font-mono font-bold text-white shadow-md tracking-tight shrink-0 text-center min-w-[2.2rem] sm:min-w-[3.4rem]">
-                                {minuteDisplay}
-                              </div>
-
-                              {/* INCIDENCIA VISITANTE (DERECHA) */}
-                              <div className="flex justify-start items-center min-w-0">
-                                {!isHome ? (
-                                  <div
-                                    className={`flex items-center gap-1.5 sm:gap-2 text-left bg-gradient-to-r ${
-                                      evt.disallowed ? 'from-red-950/20 via-white/[0.03]' : 'from-white/[0.06]'
-                                    } to-transparent border-l-2 pl-2 sm:pl-3 py-1 sm:py-1.5 pr-1.5 sm:pr-2 rounded-r-xl transition-all group-hover:to-white/[0.1] max-w-full`}
-                                    style={{ borderLeftColor: evt.type === 'disallowed-goal' ? '#EF4444' : awayColor }}
-                                  >
-                                    <span className="text-sm sm:text-lg shrink-0 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-                                      {icon}
-                                    </span>
-                                    <div className="flex flex-col min-w-0">
-                                      <span className={`text-[11px] sm:text-sm font-bold truncate ${
-                                        evt.disallowed && evt.type === 'goal' ? 'text-gray-400 line-through decoration-red-500/70' : 'text-white'
-                                      }`}>
-                                        {playerTitle}
-                                      </span>
-                                      <span className={`text-[9px] sm:text-[10px] font-medium leading-tight ${
-                                        evt.type === 'disallowed-goal' ? 'text-red-400 font-bold' : evt.disallowed ? 'text-amber-400/90 font-semibold' : 'text-gray-400'
-                                      }`}>
-                                        {label}
-                                      </span>
-                                      {(evt.type === 'goal' || evt.type === 'penalty-goal') && !evt.disallowed && (
-                                        <Link
-                                          href={`/catalogo?query=${encodeURIComponent(awayName)}`}
-                                          className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] text-amber-400/90 hover:text-amber-300 font-bold underline decoration-amber-500/40 hover:decoration-amber-400 mt-0.5 active:scale-95"
-                                        >
-                                          <span>👕 Camiseta 10% OFF</span>
-                                        </Link>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div />
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* POSESIÓN DE BALÓN */}
-                {activeMatch.stats?.possession && (
-                  <div className="rounded-3xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 space-y-3 shadow-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-3 h-3 rounded-full border border-white/20"
-                          style={{
-                            backgroundColor: homeColor,
-                            boxShadow: isHomeWhite ? "0 0 10px rgba(255, 255, 255, 0.7)" : `0 0 10px ${homeColor}`,
-                          }}
-                        />
-                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white">
-                          {rawHomePoss}%
-                        </span>
-                        <span className="text-xs text-gray-300 font-semibold hidden sm:inline">{homeName}</span>
-                      </div>
-
-                      <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">
-                        Posesión
-                      </span>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-300 font-semibold hidden sm:inline">{awayName}</span>
-                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white">
-                          {rawAwayPoss}%
-                        </span>
-                        <span
-                          className="w-3 h-3 rounded-full border border-white/20"
-                          style={{
-                            backgroundColor: awayColor,
-                            boxShadow: isAwayWhite ? "0 0 10px rgba(255, 255, 255, 0.7)" : `0 0 10px ${awayColor}`,
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Barra de Posesión Bicolor */}
-                    <div className="w-full h-3 bg-neutral-900 rounded-full overflow-hidden flex p-0.5 border border-white/10 shadow-inner">
-                      <div
-                        className="h-full rounded-l-full transition-all duration-700"
-                        style={{
-                          width: `${homePossPct}%`,
-                          backgroundColor: homeColor,
-                          boxShadow: isHomeWhite ? "0 0 12px rgba(255, 255, 255, 0.6)" : undefined,
-                        }}
-                      />
-                      <div
-                        className="h-full rounded-r-full transition-all duration-700"
-                        style={{
-                          width: `${awayPossPct}%`,
-                          backgroundColor: awayColor,
-                          boxShadow: isAwayWhite ? "0 0 12px rgba(255, 255, 255, 0.6)" : undefined,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* MÉTRICAS DE ATAQUE */}
-                {activeMatch.stats && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {activeMatch.stats.shotsOnTarget && (
-                      <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl p-3 text-center flex flex-col justify-center">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
-                          Tiros a Puerta
-                        </span>
-                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black tabular-nums">
-                          <span style={{ color: homeColor }}>{activeMatch.stats.shotsOnTarget.home}</span>
-                          <span className="text-gray-600 text-xs">-</span>
-                          <span style={{ color: awayColor }}>{activeMatch.stats.shotsOnTarget.away}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {activeMatch.stats.totalShots && (
-                      <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl p-3 text-center flex flex-col justify-center">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
-                          Tiros Totales
-                        </span>
-                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black tabular-nums">
-                          <span style={{ color: homeColor }}>{activeMatch.stats.totalShots.home}</span>
-                          <span className="text-gray-600 text-xs">-</span>
-                          <span style={{ color: awayColor }}>{activeMatch.stats.totalShots.away}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {activeMatch.stats.corners && (
-                      <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl p-3 text-center flex flex-col justify-center">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
-                          Córners
-                        </span>
-                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black tabular-nums">
-                          <span style={{ color: homeColor }}>{activeMatch.stats.corners.home}</span>
-                          <span className="text-gray-600 text-xs">-</span>
-                          <span style={{ color: awayColor }}>{activeMatch.stats.corners.away}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {activeMatch.stats.fouls && (
-                      <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl p-3 text-center flex flex-col justify-center">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
-                          Faltas
-                        </span>
-                        <div className="flex items-center justify-center gap-2 mt-1 text-lg font-mono font-black tabular-nums">
-                          <span style={{ color: homeColor }}>{activeMatch.stats.fouls.home}</span>
-                          <span className="text-gray-600 text-xs">-</span>
-                          <span style={{ color: awayColor }}>{activeMatch.stats.fouls.away}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* BANNER COMERCIAL EN MÓVIL (CUANDO ESTÁ EN LA PESTAÑA DEL PARTIDO) */}
+                {/* Banner Comercial en móvil (pestaña 'match') */}
                 <div className="block lg:hidden pt-2">
-                  {commercialNode}
+                  <MatchCommercialBanner
+                    match={activeMatch}
+                    homeName={homeName}
+                    awayName={awayName}
+                    hasHomeInDb={hasHomeInDb}
+                    hasAwayInDb={hasAwayInDb}
+                    onClose={onClose}
+                  />
                 </div>
               </div>
 
-              {/* ────── COLUMNA DERECHA (5 COLS EN PC): TABLA DE CLASIFICACIÓN & CAMISETAS ────── */}
-              <div className={`lg:col-span-5 space-y-6 ${activeTab === 'standings' ? 'block' : 'hidden lg:block'}`}>
-                {/* TABLA DE POSICIONES */}
-                <div className="rounded-3xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Award className="w-4 h-4 text-amber-400" />
-                      <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">
-                        {leagueData?.groupName || "Tabla de Posiciones"}
-                      </h4>
-                    </div>
-                    {currentLeagueSlug && (
-                      <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
-                        {currentLeagueSlug.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
+              {/* Columna Derecha (5 cols): Clasificación & Camisetas */}
+              <div
+                className={`lg:col-span-5 space-y-6 ${
+                  activeTab === "standings" ? "block" : "hidden lg:block"
+                }`}
+              >
+                {/* Tabla de Posiciones */}
+                <MatchStandings
+                  leagueSlug={currentLeagueSlug}
+                  leagueData={leagueData}
+                  loading={loadingStandings}
+                  homeName={homeName}
+                  awayName={awayName}
+                  selectedGroupIndex={selectedGroupIndex}
+                  onSelectGroupIndex={setSelectedGroupIndex}
+                />
 
-                  {/* Selector de Grupos/Conferencias */}
-                  {currentGroups.length > 1 && (
-                    <div className="flex flex-wrap gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/10">
-                      {currentGroups.map((grp, idx) => (
-                        <button
-                          key={grp.name || idx}
-                          onClick={() => setSelectedGroupIndex(idx)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
-                            selectedGroupIndex === idx
-                              ? "bg-white/20 text-white font-bold shadow-sm"
-                              : "text-gray-400 hover:text-white"
-                          }`}
-                        >
-                          {grp.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Tabla fluida */}
-                  {loadingStandings ? (
-                    <div className="py-16 flex flex-col items-center justify-center gap-3">
-                      <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-xs text-gray-400 font-medium">Cargando clasificación...</span>
-                    </div>
-                  ) : currentStandings.length === 0 ? (
-                    <div className="py-12 text-center text-xs text-gray-400 italic">
-                      No hay datos de clasificación disponibles para esta competición.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead className="border-b border-white/10 text-[10px] text-gray-400 uppercase font-bold tracking-wider">
-                          <tr>
-                            <th className="py-2.5 px-2 text-center w-8">#</th>
-                            <th className="py-2.5 px-3">Club</th>
-                            <th className="py-2.5 px-2 text-center">PJ</th>
-                            <th className="py-2.5 px-2 text-center">DG</th>
-                            <th className="py-2.5 px-2 text-center font-bold text-white">PTS</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/[0.04]">
-                          {currentStandings.map((row) => {
-                            const translatedRowTeamName = translateTeamNameToSpanish(row.teamName);
-                            const isMatchTeam =
-                              translatedRowTeamName.toLowerCase().includes(homeName.toLowerCase()) ||
-                              homeName.toLowerCase().includes(translatedRowTeamName.toLowerCase()) ||
-                              translatedRowTeamName.toLowerCase().includes(awayName.toLowerCase()) ||
-                              awayName.toLowerCase().includes(translatedRowTeamName.toLowerCase());
-
-                            return (
-                              <tr
-                                key={row.teamName}
-                                className={`transition-colors ${
-                                  isMatchTeam
-                                    ? "bg-white/[0.08] font-bold text-white"
-                                    : "hover:bg-white/[0.03] text-gray-300"
-                                }`}
-                              >
-                                <td className="py-2.5 px-2 text-center font-mono text-xs tabular-nums">
-                                  {row.rank > 0 ? (
-                                    <span
-                                      className={`inline-block w-5 h-5 leading-5 rounded-full text-[10px] ${
-                                        row.rank <= 4
-                                          ? "bg-blue-500/20 text-blue-300 font-bold border border-blue-400/30"
-                                          : row.rank <= 8
-                                          ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-400/30"
-                                          : "text-gray-400"
-                                      }`}
-                                    >
-                                      {row.rank}
-                                    </span>
-                                  ) : (
-                                    "-"
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-3 flex items-center gap-2">
-                                  {row.logo && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={row.logo}
-                                      alt={translatedRowTeamName}
-                                      className="w-4 h-4 object-contain shrink-0"
-                                    />
-                                  )}
-                                  <span className="truncate max-w-[140px] sm:max-w-[170px] text-xs font-medium">
-                                    {translatedRowTeamName}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-2 text-center font-mono text-gray-400 tabular-nums">
-                                  {row.gamesPlayed}
-                                </td>
-                                <td className="py-2.5 px-2 text-center font-mono text-gray-400 tabular-nums">
-                                  {row.pointDifferential}
-                                </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-bold text-white tabular-nums">
-                                  {row.points}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* BANNER COMERCIAL EN PC */}
+                {/* Banner Comercial en Desktop */}
                 <div className="hidden lg:block">
-                  {commercialNode}
+                  <MatchCommercialBanner
+                    match={activeMatch}
+                    homeName={homeName}
+                    awayName={awayName}
+                    hasHomeInDb={hasHomeInDb}
+                    hasAwayInDb={hasAwayInDb}
+                    onClose={onClose}
+                  />
                 </div>
 
-                {/* BANNER COMERCIAL EN MÓVIL (CUANDO ESTÁ EN LA PESTAÑA DE CLASIFICACIÓN) */}
+                {/* Banner Comercial en móvil (pestaña 'standings') */}
                 <div className="block lg:hidden pt-2">
-                  {commercialNode}
+                  <MatchCommercialBanner
+                    match={activeMatch}
+                    homeName={homeName}
+                    awayName={awayName}
+                    hasHomeInDb={hasHomeInDb}
+                    hasAwayInDb={hasAwayInDb}
+                    onClose={onClose}
+                  />
                 </div>
               </div>
-
             </div>
           </div>
         </motion.div>

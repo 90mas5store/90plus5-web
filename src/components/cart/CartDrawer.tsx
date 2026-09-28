@@ -135,6 +135,7 @@ export default function CartDrawer() {
                             src={item.imagen}
                             alt={item.equipo}
                             fill
+                            sizes="96px"
                             className="object-cover transition-transform duration-500 group-hover:scale-110"
                           />
                         </div>

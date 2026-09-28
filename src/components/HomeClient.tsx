@@ -54,7 +54,13 @@ export default function HomeClient({
 
     useEffect(() => {
         if (!liveMatchesLoaded) return;
-        const teamIds = Object.keys(liveMatches).filter(Boolean);
+        const ids = new Set<string>();
+        Object.entries(liveMatches).forEach(([key, match]) => {
+            if (match.homeTeamId) ids.add(match.homeTeamId);
+            if (match.awayTeamId) ids.add(match.awayTeamId);
+            if (key) ids.add(key);
+        });
+        const teamIds = Array.from(ids);
         if (teamIds.length === 0) {
             setMatchdayProducts([]);
             return;

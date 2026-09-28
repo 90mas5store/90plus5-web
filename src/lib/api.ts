@@ -122,6 +122,16 @@ export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product 
 export async function fetchProductsByTeamIds(teamIds: string[]): Promise<Product[]> {
   if (!teamIds || teamIds.length === 0) return [];
   try {
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validTeamUuids = teamIds.filter(
+      (id) => typeof id === "string" && UUID_REGEX.test(id.trim())
+    );
+
+    // Si ningún ID es un UUID válido, evitamos el error 22P02 de PostgreSQL
+    if (validTeamUuids.length === 0) {
+      return [];
+    }
+
     const { data, error } = await supabase
       .from("products")
       .select(`
@@ -161,7 +171,7 @@ export async function fetchProductsByTeamIds(teamIds: string[]): Promise<Product
         )
       `)
       .eq("active", true)
-      .in("team_id", teamIds)
+      .in("team_id", validTeamUuids)
       .order("featured", { ascending: false })
       .order("sort_order", { ascending: true });
 

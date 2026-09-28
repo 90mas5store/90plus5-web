@@ -4,7 +4,6 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { CartProvider } from "../context/CartContext";
 import HeaderWrapper from "../components/HeaderWrapper";
-import CartDrawer from "../components/cart/CartDrawer";
 import ClientLayout from "./ClientLayout";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
 import AnalyticsTracker from "@/components/analytics/AnalyticsTracker";
@@ -14,7 +13,10 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Metadata, Viewport } from "next";
 import { MotionProvider } from "@/lib/motion";
 import { SITE_URL, SITE_CONFIG, CONTACT, SOCIAL_LINKS, SEO } from "@/lib/config/site";
-import CookieConsent from "@/components/CookieConsent";
+import dynamic from "next/dynamic";
+
+const CartDrawer = dynamic(() => import("../components/cart/CartDrawer"), { ssr: false });
+const CookieConsent = dynamic(() => import("@/components/CookieConsent"), { ssr: false });
 
 // 🧠 Fuente local Satoshi
 const satoshi = localFont({

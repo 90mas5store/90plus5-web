@@ -124,8 +124,7 @@ export function useProductPrefetch(products: { id: string; slug?: string; imagen
     useEffect(() => {
         if (!products.length) return;
 
-        // Esperar a que el navegador esté idle para precargar
-        const timeoutId = setTimeout(() => {
+        const prefetchJob = () => {
             // Precargar las primeras 4 imágenes de productos
             const imagesToPreload = products.slice(0, 4)
                 .map(p => p.imagen)
@@ -137,9 +136,18 @@ export function useProductPrefetch(products: { id: string; slug?: string; imagen
             products.slice(0, 2).forEach(p => {
                 prefetch(`/producto/${p.slug || p.id}`);
             });
-        }, 1000);
+        };
 
-        return () => clearTimeout(timeoutId);
+        let timerId: ReturnType<typeof setTimeout>;
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            timerId = setTimeout(() => {
+                window.requestIdleCallback(prefetchJob, { timeout: 3000 });
+            }, 3500);
+        } else {
+            timerId = setTimeout(prefetchJob, 4000);
+        }
+
+        return () => clearTimeout(timerId);
     }, [products, prefetch, preloadImages]);
 }
 // requestIdleCallback types are built-in to modern TypeScript

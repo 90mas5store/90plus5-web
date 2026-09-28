@@ -82,7 +82,7 @@ export default function OrderSummarySidebar({
                     {items.map((item, idx) => (
                         <div key={idx} className="flex gap-4 group">
                             <div className="relative w-20 h-20 rounded-2xl overflow-hidden bg-black border border-white/5 shrink-0">
-                                <Image src={item.imagen} alt={item.equipo} fill className="object-cover" />
+                                <Image src={item.imagen} alt={item.equipo} fill sizes="80px" className="object-cover" />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h3 className="text-sm font-black text-white uppercase truncate tracking-tight">{item.equipo}</h3>

@@ -125,7 +125,6 @@ export default function BentoSpotlightProduct({
                     alt={`${displayName} ${modelo}`}
                     fill
                     sizes="(max-width: 768px) 100vw, 50vw"
-                    priority
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 />
 

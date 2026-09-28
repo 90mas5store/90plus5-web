@@ -4,9 +4,11 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Flame, Trophy, Sparkles, ArrowRight, Shield, BarChart3, Radio, Shirt, Clock } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useLiveMatches, LiveMatchData } from "@/hooks/useLiveMatches";
 import { motion, AnimatePresence } from "@/lib/motion";
-import MatchCenterModal from "@/components/match/MatchCenterModal";
+
+const MatchCenterModal = dynamic(() => import("@/components/match/MatchCenterModal"), { ssr: false });
 
 import { resolveMatchColors } from "@/lib/teamColors";
 import { translateTeamNameToSpanish, translateTeamShortName } from "@/lib/teamNames";
