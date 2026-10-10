@@ -130,13 +130,19 @@ export function buildProductJsonLd(product: JsonLdProductInput, slug: string) {
                   },
               ];
 
+    const fullProductName =
+        teamName && teamName !== 'Catálogo' && !product.name.toLowerCase().includes(teamName.toLowerCase())
+            ? `${teamName} — ${product.name}`
+            : product.name;
+
     return {
         '@context': 'https://schema.org',
         '@type': 'Product',
-        name: product.name,
+        name: fullProductName,
         ...(galleryImages.length > 0 && { image: galleryImages }),
         description: enrichedDescription,
         sku: product.id,
+        productID: product.id,
         brand: {
             '@type': 'Brand',
             name: product.brands?.name || product.teams?.name || SITE_CONFIG.name,

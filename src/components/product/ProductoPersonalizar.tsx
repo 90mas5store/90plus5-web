@@ -20,6 +20,7 @@ import ProductCustomizerOptions from '@/components/product/ProductCustomizerOpti
 import ProductActionButtons from '@/components/product/ProductActionButtons';
 import StickyMobileBuyBar from '@/components/product/StickyMobileBuyBar';
 import RelatedProductsSection from '@/components/product/RelatedProductsSection';
+import { trackMetaViewContent } from '@/lib/analytics/metaPixel';
 
 interface ProductoPersonalizarProps {
     product: CustomizerProduct;
@@ -96,6 +97,20 @@ export default function ProductoPersonalizar({
     useEffect(() => {
         setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
     }, []);
+
+    // 🎯 Meta Pixel: ViewContent tracking para catálogo dinámico y retargeting
+    useEffect(() => {
+        if (!product?.id) return;
+        const initialPrice = product.product_variants?.[0]?.price || 0;
+        const teamName = product.teams?.name || product.brands?.name || '';
+        const fullName = teamName ? `${teamName} — ${product.name}` : product.name;
+        trackMetaViewContent({
+            id: product.id,
+            name: fullName,
+            price: initialPrice,
+            currency: 'HNL',
+        });
+    }, [product?.id]);
 
     // Partido en vivo (API o manual)
     const liveMatch = product.team_id ? liveMatches[product.team_id] ?? null : null;

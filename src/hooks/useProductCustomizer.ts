@@ -9,6 +9,7 @@ import {
     ProductOptionsState,
     SelectedOption,
 } from '@/types/productCustomizer';
+import { trackMetaAddToCart } from '@/lib/analytics/metaPixel';
 
 interface UseProductCustomizerProps {
     product: CustomizerProduct;
@@ -242,6 +243,14 @@ export function useProductCustomizer({ product }: UseProductCustomizerProps) {
 
             const customization = dorsalNombre ? `${dorsalNumero} · ${dorsalNombre}` : null;
             toast.cartSuccess(`${producto.equipo} ${producto.modelo}`, tallaSeleccionada.label, customization);
+
+            // 🎯 Meta Pixel: AddToCart event
+            trackMetaAddToCart({
+                id: producto.id,
+                name: `${producto.equipo} — ${producto.modelo}`,
+                price: precioConRecargo,
+                currency: 'HNL',
+            });
 
             setIsAdding(false);
             openCart();
