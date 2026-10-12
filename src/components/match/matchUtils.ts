@@ -25,7 +25,7 @@ export function getResolvedLeagueSlug(match: LiveMatchData | null): string {
   if (combined.includes('america') || combined.includes('cruz azul') || combined.includes('chivas') || combined.includes('tigres') || combined.includes('monterrey') || combined.includes('toluca') || combined.includes('pumas') || combined.includes('atlas')) return 'mex.1';
   if (combined.includes('real madrid') || combined.includes('barcelona') || combined.includes('atletico') || combined.includes('sevilla') || combined.includes('betis')) return 'esp.1';
   if (combined.includes('arsenal') || combined.includes('city') || combined.includes('liverpool') || combined.includes('chelsea') || combined.includes('united') || combined.includes('tottenham')) return 'eng.1';
-  if (combined.includes('olimpia') || combined.includes('motagua') || combined.includes('marathon') || combined.includes('real españa') || combined.includes('espana')) return 'hon.1';
+  if (combined.includes('olimpia') || combined.includes('motagua') || combined.includes('marathon') || combined.includes('real españa') || combined.includes('real espana') || combined.includes('rcd espana')) return 'hon.1';
   if (combined.includes('inter miami') || combined.includes('lafc') || combined.includes('galaxy') || combined.includes('nashville')) return 'usa.1';
 
   return 'mex.1';
@@ -44,17 +44,17 @@ export function getEventVisual(evt: MatchEventDetail): { icon: string; label: st
         label: evt.disallowed ? 'Gol de Penal (Anulado por VAR)' : 'Gol de Penal'
       };
     case 'penalty-miss':
-      return { icon: '❌', label: 'Penal Fallado' };
+      return { icon: '❌', label: evt.text || 'Penal Fallado' };
     case 'own-goal':
-      return { icon: '⚽', label: 'Autogol' };
+      return { icon: '⚽', label: evt.text || 'Autogol' };
     case 'disallowed-goal':
       return { icon: '🚫', label: evt.text || 'Gol Anulado (VAR)' };
     case 'var':
       return { icon: '📺', label: evt.text || 'Revisión VAR' };
     case 'red-card':
-      return { icon: '🟥', label: 'Tarjeta Roja' };
+      return { icon: '🟥', label: evt.text || 'Tarjeta Roja' };
     case 'yellow-card':
-      return { icon: '🟨', label: 'Tarjeta Amarilla' };
+      return { icon: '🟨', label: evt.text || 'Tarjeta Amarilla' };
     default:
       return { icon: '⚽', label: evt.text || 'Incidencia' };
   }

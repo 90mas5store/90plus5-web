@@ -169,7 +169,9 @@ export default function MatchdayHeroTakeover() {
   const activeItem = matchItems[currentIndex] || matchItems[0];
   const { match, homeName, awayName, homeShort, awayShort, homeScore, awayScore, homeLogo, awayLogo, homeColor, awayColor, isHomeWhite, isAwayWhite } = activeItem;
 
-  const goals = match.events?.filter((e) => e.type === "goal") || [];
+  const goals = (match.events || []).filter(
+    (e) => (e.type === "goal" || e.type === "penalty-goal" || e.type === "own-goal") && !e.disallowed
+  );
 
   const handleOpenMatchCenter = () => {
     setIsPaused(true);
@@ -211,7 +213,7 @@ export default function MatchdayHeroTakeover() {
                 className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pb-2 pt-0.5 px-0.5 sm:px-1 scrollbar-hide no-scrollbar scrollbar-none touch-pan-x justify-start select-none [&::-webkit-scrollbar]:!hidden [&::-webkit-scrollbar]:!w-0 [&::-webkit-scrollbar]:!h-0"
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               >
-                <div className="flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-full bg-red-600/15 border border-red-500/25 text-red-400 text-xs font-bold uppercase tracking-wider shadow-sm">
+                <div className="flex items-center h-9 gap-1.5 shrink-0 px-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider shadow-sm select-none">
                   <Radio className="w-3.5 h-3.5 animate-pulse text-red-500" />
                   <span>Jornada:</span>
                 </div>
@@ -224,19 +226,20 @@ export default function MatchdayHeroTakeover() {
                   return (
                     <button
                       key={item.id}
+                      type="button"
                       onClick={() => setCurrentIndex(idx)}
-                      className={`relative shrink-0 transition-all duration-200 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-bold flex items-center gap-2.5 cursor-pointer active:scale-95 ${
+                      className={`relative shrink-0 h-9 transition-all duration-200 px-3.5 rounded-full text-xs flex items-center gap-2.5 cursor-pointer active:scale-95 select-none ${
                         isActive
-                          ? "text-white shadow-lg"
-                          : "text-white/60 hover:text-white hover:bg-white/[0.06]"
+                          ? "text-white font-bold"
+                          : "text-white/60 hover:text-white font-medium bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.1]"
                       }`}
                     >
-                      {/* Píldora activa deslizante con resortes Apple */}
+                      {/* Píldora activa deslizante con material translúcido Apple y sombra de elevación */}
                       {isActive && (
                         <motion.div
                           layoutId="heroActiveMatchPill"
-                          className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-[0_2px_12px_rgba(255,255,255,0.15)]"
-                          transition={{ type: "spring", damping: 25, stiffness: 350 }}
+                          className="absolute inset-0 rounded-full bg-white/[0.12] backdrop-blur-xl border border-white/[0.12] shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
+                          transition={{ type: "spring", damping: 28, stiffness: 350 }}
                         />
                       )}
 
@@ -247,22 +250,22 @@ export default function MatchdayHeroTakeover() {
                             <Image src={item.homeLogo} alt="" width={16} height={16} className="w-full h-full object-contain" />
                           </div>
                         )}
-                        <span className="font-bold text-white">{item.homeShort}</span>
+                        <span className={`tracking-tight ${isActive ? "text-white font-bold" : "text-white/80"}`}>{item.homeShort}</span>
                       </div>
 
                       {/* Marcador o Horario */}
                       {isUpc ? (
-                        <span className="relative z-10 bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold">
+                        <span className="relative z-10 h-5 px-2 rounded-full inline-flex items-center bg-blue-500/15 text-blue-300 border border-blue-400/25 text-[10px] font-mono font-semibold">
                           {item.match.startTime || "Próximo"}
                         </span>
                       ) : (
-                        <span className="relative z-10 bg-black/60 backdrop-blur-sm border border-white/15 px-2 py-0.5 rounded-full text-xs text-amber-300 font-mono font-black tabular-nums shadow-inner">
+                        <span className="relative z-10 h-5 px-2 rounded-full inline-flex items-center bg-black/50 border border-white/[0.08] text-xs text-amber-300 font-mono font-bold tabular-nums shadow-inner">
                           {item.homeScore} - {item.awayScore}
                         </span>
                       )}
 
                       <div className="relative z-10 flex items-center gap-1.5">
-                        <span className="font-bold text-white">{item.awayShort}</span>
+                        <span className={`tracking-tight ${isActive ? "text-white font-bold" : "text-white/80"}`}>{item.awayShort}</span>
                         {item.awayLogo && (
                           <div className="w-4 h-4 relative shrink-0">
                             <Image src={item.awayLogo} alt="" width={16} height={16} className="w-full h-full object-contain" />
@@ -270,20 +273,20 @@ export default function MatchdayHeroTakeover() {
                         )}
                       </div>
 
-                      {/* Minuto si está en vivo o entretiempo */}
+                      {/* Minuto si está en vivo, entretiempo o FT */}
                       {!isFin && !isUpc && (
                         item.match.isHalftime ? (
-                          <span className="relative z-10 text-[10px] font-mono font-bold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded-full">
+                          <span className="relative z-10 h-5 px-1.5 rounded-full inline-flex items-center text-[10px] font-mono font-bold text-amber-400 bg-amber-500/20 border border-amber-500/25">
                             ET
                           </span>
                         ) : (item.match.displayClock || item.match.minute) ? (
-                          <span className="relative z-10 text-[10px] font-mono font-bold text-red-400 bg-red-600/20 px-1.5 py-0.5 rounded-full animate-pulse">
+                          <span className="relative z-10 h-5 px-1.5 rounded-full inline-flex items-center text-[10px] font-mono font-bold text-red-400 bg-red-600/20 border border-red-500/25 animate-pulse">
                             {item.match.displayClock || `${item.match.minute}'`}
                           </span>
                         ) : null
                       )}
                       {isFin && (
-                        <span className="relative z-10 text-[10px] font-mono font-bold text-amber-400/90">
+                        <span className="relative z-10 h-5 px-1.5 rounded-full inline-flex items-center text-[10px] font-mono font-bold text-amber-400/90 bg-amber-500/10 border border-amber-500/20">
                           FT
                         </span>
                       )}
@@ -391,8 +394,8 @@ export default function MatchdayHeroTakeover() {
                               key={g.id}
                               className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-[10px] text-white/90 font-medium"
                             >
-                              <span>⚽ {g.minute}</span>
-                              <span className="font-bold text-white">{g.playerName}</span>
+                              <span>{g.type === "penalty-goal" ? "🎯" : "⚽"} {g.minute}</span>
+                              <span className="font-bold text-white">{g.playerName}{g.type === "penalty-goal" ? " (P)" : g.type === "own-goal" ? " (AG)" : ""}</span>
                             </span>
                           ))}
                           {goals.length > 3 && (

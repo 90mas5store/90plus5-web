@@ -228,22 +228,68 @@ NATIONAL_TEAMS_ES['iran'] = RAW_NATIONAL_TEAMS.iran;
 NATIONAL_TEAMS_ES['qat'] = RAW_NATIONAL_TEAMS.qatar;
 NATIONAL_TEAMS_ES['catar'] = RAW_NATIONAL_TEAMS.qatar;
 
+const EXCLUDED_FROM_NATIONALS = new Set([
+  'real espana',
+  'rcd espana',
+  'real cd espana',
+  'cd real espana',
+  'sporting cristal',
+  'barcelona sc',
+  'universidad de chile',
+  'america de cali',
+]);
+
+const CLUB_PREFIXES = [
+  'real ', 'club ', 'deportivo ', 'atletico ', 'atlético ', 'sporting ',
+  'racing ', 'cd ', 'cf ', 'fc ', 'ca ', 'sc ', 'csd ', 'rcd ', 'ad ',
+];
+
+const NATIONAL_TEAM_QUALIFIERS = new Set([
+  'team', 'national team', 'national', 'nt', 'seleccion', 'selección',
+  'u20', 'u23', 'u21', 'u19', 'u17', 'men', 'women', 'femenino', 'masculino',
+]);
+
+function isFuzzyNationalMatch(norm: string, key: string): boolean {
+  if (norm === key) return true;
+  // Nunca aplicar fuzzy match de selección si el nombre comienza con prefijos de club
+  if (CLUB_PREFIXES.some(p => norm.startsWith(p))) return false;
+
+  if (norm.startsWith(`${key} `)) {
+    const rest = norm.slice(key.length + 1).trim();
+    if (NATIONAL_TEAM_QUALIFIERS.has(rest)) return true;
+  }
+
+  if (norm.endsWith(` ${key}`)) {
+    const prefix = norm.slice(0, norm.length - key.length - 1).trim();
+    if (NATIONAL_TEAM_QUALIFIERS.has(prefix)) return true;
+  }
+
+  return false;
+}
+
 /**
  * Traduce el nombre completo de una selección nacional al español.
- * Si no es una selección en el diccionario, retorna el nombre original intacto.
+ * Si no es una selección en el diccionario o si es un club conocido (ej. Real España), retorna el nombre original intacto.
  */
 export function translateTeamNameToSpanish(rawName?: string | null): string {
   if (!rawName) return '';
   const clean = rawName.trim();
   const norm = normalizeForLookup(clean);
 
-  if (NATIONAL_TEAMS_ES[norm]) {
-    return NATIONAL_TEAMS_ES[norm].name;
+  if (EXCLUDED_FROM_NATIONALS.has(norm) || norm.includes('real espana')) {
+    return clean;
   }
 
-  // Búsqueda por subcadena para variantes como "Wales National Team", "Spain NT", etc.
+  if (NATIONAL_TEAMS_ES[norm]) {
+    // Si coincide exactamente pero es un club con prefijo, verificar
+    if (!CLUB_PREFIXES.some(p => norm.startsWith(p))) {
+      return NATIONAL_TEAMS_ES[norm].name;
+    }
+  }
+
+  // Búsqueda por subcadena solo para variantes legítimas de selecciones ("Spain NT", "Team Spain", etc.)
   for (const [key, val] of Object.entries(NATIONAL_TEAMS_ES)) {
-    if (norm === key || norm.startsWith(`${key} `) || norm.endsWith(` ${key}`)) {
+    if (isFuzzyNationalMatch(norm, key)) {
       return val.name;
     }
   }
@@ -258,20 +304,28 @@ export function translateTeamShortName(rawName?: string | null, fallbackShort?: 
   if (!rawName && !fallbackShort) return '';
 
   const normRaw = normalizeForLookup(rawName || '');
-  if (normRaw && NATIONAL_TEAMS_ES[normRaw]) {
+  if (normRaw && (EXCLUDED_FROM_NATIONALS.has(normRaw) || normRaw.includes('real espana'))) {
+    return fallbackShort || rawName || '';
+  }
+
+  if (normRaw && NATIONAL_TEAMS_ES[normRaw] && !CLUB_PREFIXES.some(p => normRaw.startsWith(p))) {
     return NATIONAL_TEAMS_ES[normRaw].shortName;
   }
 
   const normFallback = normalizeForLookup(fallbackShort || '');
-  if (normFallback && NATIONAL_TEAMS_ES[normFallback]) {
+  if (normFallback && (EXCLUDED_FROM_NATIONALS.has(normFallback) || normFallback.includes('real espana'))) {
+    return fallbackShort || rawName || '';
+  }
+
+  if (normFallback && NATIONAL_TEAMS_ES[normFallback] && !CLUB_PREFIXES.some(p => normFallback.startsWith(p))) {
     return NATIONAL_TEAMS_ES[normFallback].shortName;
   }
 
   for (const [key, val] of Object.entries(NATIONAL_TEAMS_ES)) {
-    if (normRaw && (normRaw === key || normRaw.startsWith(`${key} `) || normRaw.endsWith(` ${key}`))) {
+    if (normRaw && isFuzzyNationalMatch(normRaw, key)) {
       return val.shortName;
     }
-    if (normFallback && (normFallback === key || normFallback.startsWith(`${key} `) || normFallback.endsWith(` ${key}`))) {
+    if (normFallback && isFuzzyNationalMatch(normFallback, key)) {
       return val.shortName;
     }
   }
@@ -294,21 +348,29 @@ export function translateTeamAbbr(rawName?: string | null, fallbackAbbr?: string
   if (!rawName && !fallbackAbbr) return '';
 
   const normRaw = normalizeForLookup(rawName || '');
-  if (normRaw && NATIONAL_TEAMS_ES[normRaw]?.abbr) {
+  if (normRaw && (EXCLUDED_FROM_NATIONALS.has(normRaw) || normRaw.includes('real espana'))) {
+    return (fallbackAbbr || rawName?.slice(0, 3) || '').toUpperCase();
+  }
+
+  if (normRaw && NATIONAL_TEAMS_ES[normRaw]?.abbr && !CLUB_PREFIXES.some(p => normRaw.startsWith(p))) {
     return NATIONAL_TEAMS_ES[normRaw].abbr;
   }
 
   const normFallback = normalizeForLookup(fallbackAbbr || '');
-  if (normFallback && NATIONAL_TEAMS_ES[normFallback]?.abbr) {
+  if (normFallback && (EXCLUDED_FROM_NATIONALS.has(normFallback) || normFallback.includes('real espana'))) {
+    return (fallbackAbbr || rawName?.slice(0, 3) || '').toUpperCase();
+  }
+
+  if (normFallback && NATIONAL_TEAMS_ES[normFallback]?.abbr && !CLUB_PREFIXES.some(p => normFallback.startsWith(p))) {
     return NATIONAL_TEAMS_ES[normFallback].abbr;
   }
 
   for (const [key, val] of Object.entries(NATIONAL_TEAMS_ES)) {
     if (val.abbr) {
-      if (normRaw && (normRaw === key || normRaw.startsWith(`${key} `) || normRaw.endsWith(` ${key}`))) {
+      if (normRaw && isFuzzyNationalMatch(normRaw, key)) {
         return val.abbr;
       }
-      if (normFallback && (normFallback === key || normFallback.startsWith(`${key} `) || normFallback.endsWith(` ${key}`))) {
+      if (normFallback && isFuzzyNationalMatch(normFallback, key)) {
         return val.abbr;
       }
     }

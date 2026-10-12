@@ -1,223 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { Redis } from '@upstash/redis';
-import type { LiveMatchData, MatchEventDetail, MatchStats } from '@/hooks/useLiveMatches';
+import type { LiveMatchData } from '@/hooks/useLiveMatches';
 import { translateTeamNameToSpanish, translateTeamShortName, translateTeamAbbr } from '@/lib/teamNames';
 import { getActiveLeagueSlugs } from '@/lib/matchdayLeagues';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CACHÉ DISTRIBUIDA EN UPSTASH REDIS Y MEMORIA SERVERLESS
-// ─────────────────────────────────────────────────────────────────────────────
-const CACHE_KEY = 'live-matches:v9';
-const STALE_CACHE_KEY = 'live-matches:last-known-good';
-const CACHE_TTL_SECONDS = 30; // 30 segundos — suficiente para tiempo real
-const STALE_CACHE_TTL_SECONDS = 86400; // 24 horas — respaldo ante caídas de ESPN
-const MEMORY_CACHE_TTL_MS = 30_000;
+import {
+  getMemoryCache,
+  getStaleMemoryCache,
+  setMemoryCache,
+  getRedisCache,
+  getStaleRedisCache,
+  saveToDistributedCache,
+  isRedisAvailable,
+} from '@/lib/live-matches/cache';
 
-// Caché en memoria para instancias Serverless cálidas
-let memoryCache: { data: Record<string, LiveMatchData>; timestamp: number; dateStr?: string } | null = null;
+import {
+  normalizeTeamName,
+  formatCompetitionName,
+  formatMatchTime,
+  fetchTeamsFromSupabase,
+  buildTeamResolver,
+} from '@/lib/live-matches/teamMatcher';
 
-let redis: Redis | null = null;
-let redisDisabledUntil = 0;
-
-function getRedis(): Redis | null {
-  if (Date.now() < redisDisabledUntil) return null;
-  if (redis) return redis;
-  try {
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (!url || !token) return null;
-    redis = new Redis({ url, token });
-    return redis;
-  } catch {
-    return null;
-  }
-}
+import { parseMatchEvents } from '@/lib/live-matches/eventsParser';
+import { parseMatchStats } from '@/lib/live-matches/statsParser';
 
 export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NORMALIZACIÓN DE NOMBRES
-// ─────────────────────────────────────────────────────────────────────────────
-function normalizeTeamName(name: string): string {
-  if (!name) return '';
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    // Compatible con todos los runtimes (sin Unicode property escapes)
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[-_]/g, ' ')
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ALIAS: DB Supabase ↔ ESPN API
-// ─────────────────────────────────────────────────────────────────────────────
-const TEAM_ALIASES: Record<string, string[]> = {
-  // Selecciones Nacionales
-  'espana': ['spain', 'seleccion espanola'],
-  'alemania': ['germany', 'dfb team'],
-  'inglaterra': ['england', 'three lions'],
-  'brasil': ['brazil', 'selecao'],
-  'francia': ['france', 'les bleus'],
-  'estados unidos': ['united states', 'usa', 'usmnt'],
-  'paises bajos': ['netherlands', 'holland'],
-  'belgica': ['belgium', 'red devils'],
-  'japon': ['japan', 'samurai blue'],
-  'italia': ['italy', 'azzurri'],
-  'noruega': ['norway'],
-  'mexico': ['mexico', 'el tri'],
-  'canada': ['canada'],
-  'colombia': ['colombia', 'los cafeteros'],
-  'panama': ['panama', 'los canaleros'],
-  'uruguay': ['uruguay', 'la celeste'],
-  'argentina': ['argentina', 'la albiceleste'],
-  'jamaica': ['jamaica'],
-  'honduras': ['honduras', 'la h', 'los catrachos'],
-  'portugal': ['portugal', 'seleccion portuguesa', 'seleccao das quinas'],
-  'gales': ['wales', 'cymru', 'seleccion de gales'],
-  // Clubes
-  'real madrid': ['real madrid cf', 'real madrid', 'rmadrid', 'r madrid'],
-  'atletico de madrid': ['atletico madrid', 'atletico de madrid', 'atl madrid', 'atletico', 'atl. madrid'],
-  'fc barcelona': ['barcelona', 'barca', 'fc barcelona'],
-  'paris saint germain': ['psg', 'paris saint-germain', 'paris sg', 'paris saint germain'],
-  'manchester united': ['man united', 'man utd', 'manchester utd', 'manchester united', 'manchester u.'],
-  'manchester city': ['man city', 'manchester city', 'man. city'],
-  'arsenal': ['arsenal', 'arsenal fc', 'the gunners'],
-  'liverpool': ['liverpool', 'liverpool fc', 'the reds'],
-  'chelsea fc': ['chelsea', 'chelsea fc'],
-  'tottenham hotspur': ['tottenham', 'tottenham hotspur', 'spurs'],
-  'inter miami': ['inter miami cf', 'inter miami', 'inter miami fc'],
-  'bayern munich': ['bayern munchen', 'bayern munich', 'fc bayern munchen', 'fc bayern munich', 'bayern'],
-  'borussia dortmund': ['borussia dortmund', 'dortmund', 'bvb', 'bvb dortmund'],
-  'bayer leverkusen': ['bayer leverkusen', 'leverkusen', 'bayer 04 leverkusen'],
-  'juventus': ['juventus', 'juventus fc', 'juve'],
-  'inter': ['inter milan', 'internazionale', 'inter milano', 'inter'],
-  'ac milan': ['milan', 'ac milan', 'a.c. milan', 'rossoneri'],
-  'cd olimpia': ['olimpia', 'cd olimpia', 'club deportivo olimpia', 'c.d. olimpia', 'olimpia tegucigalpa', 'club olimpia deportivo', 'olimpia deportivo'],
-  'motagua': ['cd motagua', 'motagua', 'futbol club motagua', 'fc motagua', 'c.d. motagua'],
-  'real espana': ['real espana', 'real cd espana', 'real club deportivo espana', 'rcd espana', 'real españa', 'real cd españa'],
-  'marathon': ['marathon', 'cd marathon', 'club deportivo marathon', 'marathón', 'cd marathón'],
-  'boca juniors': ['boca', 'boca juniors', 'ca boca juniors'],
-  'river plate': ['river plate', 'river', 'ca river plate'],
-  'racing club': ['racing club', 'racing', 'racing club de avellaneda'],
-  'independiente': ['independiente', 'ca independiente'],
-  'san lorenzo': ['san lorenzo', 'san lorenzo de almagro'],
-  'flamengo': ['flamengo', 'cr flamengo'],
-  'palmeiras': ['palmeiras', 'se palmeiras'],
-  'corinthians': ['corinthians', 'sc corinthians'],
-  'sao paulo': ['sao paulo', 'sao paulo fc', 'são paulo'],
-  'america': ['club america', 'america', 'ca america'],
-  'chivas': ['guadalajara', 'chivas', 'chivas guadalajara'],
-  'al nassr': ['al nassr', 'al-nassr', 'al nassr fc'],
-  'al hilal': ['al hilal', 'al-hilal', 'al hilal sfc'],
-  'sporting cp': ['sporting cp', 'sporting lisbon', 'sporting'],
-  'benfica': ['benfica', 'sl benfica'],
-  'porto': ['porto', 'fc porto'],
+const ESPN_HEADERS = {
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Referer: 'https://www.espn.com/',
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FORMATEADORES
-// ─────────────────────────────────────────────────────────────────────────────
-function formatCompetitionName(rawName?: string | null): string | null {
-  if (!rawName) return null;
-  const name = rawName.trim();
-  const lower = name.toLowerCase();
-
-  if (lower.includes('honduras') || lower.includes('honduran') || lower.includes('hon.1') || lower.includes('liga nacional')) return 'Liga Nacional Honduras';
-  if (
-    lower.includes('central_american_cup') ||
-    lower.includes('central american cup') ||
-    lower.includes('central.american.cup') ||
-    lower.includes('copa centroamericana')
-  ) {
-    return 'Copa Centroamericana CONCACAF';
-  }
-  if (lower.includes('copa america') || lower.includes('copa américa') || lower.includes('conmebol.america')) return 'Copa América';
-  if (lower.includes('uefa.euro') || lower.includes('eurocopa') || lower.includes('european championship')) return 'UEFA Eurocopa';
-  if (lower.includes('uefa.nations') || lower.includes('uefa nations league')) return 'UEFA Nations League';
-  if (lower.includes('worldq.conmebol') || (lower.includes('worldq') && lower.includes('conmebol'))) return 'Eliminatorias CONMEBOL';
-  if (lower.includes('worldq.uefa') || (lower.includes('worldq') && lower.includes('uefa'))) return 'Eliminatorias UEFA';
-  if (lower.includes('worldq') || lower.includes('qualifying') || lower.includes('eliminatoria')) return 'Eliminatorias CONCACAF';
-  if (lower.includes('gold') || lower.includes('copa oro') || lower.includes('copa-oro')) return 'Copa Oro CONCACAF';
-  if (lower.includes('nations.league') || lower.includes('nations league') || lower.includes('nations-league')) return 'CONCACAF Nations League';
-  if (lower.includes('fifa.world') || lower.includes('world cup') || lower.includes('copa mundial') || lower.includes('mundial')) return 'Copa Mundial FIFA';
-  if (lower.includes('liga f') || lower.includes('liga-f') || lower.includes('spanish-liga-f') || lower.includes('primera iberdrola')) return 'Liga F (Femenina)';
-  if (lower.includes("women's champions league") || lower.includes('uwcl') || lower.includes('women-champions')) return 'UEFA Champions League Femenina';
-  if (lower.includes('champions league') || lower.includes('champions-league') || lower.includes('ucl')) return 'UEFA Champions League';
-  if (lower.includes('europa league') || lower.includes('europa-league') || lower.includes('uel')) return 'UEFA Europa League';
-  if (lower.includes('conference league') || lower.includes('conference-league')) return 'UEFA Conference League';
-  if (lower.includes('copa argentina') || lower.includes('arg.copa')) return 'Copa Argentina';
-  if (lower.includes('copa del rey') || lower.includes('copa-del-rey') || lower.includes('esp.copa_del_rey')) return 'Copa del Rey';
-  if (lower.includes('laliga') || lower.includes('la liga') || lower.includes('spanish primera')) return 'LaLiga Española';
-  if (lower.includes('premier league') || lower.includes('premier-league') || lower.includes('epl')) return 'Premier League';
-  if (lower.includes('serie a') || lower.includes('serie-a')) return 'Serie A Italia';
-  if (lower.includes('bundesliga')) return 'Bundesliga Alemania';
-  if (lower.includes('ligue 1') || lower.includes('ligue-1')) return 'Ligue 1 Francia';
-  if (lower.includes('primeira liga') || lower.includes('por.1') || lower.includes('portuguese')) return 'Liga Portugal';
-  if (lower.includes('brasileirao') || lower.includes('bra.1') || lower.includes('brazilian')) return 'Brasileirão';
-  if (lower.includes('champions_cup') || lower.includes('champions cup') || lower.includes('concacaf.champions')) return 'CONCACAF Champions Cup';
-  if (lower.includes('concacaf')) return 'CONCACAF Champions Cup';
-  if (lower.includes('libertadores')) return 'Copa Libertadores';
-  if (lower.includes('sudamericana')) return 'Copa Sudamericana';
-  if (lower.includes('fa cup') || lower.includes('fa-cup') || lower.includes('eng.fa')) return 'FA Cup';
-  if (lower.includes('carabao') || lower.includes('efl cup') || lower.includes('eng.league_cup')) return 'Carabao Cup';
-  if (lower.includes('coppa italia') || lower.includes('ita.coppa_italia')) return 'Coppa Italia';
-  if (lower.includes('dfb') || lower.includes('ger.dfb_pokal')) return 'Copa de Alemania (DFB-Pokal)';
-  if (lower.includes('coupe de france') || lower.includes('fra.coupe_de_france')) return 'Copa de Francia';
-  if (lower.includes('cwc') || lower.includes('club world cup') || lower.includes('fifa.cwc')) return 'Mundial de Clubes FIFA';
-  if (lower.includes('super cup') || lower.includes('supercup') || lower.includes('uefa.super_cup')) return 'Supercopa de Europa';
-  if (lower.includes('mls') || lower.includes('major league soccer')) return 'MLS';
-  if (lower.includes('liga mx')) return 'Liga MX';
-  if (lower.includes('friendly') || lower.includes('amistoso')) return 'Amistoso Internacional';
-
-  return name;
-}
-
-function formatMatchTime(dateStr?: string | null): string {
-  if (!dateStr) return 'HOY';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return 'HOY';
-
-    const tz = 'America/Tegucigalpa';
-    const now = new Date();
-
-    const dStr = d.toLocaleDateString('en-CA', { timeZone: tz });
-    const todayStr = now.toLocaleDateString('en-CA', { timeZone: tz });
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrow.toLocaleDateString('en-CA', { timeZone: tz });
-
-    let dayPrefix = 'HOY';
-    if (dStr === todayStr) {
-      dayPrefix = 'HOY';
-    } else if (dStr === tomorrowStr) {
-      dayPrefix = 'MAÑANA';
-    } else {
-      const dayName = d.toLocaleDateString('es-HN', { weekday: 'short', timeZone: tz }).toUpperCase().replace('.', '');
-      dayPrefix = dayName;
-    }
-
-    const timeFormatted = d.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: tz,
-    });
-
-    return `${dayPrefix} ${timeFormatted}`;
-  } catch {
-    return 'HOY';
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HANDLER PRINCIPAL
-// ─────────────────────────────────────────────────────────────────────────────
 export async function GET(req?: NextRequest) {
   const now = Date.now();
   const tz = 'America/Tegucigalpa';
@@ -227,17 +45,12 @@ export async function GET(req?: NextRequest) {
   const STALE_CACHE_KEY = `live-matches:stale:${todayYmd}`;
 
   const isDebug = req ? req.nextUrl.searchParams.get('debug') === '1' : false;
-  const client = getRedis();
 
-  // Si cambió el día (ej. pasadas las 12:00 am en Honduras), descartar memoria anterior
-  if (memoryCache && memoryCache.dateStr && memoryCache.dateStr !== todayDateStr) {
-    memoryCache = null;
-  }
-
-  // ── 0. Intentar responder desde caché en memoria local (ultrarrápido, ~0ms) ─
-  if (process.env.NODE_ENV !== 'test' && !isDebug && memoryCache) {
-    if (now - memoryCache.timestamp < MEMORY_CACHE_TTL_MS) {
-      return NextResponse.json(memoryCache.data, {
+  // ── 0. Caché Local en Memoria (0ms) ────────────────────────────────────────
+  if (process.env.NODE_ENV !== 'test' && !isDebug) {
+    const mem = getMemoryCache(todayDateStr);
+    if (mem) {
+      return NextResponse.json(mem, {
         headers: {
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
           'X-Live-Cache': 'HIT-MEMORY',
@@ -246,183 +59,32 @@ export async function GET(req?: NextRequest) {
     }
   }
 
-  // ── 0.1 Intentar responder desde caché Redis (con timeout estricto de 1s) ───
-  if (process.env.NODE_ENV !== 'test' && !isDebug && client && Date.now() >= redisDisabledUntil) {
-    try {
-      const getPromise = client.get<any>(CACHE_KEY);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Redis get timeout')), 1000)
-      );
-      let cached = await Promise.race([getPromise, timeoutPromise]);
-      if (typeof cached === 'string') {
-        try {
-          cached = JSON.parse(cached);
-        } catch {
-          cached = null;
-        }
-      }
-      if (cached && typeof cached === 'object' && Object.keys(cached).length > 0) {
-        memoryCache = { data: cached, timestamp: now };
-        return NextResponse.json(cached, {
-          headers: {
-            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-            'X-Live-Cache': 'HIT-REDIS',
-          },
-        });
-      }
-    } catch (redisErr: any) {
-      redisDisabledUntil = Date.now() + 60_000;
-      console.warn('[live-matches] Redis cache read error/timeout, desactivando 60s:', redisErr?.message ?? redisErr);
+  // ── 0.1 Caché Distribuida Redis (<1s) ──────────────────────────────────────
+  if (process.env.NODE_ENV !== 'test' && !isDebug) {
+    const cached = await getRedisCache(CACHE_KEY);
+    if (cached) {
+      setMemoryCache(cached, todayDateStr);
+      return NextResponse.json(cached, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'X-Live-Cache': 'HIT-REDIS',
+        },
+      });
     }
   }
+
+  // ── 1. Cargar equipos desde Supabase / Respaldo ────────────────────────────
+  const teamsData = await fetchTeamsFromSupabase();
+  const { nameToUuid, getTeamLogo } = buildTeamResolver(teamsData);
 
   const result: Record<string, LiveMatchData> = {};
   let events: any[] = [];
 
-  // ── 1. SUPABASE: equipos, logos, configuración manual de matchday ──────────
-  let teamsData: any[] = [];
-  const teamLogoByName = new Map<string, string>();
-
-  try {
-    let supabase: any = null;
-    try {
-      supabase = createAdminClient();
-    } catch (adminErr) {
-      console.warn('[live-matches] Admin client init failed, intentando con clave anon:', adminErr);
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (url && anon) {
-        const { createClient } = await import('@supabase/supabase-js');
-        supabase = createClient(url, anon, {
-          auth: { autoRefreshToken: false, persistSession: false },
-        });
-      }
-    }
-
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('teams')
-        .select('id, name, logo_url, is_matchday_active, matchday_opponent, matchday_score, matchday_period')
-        .is('deleted_at', null);
-
-      if (error) throw error;
-      teamsData = data || [];
-    }
-
-    for (const t of teamsData) {
-      if (t.name) {
-        const norm = normalizeTeamName(t.name);
-        if (t.logo_url) teamLogoByName.set(norm, t.logo_url);
-      }
-    }
-
-    // Garantizar que la Selección de Honduras esté siempre reconocida con su escudo oficial
-    const hasHondurasInDb = teamsData.some(t => normalizeTeamName(t.name) === 'honduras');
-    if (!hasHondurasInDb) {
-      teamsData.push({
-        id: 'honduras-national-team',
-        name: 'Honduras',
-        logo_url: '/logos/ligas/honduras-seleccion.svg',
-      });
-      teamLogoByName.set('honduras', '/logos/ligas/honduras-seleccion.svg');
-    }
-  } catch (e) {
-    console.error('[live-matches] Error fetching teams from Supabase:', e);
-  }
-
-  // Respaldo garantizado con UUIDs REALES de Supabase si la BD estuviera temporalmente caída
-  if (teamsData.length === 0) {
-    teamsData = [
-      { id: '671e730c-9a6f-43b0-9b22-6588926cfeca', name: 'FC Barcelona', logo_url: '/logos/equipos/barcelona.svg' },
-      { id: '2e8c6793-c8e3-454f-a53d-452d46466503', name: 'Arsenal', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775539836961-xxn1h7zcejb.svg' },
-      { id: 'c3a6d6d9-6efc-4b8f-abc8-f980cb2ce246', name: 'Manchester City', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1776039237536-gua3daf4ltk.svg' },
-      { id: '493fceb8-ee26-4c02-a664-c0556053c4e8', name: 'Real Madrid', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1768970531374-743yjjcb8j8.svg' },
-      { id: '535b242f-6f50-482a-94aa-9524603e5972', name: 'CD Olimpia', logo_url: '/logos/equipos/Club Deportivo Olimpia.svg' },
-      { id: '067d0186-17de-497d-9532-c90ad1e0effb', name: 'Liverpool', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775544862903-ikkwx6vrri.svg' },
-      { id: 'e39203c0-92cf-48e6-8429-bce20da45e13', name: 'Chelsea FC', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1776044510126-tfa4un9ng4.svg' },
-      { id: '00bf32a5-db80-4fb6-88a8-cc5b84167987', name: 'Bayern Munich', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775444175090-n450h73x5pg.svg' },
-      { id: '734d3f3a-6fc6-4ce5-9116-8a7853de1907', name: 'Paris Saint-Germain', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775542553886-vgunrf4jdva.svg' },
-      { id: 'f2b0bc65-047d-49d0-b643-173dc4ec40c9', name: 'Inter Miami', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775709971779-1rjvw2996jt.svg' },
-      { id: '7adc38c5-f207-42d7-a716-12c1e02c93fb', name: 'Motagua', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775885316983-tbcj46jswn.svg' },
-      { id: '6f2b172f-9f4d-43e3-8619-71745e0d14ca', name: 'Real España' },
-      { id: '9d0b0a07-a734-4897-971c-6c9ec24a9907', name: 'Manchester United', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1776042018072-x7jc5gwzvue.svg' },
-      { id: '3d781df1-cc3b-4b7f-8135-9171128fae49', name: 'Atlético de Madrid', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775544295185-t8jsvrk5gm.svg' },
-      { id: '321b4200-0969-4c1e-bc68-bb835436769d', name: 'España', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1774740806567-zokm3f8scb.svg' },
-      { id: '6c238d61-9ba4-4847-98a9-395a44731fd8', name: 'Argentina', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1768976768804-c67yaqe3x39.svg' },
-    ];
-  }
-
-  // ── Mapa robusto: nombre normalizado → UUID ────────────────────────────────
-  const nameToUuid = new Map<string, string>();
-  for (const t of teamsData) {
-    if (!t.name) continue;
-    const norm = normalizeTeamName(t.name);
-    if (!norm) continue;
-
-    nameToUuid.set(norm, t.id);
-    const noSpaceVariant = norm.replace(/\s+/g, '');
-    if (noSpaceVariant && !nameToUuid.has(noSpaceVariant)) {
-      nameToUuid.set(noSpaceVariant, t.id);
-    }
-
-    const cleanVariant = norm
-      .replace(/\bfc\b|\bcf\b|\bcd\b|\bclub\b/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (cleanVariant && !nameToUuid.has(cleanVariant)) {
-      nameToUuid.set(cleanVariant, t.id);
-      const cleanNoSpace = cleanVariant.replace(/\s+/g, '');
-      if (cleanNoSpace && !nameToUuid.has(cleanNoSpace)) {
-        nameToUuid.set(cleanNoSpace, t.id);
-      }
-    }
-
-    for (const [key, aliases] of Object.entries(TEAM_ALIASES)) {
-      const allVariants = [key, ...aliases].map(a => normalizeTeamName(a));
-      const cleanVariants = allVariants.map(a =>
-        a.replace(/\bfc\b|\bcf\b|\bcd\b|\bclub\b/g, '').replace(/\s+/g, ' ').trim()
-      );
-
-      const isMatch =
-        allVariants.includes(norm) ||
-        cleanVariants.includes(norm) ||
-        cleanVariants.includes(cleanVariant);
-
-      if (isMatch) {
-        for (const variant of allVariants) {
-          if (variant && !nameToUuid.has(variant)) nameToUuid.set(variant, t.id);
-          const noSpace = variant.replace(/\s+/g, '');
-          if (noSpace && !nameToUuid.has(noSpace)) nameToUuid.set(noSpace, t.id);
-        }
-      }
-    }
-  }
-
-  const getTeamLogo = (name: string, espnLogo?: string | null): string | null => {
-    if (espnLogo) return espnLogo;
-    const norm = normalizeTeamName(name);
-    const uuid = nameToUuid.get(norm);
-    if (uuid) {
-      const foundTeam = teamsData.find(t => t.id === uuid);
-      if (foundTeam?.logo_url) return foundTeam.logo_url;
-    }
-    return teamLogoByName.get(norm) || null;
-  };
-
-  // ── 2. ESPN: partidos en tiempo real ──────────────────────────────────────
+  // ── 2. Consultar partidos en tiempo real de ESPN ──────────────────────────
   try {
     const leagues = await getActiveLeagueSlugs();
 
-    const ESPN_HEADERS = {
-      Accept: 'application/json, text/plain, */*',
-      'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      Referer: 'https://www.espn.com/',
-    };
-
     const fetchPromises = leagues.map(async league => {
-      // Consultar la cartelera correspondiente a la fecha actual de Honduras (evita partidos viejos de ayer o rondas pasadas)
       const endpoints = [
         `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${todayYmd}`,
         `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${todayYmd}`,
@@ -457,46 +119,39 @@ export async function GET(req?: NextRequest) {
 
     for (const item of responses) {
       if (item.status === 'fulfilled' && item.value?.events) {
-        const leagueName = item.value.leagueName;
-        const leagueSlug = item.value.leagueSlug;
+        const { leagueName, leagueSlug } = item.value;
         for (const evt of item.value.events) {
           events.push({ ...evt, _leagueName: leagueName, _leagueSlug: leagueSlug });
         }
       }
     }
 
-    // ── Resiliencia: si ESPN no devolvió ningún evento (rate limit, outage, timeout)
+    // Respaldo de contingencia: si ESPN cayó o está en rate limit
     if (events.length === 0) {
-      if (memoryCache?.data && Object.keys(memoryCache.data).length > 0) {
+      const staleMem = getStaleMemoryCache();
+      if (staleMem) {
         console.warn('[live-matches] ESPN no devolvió eventos; sirviendo memoryCache como stale fallback');
-        return NextResponse.json(memoryCache.data, {
+        return NextResponse.json(staleMem, {
           headers: {
             'Cache-Control': 'no-store, no-cache, must-revalidate',
             'X-Live-Cache': 'STALE-MEMORY',
           },
         });
       }
-      if (client && Date.now() >= redisDisabledUntil) {
-        try {
-          const stale = await client.get<string | Record<string, LiveMatchData>>(STALE_CACHE_KEY);
-          if (stale) {
-            const staleData = typeof stale === 'string' ? JSON.parse(stale) : stale;
-            if (staleData && Object.keys(staleData).length > 0) {
-              console.warn('[live-matches] ESPN no devolvió eventos; sirviendo Redis como stale fallback');
-              return NextResponse.json(staleData, {
-                headers: {
-                  'Cache-Control': 'no-store, no-cache, must-revalidate',
-                  'X-Live-Cache': 'STALE-REDIS',
-                },
-              });
-            }
-          }
-        } catch (staleErr: any) {
-          console.warn('[live-matches] Error al leer stale cache de Redis:', staleErr?.message ?? staleErr);
-        }
+
+      const staleRedis = await getStaleRedisCache(STALE_CACHE_KEY);
+      if (staleRedis) {
+        console.warn('[live-matches] ESPN no devolvió eventos; sirviendo Redis como stale fallback');
+        return NextResponse.json(staleRedis, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'X-Live-Cache': 'STALE-REDIS',
+          },
+        });
       }
     }
 
+    // ── 3. Procesar partidos y mapear a base de datos de la tienda ──────────
     for (const event of events) {
       const competition = event.competitions?.[0];
       if (!competition) continue;
@@ -515,7 +170,6 @@ export async function GET(req?: NextRequest) {
         statusDesc.includes('entretiempo') ||
         statusDesc.includes('medio tiempo');
 
-      // Formatear reloj legible preservando tiempo añadido (ej: "45'+11'" -> "45+11'", "90'+6'" -> "90+6'")
       let cleanDisplayClock: string | null = null;
       const rawClockCandidate = event.status?.displayClock || event.status?.type?.shortDetail || null;
       if (rawClockCandidate && typeof rawClockCandidate === 'string') {
@@ -537,7 +191,6 @@ export async function GET(req?: NextRequest) {
         const d = new Date(eventDateStr);
         if (!isNaN(d.getTime())) {
           eventTimestamp = d.getTime();
-          const tz = 'America/Tegucigalpa';
           const todayStr = new Date(now).toLocaleDateString('en-CA', { timeZone: tz });
           const eventDayStr = d.toLocaleDateString('en-CA', { timeZone: tz });
           isSameDayToday = eventDayStr === todayStr;
@@ -545,13 +198,11 @@ export async function GET(req?: NextRequest) {
       }
 
       const elapsedMinutes = eventTimestamp > 0 ? (now - eventTimestamp) / (60 * 1000) : 999;
-
-      // Ventana de visibilidad: estrictamente partidos de HOY (horario Honduras) o en vivo en este momento
       const isLiveNow = state === 'in';
       const isUpcoming = state === 'pre' && isSameDayToday;
       const isFinishedToday = state === 'post' && (
         (isSameDayToday && elapsedMinutes <= 18 * 60) ||
-        (!isSameDayToday && elapsedMinutes <= 90) // Solo prórroga de 90 min si el juego terminó en la medianoche
+        (!isSameDayToday && elapsedMinutes <= 90)
       );
       if (!isUpcoming && !isLiveNow && !isFinishedToday) continue;
 
@@ -592,11 +243,10 @@ export async function GET(req?: NextRequest) {
       const homeUuid = nameToUuid.get(homeNorm) || nameToUuid.get(homeNormOrig);
       const awayUuid = nameToUuid.get(awayNorm) || nameToUuid.get(awayNormOrig);
 
-      // El Matchday y MatchCenter solo muestran partidos donde al menos uno de los rivales existe en la base de datos de la tienda
       if (!homeUuid && !awayUuid) continue;
 
-      const homeTeamInDb = homeUuid ? teamsData.find(t => t.id === homeUuid) : null;
-      const awayTeamInDb = awayUuid ? teamsData.find(t => t.id === awayUuid) : null;
+      const homeTeamInDb = homeUuid ? teamsData.find((t: any) => t.id === homeUuid) : null;
+      const awayTeamInDb = awayUuid ? teamsData.find((t: any) => t.id === awayUuid) : null;
 
       const homeLogoUrl = getTeamLogo(homeRawName, homeComp.team?.logo);
       const awayLogoUrl = getTeamLogo(awayRawName, awayComp.team?.logo);
@@ -614,7 +264,6 @@ export async function GET(req?: NextRequest) {
       const venueName = competition.venue?.fullName || null;
       const venueCity = competition.venue?.address?.city || null;
 
-      // Reloj del partido en minutos numéricos para validación de coherencia temporal
       let matchCurrentMinute: number | null = null;
       if (cleanDisplayClock) {
         const m = cleanDisplayClock.match(/^(\d+)/);
@@ -623,358 +272,22 @@ export async function GET(req?: NextRequest) {
         matchCurrentMinute = Math.floor(event.status.clock / 60);
       }
 
-      // Incidencias del partido (Goles, Penales, Tarjetas, VAR y Goles Anulados)
-      const parsedEvents: MatchEventDetail[] = [];
-      if (Array.isArray(competition.details)) {
-        for (const d of competition.details) {
-          const typeText = (d.type?.text || '').toLowerCase();
-          const isOwnGoal = Boolean(d.ownGoal || typeText.includes('own goal') || typeText.includes('autogol'));
-          const isPenaltyScored = Boolean(
-            (d.penaltyKick && d.scoringPlay) ||
-            typeText.includes('penalty - scored') ||
-            typeText.includes('penalty scored') ||
-            d.type?.id === '98'
-          );
-          const isPenaltyMissed = Boolean(
-            (d.penaltyKick && !d.scoringPlay) ||
-            typeText.includes('penalty - missed') ||
-            typeText.includes('penalty - saved') ||
-            typeText.includes('missed penalty')
-          );
-          const isDisallowed = Boolean(
-            typeText.includes('disallowed') ||
-            typeText.includes('anulado') ||
-            typeText.includes('overturned') ||
-            typeText.includes('cancelled') ||
-            typeText.includes('no goal')
-          );
-          const isVar = Boolean(
-            typeText.includes('var') ||
-            typeText.includes('video assistant') ||
-            isDisallowed
-          );
-          const isRed = Boolean(d.redCard || typeText.includes('red card') || d.type?.id === '93' || d.type?.id === '95');
-          const isYellow = Boolean(d.yellowCard || typeText.includes('yellow card') || d.type?.id === '94');
-          const isGoal = Boolean(!isOwnGoal && !isPenaltyScored && !isDisallowed && (d.scoringPlay || typeText.includes('goal') || d.type?.id === '70' || d.type?.id === '137' || d.type?.id === '173'));
-
-          if (!isGoal && !isPenaltyScored && !isPenaltyMissed && !isOwnGoal && !isDisallowed && !isVar && !isRed && !isYellow) {
-            continue;
-          }
-
-          // Validación de coherencia temporal:
-          // Si el partido está en juego (isLiveNow), no puede haber eventos con minuto superior al actual + 2
-          // (ej. ni había empezado o iba al 1' y salía tarjeta roja en el minuto 10).
-          const eventMinuteStr = d.clock?.displayValue || (d.clock?.value ? `${Math.floor(d.clock.value / 60)}'` : '');
-          const eventMinMatch = eventMinuteStr.match(/^(\d+)/);
-          const eventMinNum = eventMinMatch ? parseInt(eventMinMatch[1], 10) : null;
-          if (isLiveNow && matchCurrentMinute != null && eventMinNum != null) {
-            if (eventMinNum > matchCurrentMinute + 2) {
-              continue;
-            }
-          }
-          if (isUpcoming && !isLiveNow) {
-            continue;
-          }
-
-          const isHomeEvent = d.team?.id
-            ? String(d.team.id) === String(homeComp.id || homeComp.team?.id)
-            : false;
-          const isAwayEvent = d.team?.id
-            ? String(d.team.id) === String(awayComp.id || awayComp.team?.id)
-            : false;
-
-          // Si el evento tiene equipo pero no corresponde ni a local ni a visitante, descartar
-          if (d.team?.id && !isHomeEvent && !isAwayEvent) {
-            continue;
-          }
-
-          let eventType: MatchEventDetail['type'] = 'goal';
-          let eventText = 'Gol';
-
-          if (isDisallowed) {
-            eventType = 'disallowed-goal';
-            eventText = 'Gol Anulado';
-          } else if (isVar && !isGoal && !isRed && !isYellow) {
-            eventType = 'var';
-            eventText = 'Revisión VAR';
-          } else if (isPenaltyScored) {
-            eventType = 'penalty-goal';
-            eventText = 'Gol de Penal';
-          } else if (isPenaltyMissed) {
-            eventType = 'penalty-miss';
-            eventText = 'Penal Fallado';
-          } else if (isOwnGoal) {
-            eventType = 'own-goal';
-            eventText = 'Autogol';
-          } else if (isRed) {
-            eventType = 'red-card';
-            eventText = 'Tarjeta Roja';
-          } else if (isYellow) {
-            eventType = 'yellow-card';
-            eventText = 'Tarjeta Amarilla';
-          } else if (isGoal) {
-            eventType = 'goal';
-            eventText = 'Gol';
-          }
-
-          const athlete = d.athletesInvolved?.[0];
-
-          parsedEvents.push({
-            id: `${d.clock?.value || d.clock?.displayValue || Math.random()}-${athlete?.displayName || eventText}`,
-            type: eventType,
-            minute: eventMinuteStr,
-            text: eventText,
-            teamId: d.team?.id ? String(d.team.id) : undefined,
-            isHome: isHomeEvent,
-            playerName: athlete?.displayName || athlete?.fullName || (isGoal ? 'Gol' : isDisallowed ? 'Gol Anulado' : isVar ? 'Decisión VAR' : 'Jugador'),
-            playerShortName: athlete?.shortName,
-            jersey: athlete?.jersey,
-          });
-        }
-      }
-
-      // Mapa de dorsales de atletas a partir de competition.details
-      const athleteJerseyMap = new Map<string, string>();
-      if (Array.isArray(competition.details)) {
-        for (const d of competition.details) {
-          if (Array.isArray(d.athletesInvolved)) {
-            for (const a of d.athletesInvolved) {
-              if (a.id && a.jersey) athleteJerseyMap.set(String(a.id), String(a.jersey));
-              if (a.displayName && a.jersey) athleteJerseyMap.set(String(a.displayName), String(a.jersey));
-              if (a.fullName && a.jersey) athleteJerseyMap.set(String(a.fullName), String(a.jersey));
-            }
-          }
-        }
-      }
-
-      // Enriquecer con summary endpoint de ESPN para TODO partido en vivo o finalizado hoy:
-      // Captura penales fallados, revisiones de VAR y goles anulados con su motivo exacto
-      if (event.id && (isLiveNow || isFinishedToday)) {
-        try {
-          const sumLeague = event._leagueSlug || 'mex.1';
-          const sumUrl = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${sumLeague}/summary?event=${event.id}`;
-          const sumRes = await fetch(sumUrl, {
-            headers: ESPN_HEADERS,
-            signal: AbortSignal.timeout(2400),
-          });
-          if (sumRes.ok) {
-            const sumData = await sumRes.json();
-
-            // 1. KeyEvents (Penales, tarjetas, goles)
-            if (Array.isArray(sumData.keyEvents)) {
-              for (const k of sumData.keyEvents) {
-                const kType = (k.type?.text || '').toLowerCase();
-                const isPenSaved = kType.includes('penalty - saved') || kType.includes('penalty saved') || k.type?.id === '114';
-                const isPenMissed = kType.includes('penalty - missed') || kType.includes('penalty missed') || k.type?.id === '73';
-                const isDisallow = kType.includes('disallowed') || kType.includes('anulado') || kType.includes('overturned') || kType.includes('no goal');
-                const isVarCheck = kType.includes('var') || kType.includes('video assistant');
-                const isPenScored = kType.includes('penalty - scored') || kType.includes('penalty scored') || k.type?.id === '98';
-
-                if (!isPenSaved && !isPenMissed && !isDisallow && !isVarCheck && !isPenScored) {
-                  continue;
-                }
-
-                const kClock = k.clock?.displayValue || (k.clock?.value ? `${Math.floor(k.clock.value / 60)}'` : '');
-                if (!kClock) continue;
-
-                // Validación temporal
-                const kMinMatch = kClock.match(/^(\d+)/);
-                if (isLiveNow && matchCurrentMinute != null && kMinMatch) {
-                  const kmNum = parseInt(kMinMatch[1], 10);
-                  if (kmNum > matchCurrentMinute + 2) continue;
-                }
-
-                // Evitar duplicados con parsedEvents
-                const alreadyExists = parsedEvents.some(
-                  pe => pe.minute === kClock && (
-                    (isPenSaved || isPenMissed) ? (pe.type === 'penalty-miss' || pe.type === 'goal') : pe.text === k.type?.text
-                  )
-                );
-                if (alreadyExists) continue;
-
-                const athlete = k.participants?.[0]?.athlete;
-                const pName = athlete?.displayName || k.text?.match(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)+)/)?.[1] || (isPenSaved || isPenMissed ? 'Penal' : 'Incidencia');
-                const jerseyFromMap = athlete?.id ? athleteJerseyMap.get(String(athlete.id)) : (pName ? athleteJerseyMap.get(pName) : undefined);
-
-                const isHomeEvt = k.team?.displayName
-                  ? k.team.displayName.toLowerCase().includes(homeRawName.toLowerCase()) || homeRawName.toLowerCase().includes(k.team.displayName.toLowerCase())
-                  : true;
-
-                let eType: MatchEventDetail['type'] = 'penalty-miss';
-                let eText = 'Penal Fallado';
-                if (isPenSaved) {
-                  eType = 'penalty-miss';
-                  eText = 'Penal Atajado';
-                } else if (isPenMissed) {
-                  eType = 'penalty-miss';
-                  eText = 'Penal Fallado';
-                } else if (isPenScored) {
-                  eType = 'penalty-goal';
-                  eText = 'Gol de Penal';
-                } else if (isDisallow) {
-                  eType = 'disallowed-goal';
-                  eText = 'Gol Anulado (VAR)';
-                } else if (isVarCheck) {
-                  eType = 'var';
-                  eText = 'Revisión VAR';
-                }
-
-                parsedEvents.push({
-                  id: `key-${k.id || kClock}-${pName}`,
-                  type: eType,
-                  minute: kClock,
-                  text: eText,
-                  teamId: isHomeEvt ? (homeComp.id ? String(homeComp.id) : undefined) : (awayComp.id ? String(awayComp.id) : undefined),
-                  isHome: isHomeEvt,
-                  playerName: pName,
-                  jersey: jerseyFromMap,
-                });
-              }
-            }
-
-            // 2. Commentary: Goles Anulados por VAR y motivos (Offside, Mano, etc.)
-            if (Array.isArray(sumData.commentary)) {
-              for (const c of sumData.commentary) {
-                const play = c.play;
-                const txt = (c.text || play?.text || '').trim();
-                const lower = txt.toLowerCase();
-                const playTypeId = String(play?.type?.id || '');
-                const playType = (play?.type?.type || '').toLowerCase();
-
-                const isOverturnedGoal =
-                  playTypeId === '175' ||
-                  playType.includes('deleted-after-review') ||
-                  lower.includes('goal overturned by var') ||
-                  lower.includes('goal is ruled out after a var review') ||
-                  lower.includes('gol anulado tras') ||
-                  lower.includes('gol anulado por');
-
-                const isVarDecisionNoGoal =
-                  playTypeId === '172' ||
-                  lower.includes('var decision: no goal') ||
-                  lower.includes('decisión var: no gol');
-
-                if (isOverturnedGoal || isVarDecisionNoGoal) {
-                  const clock = c.time?.displayValue || play?.clock?.displayValue || (c.time?.value ? `${Math.floor(c.time.value / 60)}'` : '');
-                  if (!clock) continue;
-
-                  // Coherencia temporal
-                  const commMinMatch = clock.match(/^(\d+)/);
-                  if (isLiveNow && matchCurrentMinute != null && commMinMatch) {
-                    const cNum = parseInt(commMinMatch[1], 10);
-                    if (cNum > matchCurrentMinute + 2) continue;
-                  }
-
-                  const athlete = play?.participants?.[0]?.athlete || c.participants?.[0]?.athlete;
-                  const pName = athlete?.displayName || txt.match(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)+)/)?.[1] || 'Jugador';
-                  const jerseyFromMap = athlete?.id ? athleteJerseyMap.get(String(athlete.id)) : (pName ? athleteJerseyMap.get(pName) : undefined);
-
-                  const teamDisplayName = play?.team?.displayName || c.team?.displayName || '';
-                  const isHomeEvt = teamDisplayName
-                    ? teamDisplayName.toLowerCase().includes(homeRawName.toLowerCase()) || homeRawName.toLowerCase().includes(teamDisplayName.toLowerCase())
-                    : true;
-
-                  // Motivo de anulación
-                  let reason = 'Revisión VAR';
-                  if (lower.includes('offside') || lower.includes('fuera de juego')) {
-                    reason = 'Fuera de Juego';
-                  } else if (lower.includes('handball') || lower.includes('hand ball') || lower.includes('mano')) {
-                    reason = 'Mano';
-                  } else if (lower.includes('foul') || lower.includes('falta')) {
-                    reason = 'Falta Previa';
-                  }
-
-                  // 1) Mantener el gol original marcado en el min X (con flag disallowed)
-                  const existingGoalIndex = parsedEvents.findIndex(
-                    pe => pe.minute === clock && (pe.type === 'goal' || pe.type === 'penalty-goal') &&
-                          (pe.playerName.toLowerCase().includes(pName.toLowerCase().split(' ')[0]) || pName.toLowerCase().includes(pe.playerName.toLowerCase().split(' ')[0]))
-                  );
-                  if (existingGoalIndex >= 0) {
-                    parsedEvents[existingGoalIndex].disallowed = true;
-                  } else {
-                    parsedEvents.push({
-                      id: `goal-disallowed-${clock}-${pName}`,
-                      type: 'goal',
-                      minute: clock,
-                      text: 'Gol',
-                      teamId: isHomeEvt ? (homeComp.id ? String(homeComp.id) : undefined) : (awayComp.id ? String(awayComp.id) : undefined),
-                      isHome: isHomeEvt,
-                      playerName: pName,
-                      jersey: jerseyFromMap,
-                      disallowed: true,
-                    });
-                  }
-
-                  // 2) Agregar la incidencia de Gol Anulado por VAR en el min X
-                  const existingDisallowed = parsedEvents.some(
-                    pe => pe.minute === clock && pe.type === 'disallowed-goal'
-                  );
-                  if (!existingDisallowed) {
-                    parsedEvents.push({
-                      id: `disallowed-${clock}-${pName}`,
-                      type: 'disallowed-goal',
-                      minute: clock,
-                      text: `Gol Anulado - ${reason}`,
-                      teamId: isHomeEvt ? (homeComp.id ? String(homeComp.id) : undefined) : (awayComp.id ? String(awayComp.id) : undefined),
-                      isHome: isHomeEvt,
-                      playerName: pName,
-                      jersey: jerseyFromMap,
-                      disallowed: true,
-                    });
-                  }
-                }
-              }
-            }
-          }
-        } catch {
-          // Continuar sin summary si falla
-        }
-      }
-
-      // Ordenar incidencias cronológicamente:
-      // Minuto menor a mayor (10', 22', 59'...). Si coinciden en minuto, 'goal' va antes que 'disallowed-goal'.
-      parsedEvents.sort((a, b) => {
-        const getMinVal = (str?: string) => {
-          if (!str) return 0;
-          const m = str.match(/(\d+)(?:\+(\d+))?/);
-          if (!m) return 0;
-          return parseInt(m[1], 10) * 100 + parseInt(m[2] || '0', 10);
-        };
-        const diff = getMinVal(a.minute) - getMinVal(b.minute);
-        if (diff !== 0) return diff;
-        if (a.type === 'goal' && b.type === 'disallowed-goal') return -1;
-        if (a.type === 'disallowed-goal' && b.type === 'goal') return 1;
-        return 0;
+      // Parsear incidencias y enriquecer con summary
+      const parsedEvents = await parseMatchEvents({
+        competition,
+        event,
+        homeRawName,
+        homeComp,
+        awayComp,
+        matchCurrentMinute,
+        isLiveNow,
+        isUpcoming,
+        isFinishedToday,
+        espnHeaders: ESPN_HEADERS,
       });
 
-      // Estadísticas del partido (Posesión, Tiros)
-      const getStat = (statsArr: any[], statName: string) => {
-        const s = statsArr?.find((item: any) => item.name?.toLowerCase() === statName.toLowerCase());
-        return s?.displayValue ? String(s.displayValue) : null;
-      };
-      const homeStatsList = homeComp.statistics || [];
-      const awayStatsList = awayComp.statistics || [];
-      const posH = getStat(homeStatsList, 'possessionPct');
-      const posA = getStat(awayStatsList, 'possessionPct');
-      const sotH = getStat(homeStatsList, 'shotsOnTarget');
-      const sotA = getStat(awayStatsList, 'shotsOnTarget');
-      const totH = getStat(homeStatsList, 'totalShots');
-      const totA = getStat(awayStatsList, 'totalShots');
-      const flsH = getStat(homeStatsList, 'foulsCommitted');
-      const flsA = getStat(awayStatsList, 'foulsCommitted');
-      const cnrH = getStat(homeStatsList, 'wonCorners');
-      const cnrA = getStat(awayStatsList, 'wonCorners');
-
-      let matchStats: MatchStats | undefined = undefined;
-      if (posH || sotH || totH) {
-        matchStats = {
-          possession: posH && posA ? { home: posH, away: posA } : undefined,
-          shotsOnTarget: sotH && sotA ? { home: sotH, away: sotA } : undefined,
-          totalShots: totH && totA ? { home: totH, away: totA } : undefined,
-          fouls: flsH && flsA ? { home: flsH, away: flsA } : undefined,
-          corners: cnrH && cnrA ? { home: cnrH, away: cnrA } : undefined,
-        };
-      }
+      // Parsear estadísticas del partido
+      const matchStats = parseMatchStats(homeComp, awayComp);
 
       const minuteNum = (isLiveNow || isHalftime) && clockDisplay ? parseInt(clockDisplay, 10) || null : null;
       const startTimeText = isUpcoming ? formatMatchTime(eventDateStr) : null;
@@ -1023,7 +336,6 @@ export async function GET(req?: NextRequest) {
         if (!existing) {
           result[uuid] = payload;
         } else {
-          // Prioridad: EN VIVO > PRÓXIMO > FINALIZADO
           if (isLiveNow) {
             result[uuid] = payload;
           } else if (isUpcoming && existing.isFinished) {
@@ -1039,7 +351,7 @@ export async function GET(req?: NextRequest) {
     console.error('[live-matches] ESPN API Error:', err);
   }
 
-  // ── 3. RESPALDO MANUAL: equipos con is_matchday_active = true en Supabase ──
+  // ── 4. Respaldo Manual desde Supabase (is_matchday_active = true) ───────────
   for (const team of teamsData) {
     if (team.is_matchday_active && !result[team.id]) {
       const opponentName = team.matchday_opponent || 'Rival';
@@ -1086,20 +398,19 @@ export async function GET(req?: NextRequest) {
 
       result[team.id] = matchDataPayload;
 
-      // Si el rival también está en BD, activar su badge Live también
       if (awayUuid && !result[awayUuid]) {
         result[awayUuid] = { ...matchDataPayload, isHome: false };
       }
     }
   }
 
-  // ── 4. DEBUG ─────────────────────────────────────────────────────────────
+  // ── 5. Modo Debug ──────────────────────────────────────────────────────────
   if (isDebug) {
     return NextResponse.json({
       supabaseDataCount: teamsData.length,
       nameToUuidSize: nameToUuid.size,
       eventsFetched: events.length,
-      redisAvailable: !!client,
+      redisAvailable: isRedisAvailable(),
       sampleEvents: events.slice(0, 5).map((e: any) => ({
         name: e.name,
         competitors: e.competitions?.[0]?.competitors?.map((c: any) => ({
@@ -1114,22 +425,10 @@ export async function GET(req?: NextRequest) {
     });
   }
 
-  // ── 5. Guardar en memoria local y en Redis si hay datos ──────────────────
+  // ── 6. Guardar en memoria y Redis ──────────────────────────────────────────
   if (Object.keys(result).length > 0) {
-    memoryCache = { data: result, timestamp: now, dateStr: todayDateStr };
-
-    if (client && Date.now() >= redisDisabledUntil) {
-      Promise.race([
-        Promise.all([
-          client.set(CACHE_KEY, JSON.stringify(result), { ex: CACHE_TTL_SECONDS }),
-          client.set(STALE_CACHE_KEY, JSON.stringify(result), { ex: STALE_CACHE_TTL_SECONDS }),
-        ]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis set timeout')), 1500)),
-      ]).catch(err => {
-        redisDisabledUntil = Date.now() + 60_000;
-        console.warn('[live-matches] Redis cache write error/timeout, desactivando 60s:', err?.message ?? err);
-      });
-    }
+    setMemoryCache(result, todayDateStr);
+    saveToDistributedCache(CACHE_KEY, STALE_CACHE_KEY, result);
   }
 
   return NextResponse.json(result, {
