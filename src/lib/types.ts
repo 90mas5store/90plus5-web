@@ -85,6 +85,12 @@ export interface SpecialBanner {
   badge_secondary_text: string;
   badge_secondary_icon: string;
   button_text: string;
+  active?: boolean;
+  sort_order?: number;
+  slug?: string;
+  product_count?: number;
+  image_position_desktop?: string;
+  image_position_mobile?: string;
 }
 
 export interface ShippingZone {

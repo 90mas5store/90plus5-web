@@ -1,6 +1,6 @@
 
 import { createClient } from "@supabase/supabase-js";
-import { Product, Brand, Config, SupabaseRawProduct } from "./types";
+import { Product, Brand, Config, SupabaseRawProduct, SpecialBanner } from "./types";
 import { getLeagueLogoUrl } from "./leagueLogos";
 
 // ✅ Cliente seguro para Server Components (solo necesita URL + ANON KEY para datos públicos)
@@ -265,10 +265,10 @@ export async function getConfigServer(): Promise<Config> {
 }
 
 /** 🏆 Obtener Special Banners / Eventos (Server Side) */
-export async function getSpecialBannersServer() {
+export async function getSpecialBannersServer(): Promise<SpecialBanner[]> {
     const { data, error } = await supabase
         .from("special_banners")
-        .select("id, title, subtitle, link_url, background_image_url, background_video_url, logo_url, decoration_image_url, badge_primary_text, badge_secondary_text, badge_secondary_icon, button_text")
+        .select("id, title, subtitle, link_url, background_image_url, background_video_url, logo_url, decoration_image_url, badge_primary_text, badge_secondary_text, badge_secondary_icon, button_text, slug, image_position_desktop, image_position_mobile")
         .eq("active", true)
         .order("sort_order", { ascending: true });
 
@@ -277,7 +277,90 @@ export async function getSpecialBannersServer() {
         return [];
     }
 
-    return data;
+    return (data || []) as SpecialBanner[];
+}
+
+/** 🏆 Obtener Special Banner y su colección de productos por slug (Server Side) */
+export async function getSpecialBannerCollectionServer(slug: string): Promise<{
+    banner: SpecialBanner | null;
+    products: Product[];
+}> {
+    try {
+        let banner: Record<string, unknown> | null = null;
+
+        // 1. Intentar buscar por slug
+        const { data: bySlug, error: slugErr } = await supabase
+            .from("special_banners")
+            .select("id, title, subtitle, link_url, background_image_url, background_video_url, logo_url, decoration_image_url, badge_primary_text, badge_secondary_text, badge_secondary_icon, button_text, slug, active, image_position_desktop, image_position_mobile")
+            .eq("slug", slug)
+            .maybeSingle();
+
+        if (bySlug) {
+            banner = bySlug;
+        } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)) {
+            // Fallback por ID UUID
+            const { data: byId } = await supabase
+                .from("special_banners")
+                .select("id, title, subtitle, link_url, background_image_url, background_video_url, logo_url, decoration_image_url, badge_primary_text, badge_secondary_text, badge_secondary_icon, button_text, slug, active, image_position_desktop, image_position_mobile")
+                .eq("id", slug)
+                .maybeSingle();
+            banner = byId;
+        }
+
+        if (!banner || banner.active === false) {
+            return { banner: null, products: [] };
+        }
+
+        // 2. Obtener los productos vinculados en special_banner_products ordenados por sort_order
+        const { data: relations, error: relError } = await supabase
+            .from("special_banner_products")
+            .select("product_id, sort_order")
+            .eq("banner_id", banner.id)
+            .order("sort_order", { ascending: true });
+
+        if (relError || !relations || relations.length === 0) {
+            return {
+                banner: {
+                    ...(banner as unknown as SpecialBanner),
+                    product_count: 0,
+                },
+                products: [],
+            };
+        }
+
+        const productIds = relations.map((r: { product_id: string }) => r.product_id);
+        const { data: rawProducts, error: prodError } = await supabase
+            .from("products")
+            .select(COMMON_PRODUCT_SELECT)
+            .in("id", productIds)
+            .eq("active", true);
+
+        if (prodError || !rawProducts) {
+            return {
+                banner: {
+                    ...(banner as unknown as SpecialBanner),
+                    product_count: 0,
+                },
+                products: [],
+            };
+        }
+
+        // Mapear y ordenar exactamente según sort_order de special_banner_products
+        const adapted = (rawProducts as unknown as SupabaseRawProduct[]).map(adaptSupabaseProductToProduct);
+        const orderMap = new Map(relations.map((r: { product_id: string; sort_order: number }, idx: number) => [r.product_id, r.sort_order ?? idx]));
+        adapted.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+
+        return {
+            banner: {
+                ...(banner as unknown as SpecialBanner),
+                product_count: adapted.length,
+            },
+            products: adapted,
+        };
+    } catch (e) {
+        console.error("Error fetching special banner collection:", e);
+        return { banner: null, products: [] };
+    }
 }
 
 /** 🖼️ Obtener Banners (Server Side) */

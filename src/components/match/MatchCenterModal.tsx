@@ -22,6 +22,19 @@ interface MatchCenterModalProps {
   match: LiveMatchData | null;
 }
 
+/**
+ * Resplandor radial que imita un difuminado gaussiano (antes: div + filter: blur(70-110px)).
+ * Usa varias paradas con alfa decreciente para un desvanecido suave y sin bordes,
+ * pero sin coste de filtro: el navegador lo pinta una sola vez como fondo.
+ */
+function ambientGlow(color: string): string {
+  const hex = /^#[0-9a-f]{6}$/i.test(color) ? color : null;
+  if (!hex) {
+    return `radial-gradient(circle closest-side, ${color} 0%, transparent 100%)`;
+  }
+  return `radial-gradient(circle closest-side, ${hex} 0%, ${hex}d9 22%, ${hex}8c 42%, ${hex}40 62%, ${hex}12 82%, ${hex}00 100%)`;
+}
+
 export default function MatchCenterModal({
   isOpen,
   onClose,
@@ -128,13 +141,13 @@ export default function MatchCenterModal({
             data.groups
           )
             ? data.groups.map((g: any) => ({
-                name: g.name,
-                standings: [...(g.standings || [])].sort((a: StandingRow, b: StandingRow) =>
-                  a.rank > 0 && b.rank > 0 && a.rank !== b.rank
-                    ? a.rank - b.rank
-                    : b.points - a.points
-                ),
-              }))
+              name: g.name,
+              standings: [...(g.standings || [])].sort((a: StandingRow, b: StandingRow) =>
+                a.rank > 0 && b.rank > 0 && a.rank !== b.rank
+                  ? a.rank - b.rank
+                  : b.points - a.points
+              ),
+            }))
             : [];
 
           const parsedStandings = [...data.standings].sort((a: StandingRow, b: StandingRow) =>
@@ -152,7 +165,7 @@ export default function MatchCenterModal({
           setSelectedGroupIndex(0);
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingStandings(false));
   }, [isOpen, currentLeagueSlug, teamSearchParam, teamCacheKey, standingsByLeague]);
 
@@ -194,10 +207,10 @@ export default function MatchCenterModal({
     const timeStatus = activeMatch.isFinished
       ? "Finalizado"
       : activeMatch.isHalftime
-      ? "Entretiempo"
-      : activeMatch.isUpcoming
-      ? `Inicia ${activeMatch.startTime || "hoy"}`
-      : activeMatch.displayClock || `${activeMatch.minute || ""}' EN VIVO`;
+        ? "Entretiempo"
+        : activeMatch.isUpcoming
+          ? `Inicia ${activeMatch.startTime || "hoy"}`
+          : activeMatch.displayClock || `${activeMatch.minute || ""}' EN VIVO`;
 
     const origin = typeof window !== "undefined" ? window.location.origin : "https://90mas5.com";
     const storeUrl = `${origin}/catalogo?match=${encodeURIComponent(homeName)}`;
@@ -255,20 +268,17 @@ export default function MatchCenterModal({
           {/* Hairline luminoso superior (Apple glass specular highlight) */}
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none z-20" />
 
-          {/* Resplandor ambiental de los clubes (Aceleración GPU + blur adaptable) */}
+          {/* Resplandor ambiental de los clubes: degradado radial (sin filter: blur) para no
+              forzar re-rasterizado en móviles durante el scroll ni en la animación de entrada */}
           <div
-            className="absolute -top-24 -left-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[70px] sm:blur-[110px] pointer-events-none transform-gpu will-change-transform opacity-30"
-            style={{
-              backgroundColor: colors.homeColor,
-              transform: "translate3d(0, 0, 0)",
-            }}
+            aria-hidden
+            className="absolute -top-36 -left-36 w-[26rem] h-[26rem] sm:-top-48 sm:-left-48 sm:w-[42rem] sm:h-[42rem] lg:w-[52rem] lg:h-[52rem] pointer-events-none opacity-30"
+            style={{ backgroundImage: ambientGlow(colors.homeColor) }}
           />
           <div
-            className="absolute -top-24 -right-24 w-72 h-72 sm:w-[28rem] sm:h-[28rem] lg:w-[36rem] lg:h-[36rem] rounded-full blur-[70px] sm:blur-[110px] pointer-events-none transform-gpu will-change-transform opacity-30"
-            style={{
-              backgroundColor: colors.awayColor,
-              transform: "translate3d(0, 0, 0)",
-            }}
+            aria-hidden
+            className="absolute -top-36 -right-36 w-[26rem] h-[26rem] sm:-top-48 sm:-right-48 sm:w-[42rem] sm:h-[42rem] lg:w-[52rem] lg:h-[52rem] pointer-events-none opacity-30"
+            style={{ backgroundImage: ambientGlow(colors.awayColor) }}
           />
 
           {/* Indicador de arrastre Apple (Grab Handle Pill) */}
@@ -364,14 +374,12 @@ export default function MatchCenterModal({
                       />
                     )}
                     <Activity
-                      className={`w-3.5 h-3.5 z-10 ${
-                        activeTab === "match" ? "text-white" : "text-gray-400"
-                      }`}
+                      className={`w-3.5 h-3.5 z-10 ${activeTab === "match" ? "text-white" : "text-gray-400"
+                        }`}
                     />
                     <span
-                      className={`z-10 text-xs font-bold tracking-tight ${
-                        activeTab === "match" ? "text-white" : "text-gray-400"
-                      }`}
+                      className={`z-10 text-xs font-bold tracking-tight ${activeTab === "match" ? "text-white" : "text-gray-400"
+                        }`}
                     >
                       En Vivo & Stats
                     </span>
@@ -390,19 +398,31 @@ export default function MatchCenterModal({
                       />
                     )}
                     <Award
-                      className={`w-3.5 h-3.5 z-10 ${
-                        activeTab === "standings" ? "text-white" : "text-gray-400"
-                      }`}
+                      className={`w-3.5 h-3.5 z-10 ${activeTab === "standings" ? "text-white" : "text-gray-400"
+                        }`}
                     />
                     <span
-                      className={`z-10 text-xs font-bold tracking-tight ${
-                        activeTab === "standings" ? "text-white" : "text-gray-400"
-                      }`}
+                      className={`z-10 text-xs font-bold tracking-tight ${activeTab === "standings" ? "text-white" : "text-gray-400"
+                        }`}
                     >
                       Clasificación
                     </span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* 📱 En MÓVIL: Si el partido es PRÓXIMO, mostrar la vitrina arriba para enganchar la compra previa */}
+            {activeMatch.isUpcoming && (
+              <div className="block lg:hidden mb-4">
+                <MatchCommercialBanner
+                  match={activeMatch}
+                  homeName={homeName}
+                  awayName={awayName}
+                  hasHomeInDb={hasHomeInDb}
+                  hasAwayInDb={hasAwayInDb}
+                  onClose={onClose}
+                />
               </div>
             )}
 
@@ -428,6 +448,20 @@ export default function MatchCenterModal({
                   />
                 </div>
 
+                {/* Si en desktop es PRÓXIMO, priorizar la vitrina comercial antes del timeline vacío */}
+                {activeMatch.isUpcoming && (
+                  <div className="hidden lg:block">
+                    <MatchCommercialBanner
+                      match={activeMatch}
+                      homeName={homeName}
+                      awayName={awayName}
+                      hasHomeInDb={hasHomeInDb}
+                      hasAwayInDb={hasAwayInDb}
+                      onClose={onClose}
+                    />
+                  </div>
+                )}
+
                 {/* Cronología */}
                 <MatchTimeline
                   events={events}
@@ -449,22 +483,24 @@ export default function MatchCenterModal({
                   isAwayWhite={colors.isAwayWhite}
                 />
 
-                {/* Banner Comercial en móvil (pestaña 'match') */}
-                <div className="block lg:hidden pt-2">
-                  <MatchCommercialBanner
-                    match={activeMatch}
-                    homeName={homeName}
-                    awayName={awayName}
-                    hasHomeInDb={hasHomeInDb}
-                    hasAwayInDb={hasAwayInDb}
-                    onClose={onClose}
-                  />
-                </div>
+                {/* Vitrina Comercial en móvil (solo cuando el partido ya inició o finalizó, para no duplicarla si es PRÓXIMO) */}
+                {!activeMatch.isUpcoming && (
+                  <div className="block lg:hidden pt-2">
+                    <MatchCommercialBanner
+                      match={activeMatch}
+                      homeName={homeName}
+                      awayName={awayName}
+                      hasHomeInDb={hasHomeInDb}
+                      hasAwayInDb={hasAwayInDb}
+                      onClose={onClose}
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Columna Derecha (5 cols): Clasificación & Camisetas */}
+              {/* Columna Derecha (5 cols): Sticky desktop para mantener equilibrio visual */}
               <div
-                className={`lg:col-span-5 space-y-6 ${
+                className={`lg:col-span-5 space-y-6 lg:sticky lg:top-0 ${
                   activeTab === "standings" ? "block" : "hidden lg:block"
                 }`}
               >
@@ -479,29 +515,19 @@ export default function MatchCenterModal({
                   onSelectGroupIndex={setSelectedGroupIndex}
                 />
 
-                {/* Banner Comercial en Desktop */}
-                <div className="hidden lg:block">
-                  <MatchCommercialBanner
-                    match={activeMatch}
-                    homeName={homeName}
-                    awayName={awayName}
-                    hasHomeInDb={hasHomeInDb}
-                    hasAwayInDb={hasAwayInDb}
-                    onClose={onClose}
-                  />
-                </div>
-
-                {/* Banner Comercial en móvil (pestaña 'standings') */}
-                <div className="block lg:hidden pt-2">
-                  <MatchCommercialBanner
-                    match={activeMatch}
-                    homeName={homeName}
-                    awayName={awayName}
-                    hasHomeInDb={hasHomeInDb}
-                    hasAwayInDb={hasAwayInDb}
-                    onClose={onClose}
-                  />
-                </div>
+                {/* Vitrina Comercial en Desktop (cuando no es PRÓXIMO, se mantiene balanceando la derecha) */}
+                {!activeMatch.isUpcoming && (
+                  <div className="hidden lg:block">
+                    <MatchCommercialBanner
+                      match={activeMatch}
+                      homeName={homeName}
+                      awayName={awayName}
+                      hasHomeInDb={hasHomeInDb}
+                      hasAwayInDb={hasAwayInDb}
+                      onClose={onClose}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

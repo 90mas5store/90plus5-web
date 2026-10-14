@@ -46,7 +46,7 @@ function getIncidentTheme(evt: MatchEventDetail): IncidentTheme {
       headline: evt.text ? toTitleCase(evt.text) : "Gol Anulado (VAR)",
       accentColor: "#EF4444",
       glowColor: "rgba(239,68,68,0.3)",
-      borderStyle: "border-red-500/40 hover:border-red-400/60",
+      borderStyle: "border-red-500/40 md:hover:border-red-400/60",
       bgGradient: "from-red-950/45 via-[#0c0d14]/95 to-[#08080c]/98",
       headlineColor: "text-red-400",
       isDisallowed: true,
@@ -58,7 +58,7 @@ function getIncidentTheme(evt: MatchEventDetail): IncidentTheme {
       headline: "Gol de Penal",
       accentColor: "#F59E0B",
       glowColor: "rgba(245,158,11,0.3)",
-      borderStyle: "border-amber-500/40 hover:border-amber-400/60",
+      borderStyle: "border-amber-500/40 md:hover:border-amber-400/60",
       bgGradient: "from-amber-950/45 via-[#0c0d14]/95 to-[#08080c]/98",
       headlineColor: "text-amber-400",
       isDisallowed: false,
@@ -70,7 +70,7 @@ function getIncidentTheme(evt: MatchEventDetail): IncidentTheme {
       headline: evt.text ? toTitleCase(evt.text) : "Penal Fallado",
       accentColor: "#F43F5E",
       glowColor: "rgba(244,63,94,0.25)",
-      borderStyle: "border-rose-500/40 hover:border-rose-400/60",
+      borderStyle: "border-rose-500/40 md:hover:border-rose-400/60",
       bgGradient: "from-rose-950/40 via-[#0c0d14]/95 to-[#08080c]/98",
       headlineColor: "text-rose-400",
       isDisallowed: false,
@@ -82,7 +82,7 @@ function getIncidentTheme(evt: MatchEventDetail): IncidentTheme {
       headline: "Autogol",
       accentColor: "#60A5FA",
       glowColor: "rgba(96,165,250,0.25)",
-      borderStyle: "border-blue-500/40 hover:border-blue-400/60",
+      borderStyle: "border-blue-500/40 md:hover:border-blue-400/60",
       bgGradient: "from-blue-950/40 via-[#0c0d14]/95 to-[#08080c]/98",
       headlineColor: "text-blue-400",
       isDisallowed: false,
@@ -94,7 +94,7 @@ function getIncidentTheme(evt: MatchEventDetail): IncidentTheme {
       headline: evt.text ? toTitleCase(evt.text) : "Tarjeta Roja",
       accentColor: "#EF4444",
       glowColor: "rgba(239,68,68,0.35)",
-      borderStyle: "border-red-500/50 hover:border-red-400/70",
+      borderStyle: "border-red-500/50 md:hover:border-red-400/70",
       bgGradient: "from-red-950/50 via-[#0c0d14]/95 to-[#08080c]/98",
       headlineColor: "text-red-400",
       isDisallowed: false,
@@ -106,7 +106,7 @@ function getIncidentTheme(evt: MatchEventDetail): IncidentTheme {
       headline: evt.text ? toTitleCase(evt.text) : "Tarjeta Amarilla",
       accentColor: "#FBBF24",
       glowColor: "rgba(251,191,36,0.25)",
-      borderStyle: "border-amber-400/40 hover:border-amber-300/60",
+      borderStyle: "border-amber-400/40 md:hover:border-amber-300/60",
       bgGradient: "from-amber-950/35 via-[#0c0d14]/95 to-[#08080c]/98",
       headlineColor: "text-amber-300",
       isDisallowed: false,
@@ -118,7 +118,7 @@ function getIncidentTheme(evt: MatchEventDetail): IncidentTheme {
       headline: evt.text ? toTitleCase(evt.text) : "Decisión VAR",
       accentColor: "#38BDF8",
       glowColor: "rgba(56,189,248,0.25)",
-      borderStyle: "border-sky-500/40 hover:border-sky-400/60",
+      borderStyle: "border-sky-500/40 md:hover:border-sky-400/60",
       bgGradient: "from-sky-950/35 via-[#0c0d14]/95 to-[#08080c]/98",
       headlineColor: "text-sky-400",
       isDisallowed: false,
@@ -130,7 +130,7 @@ function getIncidentTheme(evt: MatchEventDetail): IncidentTheme {
     headline: "¡Gol!",
     accentColor: "#10B981",
     glowColor: "rgba(16,185,129,0.3)",
-    borderStyle: "border-emerald-500/40 hover:border-emerald-400/60",
+    borderStyle: "border-emerald-500/40 md:hover:border-emerald-400/60",
     bgGradient: "from-emerald-950/45 via-[#0c0d14]/95 to-[#08080c]/98",
     headlineColor: "text-emerald-400",
     isDisallowed: false,
@@ -163,18 +163,20 @@ function EpicIncidentCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r ${theme.bgGradient} border ${theme.borderStyle} py-1.5 px-2.5 sm:py-2 sm:px-3 transition-all duration-300 select-none group shadow-lg w-fit max-w-[190px] sm:max-w-[280px] md:max-w-[320px] shrink-0`}
+      className={`relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r ${theme.bgGradient} border ${theme.borderStyle} py-1.5 px-2.5 sm:py-2 sm:px-3 select-none group shadow-lg w-fit max-w-[190px] sm:max-w-[280px] md:max-w-[320px] shrink-0`}
       style={{
-        boxShadow: `0 6px 20px -4px ${theme.glowColor}, 0 2px 8px rgba(0,0,0,0.85)`,
+        boxShadow: `0 4px 14px -2px ${theme.glowColor}, 0 2px 8px rgba(0,0,0,0.85)`,
       }}
     >
       {/* 🌟 Hairline de cristal superior (especular) */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
-      {/* 🏟️ Reflector ambiental de estadio del lado del hilo de tiempo */}
+      {/* 🏟️ Reflector ambiental radial (sin filter: blur para máximo rendimiento móvil) */}
       <div
-        className={`absolute -top-6 ${isLeft ? "-right-6" : "-left-6"} w-20 h-20 rounded-full blur-xl pointer-events-none opacity-40 transition-opacity group-hover:opacity-60`}
-        style={{ backgroundColor: theme.accentColor }}
+        className={`absolute -top-6 ${isLeft ? "-right-6" : "-left-6"} w-24 h-24 rounded-full pointer-events-none opacity-30 md:group-hover:opacity-50 transition-opacity`}
+        style={{
+          background: `radial-gradient(circle, ${theme.accentColor} 0%, transparent 70%)`,
+        }}
       />
 
       {/* 🔴 Franja Neón con el COLOR DEL EQUIPO del lado del hilo de tiempo */}
@@ -182,7 +184,7 @@ function EpicIncidentCard({
         className={`absolute top-0 bottom-0 ${isLeft ? "right-0" : "left-0"} w-1 sm:w-1.5`}
         style={{
           backgroundColor: teamColor || theme.accentColor,
-          boxShadow: `0 0 10px ${teamColor || theme.accentColor}`,
+          boxShadow: `0 0 8px ${teamColor || theme.accentColor}`,
         }}
       />
 
@@ -197,13 +199,13 @@ function EpicIncidentCard({
             {/* Bloque Textual Local: Justificado a la DERECHA para quedar pegado a la línea de tiempo */}
             <div className="flex flex-col min-w-0 text-right items-end justify-center">
               <span
-                className={`text-[9px] sm:text-[11px] font-bold tracking-tight drop-shadow-sm leading-none ${theme.headlineColor}`}
+                className={`text-[9px] sm:text-[11px] font-bold tracking-tight leading-none ${theme.headlineColor}`}
               >
                 {theme.headline}
               </span>
 
               <h4
-                className={`text-[11px] sm:text-xs md:text-sm font-semibold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] leading-snug mt-1 flex items-center justify-end flex-wrap gap-1 ${
+                className={`text-[11px] sm:text-xs md:text-sm font-semibold tracking-tight text-white leading-snug mt-1 flex items-center justify-end flex-wrap gap-1 ${
                   theme.isDisallowed ? "line-through decoration-red-500/80 text-white/40" : ""
                 }`}
               >
@@ -218,7 +220,7 @@ function EpicIncidentCard({
 
             {/* Ícono de Incidencia con caja fija */}
             <div className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 flex items-center justify-center">
-              <span className="text-lg sm:text-xl md:text-2xl select-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] transform transition-transform group-hover:scale-110">
+              <span className="text-lg sm:text-xl md:text-2xl select-none md:group-hover:scale-110 transition-transform">
                 {theme.icon}
               </span>
             </div>
@@ -227,7 +229,7 @@ function EpicIncidentCard({
           <>
             {/* Ícono de Incidencia con caja fija */}
             <div className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 flex items-center justify-center">
-              <span className="text-lg sm:text-xl md:text-2xl select-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] transform transition-transform group-hover:scale-110">
+              <span className="text-lg sm:text-xl md:text-2xl select-none md:group-hover:scale-110 transition-transform">
                 {theme.icon}
               </span>
             </div>
@@ -235,13 +237,13 @@ function EpicIncidentCard({
             {/* Bloque Textual Visitante: Justificado a la IZQUIERDA */}
             <div className="flex flex-col min-w-0 text-left items-start justify-center">
               <span
-                className={`text-[9px] sm:text-[11px] font-bold tracking-tight drop-shadow-sm leading-none ${theme.headlineColor}`}
+                className={`text-[9px] sm:text-[11px] font-bold tracking-tight leading-none ${theme.headlineColor}`}
               >
                 {theme.headline}
               </span>
 
               <h4
-                className={`text-[11px] sm:text-xs md:text-sm font-semibold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] leading-snug mt-1 flex items-center justify-start flex-wrap gap-1 ${
+                className={`text-[11px] sm:text-xs md:text-sm font-semibold tracking-tight text-white leading-snug mt-1 flex items-center justify-start flex-wrap gap-1 ${
                   theme.isDisallowed ? "line-through decoration-red-500/80 text-white/40" : ""
                 }`}
               >
@@ -267,7 +269,7 @@ function MatchTimelineComponent({
   awayColor,
 }: MatchTimelineProps) {
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] p-3.5 sm:p-6 shadow-2xl">
+    <div className="relative overflow-hidden rounded-3xl bg-[#12131a]/70 md:bg-white/[0.03] md:backdrop-blur-xl border border-white/[0.08] p-3.5 sm:p-6 shadow-2xl">
       {/* Cabecera de Incidencias */}
       <div className="flex items-center justify-between mb-3.5 sm:mb-4 pb-2.5 border-b border-white/[0.06]">
         <span className="text-xs font-bold text-white tracking-wider flex items-center gap-2">
@@ -332,7 +334,7 @@ function MatchTimelineComponent({
                   </div>
 
                   {/* NODO CENTRAL DEL TIEMPO (MINUTO DE JUEGO) */}
-                  <div className="z-10 px-2 py-0.5 sm:py-1 rounded-full bg-[#0c0d14]/90 border border-white/20 text-[10px] sm:text-xs font-mono font-bold text-white shadow-[0_2px_12px_rgba(0,0,0,0.85)] tracking-tight shrink-0 text-center min-w-[2.2rem] sm:min-w-[2.6rem] flex items-center justify-center backdrop-blur-md">
+                  <div className="z-10 px-2 py-0.5 sm:py-1 rounded-full bg-[#0c0d14] border border-white/20 text-[10px] sm:text-xs font-mono font-bold text-white shadow-[0_2px_8px_rgba(0,0,0,0.85)] tracking-tight shrink-0 text-center min-w-[2.2rem] sm:min-w-[2.6rem] flex items-center justify-center">
                     {minuteDisplay}
                   </div>
 

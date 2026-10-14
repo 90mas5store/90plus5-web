@@ -7,6 +7,7 @@ type TeamLogoProps = {
   alt: string;
   size?: number;
   className?: string;
+  style?: React.CSSProperties;
 };
 
 export default function TeamLogo({
@@ -14,8 +15,11 @@ export default function TeamLogo({
   alt,
   size = 40,
   className = "",
+  style,
 }: TeamLogoProps) {
   if (!src) return null;
+
+  const isSvg = typeof src === 'string' && (src.includes('.svg') || src.startsWith('data:image/svg'));
 
   return (
     <Image
@@ -23,8 +27,15 @@ export default function TeamLogo({
       alt={alt}
       width={size}
       height={size}
-      style={{ width: "auto", height: "auto" }}
-      className={`object-contain max-w-full max-h-full drop-shadow-[0_0_10px_rgba(255,255,255,0.1)] ${className}`}
+      unoptimized={isSvg}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        maxWidth: "100%",
+        maxHeight: "100%",
+        ...style,
+      }}
+      className={`object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.1)] ${className}`}
     />
   );
 }

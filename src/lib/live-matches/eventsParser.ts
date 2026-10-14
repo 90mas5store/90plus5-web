@@ -1,5 +1,21 @@
 import type { MatchEventDetail } from '@/hooks/useLiveMatches';
 
+/** Minuto canónico ordenable: 45+2' → 4502, 90' → 9000. */
+function getMinCanonical(str?: string): number {
+  if (!str) return 0;
+  const m = str.match(/(\d+)(?:'?\s*\+\s*(\d+))?/);
+  if (!m) return 0;
+  return parseInt(m[1], 10) * 100 + parseInt(m[2] || '0', 10);
+}
+
+/** Ventana para asociar un gol anulado con su "Decisión VAR: No Goal" posterior (6 min). */
+const VAR_MERGE_WINDOW = 600;
+
+/** Extrae "Nombre Apellido" de textos tipo "... Leny Yoro (Manchester United) ...". */
+function extractPlayerBeforeTeam(txt: string): string | undefined {
+  return txt.match(/([A-ZÀ-ÖØ-Þ][\p{L}'’.-]+(?:\s+[A-ZÀ-ÖØ-Þ][\p{L}'’.-]+)*)\s*\(/u)?.[1];
+}
+
 interface ParseEventsOptions {
   competition: any;
   event: any;
@@ -278,8 +294,24 @@ export async function parseMatchEvents({
           }
         }
 
-        // 2.2 Commentary: Goles Anulados por VAR y motivos exactos (Offside, Mano, etc.)
+        // 2.2 Commentary: Decisiones VAR (goles anulados con motivo, penales, tarjetas)
+        // ESPN emite DOS jugadas por cada gol anulado:
+        //   · tipo 175 "GOAL OVERTURNED BY VAR" en el minuto del gol (34')
+        //   · tipo 172 "VAR Decision: No Goal" al terminar la revisión (36')
+        // y usa el MISMO tipo 172 para cualquier otra decisión ("Penalty", "Card upgraded"...),
+        // por eso el texto es lo que define la decisión y se fusionan por ventana de tiempo.
         if (Array.isArray(sumData.commentary)) {
+          type VarKind = 'overturned' | 'no-goal' | 'other';
+          const varItems: {
+            kind: VarKind;
+            clock: string;
+            minNum: number;
+            txt: string;
+            lower: string;
+            athlete: any;
+            teamDisplayName: string;
+          }[] = [];
+
           for (const c of sumData.commentary) {
             const play = c.play;
             const txt = (c.text || play?.text || '').trim();
@@ -295,30 +327,64 @@ export async function parseMatchEvents({
               lower.includes('gol anulado tras') ||
               lower.includes('gol anulado por');
 
-            const isVarDecisionNoGoal =
+            const isVarDecision =
               playTypeId === '172' ||
+              playType.includes('var---') ||
+              lower.startsWith('var decision') ||
+              lower.startsWith('decisión var');
+
+            if (!isOverturnedGoal && !isVarDecision) continue;
+
+            const isNoGoal =
               lower.includes('var decision: no goal') ||
               lower.includes('decisión var: no gol');
 
-            if (isOverturnedGoal || isVarDecisionNoGoal) {
-              const clock = c.time?.displayValue || play?.clock?.displayValue || (c.time?.value ? `${Math.floor(c.time.value / 60)}'` : '');
-              if (!clock) continue;
+            const clock = c.time?.displayValue || play?.clock?.displayValue || (c.time?.value ? `${Math.floor(c.time.value / 60)}'` : '');
+            if (!clock) continue;
 
-              const commMinMatch = clock.match(/^(\d+)/);
-              if (isLiveNow && matchCurrentMinute != null && commMinMatch) {
-                const cNum = parseInt(commMinMatch[1], 10);
-                if (cNum > matchCurrentMinute + 2) continue;
-              }
+            const commMinMatch = clock.match(/^(\d+)/);
+            if (isLiveNow && matchCurrentMinute != null && commMinMatch) {
+              const cNum = parseInt(commMinMatch[1], 10);
+              if (cNum > matchCurrentMinute + 2) continue;
+            }
 
-              const athlete = play?.participants?.[0]?.athlete || c.participants?.[0]?.athlete;
-              const pName = athlete?.displayName || txt.match(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)+)/)?.[1] || 'Jugador';
-              const jerseyFromMap = athlete?.id ? athleteJerseyMap.get(String(athlete.id)) : (pName ? athleteJerseyMap.get(pName) : undefined);
+            varItems.push({
+              kind: isOverturnedGoal ? 'overturned' : isNoGoal ? 'no-goal' : 'other',
+              clock,
+              minNum: getMinCanonical(clock),
+              txt,
+              lower,
+              athlete: play?.participants?.[0]?.athlete || c.participants?.[0]?.athlete,
+              teamDisplayName: play?.team?.displayName || c.team?.displayName || '',
+            });
+          }
 
-              const teamDisplayName = play?.team?.displayName || c.team?.displayName || '';
-              const isHomeEvt = teamDisplayName
-                ? teamDisplayName.toLowerCase().includes(homeRawName.toLowerCase()) || homeRawName.toLowerCase().includes(teamDisplayName.toLowerCase())
-                : true;
+          // Primero las anulaciones (minuto real del gol), luego confirmaciones "No Goal" y al final el resto
+          const kindOrder: Record<VarKind, number> = { overturned: 0, 'no-goal': 1, other: 2 };
+          varItems.sort((a, b) => kindOrder[a.kind] - kindOrder[b.kind] || a.minNum - b.minNum);
 
+          for (const item of varItems) {
+            const { kind, clock, minNum, txt, lower, athlete, teamDisplayName } = item;
+
+            const extractedName = athlete?.displayName || extractPlayerBeforeTeam(txt);
+            const jerseyFromMap = athlete?.id
+              ? athleteJerseyMap.get(String(athlete.id))
+              : (extractedName ? athleteJerseyMap.get(extractedName) : undefined);
+
+            const isHomeEvt = teamDisplayName
+              ? teamDisplayName.toLowerCase().includes(homeRawName.toLowerCase()) || homeRawName.toLowerCase().includes(teamDisplayName.toLowerCase())
+              : true;
+            const teamId = isHomeEvt
+              ? (homeComp.id ? String(homeComp.id) : undefined)
+              : (awayComp.id ? String(awayComp.id) : undefined);
+
+            // Rango donde buscar el gol original: alrededor del 175, o hacia atrás desde el "No Goal"
+            const inRange = (pe: MatchEventDetail) => {
+              const diff = minNum - getMinCanonical(pe.minute);
+              return kind === 'overturned' ? Math.abs(diff) <= 100 : diff >= 0 && diff <= VAR_MERGE_WINDOW;
+            };
+
+            if (kind === 'overturned' || kind === 'no-goal') {
               let reason = 'VAR';
               if (lower.includes('offside') || lower.includes('fuera de juego')) {
                 reason = 'Fuera de Juego';
@@ -328,30 +394,34 @@ export async function parseMatchEvents({
                 reason = 'Falta Previa';
               }
 
-              const existingGoalIndex = parsedEvents.findIndex(
-                pe => pe.minute === clock && pe.isHome === isHomeEvt && (pe.type === 'goal' || pe.type === 'penalty-goal')
+              // a) Ya existe la anulación (p.ej. el 175 previo): solo enriquecer el motivo
+              const existingDisallowed = parsedEvents.find(
+                pe => pe.isHome === isHomeEvt && pe.type === 'disallowed-goal' && inRange(pe)
               );
-              if (existingGoalIndex >= 0) {
-                parsedEvents[existingGoalIndex].type = 'disallowed-goal';
-                parsedEvents[existingGoalIndex].text = `Gol Anulado - ${reason}`;
-                parsedEvents[existingGoalIndex].disallowed = true;
-                if (pName && pName !== 'Jugador') {
-                  parsedEvents[existingGoalIndex].playerName = pName;
-                }
-                if (jerseyFromMap && !parsedEvents[existingGoalIndex].jersey) {
-                  parsedEvents[existingGoalIndex].jersey = jerseyFromMap;
+              if (existingDisallowed) {
+                if (reason !== 'VAR' && /VAR\)?$/.test(existingDisallowed.text)) {
+                  existingDisallowed.text = `Gol Anulado - ${reason}`;
                 }
               } else {
-                const existingDisallowed = parsedEvents.some(
-                  pe => pe.minute === clock && pe.isHome === isHomeEvt && pe.type === 'disallowed-goal'
+                // b) Convertir el gol original en anulado (puede venir en otro minuto que el "No Goal")
+                const existingGoal = parsedEvents.find(
+                  pe => pe.isHome === isHomeEvt && (pe.type === 'goal' || pe.type === 'penalty-goal') && inRange(pe)
                 );
-                if (!existingDisallowed) {
+                if (existingGoal) {
+                  existingGoal.type = 'disallowed-goal';
+                  existingGoal.text = `Gol Anulado - ${reason}`;
+                  existingGoal.disallowed = true;
+                  if (extractedName && kind === 'overturned') existingGoal.playerName = extractedName;
+                  if (jerseyFromMap && !existingGoal.jersey) existingGoal.jersey = jerseyFromMap;
+                } else {
+                  // c) Crear la anulación nueva
+                  const pName = extractedName || 'Gol Anulado';
                   parsedEvents.push({
                     id: `disallowed-${clock}-${pName}`,
                     type: 'disallowed-goal',
                     minute: clock,
                     text: `Gol Anulado - ${reason}`,
-                    teamId: isHomeEvt ? (homeComp.id ? String(homeComp.id) : undefined) : (awayComp.id ? String(awayComp.id) : undefined),
+                    teamId,
                     isHome: isHomeEvt,
                     playerName: pName,
                     jersey: jerseyFromMap,
@@ -360,11 +430,48 @@ export async function parseMatchEvents({
                 }
               }
 
-              // Eliminar cualquier evento de 'var' genérico en este minuto para este equipo
+              // Eliminar 'var' genéricos de esta misma revisión (mismo equipo, dentro de la ventana)
               parsedEvents = parsedEvents.filter(
-                pe => !(pe.minute === clock && pe.isHome === isHomeEvt && pe.type === 'var')
+                pe => !(pe.type === 'var' && pe.isHome === isHomeEvt && Math.abs(minNum - getMinCanonical(pe.minute)) <= VAR_MERGE_WINDOW)
               );
+              continue;
             }
+
+            // Otras decisiones VAR: NO son goles anulados → incidencia informativa 📺
+            let label = 'Revisión VAR';
+            let detail = extractedName || 'Decisión VAR';
+            if (lower.includes('no penalty') || lower.includes('penalty cancelled') || lower.includes('penalty overturned')) {
+              label = 'VAR: Sin Penal';
+              detail = 'Penal anulado';
+            } else if (lower.includes('penalty') || lower.includes('penal')) {
+              label = 'VAR: Penal';
+              detail = 'Penal concedido';
+            } else if (lower.includes('downgraded') || lower.includes('card cancelled') || lower.includes('no red card')) {
+              label = 'VAR: Sin Roja';
+              detail = extractedName || 'Tarjeta retirada';
+            } else if (lower.includes('card upgraded') || lower.includes('red card')) {
+              label = 'VAR: Tarjeta Roja';
+              detail = extractedName || 'Tarjeta mejorada';
+            } else if (lower.includes('goal')) {
+              label = 'VAR: Gol Válido';
+              detail = extractedName || 'Gol confirmado';
+            }
+
+            const dupVar = parsedEvents.some(
+              pe => pe.type === 'var' && pe.isHome === isHomeEvt && getMinCanonical(pe.minute) === minNum
+            );
+            if (dupVar) continue;
+
+            parsedEvents.push({
+              id: `var-${clock}-${label}`,
+              type: 'var',
+              minute: clock,
+              text: label,
+              teamId,
+              isHome: isHomeEvt,
+              playerName: detail,
+              jersey: jerseyFromMap,
+            });
           }
         }
       }
@@ -374,12 +481,6 @@ export async function parseMatchEvents({
   }
 
   // ── 3. Sanitización y deduplicación extrema de incidencias ────────────────
-  const getMinCanonical = (str?: string): number => {
-    if (!str) return 0;
-    const m = str.match(/(\d+)(?:\+(\d+))?/);
-    if (!m) return 0;
-    return parseInt(m[1], 10) * 100 + parseInt(m[2] || '0', 10);
-  };
 
   // A) Si existe un 'penalty-goal', eliminar cualquier 'goal' genérico en el mismo minuto y equipo
   const penaltySet = new Set(
@@ -433,19 +534,34 @@ export async function parseMatchEvents({
     return true;
   });
 
-  // E) Ordenar cronológicamente (1', 2', 45', 45+2', 90', 90+5')
+  // E) Doble amarilla: roja + amarilla al mismo jugador en el mismo minuto
+  const normName = (n?: string) => (n || '').trim().toLowerCase();
+  for (const red of parsedEvents) {
+    if (red.type !== 'red-card' || !normName(red.playerName)) continue;
+    const hasSameMinuteYellow = parsedEvents.some(
+      y =>
+        y.type === 'yellow-card' &&
+        y.isHome === red.isHome &&
+        normName(y.playerName) === normName(red.playerName) &&
+        getMinCanonical(y.minute) === getMinCanonical(red.minute)
+    );
+    if (hasSameMinuteYellow) red.text = 'Doble Amarilla';
+  }
+
+  // F) Ordenar cronológicamente (1', 2', 45', 45+2', 90', 90+5')
+  //    En el mismo minuto: la VAR precede a su consecuencia y la amarilla precede a la roja
   parsedEvents.sort((a, b) => {
     const diff = getMinCanonical(a.minute) - getMinCanonical(b.minute);
     if (diff !== 0) return diff;
     const typePriority: Record<string, number> = {
-      'disallowed-goal': 1,
-      'penalty-miss': 2,
-      'penalty-goal': 3,
-      'goal': 4,
-      'red-card': 5,
-      'yellow-card': 6,
-      'var': 7,
-      'own-goal': 8,
+      'var': 1,
+      'disallowed-goal': 2,
+      'penalty-miss': 3,
+      'penalty-goal': 4,
+      'goal': 5,
+      'own-goal': 6,
+      'yellow-card': 7,
+      'red-card': 8,
     };
     return (typePriority[a.type] || 99) - (typePriority[b.type] || 99);
   });

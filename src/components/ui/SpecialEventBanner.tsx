@@ -40,8 +40,23 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
         }
     }, []);
 
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const updateMobile = () => setIsMobile(window.innerWidth < 768);
+            updateMobile();
+            window.addEventListener('resize', updateMobile);
+            return () => window.removeEventListener('resize', updateMobile);
+        }
+    }, []);
+
     const banner = banners[currentIndex];
     const hasMultiple = banners.length > 1;
+
+    const objectPosition = isMobile
+        ? (banner.image_position_mobile || "50% 50%")
+        : (banner.image_position_desktop || "50% 50%");
 
     // Auto-advance carousel
     useEffect(() => {
@@ -65,14 +80,32 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
     const IconComponent = ICON_MAP[banner.badge_secondary_icon] || Globe;
     const videoFailed = videoFailedMap[banner.id] || false;
 
+    const targetUrl = banner.link_url && banner.link_url !== "/catalogo"
+        ? banner.link_url
+        : (banner.slug ? `/coleccion/${banner.slug}` : (banner.link_url || "/catalogo"));
+
+    const posDesktop = banner.image_position_desktop || "50% 50%";
+    const posMobile = banner.image_position_mobile || "50% 50%";
+    const bannerMediaClass = `special-banner-media-${banner.id}`;
+
     return (
         <section
             className="px-4 max-w-7xl mx-auto relative z-10 mt-6 md:mt-8 mb-3 md:mb-4"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
+            <style dangerouslySetInnerHTML={{ __html: `
+                .${bannerMediaClass} {
+                    object-position: ${posMobile} !important;
+                }
+                @media (min-width: 768px) {
+                    .${bannerMediaClass} {
+                        object-position: ${posDesktop} !important;
+                    }
+                }
+            `}} />
             <Link
-                href={banner.link_url || "/catalogo"}
+                href={targetUrl}
                 className="block group relative overflow-hidden rounded-2xl w-full h-auto min-h-[220px] md:min-h-[260px] border border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.5),0_20px_50px_rgba(0,0,0,0.4)] bg-black/90 hover:border-white/20 transition-colors duration-500"
             >
                 {/* === BACKGROUND LAYERS (crossfade) === */}
@@ -97,7 +130,7 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
                                 aria-hidden="true"
                                 tabIndex={-1}
                                 poster={banner.background_image_url || undefined}
-                                className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90 pointer-events-none"
+                                className={`w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-[2s] ease-out brightness-75 group-hover:brightness-90 pointer-events-none ${bannerMediaClass}`}
                                 onError={() => handleVideoError(banner.id)}
                             />
                         ) : banner.background_image_url ? (
@@ -106,7 +139,7 @@ function SpecialEventCarousel({ banners, hasMatchdayHero = false }: { banners: S
                                 alt={banner.title}
                                 fill
                                 sizes="(max-width: 768px) 100vw, 1280px"
-                                className="object-cover opacity-60 brightness-75"
+                                className={`object-cover opacity-60 brightness-75 ${bannerMediaClass}`}
                             />
                         ) : null}
                         {/* Dark Gradient Overlay */}

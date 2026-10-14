@@ -1,389 +1,58 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
-import {
-    Plus, Trash2, Edit, Save, X, Image as ImageIcon,
-    Link as LinkIcon, Monitor, Smartphone, Eye,
-    MoreVertical, CheckCircle, AlertCircle, ArrowUp, ArrowDown, Search, Film, Loader2,
-    ChevronDown, ExternalLink
-} from "lucide-react";
-import { toast } from "react-hot-toast";
-import ImageUpload from "@/components/admin/ImageUpload";
-import MediaUpload from "@/components/admin/MediaUpload";
-import Image from "next/image";
+import React from "react";
+import { Monitor, Save, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import { clearProductCache } from "@/lib/api";
-import { logAdminAction } from "@/lib/logger";
-import { revalidateBannersAction } from "@/app/admin/actions";
-
-interface Banner {
-    id: string;
-    title: string;
-    description: string;
-    image_url: string;
-    video_url?: string;
-    link_url: string;
-    button_text: string;
-    show_button: boolean;
-    active: boolean;
-    show_on_home: boolean;
-    sort_order: number;
-    image_position_desktop: string;
-    image_position_mobile: string;
-}
-
-function parseFocalPoint(v: string): { x: number; y: number } {
-    const pct = v.match(/^(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/);
-    if (pct) return { x: parseFloat(pct[1]), y: parseFloat(pct[2]) };
-    const xMap: Record<string, number> = { left: 0, center: 50, right: 100 };
-    const yMap: Record<string, number> = { top: 0, center: 50, bottom: 100 };
-    const [xStr = 'center', yStr = 'center'] = v.trim().split(/\s+/);
-    return { x: xMap[xStr] ?? 50, y: yMap[yStr] ?? 50 };
-}
-
-function FocalPointPicker({ imageUrl, value, onChange, label, aspectRatio }: {
-    imageUrl?: string; value: string; onChange: (v: string) => void; label: string; aspectRatio: string;
-}) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const isDragging = useRef(false);
-    const { x, y } = parseFocalPoint(value);
-
-    const updateFromPointer = (clientX: number, clientY: number) => {
-        if (!containerRef.current) return;
-        const rect = containerRef.current.getBoundingClientRect();
-        const nx = Math.round(Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)));
-        const ny = Math.round(Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)));
-        onChange(`${nx}% ${ny}%`);
-    };
-
-    return (
-        <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</span>
-                <span className="text-[10px] font-mono text-gray-600">{Math.round(x)}% {Math.round(y)}%</span>
-            </div>
-            <div
-                ref={containerRef}
-                className="relative rounded-xl overflow-hidden cursor-crosshair select-none border border-white/10 bg-neutral-900"
-                style={{ aspectRatio }}
-                onMouseDown={e => { isDragging.current = true; updateFromPointer(e.clientX, e.clientY); e.preventDefault(); }}
-                onMouseMove={e => { if (isDragging.current) updateFromPointer(e.clientX, e.clientY); }}
-                onMouseUp={() => { isDragging.current = false; }}
-                onMouseLeave={() => { isDragging.current = false; }}
-                onTouchStart={e => { isDragging.current = true; updateFromPointer(e.touches[0].clientX, e.touches[0].clientY); }}
-                onTouchMove={e => { if (isDragging.current) updateFromPointer(e.touches[0].clientX, e.touches[0].clientY); }}
-                onTouchEnd={() => { isDragging.current = false; }}
-            >
-                {imageUrl ? (
-                    <img src={imageUrl} alt="" draggable={false}
-                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                        style={{ objectPosition: `${x}% ${y}%` }}
-                    />
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <ImageIcon size={20} className="text-gray-700" />
-                    </div>
-                )}
-                {/* Grid de tercios */}
-                <div className="absolute inset-0 pointer-events-none opacity-20">
-                    <div className="absolute top-1/3 left-0 right-0 h-px bg-white" />
-                    <div className="absolute top-2/3 left-0 right-0 h-px bg-white" />
-                    <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white" />
-                    <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white" />
-                </div>
-                {/* Líneas de crosshair */}
-                <div className="absolute top-0 bottom-0 w-px bg-white/40 pointer-events-none" style={{ left: `${x}%` }} />
-                <div className="absolute left-0 right-0 h-px bg-white/40 pointer-events-none" style={{ top: `${y}%` }} />
-                {/* Punto focal */}
-                <div className="absolute w-4 h-4 rounded-full border-2 border-white pointer-events-none -translate-x-1/2 -translate-y-1/2 shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
-                    style={{ left: `${x}%`, top: `${y}%`, background: 'rgba(229,9,20,0.9)' }}
-                />
-                <div className="absolute bottom-1 inset-x-0 flex justify-center pointer-events-none">
-                    <span className="text-[8px] text-white/30">Arrastra para mover</span>
-                </div>
-            </div>
-        </div>
-    );
-}
+import BannersSidebar from "@/components/admin/banners/BannersSidebar";
+import BannerMediaSection from "@/components/admin/banners/BannerMediaSection";
+import BannerPreview from "@/components/admin/banners/BannerPreview";
+import BannerContentSection from "@/components/admin/banners/BannerContentSection";
+import { useBannersManager } from "@/components/admin/banners/useBannersManager";
 
 export default function BannersPage() {
-    const [banners, setBanners] = useState<Banner[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [selectedBannerId, setSelectedBannerId] = useState<string | null>(null);
-    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-    const [isCreating, setIsCreating] = useState(false);
+    const {
+        banners,
+        loading,
+        selectedBannerId,
+        deleteTarget,
+        setDeleteTarget,
+        isCreating,
+        saving,
+        formData,
+        setFormData,
+        categories,
+        leagues,
+        linkType,
+        setLinkType,
+        selectedCatalogFilter,
+        setSelectedCatalogFilter,
+        selectedSlug,
+        setSelectedSlug,
+        previewOpen,
+        setPreviewOpen,
+        previewMode,
+        setPreviewMode,
 
-    // Form State
-    const [formData, setFormData] = useState<Partial<Banner>>({});
-
-    // Data for Selectors
-    const [categories, setCategories] = useState<{ id: string, name: string, slug: string }[]>([]);
-    const [leagues, setLeagues] = useState<{ id: string, name: string, slug: string }[]>([]);
-    const [linkType, setLinkType] = useState<'catalog' | 'custom'>('catalog');
-    const [selectedCatalogFilter, setSelectedCatalogFilter] = useState<'all' | 'category' | 'league'>('all');
-    const [selectedSlug, setSelectedSlug] = useState('');
-
-    const [previewOpen, setPreviewOpen] = useState(true);
-    const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
-
-    const supabaseRef = useRef(createClient());
-    const supabase = supabaseRef.current;
-
-    // === DATA FETCHING ===
-    const fetchMetadata = useCallback(async () => {
-        const [catRes, leagueRes] = await Promise.all([
-            supabase.from("categories").select("id, name, slug"),
-            supabase.from("leagues").select("id, name, slug")
-        ]);
-        setCategories(catRes.data || []);
-        setLeagues(leagueRes.data || []);
-    }, []);
-
-    const fetchBanners = useCallback(async () => {
-        try {
-            const { data, error } = await supabase
-                .from("banners")
-                .select("*")
-                .order("sort_order", { ascending: true });
-            if (error) throw error;
-            setBanners(data || []);
-        } catch (error) {
-            toast.error("Error al cargar banners");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchBanners();
-        fetchMetadata();
-    }, [fetchBanners, fetchMetadata]);
-
-    // === LOGIC ===
-    const handleSelectBanner = (banner: Banner) => {
-        setIsCreating(false);
-        setSelectedBannerId(banner.id);
-        setFormData(banner);
-
-        // Parse Link logic
-        if (banner.link_url && banner.link_url.startsWith('/catalogo')) {
-            setLinkType('catalog');
-            if (banner.link_url.includes('categoria=')) {
-                setSelectedCatalogFilter('category');
-                setSelectedSlug(banner.link_url.split('categoria=')[1]);
-            } else if (banner.link_url.includes('liga=')) {
-                setSelectedCatalogFilter('league');
-                setSelectedSlug(banner.link_url.split('liga=')[1]);
-            } else {
-                setSelectedCatalogFilter('all');
-                setSelectedSlug('');
-            }
-        } else {
-            setLinkType('custom');
-            setSelectedCatalogFilter('all');
-            setSelectedSlug('');
-        }
-    };
-
-    const handleCreateNew = () => {
-        setIsCreating(true);
-        setSelectedBannerId(null);
-        // Default Values
-        setFormData({
-            title: "",
-            description: "",
-            active: true,
-            show_on_home: true,
-            sort_order: (banners.length > 0 ? Math.max(...banners.map(b => b.sort_order)) : 0) + 10,
-            button_text: "Ver Colección",
-            show_button: false,
-            link_url: "/catalogo",
-            image_position_desktop: "center center",
-            image_position_mobile: "center center",
-        });
-        setLinkType('catalog');
-        setSelectedCatalogFilter('all');
-    };
-
-    // Update link_url when selectors change
-    useEffect(() => {
-        if (!selectedBannerId && !isCreating) return;
-
-        if (linkType === 'custom') {
-            // User edits manually field, do nothing here unless we want to reset
-        } else {
-            let url = '/catalogo';
-            if (selectedCatalogFilter === 'category' && selectedSlug) url += `?categoria=${selectedSlug}`;
-            if (selectedCatalogFilter === 'league' && selectedSlug) url += `?liga=${selectedSlug}`;
-
-            setFormData(prev => ({ ...prev, link_url: url }));
-        }
-    }, [linkType, selectedCatalogFilter, selectedSlug, selectedBannerId, isCreating]);
-
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        // Validación: Al menos uno de los dos medios debe existir
-        if (!formData.image_url && !formData.video_url) {
-            return toast.error("Debes subir una Imagen o un Video");
-        }
-
-        const payload = { ...formData }; // Clone to avoid side effects
-
-        try {
-            if (selectedBannerId) {
-                const { error } = await supabase.from("banners").update(payload).eq("id", selectedBannerId);
-                if (error) throw error;
-                toast.success("Actualizado correctamente");
-                logAdminAction('UPDATE_BANNER', { id: selectedBannerId, title: payload.title });
-            } else {
-                // Create
-                const { error } = await supabase.from("banners").insert([{ ...payload, active: true }]);
-                if (error) throw error;
-                toast.success("Creado correctamente");
-                logAdminAction('CREATE_BANNER', { title: payload.title });
-                setIsCreating(false);
-            }
-
-            fetchBanners();
-            clearProductCache('config');
-            await revalidateBannersAction().catch(() => {});
-        } catch (error) {
-            toast.error("Error al guardar");
-        }
-    };
-
-    const handleDelete = (id: string, e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        setDeleteTarget(id);
-    };
-
-    const executeDelete = async (id: string) => {
-        const bannerToDelete = banners.find(b => b.id === id);
-
-        try {
-            await supabase.from("banners").delete().eq("id", id);
-            toast.success("Eliminado");
-
-            logAdminAction('DELETE_BANNER', {
-                id,
-                title: bannerToDelete?.title || 'Unknown',
-                image: bannerToDelete?.image_url
-            }, 'warning');
-
-            setBanners(prev => prev.filter(b => b.id !== id));
-            if (selectedBannerId === id) {
-                setSelectedBannerId(null);
-                setIsCreating(false);
-            }
-            clearProductCache('config');
-        } catch (e) { toast.error("Error al eliminar"); }
-    };
-
-    const handleToggleActive = async (banner: Banner, e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        try {
-            // Optimistic update
-            const newStatus = !banner.active;
-            setBanners(prev => prev.map(b => b.id === banner.id ? { ...b, active: newStatus } : b));
-
-            if (selectedBannerId === banner.id) {
-                setFormData(prev => ({ ...prev, active: newStatus }));
-            }
-
-            await supabase.from("banners").update({ active: newStatus }).eq("id", banner.id);
-            clearProductCache('config');
-            await revalidateBannersAction().catch(() => {});
-        } catch (e) {
-            toast.error("Error update");
-            fetchBanners(); // Revert
-        }
-    };
+        handleSelectBanner,
+        handleCreateNew,
+        updateField,
+        handleSubmit,
+        handleDelete,
+        executeDelete,
+    } = useBannersManager();
 
     return (
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 animate-in fade-in duration-500 h-auto md:h-[calc(100dvh-140px)]">
 
             {/* === LISTA LATERAL (Master) === */}
-            <div className="w-full md:w-80 flex flex-col bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex-shrink-0">
-                {/* Header Lista */}
-                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <div>
-                        <h2 className="text-base font-bold text-white tracking-wide">Banners</h2>
-                        <p className="text-xs text-gray-500 font-medium">{banners.length} elementos</p>
-                    </div>
-                    <button
-                        onClick={handleCreateNew}
-                        className="w-8 h-8 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 transition-all shadow-lg shadow-white/10"
-                        title="Nuevo Banner"
-                    >
-                        <Plus size={18} />
-                    </button>
-                </div>
-
-                {/* Lista Scrollable */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
-                    {loading ? (
-                        <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-gray-600" /></div>
-                    ) : banners.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500 text-xs flex flex-col items-center">
-                            <ImageIcon size={24} className="mb-2 opacity-30" />
-                            Sin banners. Crea uno nuevo.
-                        </div>
-                    ) : (
-                        banners.map(banner => (
-                            <div
-                                key={banner.id}
-                                onClick={() => handleSelectBanner(banner)}
-                                className={`
-                                group relative flex items-center gap-3 p-2 pr-3 rounded-xl cursor-pointer transition-all duration-300 border
-                                ${selectedBannerId === banner.id
-                                        ? 'bg-white/10 border-white/20 shadow-inner'
-                                        : 'bg-transparent border-transparent hover:bg-white/5'
-                                    }
-                            `}
-                            >
-                                {/* Thumbnail */}
-                                <div className="w-14 h-10 relative rounded-lg overflow-hidden bg-black shrink-0 border border-white/10 shadow-sm">
-                                    {banner.image_url ? (
-                                        <Image src={banner.image_url} fill alt="" className="object-cover" sizes="56px" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-neutral-800"><ImageIcon size={12} className="text-gray-600" /></div>
-                                    )}
-                                </div>
-
-                                {/* Info */}
-                                <div className="flex-1 min-w-0">
-                                    <h4 className={`text-xs font-bold truncate ${selectedBannerId === banner.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>
-                                        {banner.title || <span className="italic opacity-50">Sin título</span>}
-                                    </h4>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border ${banner.active
-                                            ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                                            : 'bg-gray-700/30 text-gray-500 border-gray-600/30'
-                                            }`}>
-                                            {banner.active ? 'ACTIVO' : 'INACTIVO'}
-                                        </div>
-                                        {banner.show_on_home && <span className="text-[9px] text-blue-400 font-bold" title="Visible en Home">HOME</span>}
-                                        <span className="ml-auto text-[9px] text-gray-600 font-mono">#{banner.sort_order}</span>
-                                    </div>
-                                </div>
-
-                                {/* Actions Quick */}
-                                <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 rounded-lg p-1 flex gap-1 backdrop-blur-sm border border-white/10 shadow-xl">
-                                    <button
-                                        onClick={(e) => handleDelete(banner.id, e)}
-                                        className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded transition"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-
+            <BannersSidebar
+                banners={banners}
+                loading={loading}
+                selectedBannerId={selectedBannerId}
+                onSelectBanner={handleSelectBanner}
+                onCreateNew={handleCreateNew}
+                onDelete={handleDelete}
+            />
 
             {/* === PANEL DE DETALLE (Main) === */}
             <div className="flex-1 bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col relative h-full">
@@ -403,40 +72,39 @@ export default function BannersPage() {
                     // EDIT FORM
                     <form onSubmit={handleSubmit} className="flex flex-col h-full">
 
-                        {/* --- HEADER FORMULARIO (CONTROLES AQUI) --- */}
+                        {/* --- HEADER FORMULARIO --- */}
                         <div className="px-4 md:px-8 py-4 md:py-5 border-b border-white/5 bg-[#161616] flex flex-wrap gap-3 md:gap-4 justify-between items-center shrink-0 z-10">
                             <div>
                                 <h2 className="text-lg font-bold text-white flex items-center gap-3">
                                     {isCreating ? "Crear Nuevo Banner" : "Editar Banner"}
                                     <span className="text-[10px] font-mono font-normal text-gray-500 bg-black/30 px-2 py-0.5 rounded border border-white/5">
-                                        {formData.id ? formData.id.slice(0, 8) : 'NEW'}
+                                        {formData.id ? formData.id.slice(0, 8) : "NEW"}
                                     </span>
                                 </h2>
                             </div>
 
                             {/* GLOBAL CONTROLS */}
                             <div className="flex items-center gap-4 bg-black/20 p-1.5 rounded-xl border border-white/5">
-
                                 {/* Switch ACTIVO */}
-                                <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all select-none border border-transparent ${formData.active ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'hover:bg-white/5 text-gray-500'}`}>
+                                <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all select-none border border-transparent ${formData.active ? "bg-green-500/10 text-green-400 border-green-500/20" : "hover:bg-white/5 text-gray-500"}`}>
                                     <input
                                         type="checkbox"
                                         checked={formData.active || false}
-                                        onChange={e => setFormData({ ...formData, active: e.target.checked })}
+                                        onChange={e => setFormData(prev => ({ ...prev, active: e.target.checked }))}
                                         className="sr-only"
                                     />
-                                    <div className={`w-2 h-2 rounded-full ${formData.active ? 'bg-green-500 shadow-[0_0_5px_currentColor]' : 'bg-gray-600'}`} />
-                                    <span className="text-xs font-bold uppercase tracking-wider">{formData.active ? 'Sistema Activo' : 'Sistema Inactivo'}</span>
+                                    <div className={`w-2 h-2 rounded-full ${formData.active ? "bg-green-500 shadow-[0_0_5px_currentColor]" : "bg-gray-600"}`} />
+                                    <span className="text-xs font-bold uppercase tracking-wider">{formData.active ? "Sistema Activo" : "Sistema Inactivo"}</span>
                                 </label>
 
                                 <div className="w-px h-4 bg-white/10" />
 
                                 {/* Switch HOME */}
-                                <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all select-none border border-transparent ${formData.show_on_home ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'hover:bg-white/5 text-gray-500'}`}>
+                                <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all select-none border border-transparent ${formData.show_on_home ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "hover:bg-white/5 text-gray-500"}`}>
                                     <input
                                         type="checkbox"
                                         checked={formData.show_on_home || false}
-                                        onChange={e => setFormData({ ...formData, show_on_home: e.target.checked })}
+                                        onChange={e => setFormData(prev => ({ ...prev, show_on_home: e.target.checked }))}
                                         className="sr-only"
                                     />
                                     <Monitor size={14} />
@@ -444,334 +112,55 @@ export default function BannersPage() {
                                 </label>
                             </div>
 
-                            <button type="submit" className="bg-primary hover:bg-white hover:text-black text-black px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">
-                                <Save size={18} /> Guardar
+                            <button
+                                type="submit"
+                                disabled={saving}
+                                className="bg-primary hover:bg-white hover:text-black text-black px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
+                            >
+                                {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Guardar
                             </button>
                         </div>
 
                         {/* --- BODY FORMULARIO --- */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
                             <div className="max-w-5xl mx-auto space-y-6 md:space-y-10">
+                                {/* 1. Medios y Punto Focal */}
+                                <BannerMediaSection
+                                    formData={formData}
+                                    onUpdateField={updateField}
+                                />
 
-                                {/* 1. SECCIÓN MEDIA (Wide) */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 items-start">
-                                    {/* Imagen Principal */}
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-end">
-                                            <label className="text-sm font-bold text-gray-200 flex items-center gap-2">
-                                                <ImageIcon size={16} className="text-primary" /> Imagen / Poster
-                                            </label>
-                                            <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded">Recomendado</span>
-                                        </div>
-
-                                        <div className="aspect-video w-full">
-                                            <MediaUpload
-                                                type="image"
-                                                value={formData.image_url || ""}
-                                                onChange={(url) => setFormData({ ...formData, image_url: url })}
-                                                onRemove={() => setFormData({ ...formData, image_url: "" })}
-                                                className="bg-neutral-900/50 hover:bg-neutral-900 border-dashed border-white/20 hover:border-white/40 shadow-inner"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Video Loop */}
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-end">
-                                            <label className="text-sm font-bold text-gray-200 flex items-center gap-2">
-                                                <Film size={16} className="text-purple-400" /> Video Loop (Opcional)
-                                            </label>
-                                            <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded">Desktop Only</span>
-                                        </div>
-                                        <div className="aspect-video w-full">
-                                            <MediaUpload
-                                                type="video"
-                                                value={formData.video_url || ""}
-                                                onChange={(url) => setFormData({ ...formData, video_url: url })}
-                                                onRemove={() => setFormData({ ...formData, video_url: "" })}
-                                                className="bg-neutral-900/50 hover:bg-neutral-900 border-dashed border-white/20 hover:border-white/40 shadow-inner"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* LIVE PREVIEW */}
-                                <div className="rounded-2xl border border-white/10 overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => setPreviewOpen(p => !p)}
-                                        className="w-full flex items-center justify-between px-5 py-3 bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
-                                    >
-                                        <span className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-widest">
-                                            <Eye size={14} className="text-primary" /> Vista Previa
-                                        </span>
-                                        <div className="flex items-center gap-3">
-                                            {previewOpen && (
-                                                <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/10" onClick={e => e.stopPropagation()}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setPreviewMode('desktop')}
-                                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${previewMode === 'desktop' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
-                                                    >
-                                                        <Monitor size={11} /> Desktop
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setPreviewMode('mobile')}
-                                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${previewMode === 'mobile' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
-                                                    >
-                                                        <Smartphone size={11} /> Mobile
-                                                    </button>
-                                                </div>
-                                            )}
-                                            <ChevronDown size={14} className={`text-gray-500 transition-transform ${previewOpen ? 'rotate-180' : ''}`} />
-                                        </div>
-                                    </button>
-
-                                    {previewOpen && (
-                                        <div className="p-4 bg-black/20">
-                                            <div className={`mx-auto transition-all duration-300 ${previewMode === 'mobile' ? 'max-w-[390px]' : 'w-full'}`}>
-                                                <div className="relative rounded-xl overflow-hidden bg-neutral-900 border border-white/5"
-                                                    style={{ aspectRatio: previewMode === 'mobile' ? '4/3' : '16/5' }}
-                                                >
-                                                    {/* Imagen de fondo */}
-                                                    {formData.image_url ? (
-                                                        <img
-                                                            src={formData.image_url}
-                                                            alt=""
-                                                            className="absolute inset-0 w-full h-full object-cover"
-                                                            style={{ objectPosition: previewMode === 'mobile' ? (formData.image_position_mobile || 'center center') : (formData.image_position_desktop || 'center center') }}
-                                                        />
-                                                    ) : (
-                                                        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center">
-                                                            <ImageIcon size={32} className="text-gray-600" />
-                                                        </div>
-                                                    )}
-                                                    {/* Overlay */}
-                                                    <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
-                                                    {/* Texto */}
-                                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 gap-1.5">
-                                                        {formData.title && (
-                                                            <p className="text-white font-extrabold drop-shadow-lg leading-tight"
-                                                                style={{ fontSize: previewMode === 'mobile' ? '14px' : '22px' }}
-                                                            >
-                                                                {formData.title}
-                                                            </p>
-                                                        )}
-                                                        {formData.description && (
-                                                            <p className="text-gray-300 leading-tight"
-                                                                style={{ fontSize: previewMode === 'mobile' ? '10px' : '13px' }}
-                                                            >
-                                                                {formData.description}
-                                                            </p>
-                                                        )}
-                                                        {formData.show_button && formData.button_text && (
-                                                            <span className="mt-1 inline-flex items-center gap-1 bg-primary text-black font-bold rounded-full px-3 py-1"
-                                                                style={{ fontSize: previewMode === 'mobile' ? '9px' : '11px' }}
-                                                            >
-                                                                {formData.button_text} <ExternalLink size={previewMode === 'mobile' ? 8 : 10} />
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {/* Destino badge */}
-                                                    <div className="absolute bottom-2 right-2">
-                                                        <span className="text-[9px] font-mono bg-black/60 text-gray-400 px-1.5 py-0.5 rounded border border-white/10">
-                                                            {formData.link_url || '/catalogo'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* PUNTO FOCAL */}
-                                <div className="rounded-2xl border border-white/10 overflow-hidden">
-                                    <div className="px-5 py-3 bg-white/[0.03]">
-                                        <span className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-widest">
-                                            <ImageIcon size={14} className="text-blue-400" /> Punto Focal de Imagen
-                                        </span>
-                                    </div>
-                                    <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Monitor size={13} className="text-gray-500" />
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Desktop</span>
-                                            </div>
-                                            <FocalPointPicker
-                                                label="Desktop"
-                                                imageUrl={formData.image_url}
-                                                value={formData.image_position_desktop || '50% 50%'}
-                                                onChange={v => setFormData(prev => ({ ...prev, image_position_desktop: v }))}
-                                                aspectRatio="16/5"
-                                            />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Smartphone size={13} className="text-gray-500" />
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile</span>
-                                            </div>
-                                            <FocalPointPicker
-                                                label="Mobile"
-                                                imageUrl={formData.image_url}
-                                                value={formData.image_position_mobile || '50% 50%'}
-                                                onChange={v => setFormData(prev => ({ ...prev, image_position_mobile: v }))}
-                                                aspectRatio="4/3"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* 2. Live Preview */}
+                                <BannerPreview
+                                    formData={formData}
+                                    previewOpen={previewOpen}
+                                    onTogglePreview={() => setPreviewOpen(p => !p)}
+                                    previewMode={previewMode}
+                                    onChangePreviewMode={setPreviewMode}
+                                />
 
                                 <hr className="border-white/5" />
 
-                                {/* 2. CONTENIDO & CONFIGURACIÓN */}
-                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8">
-
-                                    {/* Columna Izquierda: Textos (8/12) */}
-                                    <div className="md:col-span-7 space-y-6">
-                                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Contenido del Banner</h3>
-
-                                        <div className="space-y-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
-                                            <div className="flex gap-4">
-                                                <div className="flex-1 space-y-2">
-                                                    <label className="text-xs font-bold text-gray-400 ml-1">TÍTULO PRINCIPAL</label>
-                                                    <input
-                                                        value={formData.title || ""}
-                                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                                        className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white font-bold text-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-700"
-                                                        placeholder="EJ: NUEVA COLECCIÓN 2026"
-                                                    />
-                                                </div>
-                                                <div className="w-24 space-y-2">
-                                                    <label className="text-xs font-bold text-gray-400 ml-1">ORDEN</label>
-                                                    <input
-                                                        type="number"
-                                                        value={formData.sort_order || 0}
-                                                        onChange={e => setFormData({ ...formData, sort_order: parseInt(e.target.value) })}
-                                                        className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white font-bold text-lg text-center font-mono focus:border-white/30 outline-none transition-all"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-gray-400 ml-1">SUBTÍTULO / DESCRIPCIÓN</label>
-                                                <textarea
-                                                    value={formData.description || ""}
-                                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white text-sm min-h-[100px] resize-y focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-700"
-                                                    placeholder="Escribe una descripción inspiradora corta..."
-                                                />
-                                            </div>
-
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <label className="text-xs font-bold text-gray-400 ml-1">TEXTO DEL BOTÓN CTA</label>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setFormData(prev => ({ ...prev, show_button: !prev.show_button }))}
-                                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border text-[10px] font-bold uppercase tracking-wider ${
-                                                            formData.show_button
-                                                                ? 'bg-primary/10 text-primary border-primary/20'
-                                                                : 'text-gray-600 border-white/10 hover:bg-white/5'
-                                                        }`}
-                                                    >
-                                                        <div className={`w-2 h-2 rounded-full transition-colors ${formData.show_button ? 'bg-primary' : 'bg-gray-600'}`} />
-                                                        {formData.show_button ? 'Visible' : 'Oculto'}
-                                                    </button>
-                                                </div>
-                                                <input
-                                                    value={formData.button_text || ""}
-                                                    onChange={e => setFormData(prev => ({ ...prev, button_text: e.target.value }))}
-                                                    className={`w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-gray-700 ${!formData.show_button ? 'opacity-40' : ''}`}
-                                                    placeholder="Ver Colección"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Columna Derecha: Link y Resumen (4/12) */}
-                                    <div className="md:col-span-5 space-y-6">
-                                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Configuración de Destino</h3>
-
-                                        <div className="bg-neutral-900 border border-white/10 p-6 rounded-2xl space-y-6 shadow-xl">
-                                            <div className="space-y-3">
-                                                <label className="text-xs font-bold text-white flex items-center gap-2">
-                                                    <LinkIcon size={14} className="text-primary" /> TIPO DE ENLACE
-                                                </label>
-                                                <div className="flex bg-black p-1 rounded-lg border border-white/10">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setLinkType('catalog')}
-                                                        className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${linkType === 'catalog' ? 'bg-white text-black shadow' : 'text-gray-500 hover:text-white'}`}
-                                                    >
-                                                        Catálogo
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setLinkType('custom')}
-                                                        className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${linkType === 'custom' ? 'bg-white text-black shadow' : 'text-gray-500 hover:text-white'}`}
-                                                    >
-                                                        Manual URL
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {linkType === 'catalog' ? (
-                                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                                                    <div>
-                                                        <label className="text-[10px] text-gray-500 font-bold mb-1 block uppercase">Filtrar Por</label>
-                                                        <select
-                                                            value={selectedCatalogFilter}
-                                                            onChange={e => { setSelectedCatalogFilter(e.target.value as any); setSelectedSlug(''); }}
-                                                            className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-primary/50"
-                                                        >
-                                                            <option value="all">Todo el Catálogo</option>
-                                                            <option value="category">Categoría</option>
-                                                            <option value="league">Liga</option>
-                                                        </select>
-                                                    </div>
-
-                                                    <div>
-                                                        <label className="text-[10px] text-gray-500 font-bold mb-1 block uppercase">Seleccionar {selectedCatalogFilter === 'league' ? 'Liga' : 'Categoría'}</label>
-                                                        <select
-                                                            value={selectedSlug}
-                                                            onChange={e => setSelectedSlug(e.target.value)}
-                                                            disabled={selectedCatalogFilter === 'all'}
-                                                            className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            <option value="">-- General --</option>
-                                                            {selectedCatalogFilter === 'category' && categories.map(c => <option key={c.id} value={c.slug}>{c.name}</option>)}
-                                                            {selectedCatalogFilter === 'league' && leagues.map(l => <option key={l.id} value={l.slug}>{l.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="animate-in fade-in slide-in-from-top-2">
-                                                    <label className="text-[10px] text-gray-500 font-bold mb-1 block uppercase">URL Completa</label>
-                                                    <input
-                                                        value={formData.link_url || ""}
-                                                        onChange={e => setFormData({ ...formData, link_url: e.target.value })}
-                                                        className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-sm text-white font-mono focus:border-primary/50 outline-none"
-                                                        placeholder="https://..."
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className="pt-4 border-t border-white/5">
-                                                <p className="text-[10px] text-gray-500 mb-1">Destino Final:</p>
-                                                <code className="block w-full bg-black/50 p-2 rounded text-[10px] text-primary break-all border border-white/5 font-mono">
-                                                    {formData.link_url || "/catalogo"}
-                                                </code>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* 3. Textos y Configuración de Destino */}
+                                <BannerContentSection
+                                    formData={formData}
+                                    onUpdateField={updateField}
+                                    linkType={linkType}
+                                    setLinkType={setLinkType}
+                                    selectedCatalogFilter={selectedCatalogFilter}
+                                    setSelectedCatalogFilter={setSelectedCatalogFilter}
+                                    selectedSlug={selectedSlug}
+                                    setSelectedSlug={setSelectedSlug}
+                                    categories={categories}
+                                    leagues={leagues}
+                                />
                             </div>
                         </div>
                     </form>
                 )}
             </div>
 
+            {/* Modal de confirmación para eliminar */}
             <ConfirmDialog
                 open={deleteTarget !== null}
                 title="Eliminar banner"
