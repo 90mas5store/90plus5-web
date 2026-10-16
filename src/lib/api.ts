@@ -1,6 +1,7 @@
 import { Product, Brand, Config, ShippingZone, SupabaseRawProduct } from "./types";
 import { supabase } from "./supabase/client";
 import { getLeagueLogoUrl } from "./leagueLogos";
+import { matchPlayers } from "./search/playerMatch";
 
 export type SortOption =
   | "relevance"
@@ -61,7 +62,8 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
             product_leagues (
                 league_id
             ),
-            season
+            season,
+            allows_customization
         `)
 
     .eq("active", true)
@@ -107,6 +109,7 @@ export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product 
     sort_order: raw.sort_order || 0,
     trending_until: raw.trending_until ?? null,
     season: raw.season,
+    allows_customization: raw.allows_customization ?? true,
     product_variants: variants.map(v => ({
       id: v.id,
       version: v.version,
@@ -365,6 +368,106 @@ export async function getPlayersByTeam(teamId: string) {
   return data ?? [];
 }
 
+type EmbeddedPlayer = { id: string; name: string; number: number | null; active?: boolean };
+type ProductPlayerRow = {
+  product_id: string;
+  sort_order?: number | null;
+  players: EmbeddedPlayer | EmbeddedPlayer[] | null;
+};
+
+const firstOf = <T,>(v: T | T[] | null | undefined): T | null =>
+  Array.isArray(v) ? v[0] ?? null : v ?? null;
+
+/** 👕 Jugadores listados en una camisa específica (product_players) */
+export async function getPlayersByProduct(productId: string): Promise<{ id: string; name: string; number: number | null }[]> {
+  const { data, error } = await supabase
+    .from("product_players")
+    .select("product_id, sort_order, players!inner(id, name, number, active)")
+    .eq("product_id", productId)
+    .eq("players.active", true);
+
+  if (error) {
+    console.error("Error fetching product players:", error);
+    throw error;
+  }
+
+  return ((data ?? []) as ProductPlayerRow[])
+    .map((row) => firstOf(row.players))
+    .filter((p): p is EmbeddedPlayer => !!p)
+    .map((p) => ({ id: p.id, name: p.name, number: p.number }))
+    .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
+}
+
+/** Jugador indexado para la búsqueda, con las camisas donde está listado */
+export interface SearchablePlayer {
+  id: string;
+  name: string;
+  number: string;
+  productIds: string[];
+}
+
+type SearchIndexRow = ProductPlayerRow & {
+  products: { active: boolean; allows_customization: boolean | null } | { active: boolean; allows_customization: boolean | null }[] | null;
+};
+
+async function fetchSearchablePlayers(): Promise<SearchablePlayer[]> {
+  const PAGE = 1000; // límite por defecto de PostgREST
+  const rows: SearchIndexRow[] = [];
+
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("product_players")
+      .select("product_id, players!inner(id, name, number, active), products!inner(active, allows_customization)")
+      .eq("players.active", true)
+      .eq("products.active", true)
+      .range(from, from + PAGE - 1);
+
+    if (error) {
+      console.error("Error fetching searchable players:", error);
+      throw error;
+    }
+    rows.push(...((data ?? []) as unknown as SearchIndexRow[]));
+    if (!data || data.length < PAGE) break;
+  }
+
+  const byPlayer = new Map<string, SearchablePlayer>();
+  rows.forEach((row) => {
+    const p = firstOf(row.players);
+    const prod = firstOf(row.products);
+    if (!p || !prod || prod.allows_customization === false) return;
+    const entry = byPlayer.get(p.id) ?? {
+      id: p.id,
+      name: p.name,
+      number: p.number != null ? String(p.number) : "",
+      productIds: [],
+    };
+    if (!entry.productIds.includes(row.product_id)) entry.productIds.push(row.product_id);
+    byPlayer.set(p.id, entry);
+  });
+
+  return Array.from(byPlayer.values());
+}
+
+/** 🔎 Índice de jugadores → camisas (cacheado igual que el catálogo) */
+export async function getSearchablePlayers(): Promise<SearchablePlayer[]> {
+  return getCached<SearchablePlayer[]>("players_index", fetchSearchablePlayers);
+}
+
+/**
+ * Busca jugadores por nombre (y dorsal opcional, ej. "yamal 19") y devuelve
+ * las camisas donde están listados.
+ */
+export async function findPlayersForSearch(term: string, limit = 3): Promise<SearchablePlayer[]> {
+  try {
+    const players = await getSearchablePlayers();
+    return matchPlayers(players, term, limit);
+  } catch (err) {
+    console.warn("Player search exception:", err);
+    return [];
+  }
+}
+
+
 
 export async function getProductOptionsFromSupabase(productId: string) {
   // Cadena A (variants → variant_sizes → sizes) y Cadena B (product_patches → patches)
@@ -565,10 +668,12 @@ export function clearProductCache(filter: 'all' | 'catalog' | 'config' = 'all') 
   if (filter === 'all' || filter === 'catalog') {
     memoryCache.catalog = null;
     memoryCache.featured = null;
+    memoryCache.players_index = null;
     paginatedCache.clear(); // 🧹 Limpiar también el cache de getCatalogPaginated
     if (store) {
       store.removeItem('cache_catalog');
       store.removeItem('cache_featured');
+      store.removeItem('cache_players_index');
     }
   }
 
@@ -582,6 +687,7 @@ export function clearProductCache(filter: 'all' | 'catalog' | 'config' = 'all') 
 
   memoryCache.lastUpdated = {};
 }
+
 
 /* 💫 Guarda en memoria + sessionStorage */
 function setCache<T>(key: string, data: T) {
@@ -717,9 +823,22 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
 
   // Lógica bifurcada: Búsqueda con typos (RPC) vs Navegación normal (Standard)
 
-  // A) Búsqueda Inteligente (Fuzzy con Fallback de Resiliencia)
+  // A) Búsqueda Inteligente (Fuzzy con Fallback de Resiliencia + Jugadores)
   if (searchQuery) {
     const from = (page - 1) * limit;
+
+    // 0. Búsqueda por Jugadores (findPlayersForSearch): obtener camisas donde está listado el jugador
+    const playerProductIds: string[] = [];
+    try {
+      const matchedPlayers = await findPlayersForSearch(searchQuery, 3);
+      matchedPlayers.forEach((mp) => {
+        mp.productIds.forEach((pid) => {
+          if (!playerProductIds.includes(pid)) playerProductIds.push(pid);
+        });
+      });
+    } catch (pErr) {
+      console.warn("Error finding players for search:", pErr);
+    }
 
     // 1. Obtener IDs relevantes tolerando errores ortográficos (RPC PostgreSQL)
     let ids: string[] = [];
@@ -740,7 +859,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     }
 
     // 2. Fallback Inteligente: Si el RPC no arrojó resultados o falló, buscar coincidencias directas
-    if (ids.length === 0) {
+    if (ids.length === 0 && playerProductIds.length === 0) {
       const cleanTerm = searchQuery.trim().toLowerCase();
       try {
         let fallbackQuery = supabase
@@ -765,6 +884,15 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
       } catch (fbErr) {
         console.warn("Search fallback exception:", fbErr);
       }
+    }
+
+    // Unir IDs de camisas donde sale el jugador (al inicio) con los demás IDs
+    if (playerProductIds.length > 0) {
+      const combined = [...playerProductIds];
+      ids.forEach((id) => {
+        if (!combined.includes(id)) combined.push(id);
+      });
+      ids = combined;
     }
 
     if (ids.length > 0) {

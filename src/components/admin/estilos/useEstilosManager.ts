@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import useToastMessage from "@/hooks/useToastMessage";
+import { clearProductCache } from "@/lib/api";
 import { Patch, Size, Team, Player, League, Category, EMPTY_PATCH, EMPTY_SIZE } from "./types";
 
 export function useEstilosManager() {
@@ -286,6 +287,7 @@ export function useEstilosManager() {
             if (error) throw error;
             setPlayers(prev => [...prev, data].sort((a, b) => a.number - b.number));
             setNewPlayer({ name: "", number: "" });
+            clearProductCache('catalog');
             toast.success("Jugador agregado");
         } catch (err: unknown) {
             toast.error(`Error: ${(err as Error).message}`);
@@ -302,6 +304,7 @@ export function useEstilosManager() {
                 .eq("id", id);
             if (error) throw error;
             setPlayers(prev => prev.map(p => p.id === id ? { ...p, active: false } : p));
+            clearProductCache('catalog');
             toast.success("Jugador desactivado");
         } catch (err: unknown) {
             toast.error(`Error: ${(err as Error).message}`);
@@ -318,6 +321,7 @@ export function useEstilosManager() {
                 .eq("id", id);
             if (error) throw error;
             setPlayers(prev => prev.map(p => p.id === id ? { ...p, active: true } : p));
+            clearProductCache('catalog');
             toast.success("Jugador restaurado");
         } catch (err: unknown) {
             toast.error(`Error: ${(err as Error).message}`);
@@ -348,6 +352,7 @@ export function useEstilosManager() {
                     .sort((a, b) => a.number - b.number)
             );
             setEditingPlayer(null);
+            clearProductCache('catalog');
             toast.success("Jugador actualizado");
         } catch (err: unknown) {
             toast.error(`Error: ${(err as Error).message}`);

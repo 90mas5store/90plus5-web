@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { getCatalog, getConfig } from '@/lib/api';
+import { getCatalog, getConfig, getSearchablePlayers, SearchablePlayer } from '@/lib/api';
 import { Product, Category, League } from '@/lib/types';
 import { SearchResult, QuickClub } from '@/types/search';
 import { FOOTBALL_ALIASES } from '@/constants/footballAliases';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
+import { matchPlayers, buildPlayerProductHref } from '@/lib/search/playerMatch';
 
 const normalize = (s: string) =>
     (s || '')
@@ -18,6 +19,7 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
     const [catalog, setCatalog] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [leagues, setLeagues] = useState<League[]>([]);
+    const [players, setPlayers] = useState<SearchablePlayer[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const loadedRef = useRef(false);
@@ -33,13 +35,15 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
         Promise.all([
             getCatalog().catch(() => []),
             getConfig().catch(() => null),
+            getSearchablePlayers().catch(() => []),
         ])
-            .then(([catData, cfgData]) => {
+            .then(([catData, cfgData, playersData]) => {
                 setCatalog(catData || []);
                 if (cfgData) {
                     setCategories(cfgData.categorias || []);
                     setLeagues(cfgData.ligas || []);
                 }
+                setPlayers(playersData || []);
                 setIsLoaded(true);
             })
             .finally(() => {
@@ -142,6 +146,51 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
             q.includes('clasic') ||
             q.includes('clasico');
 
+        // 0. Match de Jugadores (usando matchPlayers)
+        const matchedPlayers = matchPlayers(players, value, 3);
+        const playerProductIdsSet = new Set<string>();
+        const playerByProductId = new Map<string, { player: SearchablePlayer; teamName?: string; teamLogo?: string }>();
+
+        // Crear mapa de productos por ID para lookup rápido
+        const catalogById = new Map<string, Product>();
+        catalog.forEach((p) => catalogById.set(p.id, p));
+
+        matchedPlayers.forEach((player) => {
+            // Buscar un equipo representativo para mostrar escudo/nombre en la ficha del jugador
+            let representativeTeam = '';
+            let representativeLogo: string | undefined;
+            for (const pid of player.productIds) {
+                const prod = catalogById.get(pid);
+                if (prod?.equipo) {
+                    representativeTeam = prod.equipo;
+                    representativeLogo = prod.logoEquipo;
+                    break;
+                }
+            }
+
+            // Ficha del Jugador
+            items.push({
+                type: 'player',
+                id: `player-${player.id}`,
+                title: player.name,
+                subtitle: player.number ? `#${player.number} · ${representativeTeam || 'Dorsal'}` : representativeTeam,
+                playerName: player.name,
+                playerNumber: player.number,
+                teamName: representativeTeam,
+                teamLogo: representativeLogo,
+                productCount: player.productIds.length,
+                href: `/catalogo?query=${encodeURIComponent(player.name)}`,
+            });
+
+            // Registrar camisas asociadas para destacarlas y enriquecer su subtítulo
+            player.productIds.forEach((pid) => {
+                playerProductIdsSet.add(pid);
+                if (!playerByProductId.has(pid)) {
+                    playerByProductId.set(pid, { player, teamName: representativeTeam, teamLogo: representativeLogo });
+                }
+            });
+        });
+
         // 1. Categories Matching
         const matchingCategories = categories.filter(
             (c) => matchesQuery(c.nombre) || matchesQuery(c.slug) || (isRetroSearch && normalize(c.slug).includes('retro'))
@@ -179,6 +228,9 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
         // 3. Products Matching (Enhanced with categories, leagues, aliases & special chips)
         catalog
             .filter((p) => {
+                // Si la camisa tiene asignado al jugador que se buscó, incluirla siempre
+                if (playerProductIdsSet.has(p.id)) return true;
+
                 // Caso: Búsqueda de Más Vendidas / Destacados
                 if (isFeaturedSearch && p.destacado) return true;
 
@@ -219,6 +271,12 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
 
                 return false;
             })
+            // Priorizar las camisas del jugador coincidente al inicio
+            .sort((a, b) => {
+                const aPlayer = playerProductIdsSet.has(a.id) ? 1 : 0;
+                const bPlayer = playerProductIdsSet.has(b.id) ? 1 : 0;
+                return bPlayer - aPlayer;
+            })
             .slice(0, 6)
             .forEach((p) => {
                 // Live Match Info
@@ -243,14 +301,24 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
                     }
                 }
 
+                // Si la camisa coincide por jugador, preseleccionar su dorsal en la URL
+                const playerMatch = playerByProductId.get(p.id);
+                const href = playerMatch?.player.number
+                    ? buildPlayerProductHref(p.slug || p.id, playerMatch.player.number)
+                    : `/producto/${p.slug || p.id}`;
+
+                const subtitle = playerMatch?.player
+                    ? `${p.modelo} · Dorsal #${playerMatch.player.number} ${playerMatch.player.name}`
+                    : p.modelo;
+
                 items.push({
                     type: 'product',
                     id: p.id,
                     title: p.equipo,
-                    subtitle: p.modelo,
+                    subtitle,
                     image: p.imagen,
                     price: p.precio,
-                    href: `/producto/${p.slug || p.id}`,
+                    href,
                     isLive,
                     isUpcoming,
                     isFinished,
@@ -260,7 +328,8 @@ export function useSearchCatalog(value: string, enableLiveResults: boolean = tru
             });
 
         return items;
-    }, [value, catalog, categories, leagues, enableLiveResults, liveMatches]);
+    }, [value, catalog, categories, leagues, players, enableLiveResults, liveMatches]);
+
 
     return {
         catalog,

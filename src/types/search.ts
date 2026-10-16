@@ -1,5 +1,5 @@
 export interface SearchResult {
-    type: 'product' | 'category' | 'league' | 'alias';
+    type: 'product' | 'category' | 'league' | 'alias' | 'player';
     id: string;
     title: string;
     subtitle?: string;
@@ -11,6 +11,11 @@ export interface SearchResult {
     isLive?: boolean;
     isUpcoming?: boolean;
     isFinished?: boolean;
+    playerName?: string;
+    playerNumber?: string;
+    teamName?: string;
+    teamLogo?: string;
+    productCount?: number;
 }
 
 export interface QuickClub {

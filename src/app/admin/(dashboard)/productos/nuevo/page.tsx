@@ -91,6 +91,7 @@ export default function CreateProductPage() {
 
     // Jugadores
     const [teamPlayers, setTeamPlayers] = useState<AdminPlayer[]>([]);
+    const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set<string>());
     const [newPlayer, setNewPlayer] = useState({ name: '', number: '' });
     const [addingPlayer, setAddingPlayer] = useState(false);
     const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
@@ -208,6 +209,7 @@ export default function CreateProductPage() {
     useEffect(() => {
         if (!formData.team_id) {
             setTeamPlayers([]);
+            setSelectedPlayerIds(new Set());
             return;
         }
 
@@ -221,7 +223,10 @@ export default function CreateProductPage() {
                     .order('number');
 
                 if (error) throw error;
-                setTeamPlayers(data || []);
+                const activePlayers = data || [];
+                setTeamPlayers(activePlayers);
+                // Por defecto, en producto nuevo se preseleccionan los jugadores activos del equipo
+                setSelectedPlayerIds(new Set(activePlayers.map((p) => p.id)));
             } catch (error) {
                 console.error('Error cargando jugadores:', error);
             }
@@ -303,6 +308,23 @@ export default function CreateProductPage() {
     };
 
     // Jugadores Handlers
+    const togglePlayer = (playerId: string) => {
+        setSelectedPlayerIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(playerId)) next.delete(playerId);
+            else next.add(playerId);
+            return next;
+        });
+    };
+
+    const selectAllPlayers = () => {
+        setSelectedPlayerIds(new Set(teamPlayers.filter((p) => p.active !== false).map((p) => p.id)));
+    };
+
+    const deselectAllPlayers = () => {
+        setSelectedPlayerIds(new Set());
+    };
+
     const handleAddPlayer = async () => {
         if (!formData.team_id || !newPlayer.name || !newPlayer.number) return;
         setAddingPlayer(true);
@@ -320,25 +342,15 @@ export default function CreateProductPage() {
 
             if (error) throw error;
             setTeamPlayers((prev) => [...prev, data]);
+            // Marcar automáticamente en esta camisa el jugador recién creado
+            setSelectedPlayerIds((prev) => new Set(prev).add(data.id));
             setNewPlayer({ name: '', number: '' });
-            toast.success('Jugador agregado a la plantilla');
+            toast.success('Jugador agregado a la plantilla y asignado');
         } catch (error) {
             console.error('Error agregando jugador:', error);
             toast.error('Error al agregar jugador');
         } finally {
             setAddingPlayer(false);
-        }
-    };
-
-    const executeDeletePlayer = async (playerId: string) => {
-        try {
-            const { error } = await supabase.from('players').delete().eq('id', playerId);
-            if (error) throw error;
-            setTeamPlayers((prev) => prev.filter((p) => p.id !== playerId));
-            toast.success('Jugador eliminado');
-        } catch (error) {
-            console.error('Error eliminando jugador:', error);
-            toast.error('Error al eliminar jugador');
         }
     };
 
@@ -418,7 +430,22 @@ export default function CreateProductPage() {
                 if (imgError) throw imgError;
             }
 
-            // 5. Insertar Variantes y Tallas
+            // 5. Insertar Jugadores de esta Camisa (product_players)
+            if (selectedPlayerIds.size > 0) {
+                const playersMap = new Map(teamPlayers.map((p) => [p.id, p]));
+                const playersPayload = Array.from(selectedPlayerIds).map((pid) => ({
+                    product_id: createdId,
+                    player_id: pid,
+                    sort_order: playersMap.get(pid)?.number ?? 0,
+                }));
+                const { error: plError } = await supabase
+                    .from('product_players')
+                    .insert(playersPayload);
+                if (plError) throw plError;
+            }
+
+            // 6. Insertar Variantes y Tallas
+
             for (const v of variants) {
                 const { data: newV, error: inError } = await supabase
                     .from('product_variants')
@@ -530,11 +557,14 @@ export default function CreateProductPage() {
                     {formData.team_id && (
                         <ProductPlayersSection
                             teamPlayers={teamPlayers}
+                            selectedPlayerIds={selectedPlayerIds}
+                            onTogglePlayer={togglePlayer}
+                            onSelectAll={selectAllPlayers}
+                            onDeselectAll={deselectAllPlayers}
                             newPlayer={newPlayer}
                             setNewPlayer={setNewPlayer}
                             addingPlayer={addingPlayer}
                             onAddPlayer={handleAddPlayer}
-                            onDeletePlayer={(id) => setPlayerToDelete(id)}
                         />
                     )}
 
@@ -596,19 +626,6 @@ export default function CreateProductPage() {
                 </div>
             </div>
 
-            {/* Confirmación para eliminar jugador */}
-            <ConfirmDialog
-                open={playerToDelete !== null}
-                title="Eliminar jugador"
-                message="¿Eliminar este jugador de la plantilla del equipo?"
-                confirmLabel="Eliminar"
-                onConfirm={() => {
-                    if (playerToDelete) executeDeletePlayer(playerToDelete);
-                    setPlayerToDelete(null);
-                }}
-                onCancel={() => setPlayerToDelete(null)}
-            />
-
             {/* Confirmación para eliminar variante */}
             <ConfirmDialog
                 open={variantToDelete !== null}
@@ -626,3 +643,4 @@ export default function CreateProductPage() {
         </div>
     );
 }
+
