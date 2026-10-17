@@ -22,10 +22,10 @@ export default function ProductResultItem({
             data-search-item
             onMouseDown={(e) => e.stopPropagation()}
             onClick={onSelect}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left group cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 active:scale-[0.985] text-left group cursor-pointer ${
                 isActive
                     ? 'bg-primary/15 ring-1 ring-primary/30 shadow-[0_4px_16px_rgba(229,9,20,0.1)]'
-                    : 'hover:bg-white/5'
+                    : 'hover:bg-white/5 active:bg-white/[0.08]'
             }`}
         >
             <div className="w-11 h-14 rounded-lg overflow-hidden shrink-0 border border-white/10 bg-neutral-900 flex items-center justify-center p-0.5">

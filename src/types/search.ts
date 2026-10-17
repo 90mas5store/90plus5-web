@@ -36,4 +36,5 @@ export interface SearchBarProps {
     autoFocus?: boolean;
     onClose?: () => void;
     showCloseButton?: boolean;
+    isMobileModal?: boolean;
 }

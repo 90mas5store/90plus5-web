@@ -1,4 +1,5 @@
 import React from 'react';
+import { triggerHaptic } from '@/components/header/haptics';
 
 export type SearchFilterType = 'all' | 'players' | 'products' | 'categories' | 'leagues';
 
@@ -24,22 +25,23 @@ export default function SearchFilterTabs({
     const handleFilterClick = (e: React.MouseEvent, filter: SearchFilterType) => {
         e.preventDefault();
         e.stopPropagation();
+        triggerHaptic(8);
         onSelectFilter(filter);
     };
 
     return (
         <div
-            className="px-3 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none bg-white/[0.02]"
+            className="px-3 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none bg-white/[0.015] border-b border-white/[0.05]"
             onMouseDown={(e) => e.stopPropagation()}
         >
             <button
                 type="button"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => handleFilterClick(e, 'all')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer ${
                     activeFilter === 'all'
-                        ? 'bg-primary text-white shadow-[0_0_12px_rgba(229,9,20,0.5)] scale-[1.02]'
-                        : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                        ? 'bg-white/15 text-white border border-white/25 shadow-sm active:scale-95'
+                        : 'bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/5 active:scale-95'
                 }`}
             >
                 Todos ({totalCount})
@@ -49,10 +51,10 @@ export default function SearchFilterTabs({
                     type="button"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => handleFilterClick(e, 'players')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer ${
                         activeFilter === 'players'
-                            ? 'bg-primary text-white shadow-[0_0_12px_rgba(229,9,20,0.5)] scale-[1.02]'
-                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                            ? 'bg-purple-500/20 text-purple-200 border border-purple-500/35 shadow-sm active:scale-95'
+                            : 'bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/5 active:scale-95'
                     }`}
                 >
                     ⚽ Jugadores ({playerCount})
@@ -63,10 +65,10 @@ export default function SearchFilterTabs({
                     type="button"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => handleFilterClick(e, 'products')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer ${
                         activeFilter === 'products'
-                            ? 'bg-primary text-white shadow-[0_0_12px_rgba(229,9,20,0.5)] scale-[1.02]'
-                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                            ? 'bg-primary/20 text-red-200 border border-primary/35 shadow-sm active:scale-95'
+                            : 'bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/5 active:scale-95'
                     }`}
                 >
                     👕 Camisetas ({productCount})
@@ -77,10 +79,10 @@ export default function SearchFilterTabs({
                     type="button"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => handleFilterClick(e, 'leagues')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer ${
                         activeFilter === 'leagues'
-                            ? 'bg-primary text-white shadow-[0_0_12px_rgba(229,9,20,0.5)] scale-[1.02]'
-                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                            ? 'bg-amber-500/20 text-amber-200 border border-amber-500/35 shadow-sm active:scale-95'
+                            : 'bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/5 active:scale-95'
                     }`}
                 >
                     🏆 Ligas ({leagueCount})
@@ -91,10 +93,10 @@ export default function SearchFilterTabs({
                     type="button"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => handleFilterClick(e, 'categories')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer ${
                         activeFilter === 'categories'
-                            ? 'bg-primary text-white shadow-[0_0_12px_rgba(229,9,20,0.5)] scale-[1.02]'
-                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                            ? 'bg-blue-500/20 text-blue-200 border border-blue-500/35 shadow-sm active:scale-95'
+                            : 'bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/5 active:scale-95'
                     }`}
                 >
                     ⚡ Colecciones ({categoryCount})

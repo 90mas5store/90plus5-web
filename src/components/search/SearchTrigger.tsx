@@ -2,9 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from '@/lib/motion';
-import { Search, ArrowLeft } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import SearchBar from '@/components/ui/SearchBar';
+import { triggerHaptic } from '@/components/header/haptics';
+import { usePrefersReducedMotion } from '@/hooks/useOptimization';
+import { useSearchCatalog } from '@/hooks/useSearchCatalog';
+import { useRecentSearches } from '@/hooks/useRecentSearches';
+import SearchResultsDropdown from '@/components/search/SearchResultsDropdown';
+import { SearchResult } from '@/types/search';
 
 interface SearchTriggerProps {
     className?: string;
@@ -42,6 +49,8 @@ export default function SearchTrigger({
     const [shortcutKey, setShortcutKey] = useState('Ctrl K');
     const desktopContainerRef = useRef<HTMLDivElement>(null);
 
+    const prefersReducedMotion = usePrefersReducedMotion();
+
     useEffect(() => {
         setMounted(true);
         if (typeof navigator !== 'undefined') {
@@ -55,6 +64,17 @@ export default function SearchTrigger({
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    // Bloquear scroll de fondo en móvil mientras la búsqueda esté activa
+    useEffect(() => {
+        if (isOpen && isMobile) {
+            const originalOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = originalOverflow;
+            };
+        }
+    }, [isOpen, isMobile]);
 
     // Cmd+K / Ctrl+K to open, Escape to close
     useEffect(() => {
@@ -72,10 +92,65 @@ export default function SearchTrigger({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, setIsOpen]);
 
+    const router = useRouter();
+    const mobileInputRef = useRef<HTMLInputElement>(null);
+    const mobileResultsRef = useRef<HTMLDivElement>(null);
+
+    const { recentSearches, saveSearch, removeSearch, clearSearches } = useRecentSearches();
+    const { results, trendingSuggestions, topClubs, allClubs, loadCatalogData, isLoading } =
+        useSearchCatalog(searchValue, isOpen && isMobile);
+
+    useEffect(() => {
+        if (isOpen && isMobile) {
+            loadCatalogData();
+            const timer = setTimeout(() => {
+                mobileInputRef.current?.focus();
+            }, 60);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen, isMobile, loadCatalogData]);
+
     const handleClose = useCallback(() => {
         setIsOpen(false);
         setSearchValue('');
     }, [setIsOpen]);
+
+    const navigateToResult = useCallback(
+        (item: SearchResult) => {
+            triggerHaptic(12);
+            saveSearch(item.title);
+            handleClose();
+            router.push(item.href);
+        },
+        [handleClose, router, saveSearch]
+    );
+
+    const handleSubmitSearch = useCallback(
+        (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!searchValue.trim()) return;
+            triggerHaptic(10);
+            saveSearch(searchValue.trim());
+            handleClose();
+            router.push(`/catalogo?query=${encodeURIComponent(searchValue.trim())}`);
+        },
+        [searchValue, handleClose, router, saveSearch]
+    );
+
+    const handleSelectTerm = useCallback(
+        (term: string, href?: string) => {
+            triggerHaptic(8);
+            setSearchValue(term);
+            saveSearch(term);
+            if (href) {
+                handleClose();
+                router.push(href);
+            } else {
+                mobileInputRef.current?.focus();
+            }
+        },
+        [handleClose, router, saveSearch]
+    );
 
     const isPill = variant === 'pill';
     const isResponsive = variant === 'responsive';
@@ -94,7 +169,11 @@ export default function SearchTrigger({
                             initial={{ width: 220, opacity: 0 }}
                             animate={{ width: isResponsive ? 460 : 380, opacity: 1 }}
                             exit={{ width: 220, opacity: 0 }}
-                            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                            transition={
+                                prefersReducedMotion
+                                    ? { duration: 0.15 }
+                                    : { type: 'spring', damping: 30, stiffness: 350, mass: 0.8 }
+                            }
                             className="relative z-50 w-[340px] lg:w-[460px] xl:w-[540px]"
                         >
                             <SearchBar
@@ -122,7 +201,10 @@ export default function SearchTrigger({
                                     {/* Icono en tablet (768px a 1279px) */}
                                     <button
                                         type="button"
-                                        onClick={() => setIsOpen(true)}
+                                        onClick={() => {
+                                            triggerHaptic(10);
+                                            setIsOpen(true);
+                                        }}
                                         aria-label="Buscar productos"
                                         className={`xl:hidden relative w-10 h-10 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-90 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white transition-all shadow-sm cursor-pointer ${className}`}
                                     >
@@ -132,7 +214,10 @@ export default function SearchTrigger({
                                     {/* Pill Spotlight en escritorio grande (≥1280px) */}
                                     <button
                                         type="button"
-                                        onClick={() => setIsOpen(true)}
+                                        onClick={() => {
+                                            triggerHaptic(10);
+                                            setIsOpen(true);
+                                        }}
                                         aria-label="Buscar productos"
                                         className={`hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.10] active:scale-98 border border-white/10 hover:border-white/25 text-white/60 hover:text-white transition-all duration-200 backdrop-blur-md shadow-sm cursor-pointer w-[240px] 2xl:w-[270px] ${className}`}
                                     >
@@ -148,7 +233,10 @@ export default function SearchTrigger({
                             ) : isPill ? (
                                 <button
                                     type="button"
-                                    onClick={() => setIsOpen(true)}
+                                    onClick={() => {
+                                        triggerHaptic(10);
+                                        setIsOpen(true);
+                                    }}
                                     aria-label="Buscar productos"
                                     className={`flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.10] active:scale-98 border border-white/10 hover:border-white/25 text-white/60 hover:text-white transition-all duration-200 backdrop-blur-md shadow-sm cursor-pointer ${className}`}
                                 >
@@ -163,7 +251,10 @@ export default function SearchTrigger({
                             ) : (
                                 <button
                                     type="button"
-                                    onClick={() => setIsOpen(true)}
+                                    onClick={() => {
+                                        triggerHaptic(10);
+                                        setIsOpen(true);
+                                    }}
                                     aria-label="Buscar productos"
                                     className={`relative w-10 h-10 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-90 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white transition-all shadow-sm cursor-pointer ${className}`}
                                 >
@@ -180,7 +271,10 @@ export default function SearchTrigger({
             ═══════════════════════════════════════════════════════════════ */}
             <button
                 type="button"
-                onClick={() => setIsOpen(true)}
+                onClick={() => {
+                    triggerHaptic(12);
+                    setIsOpen(true);
+                }}
                 aria-label="Buscar productos"
                 className={`md:hidden relative w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-90 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white transition-all shadow-sm cursor-pointer ${className}`}
             >
@@ -188,58 +282,98 @@ export default function SearchTrigger({
             </button>
 
             {/* ═══════════════════════════════════════════════════════════════
-                MOBILE ORGANIC HEADER SEARCH TAKEOVER (<768px)
-                Con Safe-Area Inset nativo para iPhones con Notch/Dynamic Island
+                MOBILE FULL SCREEN SPOTLIGHT SEARCH TAKEOVER (<768px)
+                Apple Fluid Interface Standard: Translúcido, física de resorte,
+                specular hairline y control gestual limpio.
             ═══════════════════════════════════════════════════════════════ */}
             {mounted && isMobile &&
                 createPortal(
                     <AnimatePresence>
                         {isOpen && (
                             <motion.div
-                                initial={{ y: -80, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                exit={{ y: -80, opacity: 0 }}
-                                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                                className="md:hidden fixed top-0 left-0 right-0 z-[120] bg-[#0c0d12]/95 backdrop-blur-3xl border-b border-white/12 shadow-[0_16px_40px_rgba(0,0,0,0.85)]"
-                                style={{
-                                    paddingTop: 'env(safe-area-inset-top, 0px)',
-                                }}
+                                initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                                transition={
+                                    prefersReducedMotion
+                                        ? { duration: 0.15 }
+                                        : { type: 'spring', damping: 30, stiffness: 350, mass: 0.8 }
+                                }
+                                className="md:hidden fixed inset-0 z-[120] bg-[#090a0f] flex flex-col h-[100dvh] w-screen"
                             >
-                                <div className="flex items-center gap-2 px-3 h-16">
-                                    {/* Botón de Retroceso Orgánico */}
+                                {/* Header bar con specular hairline */}
+                                <div
+                                    className="relative flex items-center gap-2.5 px-3.5 shrink-0 border-b border-white/[0.08] bg-[#0c0d12]/95 backdrop-blur-2xl"
+                                    style={{
+                                        paddingTop: 'env(safe-area-inset-top, 0px)',
+                                        height: 'calc(4rem + env(safe-area-inset-top, 0px))',
+                                    }}
+                                >
+                                    {/* Specular light hairline catching light across the bottom */}
+                                    <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
+                                    {/* Input de Búsqueda Integrado Spotlight */}
+                                    <form onSubmit={handleSubmitSearch} className="flex-1 relative" role="search">
+                                        <div className="relative flex items-center">
+                                            <Search className="absolute left-3 w-[17px] h-[17px] text-white/45 pointer-events-none" />
+                                            <input
+                                                ref={mobileInputRef}
+                                                type="text"
+                                                placeholder={placeholder}
+                                                value={searchValue}
+                                                onChange={(e) => setSearchValue(e.target.value)}
+                                                autoComplete="off"
+                                                className="w-full py-2 pl-9 pr-9 bg-white/[0.08] text-[16px] text-white placeholder-white/40 outline-none rounded-xl font-medium tracking-tight border border-white/12 shadow-[0_2px_12px_rgba(0,0,0,0.25)] focus:border-white/30 transition-all"
+                                            />
+                                            {searchValue && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        triggerHaptic(6);
+                                                        setSearchValue('');
+                                                        mobileInputRef.current?.focus();
+                                                    }}
+                                                    aria-label="Limpiar búsqueda"
+                                                    className="absolute right-2.5 w-5 h-5 rounded-full bg-white/15 hover:bg-white/25 active:scale-90 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </form>
+
+                                    {/* Botón Cancelar Estilo iOS Spotlight (Single intuitive action) */}
                                     <button
                                         type="button"
-                                        onClick={handleClose}
-                                        aria-label="Volver y cerrar búsqueda"
-                                        className="p-2 text-white/60 hover:text-white active:scale-90 transition-all rounded-full cursor-pointer"
-                                    >
-                                        <ArrowLeft className="w-5 h-5" />
-                                    </button>
-
-                                    {/* Input de Búsqueda Integrado */}
-                                    <div className="flex-1 min-w-0">
-                                        <SearchBar
-                                            value={searchValue}
-                                            onChange={setSearchValue}
-                                            onNavigate={handleClose}
-                                            onClose={handleClose}
-                                            showCloseButton={false}
-                                            placeholder="Buscar camiseta, equipo, liga..."
-                                            enableLiveResults
-                                            autoFocus
-                                            className="w-full"
-                                        />
-                                    </div>
-
-                                    {/* Botón de Cancelar Único */}
-                                    <button
-                                        type="button"
-                                        onClick={handleClose}
+                                        onClick={() => {
+                                            triggerHaptic(6);
+                                            handleClose();
+                                        }}
                                         aria-label="Cancelar búsqueda"
-                                        className="px-2.5 py-1.5 text-xs font-semibold text-white/60 hover:text-white active:scale-95 transition-all tracking-tight shrink-0 cursor-pointer"
+                                        className="px-2 py-1 text-[15px] font-medium text-white/70 hover:text-white active:scale-95 active:text-white/40 transition-all tracking-tight shrink-0 cursor-pointer"
                                     >
                                         Cancelar
                                     </button>
+                                </div>
+
+                                {/* Body con Sugerencias y Resultados en el flujo natural de flexbox */}
+                                <div className="flex-1 min-h-0 w-full overflow-hidden bg-[#090a0f]">
+                                    <SearchResultsDropdown
+                                        value={searchValue}
+                                        results={results}
+                                        activeIndex={-1}
+                                        recentSearches={recentSearches}
+                                        trendingSuggestions={trendingSuggestions}
+                                        topClubs={topClubs}
+                                        allClubs={allClubs}
+                                        resultsRef={mobileResultsRef}
+                                        isLoading={isLoading}
+                                        onNavigateResult={navigateToResult}
+                                        onSubmitSearch={handleSubmitSearch}
+                                        onSelectTerm={handleSelectTerm}
+                                        onClearRecent={clearSearches}
+                                        onRemoveRecent={removeSearch}
+                                    />
                                 </div>
                             </motion.div>
                         )}

@@ -23,10 +23,10 @@ export default function CategoryResultItem({
             data-search-item
             onMouseDown={(e) => e.stopPropagation()}
             onClick={onSelect}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left group cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 active:scale-[0.985] text-left group cursor-pointer ${
                 isActive
                     ? 'bg-primary/15 ring-1 ring-primary/30'
-                    : 'hover:bg-white/5'
+                    : 'hover:bg-white/5 active:bg-white/[0.08]'
             }`}
         >
             <div

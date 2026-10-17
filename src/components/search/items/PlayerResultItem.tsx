@@ -22,10 +22,10 @@ export default function PlayerResultItem({
             data-search-item
             onMouseDown={(e) => e.stopPropagation()}
             onClick={onSelect}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left group cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 active:scale-[0.985] text-left group cursor-pointer ${
                 isActive
                     ? 'bg-purple-600/15 ring-1 ring-purple-500/40 shadow-[0_4px_16px_rgba(168,85,247,0.15)]'
-                    : 'hover:bg-white/5'
+                    : 'hover:bg-white/5 active:bg-white/[0.08]'
             }`}
         >
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">

@@ -71,15 +71,16 @@ export function usePrefersReducedMotion(): boolean {
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
     useEffect(() => {
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
         // Leer el valor real en el cliente tras montar
         setPrefersReducedMotion(mediaQuery.matches);
         const handleChange = (event: MediaQueryListEvent) => {
             setPrefersReducedMotion(event.matches);
         };
-        mediaQuery.addEventListener('change', handleChange);
+        mediaQuery.addEventListener?.('change', handleChange);
         return () => {
-            mediaQuery.removeEventListener('change', handleChange);
+            mediaQuery.removeEventListener?.('change', handleChange);
         };
     }, []);
 

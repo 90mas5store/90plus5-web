@@ -22,6 +22,7 @@ vi.mock("@/lib/motion", () => ({
 vi.mock("@/lib/api", () => ({
     getCatalog: vi.fn().mockResolvedValue([]),
     getConfig: vi.fn().mockResolvedValue({ categorias: [], ligas: [], marcas: [] }),
+    getSearchablePlayers: vi.fn().mockResolvedValue([]),
 }));
 
 // Mock ProductImage

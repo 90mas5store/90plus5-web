@@ -15,62 +15,95 @@ const normalize = (s: string) =>
         .normalize('NFD')
         .replace(/\p{Diacritic}/gu, '');
 
+// In-memory module-level cache so results stay warm across SearchBar mounts
+let globalCatalog: Product[] | null = null;
+let globalCategories: Category[] | null = null;
+let globalLeagues: League[] | null = null;
+let globalPlayers: SearchablePlayer[] | null = null;
+let globalFetchPromise: Promise<void> | null = null;
+
 export function useSearchCatalog(value: string, enableLiveResults: boolean = true) {
-    const [catalog, setCatalog] = useState<Product[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [leagues, setLeagues] = useState<League[]>([]);
-    const [players, setPlayers] = useState<SearchablePlayer[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [catalog, setCatalog] = useState<Product[]>(() => globalCatalog || []);
+    const [categories, setCategories] = useState<Category[]>(() => globalCategories || []);
+    const [leagues, setLeagues] = useState<League[]>(() => globalLeagues || []);
+    const [players, setPlayers] = useState<SearchablePlayer[]>(() => globalPlayers || []);
+    const [isLoaded, setIsLoaded] = useState(() => globalCatalog !== null);
     const [isLoading, setIsLoading] = useState(false);
-    const loadedRef = useRef(false);
 
     const liveMatches = useLiveMatches();
 
-    // Lazy load catalog and metadata
+    // Lazy load catalog and metadata with shared in-memory promise
     const loadCatalogData = useCallback(() => {
-        if (loadedRef.current || !enableLiveResults) return;
-        loadedRef.current = true;
-        setIsLoading(true);
+        if (!enableLiveResults) return;
 
-        Promise.all([
-            getCatalog().catch(() => []),
-            getConfig().catch(() => null),
-            getSearchablePlayers().catch(() => []),
+        // If already cached, sync state immediately
+        if (globalCatalog && globalPlayers) {
+            setCatalog(globalCatalog);
+            setCategories(globalCategories || []);
+            setLeagues(globalLeagues || []);
+            setPlayers(globalPlayers);
+            setIsLoaded(true);
+            return;
+        }
+
+        // If a request is already in-flight, await it
+        if (globalFetchPromise) {
+            setIsLoading(true);
+            globalFetchPromise.then(() => {
+                if (globalCatalog) setCatalog(globalCatalog);
+                if (globalCategories) setCategories(globalCategories);
+                if (globalLeagues) setLeagues(globalLeagues);
+                if (globalPlayers) setPlayers(globalPlayers);
+                setIsLoaded(true);
+                setIsLoading(false);
+            });
+            return;
+        }
+
+        setIsLoading(true);
+        const fetchCatalog = typeof getCatalog === 'function' ? getCatalog().catch(() => []) : Promise.resolve([]);
+        const fetchConfig = typeof getConfig === 'function' ? getConfig().catch(() => null) : Promise.resolve(null);
+        const fetchPlayers = typeof getSearchablePlayers === 'function' ? getSearchablePlayers().catch(() => []) : Promise.resolve([]);
+
+        globalFetchPromise = Promise.all([
+            fetchCatalog,
+            fetchConfig,
+            fetchPlayers,
         ])
             .then(([catData, cfgData, playersData]) => {
-                setCatalog(catData || []);
+                globalCatalog = catData || [];
                 if (cfgData) {
-                    setCategories(cfgData.categorias || []);
-                    setLeagues(cfgData.ligas || []);
+                    globalCategories = cfgData.categorias || [];
+                    globalLeagues = cfgData.ligas || [];
+                } else {
+                    globalCategories = [];
+                    globalLeagues = [];
                 }
-                setPlayers(playersData || []);
+                globalPlayers = playersData || [];
+
+                setCatalog(globalCatalog);
+                setCategories(globalCategories);
+                setLeagues(globalLeagues);
+                setPlayers(globalPlayers);
                 setIsLoaded(true);
             })
             .finally(() => {
                 setIsLoading(false);
+                globalFetchPromise = null;
             });
     }, [enableLiveResults]);
 
-    // Preload on idle
+    // Load data immediately on mount or query without idle delays
     useEffect(() => {
         if (!enableLiveResults) return;
-        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-            const handle = (window as unknown as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback(
-                () => {
-                    loadCatalogData();
-                },
-                { timeout: 3000 }
-            );
-            return () => {
-                if ('cancelIdleCallback' in window) {
-                    (window as unknown as { cancelIdleCallback: (h: number) => void }).cancelIdleCallback(handle);
-                }
-            };
-        } else {
-            const timer = setTimeout(loadCatalogData, 1500);
-            return () => clearTimeout(timer);
-        }
+        loadCatalogData();
     }, [enableLiveResults, loadCatalogData]);
+
+    useEffect(() => {
+        if (value && value.trim().length > 0 && !isLoaded) {
+            loadCatalogData();
+        }
+    }, [value, isLoaded, loadCatalogData]);
 
     // Dynamic Trending suggestions
     const trendingSuggestions = useMemo(() => {
