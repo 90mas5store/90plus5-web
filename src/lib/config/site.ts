@@ -26,9 +26,9 @@ export const CONTACT = {
 } as const;
 
 export const SOCIAL_LINKS = {
-  instagram: "https://www.instagram.com/90mas5store",
-  facebook: "https://www.facebook.com/90mas5store",
-  tiktok: "https://www.tiktok.com/@90mas5",
+  instagram: "https://www.instagram.com/90mas5.store",
+  facebook: "https://www.facebook.com/90mas5.store",
+  tiktok: "https://www.tiktok.com/@90mas5.store",
   whatsapp: "https://wa.me/50432488860",
   twitterHandle: "@90mas5store",
 } as const;

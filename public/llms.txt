@@ -16,9 +16,9 @@
 
 ## Canales de Atención y Redes
 - [Atención 1-a-1 por WhatsApp](https://wa.me/50432488860): Asesoría personalizada en medidas, tallas y dorsales con tipografía oficial (+504 3248-8860).
-- [Instagram Oficial](https://www.instagram.com/90mas5store): Novedades, fotografías reales de camisetas y lanzamientos.
-- [TikTok Oficial](https://www.tiktok.com/@90mas5): Videos de calidad de camisetas versión aficionado y versión jugador.
-- [Facebook Oficial](https://www.facebook.com/90mas5store): Comunidad oficial y anuncios de 90+5 Store.
+- [Instagram Oficial](https://www.instagram.com/90mas5.store): Novedades, fotografías reales de camisetas y lanzamientos.
+- [TikTok Oficial](https://www.tiktok.com/@90mas5.store): Videos de calidad de camisetas versión aficionado y versión jugador.
+- [Facebook Oficial](https://www.facebook.com/90mas5.store): Comunidad oficial y anuncios de 90+5 Store.
 
 ## Documentación Detallada (Opcional)
 - [Documentación Completa para LLMs](https://90mas5.store/llms-full.txt): Archivo llms-full.txt con información exhaustiva para modelos de IA y motores de búsqueda generativa (GEO).

@@ -14,8 +14,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         { url: `${BASE_URL}/catalogo`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.95 },
         { url: `${BASE_URL}/legal/envios`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.85 },
         { url: `${BASE_URL}/conectar`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
-        { url: `${BASE_URL}/catalogo?orden=top_sellers`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.85 },
-        { url: `${BASE_URL}/catalogo?categoria=retro`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.85 },
         { url: `${BASE_URL}/legal/terminos`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
         { url: `${BASE_URL}/legal/privacidad`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
     ]
@@ -115,7 +113,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                 priority: 0.8,
             }));
 
-        return [...staticRoutes, ...categoryRoutes, ...leagueRoutes, ...teamRoutes, ...brandRoutes, ...productRoutes]
+        const allRoutes = [...staticRoutes, ...categoryRoutes, ...leagueRoutes, ...teamRoutes, ...brandRoutes, ...productRoutes];
+        const uniqueRoutes = Array.from(new Map(allRoutes.map((r) => [r.url, r])).values());
+        return uniqueRoutes;
     } catch (error) {
         console.warn('Error generating sitemap:', error);
         return staticRoutes;
