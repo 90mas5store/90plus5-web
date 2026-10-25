@@ -305,7 +305,7 @@ export async function GET(req?: NextRequest) {
           homeScore: isNaN(homeScore) ? 0 : homeScore,
           awayScore: isNaN(awayScore) ? 0 : awayScore,
           minute: minuteNum,
-          displayClock: cleanDisplayClock,
+          displayClock: isUpcoming ? null : cleanDisplayClock,
           isHalftime,
           isHome: isHomeTeam,
           isManual: false,

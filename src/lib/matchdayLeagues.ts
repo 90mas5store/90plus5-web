@@ -37,6 +37,7 @@ export const DEFAULT_LEAGUES: LeagueDefinition[] = [
   { slug: 'arg.1', name: 'Liga Profesional Argentina', category: 'Ligas Principales', country: 'Argentina', flag: '🇦🇷' },
   { slug: 'por.1', name: 'Primeira Liga Portugal', category: 'Ligas Principales', country: 'Portugal', flag: '🇵🇹' },
   { slug: 'bra.1', name: 'Brasileirão Serie A', category: 'Ligas Principales', country: 'Brasil', flag: '🇧🇷' },
+  { slug: 'ksa.1', name: 'Saudi Pro League', category: 'Ligas Principales', country: 'Arabia Saudita', flag: '🇸🇦' },
 
   // ── Copas Nacionales Domésticas ─────────────────────────────────────────────
   { slug: 'arg.copa', name: 'Copa Argentina', category: 'Copas Nacionales', country: 'Argentina', flag: '🇦🇷' },
@@ -46,6 +47,7 @@ export const DEFAULT_LEAGUES: LeagueDefinition[] = [
   { slug: 'ita.coppa_italia', name: 'Coppa Italia', category: 'Copas Nacionales', country: 'Italia', flag: '🇮🇹' },
   { slug: 'ger.dfb_pokal', name: 'DFB-Pokal (Copa de Alemania)', category: 'Copas Nacionales', country: 'Alemania', flag: '🇩🇪' },
   { slug: 'fra.coupe_de_france', name: 'Coupe de France', category: 'Copas Nacionales', country: 'Francia', flag: '🇫🇷' },
+  { slug: 'ksa.kings_cup', name: "Copa del Rey de Campeones", category: 'Copas Nacionales', country: 'Arabia Saudita', flag: '🇸🇦' },
 
   // ── Torneos Continentales de Clubes ────────────────────────────────────────
   { slug: 'uefa.champions', name: 'UEFA Champions League', category: 'Torneos Continentales', flag: '🏆' },
@@ -55,6 +57,7 @@ export const DEFAULT_LEAGUES: LeagueDefinition[] = [
   { slug: 'conmebol.sudamericana', name: 'CONMEBOL Sudamericana', category: 'Torneos Continentales', flag: '🏆' },
   { slug: 'concacaf.champions', name: 'CONCACAF Champions Cup', category: 'Torneos Continentales', flag: '🏆' },
   { slug: 'concacaf.central.american.cup', name: 'Copa Centroamericana CONCACAF', category: 'Torneos Continentales', flag: '🏆' },
+  { slug: 'afc.champions', name: 'AFC Champions League Elite', category: 'Torneos Continentales', flag: '🏆' },
   { slug: 'fifa.cwc', name: 'Copa Mundial de Clubes FIFA', category: 'Torneos Continentales', flag: '🌐' },
 
   // ── Selecciones y Torneos FIFA ─────────────────────────────────────────────
@@ -325,6 +328,27 @@ export const POPULAR_TEAMS_DIRECTORY: TeamDiscoveryMapping[] = [
     flag: '🇳🇱',
     aliases: ['ajax', 'amsterdam'],
     leagueSlugs: ['ned.1', 'uefa.champions', 'uefa.europa'],
+  },
+  {
+    name: 'Al Nassr',
+    country: 'Arabia Saudita',
+    flag: '🇸🇦',
+    aliases: ['al nassr', 'al-nassr', 'al nassr fc'],
+    leagueSlugs: ['ksa.1', 'ksa.kings_cup', 'afc.champions', 'fifa.cwc'],
+  },
+  {
+    name: 'Al Hilal',
+    country: 'Arabia Saudita',
+    flag: '🇸🇦',
+    aliases: ['al hilal', 'al-hilal', 'al hilal sfc'],
+    leagueSlugs: ['ksa.1', 'ksa.kings_cup', 'afc.champions', 'fifa.cwc'],
+  },
+  {
+    name: 'Al Ittihad',
+    country: 'Arabia Saudita',
+    flag: '🇸🇦',
+    aliases: ['al ittihad', 'al-ittihad'],
+    leagueSlugs: ['ksa.1', 'ksa.kings_cup', 'afc.champions'],
   },
 ];
 

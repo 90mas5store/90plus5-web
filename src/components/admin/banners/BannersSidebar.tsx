@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { Plus, Image as ImageIcon, Loader2, Trash2 } from "lucide-react";
+import { Plus, Image as ImageIcon, Loader2, Trash2, Sliders } from "lucide-react";
 import { Banner } from "./types";
 
 interface BannersSidebarProps {
@@ -10,6 +10,7 @@ interface BannersSidebarProps {
     onSelectBanner: (banner: Banner) => void;
     onCreateNew: () => void;
     onDelete: (id: string, e?: React.MouseEvent) => void;
+    onOpenHeroSettings?: () => void;
 }
 
 export default function BannersSidebar({
@@ -19,6 +20,7 @@ export default function BannersSidebar({
     onSelectBanner,
     onCreateNew,
     onDelete,
+    onOpenHeroSettings,
 }: BannersSidebarProps) {
     return (
         <div className="w-full md:w-80 flex flex-col bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex-shrink-0">
@@ -109,6 +111,20 @@ export default function BannersSidebar({
                     ))
                 )}
             </div>
+
+            {/* Acceso a Configuración de Textos del Hero */}
+            {onOpenHeroSettings && (
+                <div className="p-3 border-t border-white/5 bg-white/[0.02]">
+                    <button
+                        type="button"
+                        onClick={onOpenHeroSettings}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 active:scale-95 cursor-pointer"
+                    >
+                        <Sliders size={14} className="text-primary" />
+                        <span>Textos & Elementos del Hero</span>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

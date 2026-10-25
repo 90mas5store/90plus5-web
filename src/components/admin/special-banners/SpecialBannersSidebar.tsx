@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { Plus, Image as ImageIcon, Loader2, Copy, Trash2 } from "lucide-react";
+import { Plus, Image as ImageIcon, Loader2, Copy, Trash2, Sliders } from "lucide-react";
 import { SpecialBanner } from "./types";
 
 interface SpecialBannersSidebarProps {
@@ -12,6 +12,7 @@ interface SpecialBannersSidebarProps {
     onDuplicate: (banner: SpecialBanner, e?: React.MouseEvent) => void;
     onDelete: (id: string, e?: React.MouseEvent) => void;
     onToggleActive: (banner: SpecialBanner, e?: React.MouseEvent) => void;
+    onOpenHeroSettings?: () => void;
 }
 
 export default function SpecialBannersSidebar({
@@ -23,6 +24,7 @@ export default function SpecialBannersSidebar({
     onDuplicate,
     onDelete,
     onToggleActive,
+    onOpenHeroSettings,
 }: SpecialBannersSidebarProps) {
     return (
         <div className="w-full md:w-80 flex flex-col bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex-shrink-0">
@@ -30,7 +32,9 @@ export default function SpecialBannersSidebar({
             <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                 <div>
                     <h2 className="text-base font-bold text-white tracking-wide">Banners Especiales</h2>
-                    <p className="text-xs text-gray-500 font-medium">{banners.length} campañas configuradas</p>
+                    <p className="text-xs text-gray-400 font-medium mt-0.5">
+                        {banners.filter(b => b.active).length} activos · Se muestran en el Hero del Home
+                    </p>
                 </div>
                 <button
                     onClick={onCreateNew}
@@ -53,48 +57,59 @@ export default function SpecialBannersSidebar({
                         Sin banners especiales. Crea uno nuevo.
                     </div>
                 ) : (
-                    banners.map(banner => (
-                        <div
-                            key={banner.id}
-                            onClick={() => onSelectBanner(banner)}
-                            className={`
-                                group relative flex items-center gap-3 p-2 pr-3 rounded-xl cursor-pointer transition-all duration-300 border
-                                ${selectedBannerId === banner.id
-                                    ? "bg-white/10 border-white/20 shadow-inner"
-                                    : "bg-transparent border-transparent hover:bg-white/5"
-                                }
-                            `}
-                        >
-                            {/* Thumbnail */}
-                            <div className="w-14 h-10 relative rounded-lg overflow-hidden bg-black shrink-0 border border-white/10 shadow-sm">
-                                {banner.background_image_url ? (
-                                    <Image src={banner.background_image_url} fill alt="" className="object-cover" sizes="56px" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-neutral-800">
-                                        <ImageIcon size={12} className="text-gray-600" />
-                                    </div>
-                                )}
-                            </div>
+                    banners.map(banner => {
+                        const activeList = banners.filter(b => b.active);
+                        const heroIndex = banner.active ? activeList.findIndex(b => b.id === banner.id) : -1;
 
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                                <h4 className={`text-xs font-bold truncate ${selectedBannerId === banner.id ? "text-white" : "text-gray-400 group-hover:text-gray-200"}`}>
-                                    {banner.title || <span className="italic opacity-50">Sin título</span>}
-                                </h4>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => onToggleActive(banner, e)}
-                                        className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border cursor-pointer transition-colors ${banner.active
-                                            ? "bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20"
-                                            : "bg-gray-700/30 text-gray-500 border-gray-600/30 hover:bg-gray-700/50"
-                                        }`}
-                                    >
-                                        {banner.active ? "ACTIVO" : "INACTIVO"}
-                                    </button>
-                                    <span className="ml-auto text-[9px] text-gray-600 font-mono">#{banner.sort_order}</span>
+                        return (
+                            <div
+                                key={banner.id}
+                                onClick={() => onSelectBanner(banner)}
+                                className={`
+                                    group relative flex items-center gap-3 p-2 pr-3 rounded-xl cursor-pointer transition-all duration-300 border
+                                    ${selectedBannerId === banner.id
+                                        ? "bg-white/10 border-white/20 shadow-inner"
+                                        : "bg-transparent border-transparent hover:bg-white/5"
+                                    }
+                                `}
+                            >
+                                {/* Thumbnail */}
+                                <div className="w-14 h-10 relative rounded-lg overflow-hidden bg-black shrink-0 border border-white/10 shadow-sm">
+                                    {banner.background_image_url ? (
+                                        <Image src={banner.background_image_url} fill alt="" className="object-cover" sizes="56px" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-neutral-800">
+                                            <ImageIcon size={12} className="text-gray-600" />
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
+
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                    <h4 className={`text-xs font-bold truncate ${selectedBannerId === banner.id ? "text-white" : "text-gray-400 group-hover:text-gray-200"}`}>
+                                        {banner.title || <span className="italic opacity-50">Sin título</span>}
+                                    </h4>
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => onToggleActive(banner, e)}
+                                            className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border cursor-pointer transition-colors ${banner.active
+                                                ? "bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20"
+                                                : "bg-gray-700/30 text-gray-500 border-gray-600/30 hover:bg-gray-700/50"
+                                            }`}
+                                        >
+                                            {banner.active ? "ACTIVO" : "INACTIVO"}
+                                        </button>
+
+                                        {heroIndex >= 0 && (
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                Hero #{heroIndex + 1}
+                                            </span>
+                                        )}
+
+                                        <span className="ml-auto text-[9px] text-gray-600 font-mono">#{banner.sort_order}</span>
+                                    </div>
+                                </div>
 
                             {/* Quick Actions */}
                             <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 rounded-lg p-1 flex gap-1 backdrop-blur-sm border border-white/10 shadow-xl">
@@ -116,9 +131,24 @@ export default function SpecialBannersSidebar({
                                 </button>
                             </div>
                         </div>
-                    ))
-                )}
+                    );
+                })
+            )}
             </div>
+
+            {/* Acceso a Configuración de Textos del Hero */}
+            {onOpenHeroSettings && (
+                <div className="p-3 border-t border-white/5 bg-white/[0.02]">
+                    <button
+                        type="button"
+                        onClick={onOpenHeroSettings}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 active:scale-95 cursor-pointer"
+                    >
+                        <Sliders size={14} className="text-primary" />
+                        <span>Textos & Elementos del Hero</span>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

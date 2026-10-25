@@ -7,9 +7,12 @@ import BannersSidebar from "@/components/admin/banners/BannersSidebar";
 import BannerMediaSection from "@/components/admin/banners/BannerMediaSection";
 import BannerPreview from "@/components/admin/banners/BannerPreview";
 import BannerContentSection from "@/components/admin/banners/BannerContentSection";
+import HeroShowcaseSettingsModal from "@/components/admin/HeroShowcaseSettingsModal";
 import { useBannersManager } from "@/components/admin/banners/useBannersManager";
 
 export default function BannersPage() {
+    const [isHeroModalOpen, setIsHeroModalOpen] = React.useState(false);
+
     const {
         banners,
         loading,
@@ -52,6 +55,7 @@ export default function BannersPage() {
                 onSelectBanner={handleSelectBanner}
                 onCreateNew={handleCreateNew}
                 onDelete={handleDelete}
+                onOpenHeroSettings={() => setIsHeroModalOpen(true)}
             />
 
             {/* === PANEL DE DETALLE (Main) === */}
@@ -168,6 +172,12 @@ export default function BannersPage() {
                 confirmLabel="Eliminar"
                 onConfirm={() => { if (deleteTarget) executeDelete(deleteTarget); setDeleteTarget(null); }}
                 onCancel={() => setDeleteTarget(null)}
+            />
+
+            {/* Modal para Editar Textos y Elementos del Hero sin nada hardcodeado */}
+            <HeroShowcaseSettingsModal
+                isOpen={isHeroModalOpen}
+                onClose={() => setIsHeroModalOpen(false)}
             />
         </div>
     );

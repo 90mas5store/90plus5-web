@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
                 id,
                 created_at,
                 status,
+                customer_name,
                 subtotal,
                 total_amount,
                 deposit_amount,
@@ -62,6 +63,9 @@ export async function GET(request: NextRequest) {
                     ),
                     product_variants (
                         version
+                    ),
+                    sizes (
+                        label
                     )
                 ),
                 payments:payments!payments_order_id_fkey (
@@ -194,6 +198,7 @@ export async function GET(request: NextRequest) {
             success: true,
             order: {
                 id: order.id,
+                customer_name: order.customer_name || null,
                 date: order.created_at,
                 location: `${order.shipping_municipality}, ${order.shipping_department}`,
                 items: order.order_items.map((item: Record<string, unknown>) => ({
@@ -202,6 +207,7 @@ export async function GET(request: NextRequest) {
                     quantity: item.quantity,
                     image: (item.products as Record<string, unknown>)?.image_url,
                     version: (item.product_variants as Record<string, unknown>)?.version,
+                    size: (item.sizes as Record<string, unknown>)?.label || null,
                     personalization: item.personalization_type !== 'none'
                         ? `${item.custom_number || ''} ${item.custom_name || ''}`.trim()
                         : null

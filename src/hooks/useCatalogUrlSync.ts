@@ -16,6 +16,7 @@ export function useCatalogUrlSync() {
     const temporadaParam = searchParams.get('temporada') || searchParams.get('season');
     const generoParam = searchParams.get('genero') || searchParams.get('gender');
     const precioParam = searchParams.get('precio') || searchParams.get('price');
+    const versionParam = searchParams.get('version');
     const ordenParam = (searchParams.get('orden') || searchParams.get('sortBy') || searchParams.get('sort')) as SortOption | null;
 
     const syncUrlWithFilters = useCallback((
@@ -84,6 +85,7 @@ export function useCatalogUrlSync() {
         temporadaParam,
         generoParam,
         precioParam,
+        versionParam,
         ordenParam,
         syncUrlWithFilters,
         clearAllFilters,

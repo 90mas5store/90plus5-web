@@ -9,9 +9,12 @@ import SpecialBannerCollectionSection from "@/components/admin/special-banners/S
 import SpecialBannerMediaSection from "@/components/admin/special-banners/SpecialBannerMediaSection";
 import SpecialBannerPreview from "@/components/admin/special-banners/SpecialBannerPreview";
 import SpecialBannerContentSection from "@/components/admin/special-banners/SpecialBannerContentSection";
+import HeroShowcaseSettingsModal from "@/components/admin/HeroShowcaseSettingsModal";
 import { useSpecialBannersManager } from "@/components/admin/special-banners/useSpecialBannersManager";
 
 export default function SpecialBannersPage() {
+    const [isHeroModalOpen, setIsHeroModalOpen] = React.useState(false);
+
     const {
         banners,
         loading,
@@ -59,6 +62,7 @@ export default function SpecialBannersPage() {
                 onDuplicate={handleDuplicate}
                 onDelete={handleDelete}
                 onToggleActive={handleToggleActive}
+                onOpenHeroSettings={() => setIsHeroModalOpen(true)}
             />
 
             {/* 2. Panel Principal de Detalle y Edición */}
@@ -167,6 +171,12 @@ export default function SpecialBannersPage() {
                 selectedProducts={collectionProducts}
                 onChange={setCollectionProducts}
                 bannerTitle={formData.title}
+            />
+
+            {/* Modal para Editar Textos y Elementos del Hero sin nada hardcodeado */}
+            <HeroShowcaseSettingsModal
+                isOpen={isHeroModalOpen}
+                onClose={() => setIsHeroModalOpen(false)}
             />
         </div>
     );

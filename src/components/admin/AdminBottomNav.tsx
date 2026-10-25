@@ -23,6 +23,8 @@ import {
     Sparkles,
     Calendar,
     Radio,
+    Megaphone,
+    Layers,
 } from 'lucide-react';
 
 interface AdminBottomNavProps {
@@ -73,6 +75,8 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
                 { label: 'Bancos & Pagos', href: '/admin/settings/bancos', icon: DollarSign },
                 { label: 'Tasa USD', href: '/admin/settings/tasa-cambio', icon: DollarSign },
                 { label: 'Temporada', href: '/admin/settings/temporada', icon: Calendar },
+                { label: 'Marquesina', href: '/admin/settings/marquesina', icon: Megaphone },
+                { label: 'Estilos Home', href: '/admin/settings/estilos-home', icon: Layers },
                 { label: 'Torneos Matchday', href: '/admin/settings/torneos', icon: Radio },
                 { label: 'Banners', href: '/admin/settings/banners', icon: LayoutTemplate },
                 { label: 'Especiales', href: '/admin/settings/special-banners', icon: Sparkles },

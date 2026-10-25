@@ -39,7 +39,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       if (teamObj?.name) {
         displayName = teamObj.name;
         customTitle = `Camisetas de ${displayName} en Honduras | ${SITE_CONFIG.name}`;
-        customDesc = `Compra camisetas oficiales de ${displayName} en Honduras. Versión jugador y aficionado temporada 25/26, personalización oficial y envíos a todo el país.`;
+        customDesc = `Compra camisetas oficiales de ${displayName} en Honduras. Versión jugador y aficionado, personalización oficial y envíos a todo el país.`;
       }
     } catch { /* fallback */ }
   } else if (marcaParam && config?.marcas) {
@@ -132,6 +132,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
   const ordenParam = (getSingleParam("orden") || getSingleParam("sortBy") || getSingleParam("sort")) as import('../../components/catalogo/CatalogFilterPanel').SortOption | undefined;
   const equipoParam = getSingleParam("equipo") || getSingleParam("team");
   const marcaParam = getSingleParam("marca") || getSingleParam("brand");
+  const versionParam = getSingleParam("version");
 
   // 3. Resolver Slugs a IDs
   // Normalización simple para coincidir con la lógica del cliente
@@ -212,6 +213,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
       brandId: brandId || marcaParam,
       gender: generoParam,
       season: temporadaParam,
+      version: versionParam,
       sortBy: ordenParam,
       priceMin,
       priceMax,

@@ -7,6 +7,30 @@ import type { LeagueDefinition } from './matchdayLeagues';
  */
 export const ESPN_GLOBAL_LEAGUES_CATALOG: LeagueDefinition[] = [
   {
+    "slug": "ksa.1",
+    "name": "Saudi Pro League",
+    "category": "Ligas Principales",
+    "country": "Arabia Saudita",
+    "flag": "🇸🇦",
+    "keywords": ["saudi", "saudi pro league", "arabia", "arabia saudita", "al nassr", "al hilal", "al ittihad", "cr7", "ronaldo", "ksa.1"]
+  },
+  {
+    "slug": "ksa.kings_cup",
+    "name": "Copa del Rey de Campeones",
+    "category": "Copas Nacionales",
+    "country": "Arabia Saudita",
+    "flag": "🇸🇦",
+    "keywords": ["king cup", "kings cup", "copa del rey arabia", "al nassr", "al hilal", "ksa.kings_cup"]
+  },
+  {
+    "slug": "afc.champions",
+    "name": "AFC Champions League Elite",
+    "category": "Torneos Continentales",
+    "country": "Asia / AFC",
+    "flag": "🏆",
+    "keywords": ["afc", "asia", "champions asia", "afc champions league", "al nassr", "al hilal"]
+  },
+  {
     "slug": "fifa.world",
     "name": "FIFA World Cup",
     "category": "Selecciones & FIFA",

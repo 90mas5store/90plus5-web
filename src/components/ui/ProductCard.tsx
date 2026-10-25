@@ -95,54 +95,39 @@ export default function ProductCard({ item, priority = false, onPress, enableGlo
             )}
 
             {/* 🔥 Badges estilo Apple Capsule: MATCHDAY / TOP */}
+            {/* 🔥 Badge de Partido o Top Seller — 1 sola cápsula elegante y compacta estilo Apple */}
             {(isLive || topSeller) && (
-                <div className="absolute top-3 right-3 sm:top-3.5 sm:right-3.5 z-20 flex flex-col gap-1 items-end">
+                <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20">
                     {isLive && liveMatch && (
-                        <>
-                            <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-bold tracking-tight text-white backdrop-blur-md shadow-md border ${
-                                liveMatch.isFinished
-                                    ? 'bg-amber-600/80 border-amber-400/30 shadow-[0_0_12px_rgba(217,119,6,0.4)]'
-                                    : liveMatch.isUpcoming
-                                        ? 'bg-blue-600/80 border-blue-400/30 shadow-[0_0_12px_rgba(37,99,235,0.4)]'
-                                        : 'bg-red-600/85 border-red-400/40 shadow-[0_0_14px_rgba(229,9,20,0.5)] animate-pulse'
-                            }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                    liveMatch.isFinished ? 'bg-amber-300' : liveMatch.isUpcoming ? 'bg-blue-300' : 'bg-white animate-ping'
-                                }`} />
-                                <span>{liveMatch.isFinished ? 'FINAL' : liveMatch.isUpcoming ? 'PRÓXIMO' : 'EN VIVO'}</span>
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] md:text-[11px] font-bold tracking-tight backdrop-blur-md shadow-md border ${
+                            liveMatch.isFinished
+                                ? 'bg-black/65 border-amber-500/30 text-amber-300'
+                                : liveMatch.isUpcoming
+                                    ? 'bg-black/65 border-blue-500/30 text-blue-200'
+                                    : 'bg-red-950/80 border-red-500/40 text-red-200'
+                        }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                liveMatch.isFinished ? 'bg-amber-400' : liveMatch.isUpcoming ? 'bg-blue-400' : 'bg-red-400 animate-ping'
+                            }`} />
+                            <span className="whitespace-nowrap">
+                                {liveMatch.isUpcoming
+                                    ? (opponentAbbr ? `vs ${opponentAbbr}` : 'PRÓXIMO')
+                                    : liveMatch.isFinished
+                                        ? (opponentAbbr ? `vs ${opponentAbbr} · ${ourScore}-${theirScore}` : 'FINAL')
+                                        : (opponentAbbr ? `vs ${opponentAbbr} · ${ourScore}-${theirScore}` : 'EN VIVO')}
                             </span>
-                            {opponentAbbr && !liveMatch.isManual && (
-                                <span className="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-mono font-bold bg-black/60 backdrop-blur-md text-white/90 border border-white/15 whitespace-nowrap shadow-sm">
-                                    {liveMatch.isUpcoming
-                                        ? `vs ${opponentAbbr} · ${liveMatch.startTime || 'Hoy'}`
-                                        : `vs ${opponentAbbr} · ${ourScore}-${theirScore}`
-                                    }
-                                </span>
-                            )}
-                            {/* Micro-detalle de goles */}
-                            {liveMatch.events && liveMatch.events.some(e => e.type === 'goal') && (
-                                <span className="hidden group-hover:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-neutral-900/90 text-red-200 border border-red-500/30 shadow-md backdrop-blur-md">
-                                    <span>⚽</span>
-                                    <span className="truncate max-w-[130px]">
-                                        {liveMatch.events
-                                            .filter(e => e.type === 'goal')
-                                            .slice(0, 2)
-                                            .map(g => `${g.playerName.split(' ').pop()} ${g.minute}`)
-                                            .join(', ')}
-                                    </span>
-                                </span>
-                            )}
-                        </>
+                        </div>
                     )}
                     {isLive && !liveMatch && (
-                        <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-red-600/85 backdrop-blur-md text-white border border-red-400/40 shadow-[0_0_12px_rgba(229,9,20,0.5)] animate-pulse">
-                            ⚡ MATCHDAY
-                        </span>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] md:text-[11px] font-bold bg-red-950/80 backdrop-blur-md text-red-200 border border-red-500/30 shadow-md">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping" />
+                            <span>MATCHDAY</span>
+                        </div>
                     )}
                     {!isLive && topSeller && (
-                        <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-amber-500/90 backdrop-blur-md text-black shadow-[0_0_12px_rgba(245,158,11,0.4)]">
-                            🔥 TOP
-                        </span>
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] md:text-[11px] font-bold bg-black/65 backdrop-blur-md text-amber-300 border border-amber-400/30 shadow-md">
+                            <span>🔥 TOP</span>
+                        </div>
                     )}
                 </div>
             )}

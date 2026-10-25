@@ -25,6 +25,7 @@ export interface CatalogParams {
   priceMax?: number;
   topSellerIds?: string[];
   season?: string;
+  version?: string;
 }
 
 // ✅ Cliente Supabase inicializado correctamente
@@ -789,6 +790,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     priceMax,
     topSellerIds = [],
     season = params.season,
+    version = params.version,
   } = params;
 
   // 0️⃣ Resolución robusta de slugs para teamId y brandId (evita error UUID de Postgres)
@@ -880,6 +882,15 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
         const { data: fallbackData } = await fallbackQuery;
         if (fallbackData && fallbackData.length > 0) {
           ids = fallbackData.map((p: { id: string }) => p.id);
+        } else if (cleanTerm.includes('jugador') || cleanTerm.includes('player')) {
+          const { data: vProds } = await supabase
+            .from('product_variants')
+            .select('product_id')
+            .eq('version', 'Player')
+            .eq('active', true);
+          if (vProds && vProds.length > 0) {
+            ids = Array.from(new Set<string>(vProds.map((v: { product_id: string }) => v.product_id))).slice(from, from + limit);
+          }
         }
       } catch (fbErr) {
         console.warn("Search fallback exception:", fbErr);
@@ -994,6 +1005,26 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     }
   }
 
+  // 0.5 Pre-filtrado por versión (ej: Versión Jugador / Player Issue)
+  let versionFilterIds: Set<string> | null = null;
+  if (version) {
+    const normVersion = (version.toLowerCase().includes('jugador') || version.toLowerCase().includes('player'))
+      ? 'Player'
+      : (version.toLowerCase().includes('fan') || version.toLowerCase().includes('aficionado'))
+        ? 'Fan'
+        : version;
+    const { data: vData } = await supabase
+      .from('product_variants')
+      .select('product_id')
+      .eq('version', normVersion)
+      .eq('active', true);
+    if (vData && vData.length > 0) {
+      versionFilterIds = new Set(vData.map((v: { product_id: string }) => v.product_id));
+    } else {
+      versionFilterIds = new Set();
+    }
+  }
+
   // 1. Obtener Metadatos para Ordenamiento (ID, Nombre Equipo, Nombre Producto)
 
   let metadataQuery = supabase
@@ -1042,6 +1073,9 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   if (genderFilterIds) {
     filteredMetadata = filteredMetadata.filter((item) => genderFilterIds!.has(item.id as string));
   }
+  if (versionFilterIds) {
+    filteredMetadata = filteredMetadata.filter((item) => versionFilterIds!.has(item.id as string));
+  }
   if (season) {
     const targetSeason = season.trim().toLowerCase().replace(/[\/\-_]/g, '');
     filteredMetadata = filteredMetadata.filter((item) => {
@@ -1059,26 +1093,26 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
   const sortedMetadata = needsPostSort
     ? filteredMetadata // Se ordenará después con datos completos
     : filteredMetadata.sort((a, b) => {
-        const teamsA = Array.isArray(a.teams) ? a.teams[0] : a.teams;
-        const teamsB = Array.isArray(b.teams) ? b.teams[0] : b.teams;
-        const brandsA = Array.isArray(a.brands) ? a.brands[0] : a.brands;
-        const brandsB = Array.isArray(b.brands) ? b.brands[0] : b.brands;
-        const groupA = (teamsA?.name || brandsA?.name || "zzz").toLowerCase().trim();
-        const groupB = (teamsB?.name || brandsB?.name || "zzz").toLowerCase().trim();
+      const teamsA = Array.isArray(a.teams) ? a.teams[0] : a.teams;
+      const teamsB = Array.isArray(b.teams) ? b.teams[0] : b.teams;
+      const brandsA = Array.isArray(a.brands) ? a.brands[0] : a.brands;
+      const brandsB = Array.isArray(b.brands) ? b.brands[0] : b.brands;
+      const groupA = (teamsA?.name || brandsA?.name || "zzz").toLowerCase().trim();
+      const groupB = (teamsB?.name || brandsB?.name || "zzz").toLowerCase().trim();
 
-        // 1️⃣ Nombre del Equipo / Marca (A-Z)
-        const groupCompare = groupA.localeCompare(groupB);
-        if (groupCompare !== 0) return groupCompare;
+      // 1️⃣ Nombre del Equipo / Marca (A-Z)
+      const groupCompare = groupA.localeCompare(groupB);
+      if (groupCompare !== 0) return groupCompare;
 
-        // 2️⃣ Temporada / Año (Nuevo-Viejo, en blanco/null al final)
-        const seasonCompare = compareSeasonsNewestFirst(a.season as string | undefined, b.season as string | undefined);
-        if (seasonCompare !== 0) return seasonCompare;
+      // 2️⃣ Temporada / Año (Nuevo-Viejo, en blanco/null al final)
+      const seasonCompare = compareSeasonsNewestFirst(a.season as string | undefined, b.season as string | undefined);
+      if (seasonCompare !== 0) return seasonCompare;
 
-        // 3️⃣ Nombre del Modelo / Producto (A-Z)
-        const nameA = (a.name || "").toLowerCase().trim();
-        const nameB = (b.name || "").toLowerCase().trim();
-        return nameA.localeCompare(nameB);
-      });
+      // 3️⃣ Nombre del Modelo / Producto (A-Z)
+      const nameA = (a.name || "").toLowerCase().trim();
+      const nameB = (b.name || "").toLowerCase().trim();
+      return nameA.localeCompare(nameB);
+    });
 
   // 5. Paginación
   const totalCount = sortedMetadata.length;

@@ -81,6 +81,24 @@ export default function MatchdayHeroTakeover() {
     const scoreDiff = getStatusScore(matchB) - getStatusScore(matchA);
     if (scoreDiff !== 0) return scoreDiff;
 
+    // 1.1 Si ambos están EN JUEGO: del que viene iniciando al que ya está por terminar (minuto menor a mayor)
+    const isLiveA = !matchA.isFinished && !matchA.isUpcoming;
+    const isLiveB = !matchB.isFinished && !matchB.isUpcoming;
+    if (isLiveA && isLiveB) {
+      const getMinute = (m: LiveMatchData) => {
+        if (m.minute != null && !isNaN(m.minute)) return m.minute;
+        if (m.isHalftime) return 45;
+        if (m.displayClock) {
+          const parsed = m.displayClock.match(/^(\d+)/);
+          if (parsed) return parseInt(parsed[1], 10);
+        }
+        return 0;
+      };
+      const minA = getMinute(matchA);
+      const minB = getMinute(matchB);
+      if (minA !== minB) return minA - minB;
+    }
+
     // 2. Si ambos son PRÓXIMOS: Orden cronológico ascendente (el más temprano del día primero)
     if (matchA.isUpcoming && matchB.isUpcoming) {
       const timeA = matchA.eventTimestamp || (matchA.rawDate ? new Date(matchA.rawDate).getTime() : 0);

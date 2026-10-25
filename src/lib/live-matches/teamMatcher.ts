@@ -7,6 +7,12 @@ export function normalizeTeamName(name: string): string {
   if (!name) return '';
   return name
     .toLowerCase()
+    .replace(/[øØ]/g, 'o')
+    .replace(/[æÆ]/g, 'ae')
+    .replace(/[åÅ]/g, 'a')
+    .replace(/[ß]/g, 'ss')
+    .replace(/[łŁ]/g, 'l')
+    .replace(/[đĐ]/g, 'd')
     .normalize('NFD')
     // Compatible con todos los runtimes (sin Unicode property escapes)
     .replace(/[\u0300-\u036f]/g, '')
@@ -20,6 +26,7 @@ export function normalizeTeamName(name: string): string {
 // ALIAS: DB Supabase ↔ ESPN API
 // ─────────────────────────────────────────────────────────────────────────────
 export const TEAM_ALIASES: Record<string, string[]> = {
+  'bodo glimt': ['bodo glimt', 'bodo/glimt', 'fk bodo/glimt', 'bodoglimt', 'fk bodo glimt'],
   // Selecciones Nacionales
   'espana': ['spain', 'seleccion espanola'],
   'alemania': ['germany', 'dfb team'],
@@ -102,6 +109,7 @@ export const DEFAULT_FALLBACK_TEAMS = [
   { id: '3d781df1-cc3b-4b7f-8135-9171128fae49', name: 'Atlético de Madrid', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1775544295185-t8jsvrk5gm.svg' },
   { id: '321b4200-0969-4c1e-bc68-bb835436769d', name: 'España', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1774740806567-zokm3f8scb.svg' },
   { id: '6c238d61-9ba4-4847-98a9-395a44731fd8', name: 'Argentina', logo_url: 'https://fhvxolslqrrkefsvbcrq.supabase.co/storage/v1/object/public/products/1768976768804-c67yaqe3x39.svg' },
+  { id: '48d948a9-247a-4470-9d37-aaf96e3117f5', name: 'Al Nassr' },
 ];
 
 export function formatCompetitionName(rawName?: string | null): string | null {
@@ -152,6 +160,9 @@ export function formatCompetitionName(rawName?: string | null): string | null {
   if (lower.includes('coupe de france') || lower.includes('fra.coupe_de_france')) return 'Copa de Francia';
   if (lower.includes('cwc') || lower.includes('club world cup') || lower.includes('fifa.cwc')) return 'Mundial de Clubes FIFA';
   if (lower.includes('super cup') || lower.includes('supercup') || lower.includes('uefa.super_cup')) return 'Supercopa de Europa';
+  if (lower.includes('saudi') || lower.includes('ksa.1') || lower.includes('saudi pro league')) return 'Saudi Pro League';
+  if (lower.includes('king cup') || lower.includes('kings cup') || lower.includes('ksa.kings_cup')) return 'Copa del Rey de Campeones';
+  if (lower.includes('afc champions') || lower.includes('afc.champions')) return 'AFC Champions League Elite';
   if (lower.includes('mls') || lower.includes('major league soccer')) return 'MLS';
   if (lower.includes('liga mx')) return 'Liga MX';
   if (lower.includes('friendly') || lower.includes('amistoso')) return 'Amistoso Internacional';

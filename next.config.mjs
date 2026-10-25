@@ -74,6 +74,11 @@ const nextConfig = {
         hostname: 'a.espncdn.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
     ],
     // 🎨 Permitir SVG en el componente Image (necesario para logos de bancos)
     dangerouslyAllowSVG: true,

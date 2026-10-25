@@ -13,6 +13,7 @@ import {
     AlertCircle,
     Info,
     Eye,
+    Megaphone,
 } from 'lucide-react';
 import useToastMessage from '@/hooks/useToastMessage';
 
@@ -137,6 +138,14 @@ export default function AdminSeasonSettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <Link
+                        href="/admin/settings/marquesina"
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                        title="Ir a configurar la marquesina superior"
+                    >
+                        <Megaphone className="w-3.5 h-3.5 text-primary" />
+                        <span>Marquesina</span>
+                    </Link>
                     <button
                         type="button"
                         onClick={loadConfig}

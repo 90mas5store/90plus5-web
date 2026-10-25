@@ -5,14 +5,16 @@ import dynamic from 'next/dynamic';
 import { Config, Product } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 
-import CatalogFilterPanel, {
+import {
     CatalogFilters,
     DEFAULT_FILTERS,
 } from '@/components/catalogo/CatalogFilterPanel';
+import CatalogHeroPro from '@/components/catalogo/CatalogHeroPro';
+import CatalogLeagueNav from '@/components/catalogo/CatalogLeagueNav';
+import CatalogControlBar from '@/components/catalogo/CatalogControlBar';
 import ActiveFilterChips from '@/components/catalogo/ActiveFilterChips';
 import BrandFilterChips from '@/components/catalogo/BrandFilterChips';
 import ProductGridSection from '@/components/catalogo/ProductGridSection';
-import CategoryCarouselSection from '@/components/catalogo/CategoryCarouselSection';
 
 import useToastMessage from '@/hooks/useToastMessage';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
@@ -21,15 +23,6 @@ import { usePrefersReducedMotion } from '@/hooks/useOptimization';
 import { useCatalogUrlSync } from '@/hooks/useCatalogUrlSync';
 import { useCatalogMetadata, normalizeText } from '@/hooks/useCatalogMetadata';
 import { useCatalogProducts } from '@/hooks/useCatalogProducts';
-
-const EquipoFilter = dynamic(() => import('@/components/catalogo/EquipoFilter'), {
-    ssr: false,
-});
-
-const CatalogHeroContainer = dynamic(() => import('@/components/catalogo/CatalogHeroContainer'), {
-    ssr: true,
-    loading: () => <div className="h-[35dvh] md:h-[55dvh] w-full bg-neutral-900 animate-pulse mb-4" />,
-});
 
 interface CatalogoContentProps {
     initialConfig?: Config | null;
@@ -55,6 +48,7 @@ export default function CatalogoContent({
         temporadaParam,
         generoParam,
         precioParam,
+        versionParam,
         ordenParam,
         syncUrlWithFilters,
         clearAllFilters,
@@ -103,7 +97,7 @@ export default function CatalogoContent({
         loading,
         loadingMore,
         contentRef,
-        shouldScrollOnFilter,
+        shouldScrollOnFilterRef,
         availableSeasons,
         handleLoadMore,
     } = useCatalogProducts({
@@ -119,6 +113,7 @@ export default function CatalogoContent({
         config,
         categoriaParam,
         ligaParam,
+        versionParam,
         toast,
     });
 
@@ -265,13 +260,13 @@ export default function CatalogoContent({
         setLigaSeleccionada(nuevaLiga);
         // Solo hacer auto-scroll si el usuario ya bajó viendo productos
         if (nuevaLiga && typeof window !== 'undefined' && window.scrollY > 300) {
-            shouldScrollOnFilter.current = true;
+            shouldScrollOnFilterRef.current = true;
         } else {
-            shouldScrollOnFilter.current = false;
+            shouldScrollOnFilterRef.current = false;
         }
         const lObj = ligas.find((l) => normalizeText(l.nombre) === normalizeText(nuevaLiga));
         handleSync({ liga: lObj?.slug || nuevaLiga || null, equipo: null, marca: null });
-    }, [ligaSeleccionada, setLigaSeleccionada, shouldScrollOnFilter, ligas, handleSync]);
+    }, [ligaSeleccionada, setLigaSeleccionada, shouldScrollOnFilterRef, ligas, handleSync]);
 
     const handleSelectBrand = useCallback((brandName: string) => {
         const brand = categoryBrands.find((b) => b.name === brandName);
@@ -280,12 +275,12 @@ export default function CatalogoContent({
         setMarcaSeleccionada(newBrand);
         setEquipoSeleccionado(null);
         if (newBrand && typeof window !== 'undefined' && window.scrollY > 300) {
-            shouldScrollOnFilter.current = true;
+            shouldScrollOnFilterRef.current = true;
         } else {
-            shouldScrollOnFilter.current = false;
+            shouldScrollOnFilterRef.current = false;
         }
         handleSync({ marca: newBrand, equipo: null });
-    }, [categoryBrands, marcaSeleccionada, shouldScrollOnFilter, handleSync]);
+    }, [categoryBrands, marcaSeleccionada, shouldScrollOnFilterRef, handleSync]);
 
     const handleClearAll = useCallback(() => {
         setCategoriaSeleccionada(null);
@@ -308,6 +303,17 @@ export default function CatalogoContent({
         handleSync({ categoria: slug, liga: null, equipo: null, marca: null });
     }, [setCategoriaSeleccionada, setLigaSeleccionada, handleSync, handleClearAll]);
 
+    const handleSelectTeam = useCallback(
+        (id: string | null) => {
+            const newEq = equipoSeleccionado === id ? null : id;
+            setEquipoSeleccionado(newEq);
+            setMarcaSeleccionada(null);
+            shouldScrollOnFilterRef.current = false;
+            handleSync({ equipo: newEq, marca: null });
+        },
+        [equipoSeleccionado, setEquipoSeleccionado, shouldScrollOnFilterRef, handleSync]
+    );
+
     const handleClearLeague = useCallback(() => {
         setLigaSeleccionada(null);
         setEquipoSeleccionado(null);
@@ -318,48 +324,69 @@ export default function CatalogoContent({
     usePrefetch();
     useProductPrefetch(productos.slice(0, 4));
 
+    // En /catalogo general: mostrar todas las ligas sin restricciones.
+    // Solo cuando hay una categoría activa (ej. Futbol, Formula1, Mundial 2026), filtrar estrictamente por category_id.
+    const filteredLigas = useMemo(() => {
+        if (!selectedCategoryObj?.id) {
+            return ligas;
+        }
+
+        return ligas.filter((l) => l.category_id === selectedCategoryObj.id);
+    }, [ligas, selectedCategoryObj]);
+
     return (
         <main
-            className="min-h-dvh bg-black text-white pb-24 relative overflow-hidden"
+            className="min-h-dvh bg-[#07080a] text-white pb-24 relative overflow-hidden selection:bg-primary selection:text-white"
             style={{ paddingTop: 'calc(var(--header-height, 4.5rem) + 0.25rem)' }}
         >
+            {/* Resplandor atmosférico superior centrado */}
+            <div
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[450px] bg-primary/[0.04] blur-[140px] pointer-events-none -z-10"
+                aria-hidden="true"
+            />
+
             {/* Ancla para scroll respetando el header fijo */}
             <div ref={contentRef} className="scroll-mt-[calc(var(--header-height,4.5rem)+1rem)]" />
 
-            {/* SEO: h1 semántico */}
+            {/* SEO: h1 semántico accesible */}
             <h1 className="sr-only">
                 {selectedCategoryObj?.nombre || ligaSeleccionada
                     ? `Prendas y Colecciones — ${selectedCategoryObj?.nombre || ligaSeleccionada}`
                     : 'Catálogo de Ropa y Prendas Deportivas en Honduras'}
             </h1>
 
-            {/* HEADER DE CONTEXTO / BANNER (Apple Design) */}
-            <CatalogHeroContainer
+            {/* 1. HERO CONTEXTUAL COMPACTO (Estilo Apple / Nike Pro) */}
+            <CatalogHeroPro
                 categorySlug={categoriaSeleccionada}
                 leagueSlug={ligaParam}
-                categoryName={selectedCategoryObj?.nombre || undefined}
+                categoryName={selectedCategoryObj?.nombre}
                 leagueName={selectedLeagueObj?.nombre || ligaSeleccionada || undefined}
-                adjacentCategories={adjacentCategories}
-                prefersReducedMotion={prefersReducedMotion}
-                imagePositionDesktop={selectedCategoryObj?.hero_image_position_desktop}
-                imagePositionMobile={selectedCategoryObj?.hero_image_position_mobile}
+                teamName={activeTeamName}
+                brandName={activeBrandName}
                 totalProducts={totalProducts}
                 leagueLogo={selectedLeagueObj?.imagen}
-                categoryIcon={selectedCategoryObj?.icon_url}
-                teamName={fetchedTeamName || equipoSeleccionado}
-                brandName={marcaSeleccionada}
                 onClearFilter={handleClearAll}
                 onClearLeague={handleClearLeague}
             />
 
-            {/* FILTROS AVANZADOS */}
-            <CatalogFilterPanel
-                showGender={showGenderFilter}
+            {/* 2. NAVEGACIÓN UNIFICADA DE LIGAS Y CLUBES (Heredada de HomeLeagueNav) */}
+            <CatalogLeagueNav
+                ligas={filteredLigas}
+                ligaSeleccionada={ligaSeleccionada}
+                onSelectLeague={handleSelectLeague}
+                teams={teams}
+                equipoSeleccionado={equipoSeleccionado}
+                onSelectTeam={handleSelectTeam}
+                categoryName={selectedCategoryObj?.nombre}
+                categorySlug={selectedCategoryObj?.slug}
+            />
+
+            {/* 3. BARRA DE CONTROL INTELIGENTE (Filtros rápidos, Orden y Drawer) */}
+            <CatalogControlBar
                 filters={catalogFilters}
-                availableSeasons={availableSeasons}
                 onFiltersChange={(newFilters) => {
                     setCatalogFilters(newFilters);
-                    shouldScrollOnFilter.current = false;
+                    shouldScrollOnFilterRef.current = false;
                     handleSync({
                         temporada: newFilters.season,
                         genero: newFilters.gender,
@@ -367,36 +394,13 @@ export default function CatalogoContent({
                         orden: newFilters.sortBy,
                     });
                 }}
+                totalProducts={totalProducts}
+                showGender={showGenderFilter}
+                availableSeasons={availableSeasons}
             />
 
-            {/* CARRUSEL DE LIGAS / MARCAS */}
-            <CategoryCarouselSection
-                currentCarrusel={currentCarrusel}
-                ligaSeleccionada={ligaSeleccionada}
-                marcaSeleccionada={marcaSeleccionada}
-                categoryBrands={categoryBrands}
-                onSelectLeague={handleSelectLeague}
-                onSelectBrand={handleSelectBrand}
-            />
-
-            {/* FILTRO DE EQUIPOS */}
-            {teams.length >= 2 && (
-                <EquipoFilter
-                    teams={teams}
-                    selected={equipoSeleccionado}
-                    onSelect={(id) => {
-                        const newEq = equipoSeleccionado === id ? null : id;
-                        setEquipoSeleccionado(newEq);
-                        setMarcaSeleccionada(null);
-                        shouldScrollOnFilter.current = false;
-                        handleSync({ equipo: newEq, marca: null });
-                    }}
-                    leagueName={ligaSeleccionada ?? undefined}
-                />
-            )}
-
-            {/* FILTRO DE MARCAS (Píldoras) */}
-            {!ligaSeleccionada && currentCarrusel?.type !== 'brand' && (
+            {/* FILTRO DE MARCAS (Píldoras para calzado / streetwear) */}
+            {!ligaSeleccionada && currentCarrusel?.type !== 'brand' && categoryBrands.length > 0 && (
                 <BrandFilterChips
                     brands={categoryBrands}
                     selectedBrandId={marcaSeleccionada}
@@ -408,11 +412,11 @@ export default function CatalogoContent({
                 />
             )}
 
-            {/* BARRA DE FILTROS ACTIVOS (1-CLIC) */}
+            {/* 4. BARRA DE FILTROS ACTIVOS (1-CLIC PARA ELIMINAR) */}
             <ActiveFilterChips
                 queryParam={queryParam}
                 categoryName={selectedCategoryObj?.nombre}
-                leagueName={selectedLeagueObj?.nombre}
+                leagueName={selectedLeagueObj?.nombre || ligaSeleccionada}
                 teamName={activeTeamName}
                 brandName={activeBrandName}
                 filters={catalogFilters}
@@ -461,7 +465,7 @@ export default function CatalogoContent({
                 onClearAll={handleClearAll}
             />
 
-            {/* GRID DE PRODUCTOS */}
+            {/* 5. GRID DE PRODUCTOS CON TARJETAS BENTO IN-FEED Y SKELETONS SHIMMER */}
             <ProductGridSection
                 loading={loading}
                 loadingMore={loadingMore}

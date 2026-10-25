@@ -5,8 +5,12 @@ import {
     getBestSellersServer,
     getNewArrivalsServer,
     getOnSaleServer,
-    getSpecialBannersServer
+    getSpecialBannersServer,
+    getConfigServer
 } from "../lib/api-server";
+import { getHeroShowcaseSettings } from "@/lib/heroSettings";
+import { getMarqueeSettings } from "@/lib/marqueeSettings";
+import { getHomeStylesSettings } from "@/lib/homeStylesSettings";
 import { Metadata } from "next";
 import { SITE_URL } from "@/lib/config/site";
 
@@ -27,14 +31,22 @@ export default async function Home() {
         newArrivalsData,
         onSaleData,
         bannersData,
-        specialBannersData
+        specialBannersData,
+        configData,
+        heroShowcaseData,
+        marqueeSettingsData,
+        homeStylesData,
     ] = await Promise.all([
         getFeaturedServer(),
         getBestSellersServer(),
         getNewArrivalsServer(),
         getOnSaleServer(),
         getBannersServer(),
-        getSpecialBannersServer()
+        getSpecialBannersServer(),
+        getConfigServer(),
+        getHeroShowcaseSettings(),
+        getMarqueeSettings(),
+        getHomeStylesSettings(),
     ]);
 
     return (
@@ -45,6 +57,11 @@ export default async function Home() {
             initialOnSale={onSaleData || []}
             initialBanners={bannersData || []}
             initialSpecialBanners={specialBannersData || []}
+            initialLigas={configData?.ligas || []}
+            initialCategorias={configData?.categorias || []}
+            initialHeroSettings={heroShowcaseData}
+            initialMarqueeSettings={marqueeSettingsData}
+            initialStylesSettings={homeStylesData}
         />
     );
 }

@@ -1,286 +1,207 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "@/lib/motion";
-import { Search, Package, MapPin, Calendar, ArrowRight, Loader2, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
-import Button from "@/components/ui/MainButton";
-import ProductImage from "@/components/ProductImage";
-import { formatDate } from "@/lib/utils";
-
-function daysBetween(dateA: string, dateB: string): number {
-    const msPerDay = 1000 * 60 * 60 * 24;
-    return Math.floor((new Date(dateB).getTime() - new Date(dateA).getTime()) / msPerDay);
-}
-
-function daysSince(date: string): number {
-    const msPerDay = 1000 * 60 * 60 * 24;
-    return Math.floor((Date.now() - new Date(date).getTime()) / msPerDay);
-}
-
-function formatDays(days: number): string {
-    if (days === 0) return "Mismo día";
-    if (days === 1) return "1 día";
-    return `${days} días`;
-}
+import { m as motion, AnimatePresence } from "@/lib/motion";
+import { AlertCircle, RotateCcw } from "lucide-react";
+import type { TrackingOrder } from "@/components/rastreo/TrackingTypes";
+import TrackingSearchBar from "@/components/rastreo/TrackingSearchBar";
+import TrackingHeroStatus from "@/components/rastreo/TrackingHeroStatus";
+import TrackingTimeline from "@/components/rastreo/TrackingTimeline";
+import TrackingOrderItems from "@/components/rastreo/TrackingOrderItems";
+import TrackingBillingCard from "@/components/rastreo/TrackingBillingCard";
+import TrackingInfoGuide from "@/components/rastreo/TrackingInfoGuide";
 
 function TrackingContent() {
     const searchParams = useSearchParams();
     const [orderId, setOrderId] = useState(searchParams.get("order") || "");
     const [loading, setLoading] = useState(false);
-    const [orderData, setOrderData] = useState<any>(null);
+    const [orderData, setOrderData] = useState<TrackingOrder | null>(null);
     const [error, setError] = useState("");
 
-    // Auto-search if URL has order param
+    const fetchOrder = useCallback(async (id: string) => {
+        const cleanId = id.trim().replace(/^#/, "");
+        if (!cleanId) return;
+
+        setLoading(true);
+        setError("");
+
+        try {
+            const res = await fetch(`/api/orders/track?id=${encodeURIComponent(cleanId)}`);
+            const data = await res.json();
+
+            if (data.success && data.order) {
+                setOrderData(data.order);
+                // Sincronizar URL sin recargar para que el usuario pueda compartir o recargar
+                if (typeof window !== "undefined") {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("order", cleanId);
+                    window.history.replaceState({}, "", url.toString());
+                }
+            } else {
+                setOrderData(null);
+                setError(data.error || "No encontramos ningún pedido con ese identificador.");
+            }
+        } catch {
+            setOrderData(null);
+            setError("Ocurrió un error al consultar el servidor. Por favor intenta de nuevo en unos momentos.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Búsqueda automática inicial si la URL contiene parámetro ?order=
     useEffect(() => {
         const urlOrderId = searchParams.get("order");
         if (urlOrderId) {
             setOrderId(urlOrderId);
             fetchOrder(urlOrderId);
         }
-    }, [searchParams]);
+    }, [searchParams, fetchOrder]);
 
-    const fetchOrder = async (id: string) => {
-        if (!id.trim()) return;
-
-        setLoading(true);
-        setError("");
+    const handleReset = () => {
+        setOrderId("");
         setOrderData(null);
-
-        try {
-            const res = await fetch(`/api/orders/track?id=${id.trim()}`);
-            const data = await res.json();
-
-            if (data.success) {
-                setOrderData(data.order);
-            } else {
-                setError(data.error || "No encontramos ese pedido.");
-            }
-        } catch (err) {
-            setError("Ocurrió un error al buscar. Intenta de nuevo.");
-        } finally {
-            setLoading(false);
+        setError("");
+        if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("order");
+            window.history.replaceState({}, "", url.toString());
         }
     };
 
-    const handleTrack = async (e: React.FormEvent) => {
-        e.preventDefault();
-        fetchOrder(orderId);
-    };
-
     return (
-        <div className="max-w-xl lg:max-w-5xl mx-auto relative z-10">
-            {/* Título + Buscador — full width */}
-            <div className="max-w-xl mx-auto">
-                <div className="text-center mb-6 md:mb-8">
-                    <h1 className="text-3xl md:text-4xl font-black tracking-tighter mb-3 md:mb-4">
-                        RASTREA TU PEDIDO
-                    </h1>
-                    <p className="text-gray-400 text-sm md:text-base">
-                        Ingresa el ID que recibiste en tu correo para ver el estado en tiempo real.
-                    </p>
+        <div className="max-w-6xl mx-auto relative z-10">
+            {/* Cabecera Principal */}
+            <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
+                {/* Badge de Estado del Sistema */}
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-[11px] font-mono tracking-widest text-primary mb-4 backdrop-blur-md shadow-inner">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                    </span>
+                    <span>SEGUIMIENTO EN TIEMPO REAL · LOGÍSTICA OFICIAL</span>
                 </div>
 
-                <form onSubmit={handleTrack} className="mb-12">
-                    <div className="relative group">
-                        <input
-                            type="text"
-                            placeholder="Ej. a0eebc99-9c..."
-                            value={orderId}
-                            onChange={(e) => setOrderId(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 md:py-4 pl-10 md:pl-12 pr-4 text-sm md:text-base text-white placeholder:text-gray-600 focus:border-primary focus:bg-white/10 outline-none transition-all font-mono"
-                        />
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-primary transition-colors" />
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                            <Button
-                                disabled={loading || !orderId}
-                                className="!py-2 !px-4 text-xs !rounded-xl"
-                            >
-                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                            </Button>
-                        </div>
-                    </div>
-                </form>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight uppercase leading-tight">
+                    Rastreo de <span className="text-primary">Pedido</span>
+                </h1>
+
+                <p className="text-white/60 text-xs sm:text-sm md:text-base mt-2.5 leading-relaxed">
+                    Consulta el estado de tu camiseta en cada etapa del partido: desde la validación de tu anticipo y confección de élite hasta el despacho final.
+                </p>
             </div>
 
+            {/* Buscador de Pedido */}
+            <TrackingSearchBar
+                orderId={orderId}
+                setOrderId={setOrderId}
+                onSearch={fetchOrder}
+                loading={loading}
+            />
+
+            {/* Alerta de Error si no se encuentra */}
             <AnimatePresence mode="wait">
                 {error && (
                     <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="max-w-xl mx-auto bg-red-500/10 border border-red-500/20 rounded-2xl p-4 md:p-6 text-center text-red-400 flex flex-col items-center gap-2"
+                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                        className="max-w-xl mx-auto mt-6 bg-red-500/10 border border-red-500/25 rounded-2xl p-4 sm:p-5 text-center text-red-400 flex flex-col items-center gap-2.5 backdrop-blur-md shadow-lg"
                     >
-                        <AlertCircle className="w-8 h-8" />
-                        <p className="font-bold">{error}</p>
+                        <AlertCircle className="w-6 h-6 text-red-400 shrink-0" />
+                        <p className="text-xs sm:text-sm font-bold text-white">{error}</p>
+                        <p className="text-[11px] text-white/55">
+                            Verifica que hayas ingresado los 8 caracteres iniciales o el código completo que recibiste por correo electrónico.
+                        </p>
                     </motion.div>
                 )}
+            </AnimatePresence>
 
+            {/* Resultado del Rastreo */}
+            <AnimatePresence mode="wait">
                 {orderData && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="grid grid-cols-1 lg:grid-cols-5 gap-6"
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        className="mt-8 sm:mt-10 space-y-6 sm:space-y-8"
                     >
-                        {/* Columna izquierda: Estado + Detalles del envío */}
-                        <div className="lg:col-span-3 space-y-6">
-                            {/* Card de Estado Principal */}
-                            <div className="bg-[#111] border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-white/10">
-                                    <div
-                                        className="h-full bg-primary transition-all duration-1000 ease-out"
-                                        style={{ width: `${orderData.status.progress}%` }}
-                                    />
-                                </div>
-
-                                <div className="flex flex-col items-center text-center gap-3 md:gap-4 py-3 md:py-4">
-                                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
-                                        <Package className="w-8 h-8 md:w-10 md:h-10" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-white mb-2">
-                                            {orderData.status.label}
-                                        </h2>
-                                        <p className="text-gray-400 max-w-xs mx-auto text-xs md:text-sm">
-                                            {orderData.status.desc}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Timeline de Estados */}
-                            {orderData.history && orderData.history.length > 0 && (
-                                <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6">
-                                    <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-4 md:mb-5 flex items-center gap-2">
-                                        <Clock className="w-3.5 h-3.5" />
-                                        Historial del Pedido
-                                    </h3>
-
-                                    <div className="relative">
-                                        {[...orderData.history].reverse().map((entry: { status_id: string; label: string; date: string }, i: number, reversed: { status_id: string; label: string; date: string }[]) => {
-                                            const isFirst = i === 0;
-                                            const isCurrent = entry.status_id === orderData.status.code;
-                                            const nextEntry = reversed[i + 1];
-                                            const elapsed = nextEntry ? daysBetween(nextEntry.date, entry.date) : null;
-                                            const sinceLast = isFirst ? daysSince(entry.date) : null;
-
-                                            return (
-                                                <div key={i} className="relative">
-                                                    {/* "Days since last update" indicator — shown first for current state */}
-                                                    {isFirst && isCurrent && sinceLast !== null && sinceLast > 0 && (
-                                                        <div className="flex items-center gap-2 ml-[9px] pb-2">
-                                                            <div className="w-px h-4 bg-white/5" />
-                                                            <span className="text-[10px] text-gray-500 ml-4 bg-white/5 px-2 py-0.5 rounded-full">
-                                                                Hace {formatDays(sinceLast)} en este estado
-                                                            </span>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Status entry */}
-                                                    <div className="flex items-start gap-3">
-                                                        {/* Dot */}
-                                                        <div className={`mt-1 flex-shrink-0 w-[18px] h-[18px] rounded-full flex items-center justify-center ${
-                                                            isCurrent
-                                                                ? "bg-primary/20 border-2 border-primary"
-                                                                : "bg-white/10 border border-white/20"
-                                                        }`}>
-                                                            {!isCurrent && (
-                                                                <CheckCircle2 className="w-3 h-3 text-gray-500" />
-                                                            )}
-                                                            {isCurrent && (
-                                                                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                                                            )}
-                                                        </div>
-
-                                                        {/* Content */}
-                                                        <div className="flex-1 min-w-0 pb-1">
-                                                            <p className={`text-sm font-bold ${isCurrent ? "text-primary" : "text-white"}`}>
-                                                                {entry.label}
-                                                            </p>
-                                                            <p className="text-[11px] text-gray-500 mt-0.5">
-                                                                {formatDate(entry.date)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Connector with days between — after each entry */}
-                                                    {elapsed !== null && (
-                                                        <div className="flex items-center gap-2 ml-[9px] py-1">
-                                                            <div className="w-px h-4 bg-white/10" />
-                                                            <span className="text-[10px] text-gray-600 ml-4 font-mono">
-                                                                +{formatDays(elapsed)}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Detalles del Envío */}
-                            <div className="bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-3 md:space-y-4">
-                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-3 md:mb-4">Detalles del Envío</h3>
-
-                                <div className="flex items-start gap-3 md:gap-4">
-                                    <MapPin className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mt-1" />
-                                    <div>
-                                        <p className="font-bold text-white text-sm md:text-base">Destino</p>
-                                        <p className="text-gray-400 text-xs md:text-sm">{orderData.location}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3 md:gap-4">
-                                    <Calendar className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mt-1" />
-                                    <div>
-                                        <p className="font-bold text-white text-sm md:text-base">Fecha de Orden</p>
-                                        <p className="text-gray-400 text-xs md:text-sm">
-                                            {formatDate(orderData.date)}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                        {/* Botón de Nueva Búsqueda */}
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white/50 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all active:scale-95"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Rastrear otro pedido</span>
+                            </button>
                         </div>
 
-                        {/* Columna derecha: Productos del pedido */}
-                        <div className="lg:col-span-2 space-y-3">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-1 lg:mb-3">Productos del Pedido</h3>
-                            {orderData.items.map((item: any, i: number) => (
-                                <div key={i} className="flex gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
-                                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/50 relative flex-shrink-0">
-                                        <ProductImage
-                                            src={item.image}
-                                            alt={item.product}
-                                            width={64}
-                                            height={64}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-white text-sm">{item.team} - {item.product}</p>
-                                        <p className="text-xs text-gray-500 uppercase tracking-wider mt-1">
-                                            {item.version} {item.personalization && `• ${item.personalization}`}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                        {/* Marcador Hero con Estado y Progreso */}
+                        <TrackingHeroStatus order={orderData} />
+
+                        {/* Bento Grid: 2 Columnas (Izquierda: Timeline / Derecha: Productos y Finanzas) */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                            {/* Columna Izquierda (7 cols): Bitácora y Logística */}
+                            <div className="lg:col-span-7 space-y-6">
+                                <TrackingTimeline
+                                    history={orderData.history}
+                                    currentStatus={orderData.status}
+                                    location={orderData.location}
+                                />
+                            </div>
+
+                            {/* Columna Derecha (5 cols): Prendas y Estado Financiero */}
+                            <div className="lg:col-span-5 space-y-6">
+                                <TrackingOrderItems items={orderData.items} />
+                                <TrackingBillingCard
+                                    billing={orderData.billing}
+                                    orderId={orderData.id}
+                                />
+                            </div>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Guía Informativa (Visible si no hay pedido buscado aún) */}
+            {!orderData && !loading && <TrackingInfoGuide />}
         </div>
     );
 }
 
 export default function TrackingPage() {
     return (
-        <main className="min-h-dvh pt-20 md:pt-24 pb-12 px-4 bg-black text-white relative overflow-hidden">
-            {/* Background Aura */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[500px] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
+        <main
+            style={{ paddingTop: "calc(var(--header-height, 4.5rem) + 1.75rem)" }}
+            className="min-h-dvh bg-[#07080a] text-white relative overflow-hidden pb-20 md:pb-28 px-4 sm:px-6"
+        >
+            {/* Hairline specular superior */}
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
-            <Suspense fallback={<div className="text-center mt-20 text-gray-500">Cargando...</div>}>
+            {/* Resplandor ambiental de fondo */}
+            <div
+                className="absolute top-10 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[450px] bg-primary/10 blur-[140px] rounded-full pointer-events-none"
+                aria-hidden="true"
+            />
+            <div
+                className="absolute top-80 right-0 w-[300px] h-[300px] bg-red-600/5 blur-[100px] rounded-full pointer-events-none"
+                aria-hidden="true"
+            />
+
+            <Suspense
+                fallback={
+                    <div className="max-w-6xl mx-auto text-center py-24 text-white/50 text-sm">
+                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                        <p>Cargando centro de seguimiento...</p>
+                    </div>
+                }
+            >
                 <TrackingContent />
             </Suspense>
         </main>
-    )
+    );
 }

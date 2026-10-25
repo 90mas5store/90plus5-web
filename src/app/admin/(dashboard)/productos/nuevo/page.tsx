@@ -9,9 +9,9 @@ import { Save, ArrowLeft, Loader2 } from 'lucide-react';
 import { buildProductSlug, generateUniqueSlug, sanitizeSlugPart } from '@/lib/utils/slug';
 import Link from 'next/link';
 import useToastMessage from '@/hooks/useToastMessage';
-import ImageUpload from '@/components/admin/ImageUpload';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
-import ProductGalleryManager, { GalleryImage } from '@/components/admin/ProductGalleryManager';
+import { GalleryImage } from '@/components/admin/ProductGalleryManager';
+import ProductMediaSection from '@/components/admin/products/ProductMediaSection';
 
 import {
     AdminSize,
@@ -583,31 +583,14 @@ export default function CreateProductPage() {
 
                 {/* Columna Lateral (Imágenes, Ligas y Parches) */}
                 <div className="lg:col-span-4 space-y-6">
-                    {/* Imagen Principal */}
-                    <div className="bg-neutral-900/50 border border-white/5 rounded-3xl p-6">
-                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
-                            Imagen Principal
-                        </h2>
-                        <ImageUpload
-                            value={formData.image_url}
-                            onChange={(url) => setFormData((prev) => ({ ...prev, image_url: url }))}
-                        />
-                    </div>
-
-                    {/* Galería Adicional */}
-                    <div className="bg-neutral-900/50 border border-white/5 rounded-3xl p-6">
-                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
-                            Galería de Imágenes
-                        </h2>
-                        <p className="text-[10px] text-gray-600 mb-4">
-                            Fotos adicionales visibles en el producto
-                        </p>
-                        <ProductGalleryManager
-                            images={productImages}
-                            onChange={setProductImages}
-                            disabled={saving}
-                        />
-                    </div>
+                    {/* Imagen Principal y Galería de Imágenes */}
+                    <ProductMediaSection
+                        imageUrl={formData.image_url}
+                        onImageUrlChange={(url) => setFormData((prev) => ({ ...prev, image_url: url }))}
+                        galleryImages={productImages}
+                        onGalleryImagesChange={setProductImages}
+                        disabled={saving}
+                    />
 
                     {/* Ligas Múltiples */}
                     <ProductLeaguesSection

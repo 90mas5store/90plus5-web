@@ -27,6 +27,7 @@ interface UseCatalogProductsProps {
     config: Config | null;
     categoriaParam: string | null;
     ligaParam: string | null;
+    versionParam?: string | null;
     toast: ToastHook;
 }
 
@@ -43,6 +44,7 @@ export function useCatalogProducts({
     config,
     categoriaParam,
     ligaParam,
+    versionParam,
     toast,
 }: UseCatalogProductsProps) {
     const [productos, setProductos] = useState<Product[]>(initialProducts);
@@ -52,7 +54,7 @@ export function useCatalogProducts({
     const [loadingMore, setLoadingMore] = useState(false);
 
     const contentRef = useRef<HTMLDivElement>(null);
-    const shouldScrollOnFilter = useRef(false);
+    const shouldScrollOnFilterRef = useRef(false);
 
     const [knownSeasons, setKnownSeasons] = useState<string[]>([]);
 
@@ -119,6 +121,7 @@ export function useCatalogProducts({
                     brandId: marcaSeleccionada ?? undefined,
                     gender: catalogFilters.gender ?? undefined,
                     season: catalogFilters.season ?? undefined,
+                    version: versionParam ?? undefined,
                     sortBy: catalogFilters.sortBy,
                     priceMin,
                     priceMax,
@@ -129,14 +132,14 @@ export function useCatalogProducts({
                     setProductos((prev) => [...prev, ...data]);
                 } else {
                     setProductos(data);
-                    if (shouldScrollOnFilter.current && contentRef.current) {
+                    if (shouldScrollOnFilterRef.current && contentRef.current) {
                         const headerHeight = typeof window !== 'undefined'
                             ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 72)
                             : 72;
                         const element = contentRef.current;
                         const y = element.getBoundingClientRect().top + window.pageYOffset - (headerHeight + 16);
                         window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-                        shouldScrollOnFilter.current = false;
+                        shouldScrollOnFilterRef.current = false;
                     }
                 }
 
@@ -160,6 +163,7 @@ export function useCatalogProducts({
             config,
             categoriaParam,
             ligaParam,
+            versionParam,
             topSellerIds,
         ]
     );
@@ -175,6 +179,7 @@ export function useCatalogProducts({
         equipoSeleccionado,
         marcaSeleccionada,
         catalogFilters,
+        versionParam,
     ]);
 
     const handleLoadMore = () => {
@@ -189,7 +194,7 @@ export function useCatalogProducts({
         loading,
         loadingMore,
         contentRef,
-        shouldScrollOnFilter,
+        shouldScrollOnFilterRef,
         availableSeasons,
         handleLoadMore,
         setProductos,
