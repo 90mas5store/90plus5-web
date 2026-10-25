@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@builder.io/partytown": "^0.10.3",
-    "@imgly/background-removal": "^1.7.0",
     "@next/bundle-analyzer": "^16.2.1",
     "@paypal/react-paypal-js": "^10.4.0",
     "@pixelpay/sdk-core": "^2.4.10",

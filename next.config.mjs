@@ -135,20 +135,20 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              `script-src 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com`,
-              `script-src-elem 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com`,
+              `script-src 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com https://cdn.jsdelivr.net`,
+              `script-src-elem 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com https://cdn.jsdelivr.net`,
               "script-src-attr 'none'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' blob: data: https://a.espncdn.com https://i.imgur.com https://res.cloudinary.com https://upload.wikimedia.org https://90mas5.store https://fhvxolslqrrkefsvbcrq.supabase.co https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://*.paypalobjects.com",
+              "img-src 'self' blob: data: https://a.espncdn.com https://i.imgur.com https://res.cloudinary.com https://upload.wikimedia.org https://90mas5.store https://fhvxolslqrrkefsvbcrq.supabase.co https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://*.paypalobjects.com https://cdn.jsdelivr.net https://staticimgly.com",
               "media-src 'self' blob: data: https://fhvxolslqrrkefsvbcrq.supabase.co https://res.cloudinary.com https://i.imgur.com",
               "font-src 'self' data:",
-              "worker-src 'self' blob:",
+              "worker-src 'self' blob: https://cdn.jsdelivr.net",
               "frame-src 'self' https://www.paypal.com https://www.sandbox.paypal.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
               "frame-ancestors 'none'",
-              "connect-src 'self' https://site.api.espn.com https://*.espn.com https://*.espncdn.com https://*.facebook.com https://connect.facebook.net https://www.google-analytics.com https://www.googletagmanager.com https://fhvxolslqrrkefsvbcrq.supabase.co wss://fhvxolslqrrkefsvbcrq.supabase.co https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com",
+              "connect-src 'self' https://site.api.espn.com https://*.espn.com https://*.espncdn.com https://*.facebook.com https://connect.facebook.net https://www.google-analytics.com https://www.googletagmanager.com https://fhvxolslqrrkefsvbcrq.supabase.co wss://fhvxolslqrrkefsvbcrq.supabase.co https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com https://cdn.jsdelivr.net https://staticimgly.com",
               "upgrade-insecure-requests",
             ].join('; '),
           },
@@ -274,7 +274,7 @@ const nextConfig = {
   /**
    * 📊 Configuración de webpack para optimizaciones adicionales
    */
-  webpack: (config, { isServer }) => {
+  webpack: (config) => {
     return config;
   },
 };

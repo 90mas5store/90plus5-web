@@ -98,8 +98,17 @@ export async function removeImageBackground(
         message: 'Iniciando IA en el navegador...',
     });
 
-    // Importación dinámica para prevenir cualquier intento de ejecución en SSR
-    const { removeBackground, alphamask, applySegmentationMask } = await import('@imgly/background-removal');
+    // Carga dinámica nativa vía CDN ESM para aislar WebAssembly y modelos ONNX del empaquetador Next.js/Webpack,
+    // garantizando compatibilidad total con 'import.meta' y reduciendo el bundle de producción
+    const imglyModule = await (new Function(
+        'return import("https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm")'
+    )() as Promise<{
+        removeBackground: (image: any, config?: any) => Promise<Blob>;
+        alphamask: (image: any, config?: any) => Promise<Blob>;
+        applySegmentationMask: (image: any, mask: any, config?: any) => Promise<Blob>;
+    }>);
+
+    const { removeBackground, alphamask, applySegmentationMask } = imglyModule;
 
     onProgress?.({
         stage: 'loading',
