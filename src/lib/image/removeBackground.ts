@@ -19,6 +19,109 @@ export interface RemoveBackgroundOptions {
 }
 
 /**
+ * Normaliza cualquier fuente de imagen (File, Blob, WebP, AVIF, URL remota) a un Blob PNG estándar.
+ * Resuelve:
+ * 1. Archivos .webp con MIME type vacío o ausente (típico en Windows: file.type === "").
+ * 2. Formatos WebP con perfiles de color o compresión que fallan en createImageBitmap nativo.
+ * 3. Formatos como AVIF o HEIC no soportados directamente por la librería de IA.
+ * 4. Control de dimensiones máximas para prevenir colapsos de memoria WebAssembly.
+ */
+async function normalizeImageSourceToPngBlob(imageSource: File | Blob | string): Promise<Blob> {
+    return new Promise<Blob>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        let objectUrl: string | null = null;
+
+        const cleanup = () => {
+            if (objectUrl) {
+                try {
+                    URL.revokeObjectURL(objectUrl);
+                } catch {
+                    // Ignorar
+                }
+                objectUrl = null;
+            }
+        };
+
+        if (typeof imageSource === 'string') {
+            img.src = imageSource;
+        } else {
+            // Incluso si el archivo no tiene MIME type o es .webp, URL.createObjectURL
+            // permite al decodificador nativo del navegador parsear los bytes reales.
+            objectUrl = URL.createObjectURL(imageSource);
+            img.src = objectUrl;
+        }
+
+        img.onload = () => {
+            try {
+                const width = img.naturalWidth || img.width;
+                const height = img.naturalHeight || img.height;
+
+                if (!width || !height) {
+                    cleanup();
+                    reject(new Error('La imagen no tiene dimensiones válidas.'));
+                    return;
+                }
+
+                // Limitar dimensión máxima a 2560px para garantizar estabilidad de WebAssembly
+                const MAX_DIM = 2560;
+                let targetWidth = width;
+                let targetHeight = height;
+
+                if (width > MAX_DIM || height > MAX_DIM) {
+                    if (width >= height) {
+                        targetWidth = MAX_DIM;
+                        targetHeight = Math.max(1, Math.round((height * MAX_DIM) / width));
+                    } else {
+                        targetHeight = MAX_DIM;
+                        targetWidth = Math.max(1, Math.round((width * MAX_DIM) / height));
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                if (!ctx) {
+                    cleanup();
+                    // Fallback directo si no hay contexto canvas
+                    if (imageSource instanceof Blob) {
+                        resolve(new Blob([imageSource], { type: 'image/png' }));
+                    } else {
+                        reject(new Error('No se pudo inicializar contexto 2D de canvas.'));
+                    }
+                    return;
+                }
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+                cleanup();
+
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Fallo al exportar imagen normalizada en formato PNG.'));
+                    }
+                }, 'image/png');
+            } catch (err) {
+                cleanup();
+                reject(err);
+            }
+        };
+
+        img.onerror = () => {
+            cleanup();
+            reject(new Error('No se pudo cargar o decodificar el archivo .webp / imagen. Verifica que el archivo no esté corrupto.'));
+        };
+    });
+}
+
+/**
  * Pre-procesa una imagen para amplificar el contraste de costuras y sombras de telas blancas,
  * permitiendo que la red neuronal distinga la prenda blanca del fondo blanco plano.
  */
@@ -26,24 +129,30 @@ async function createContrastEnhancedBlob(imageSource: File | Blob | string): Pr
     const img = new Image();
     img.crossOrigin = 'anonymous';
 
-    const objectUrl =
-        typeof imageSource === 'string'
-            ? imageSource
-            : URL.createObjectURL(imageSource);
+    let objectUrl: string | null = null;
+    if (typeof imageSource === 'string') {
+        img.src = imageSource;
+    } else {
+        objectUrl = URL.createObjectURL(imageSource);
+        img.src = objectUrl;
+    }
 
     await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
-        img.onerror = reject;
-        img.src = objectUrl;
+        img.onerror = () => reject(new Error('Error al cargar imagen para realce de contraste'));
     });
 
     const canvas = document.createElement('canvas');
     canvas.width = img.naturalWidth || img.width;
     canvas.height = img.naturalHeight || img.height;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+    }
+
     if (!ctx) {
-        if (typeof imageSource !== 'string') URL.revokeObjectURL(objectUrl);
-        return typeof imageSource === 'string' ? (await fetch(imageSource)).blob() : imageSource;
+        return imageSource instanceof Blob ? imageSource : (await fetch(imageSource)).blob();
     }
 
     // Dibujar original
@@ -71,8 +180,6 @@ async function createContrastEnhancedBlob(imageSource: File | Blob | string): Pr
 
     ctx.putImageData(imgData, 0, 0);
 
-    if (typeof imageSource !== 'string') URL.revokeObjectURL(objectUrl);
-
     return new Promise<Blob>((resolve) => {
         canvas.toBlob((blob) => resolve(blob || (imageSource as Blob)), 'image/png');
     });
@@ -81,6 +188,7 @@ async function createContrastEnhancedBlob(imageSource: File | Blob | string): Pr
 /**
  * Elimina el fondo de una imagen (File, Blob o URL) y retorna un Blob PNG transparente.
  * Preserva 100% de los píxeles originales de la prenda/objeto (solo altera canal alfa).
+ * Compatible con archivos WebP, JPG, PNG, AVIF y URLs remotas.
  */
 export async function removeImageBackground(
     imageSource: File | Blob | string,
@@ -94,7 +202,16 @@ export async function removeImageBackground(
 
     onProgress?.({
         stage: 'loading',
-        percent: 10,
+        percent: 5,
+        message: 'Normalizando imagen para compatibilidad (.webp / .png)...',
+    });
+
+    // 1. Normalizar cualquier formato (.webp, .avif, .jpg, .png o sin mime-type) a PNG estándar
+    const normalizedSource = await normalizeImageSourceToPngBlob(imageSource);
+
+    onProgress?.({
+        stage: 'loading',
+        percent: 15,
         message: 'Iniciando IA en el navegador...',
     });
 
@@ -154,17 +271,27 @@ export async function removeImageBackground(
     if (mode === 'white_shirt') {
         try {
             // 1. Crear versión con contraste de micro-sombras acentuadas
-            const enhancedBlob = await createContrastEnhancedBlob(imageSource);
+            const enhancedBlob = await createContrastEnhancedBlob(normalizedSource);
             // 2. Extraer máscara de segmentación sobre la imagen acentuada
             const maskBlob = await alphamask(enhancedBlob, config);
-            // 3. Aplicar la máscara sobre la imagen ORIGINAL intacta a resolución completa
-            resultBlob = await applySegmentationMask(imageSource, maskBlob, config);
+            // 3. Aplicar la máscara sobre la imagen normalizada
+            resultBlob = await applySegmentationMask(normalizedSource, maskBlob, config);
         } catch (err) {
             console.warn('Fallo en modo camisa blanca, usando método estándar:', err);
-            resultBlob = await removeBackground(imageSource, config);
+            try {
+                resultBlob = await removeBackground(normalizedSource, config);
+            } catch (retryErr) {
+                console.warn('Fallo con isnet_fp16, intentando con modelo isnet estándar:', retryErr);
+                resultBlob = await removeBackground(normalizedSource, { ...config, model: 'isnet' as const });
+            }
         }
     } else {
-        resultBlob = await removeBackground(imageSource, config);
+        try {
+            resultBlob = await removeBackground(normalizedSource, config);
+        } catch (err) {
+            console.warn('Fallo con isnet_fp16, intentando con modelo isnet estándar:', err);
+            resultBlob = await removeBackground(normalizedSource, { ...config, model: 'isnet' as const });
+        }
     }
 
     onProgress?.({

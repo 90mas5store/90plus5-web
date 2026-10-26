@@ -62,7 +62,8 @@ export default function ImageUpload({
 
     // Subir un archivo al bucket de Supabase
     const uploadFileToSupabase = async (file: File): Promise<string> => {
-        const fileExt = file.name.split('.').pop() || 'png';
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
+        const contentType = file.type || (fileExt === 'webp' ? 'image/webp' : fileExt === 'png' ? 'image/png' : 'image/jpeg');
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `${fileName}`;
 
@@ -71,6 +72,7 @@ export default function ImageUpload({
             .upload(filePath, file, {
                 cacheControl: '3600',
                 upsert: false,
+                contentType,
             });
 
         if (uploadError) throw uploadError;

@@ -7,8 +7,9 @@ import HeaderWrapper from "../components/HeaderWrapper";
 import ClientLayout from "./ClientLayout";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
 import AnalyticsTracker from "@/components/analytics/AnalyticsTracker";
+import AnalyticsExclusionHandler from "@/components/analytics/AnalyticsExclusionHandler";
 import ClarityScript from "@/components/analytics/ClarityScript";
-import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
+import VercelAnalyticsWrapper from "@/components/analytics/VercelAnalyticsWrapper";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Metadata, Viewport } from "next";
 import { MotionProvider } from "@/lib/motion";
@@ -352,12 +353,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         },
                     }}
                 />
+                <Suspense fallback={null}>
+                    <AnalyticsExclusionHandler />
+                </Suspense>
                 <CookieConsent />
                 <Suspense fallback={null}>
                     <AnalyticsTracker />
                 </Suspense>
                 <ClarityScript />
-                <VercelAnalytics />
+                <VercelAnalyticsWrapper />
                 <SpeedInsights />
             </body>
         </html>

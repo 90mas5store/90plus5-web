@@ -88,4 +88,22 @@ describe('Analytics Track API (/api/analytics/track)', () => {
         const data = await res.json();
         expect(data.ok).toBe(true);
     });
+
+    it('ignores tracking when 90plus5_ignore_analytics cookie is present', async () => {
+        const req = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({
+                event_type: 'page_view',
+                path: '/catalogo',
+            }),
+            headers: {
+                cookie: '90plus5_ignore_analytics=true',
+            },
+        });
+
+        const res = await POST(req);
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.ignored).toBe(true);
+    });
 });

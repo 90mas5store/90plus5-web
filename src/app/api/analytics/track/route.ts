@@ -36,8 +36,12 @@ export async function POST(request: NextRequest) {
 
         const { event_type, path, referrer, device, session_id, metadata } = parse.data;
 
-        // No registrar eventos en rutas administrativas
-        if (path.startsWith('/admin')) {
+        // No registrar eventos en rutas administrativas o si el dispositivo está excluido (Admin / Dueño)
+        const isExcluded =
+            request.cookies.get('90plus5_ignore_analytics')?.value === 'true' ||
+            request.headers.get('x-ignore-analytics') === 'true';
+
+        if (path.startsWith('/admin') || isExcluded) {
             return NextResponse.json({ ok: true, ignored: true });
         }
 

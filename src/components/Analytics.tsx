@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Script from 'next/script';
 import { getConsentLevel } from './CookieConsent';
+import { isAnalyticsExcluded } from '@/lib/analytics/exclusion';
 
 declare global {
     interface Window {
@@ -15,8 +16,10 @@ declare global {
 export default function Analytics() {
     const pathname = usePathname();
     const [consent, setConsent] = useState<'all' | 'essential' | null>(null);
+    const [excluded, setExcluded] = useState<boolean>(true);
 
     useEffect(() => {
+        setExcluded(isAnalyticsExcluded());
         setConsent(getConsentLevel());
 
         const handleConsentChange = () => {
@@ -27,7 +30,7 @@ export default function Analytics() {
     }, []);
 
     useEffect(() => {
-        if (consent !== 'all') return;
+        if (excluded || consent !== 'all') return;
 
         if (pathname && window.gtag && process.env.NEXT_PUBLIC_GA_ID) {
             window.gtag('config', process.env.NEXT_PUBLIC_GA_ID, {
@@ -37,9 +40,9 @@ export default function Analytics() {
         if (pathname && window.fbq) {
             window.fbq('track', 'PageView');
         }
-    }, [pathname, consent]);
+    }, [pathname, consent, excluded]);
 
-    if (consent !== 'all') return null;
+    if (excluded || consent !== 'all') return null;
 
     return (
         <>

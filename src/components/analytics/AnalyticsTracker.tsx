@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { AnalyticsEventType } from '@/lib/analytics/types';
+import { isAnalyticsExcluded } from '@/lib/analytics/exclusion';
 
 declare global {
     interface Window {
@@ -34,6 +35,7 @@ function getDeviceType(): 'mobile' | 'desktop' | 'tablet' {
 
 export function sendAnalyticsEvent(eventType: AnalyticsEventType, metadata?: Record<string, any>) {
     if (typeof window === 'undefined') return;
+    if (isAnalyticsExcluded()) return;
 
     const path = window.location.pathname;
     // Ignorar rutas administrativas
@@ -80,7 +82,7 @@ export default function AnalyticsTracker() {
 
     // Registrar vistas de página en cada navegación
     useEffect(() => {
-        if (!pathname || pathname.startsWith('/admin')) return;
+        if (!pathname || pathname.startsWith('/admin') || isAnalyticsExcluded()) return;
 
         const currentUrl = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '');
         if (lastTrackedRef.current === currentUrl) return;

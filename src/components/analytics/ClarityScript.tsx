@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Script from 'next/script';
+import { isAnalyticsExcluded } from '@/lib/analytics/exclusion';
 
 export default function ClarityScript() {
     const clarityId = process.env.NEXT_PUBLIC_CLARITY_ID;
     const [shouldLoad, setShouldLoad] = useState(false);
 
     useEffect(() => {
-        if (!clarityId) return;
+        if (!clarityId || isAnalyticsExcluded()) return;
 
         // Disparar carga en la primera interacción o tras timeout no intrusivo
         const triggerLoad = () => {
@@ -35,7 +36,7 @@ export default function ClarityScript() {
         return cleanup;
     }, [clarityId]);
 
-    if (!clarityId || !shouldLoad) return null;
+    if (!clarityId || !shouldLoad || isAnalyticsExcluded()) return null;
 
     return (
         <Script

@@ -10,6 +10,8 @@ declare global {
     }
 }
 
+import { isAnalyticsExcluded } from './exclusion';
+
 export interface MetaProductTrackParams {
     id: string;
     name: string;
@@ -20,6 +22,7 @@ export interface MetaProductTrackParams {
 
 export function trackMetaEvent(eventName: string, params?: Record<string, unknown>): void {
     if (typeof window === 'undefined') return;
+    if (isAnalyticsExcluded()) return;
     if (typeof window.fbq === 'function') {
         window.fbq('track', eventName, params);
     }
