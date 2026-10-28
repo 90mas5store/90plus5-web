@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import useToastMessage from '@/hooks/useToastMessage';
 import { calcShippingCost, BUSINESS_LOGIC } from '@/lib/constants';
@@ -20,6 +20,7 @@ import PersonalInfoSection from '@/components/checkout/PersonalInfoSection';
 import ShippingDetailsSection from '@/components/checkout/ShippingDetailsSection';
 import PaymentMethodSection from '@/components/checkout/PaymentMethodSection';
 import OrderSummarySidebar from '@/components/checkout/OrderSummarySidebar';
+import MobileCheckoutBar from '@/components/checkout/MobileCheckoutBar';
 
 export default function CheckoutPage() {
     const router = useRouter();
@@ -50,12 +51,17 @@ export default function CheckoutPage() {
     } = useDiscountCoupon();
 
     const [metodoPago, setMetodoPago] = useState('');
+    const [paymentType, setPaymentType] = useState<'deposit' | 'full'>('deposit');
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethodConfig[]>(PAYMENT_METHODS_FALLBACK);
     const [bankAccounts, setBankAccounts] = useState<BankAccountRecord[]>(DEFAULT_BANK_ACCOUNTS);
     const [aceptoTerminos, setAceptoTerminos] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState(false);
     const submitLock = useRef(false);
+
+    // Estados colapsables interactivos
+    const [shippingOpen, setShippingOpen] = useState(false);
+    const [paymentOpen, setPaymentOpen] = useState(false);
 
     // 🏦 Cargar métodos de pago y cuentas bancarias dinámicas
     useEffect(() => {
@@ -111,6 +117,47 @@ export default function CheckoutPage() {
     }, [items]);
 
     const shippingCost = calcShippingCost(formData.departamento, formData.municipio);
+    const discountAmount = discountState?.amount ?? 0;
+    const discountedSubtotal = total - discountAmount;
+    const orderTotal = discountedSubtotal + shippingCost;
+    const anticipo = orderTotal * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
+
+    const selectedMethod = paymentMethods.find((m) => (m.code || m.id) === metodoPago);
+    const isCardPayment = metodoPago === 'tarjeta' || selectedMethod?.type === 'tarjeta';
+    const chargeAmount = isCardPayment && paymentType === 'full' ? orderTotal : anticipo;
+
+    // Validación de secciones
+    const isContactFilled = Boolean(
+        formData.nombre.trim() &&
+        formData.correo.includes('@') &&
+        formData.telefono.replace(/\D/g, '').length >= 8
+    );
+
+    const isShippingFilled = Boolean(
+        formData.departamento &&
+        formData.municipio &&
+        formData.direccion.trim().length >= 5
+    );
+
+    // 🚀 Despliegue progresivo interactivo (solo una vez de forma automática, sin bloquear al usuario)
+    const autoOpenedShipping = useRef(false);
+    const autoOpenedPayment = useRef(false);
+
+    // Al completar correo y contacto, se despliega Lugar de Entrega por primera vez
+    useEffect(() => {
+        if (isContactFilled && !autoOpenedShipping.current) {
+            autoOpenedShipping.current = true;
+            setShippingOpen(true);
+        }
+    }, [isContactFilled]);
+
+    // Función segura para desplegar Pago cuando el cliente termina su dirección (en blur o tras terminar)
+    const handleShippingComplete = () => {
+        if (isShippingFilled && !autoOpenedPayment.current) {
+            autoOpenedPayment.current = true;
+            setPaymentOpen(true);
+        }
+    };
 
     const isFormValid = Boolean(
         formData.nombre.trim() &&
@@ -119,7 +166,6 @@ export default function CheckoutPage() {
         formData.direccion.trim() &&
         formData.departamento.trim() &&
         formData.municipio.trim() &&
-        aceptoTerminos &&
         items.length > 0
     );
 
@@ -170,8 +216,8 @@ export default function CheckoutPage() {
         };
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
 
         if (submitLock.current || isSubmitting) return;
 
@@ -189,13 +235,53 @@ export default function CheckoutPage() {
             return;
         }
 
-        if (!validateForm(metodoPago, aceptoTerminos)) return;
+        if (!validateForm(metodoPago, aceptoTerminos)) {
+            if (!isContactFilled) {
+                const el = document.getElementById('section-contacto');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else if (!isShippingFilled) {
+                setShippingOpen(true);
+                const el = document.getElementById('section-entrega');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                setPaymentOpen(true);
+                const el = document.getElementById('section-pago');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            return;
+        }
 
         submitLock.current = true;
         setIsSubmitting(true);
 
         try {
             const orderPayload = buildOrderPayload();
+
+            // 💳 Flujo especial de Pasarela de Pagos (PixelPay Hosted)
+            if (isCardPayment) {
+                const response = await fetch('/api/checkout/pixelpay/initiate-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderPayload,
+                        paymentType,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success || !result.redirect_url) {
+                    console.error('❌ PixelPay Error Details:', result);
+                    throw new Error(result.error || 'No se pudo iniciar el cobro con tarjeta vía PixelPay');
+                }
+
+                setOrderSuccess(true);
+                clearCart();
+                toastMsg.celebrate('¡Conectando con PixelPay!');
+                window.location.href = result.redirect_url;
+                return;
+            }
+
             const response = await fetch('/api/orders/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -235,61 +321,47 @@ export default function CheckoutPage() {
         }
     };
 
-    const handlePayPalSuccess = (result: {
-        order_id: string;
-        order_number: string;
-        total: number;
-        deposit?: number;
-        shipping?: number;
-    }) => {
-        setOrderSuccess(true);
-        clearCart();
-        const params = new URLSearchParams({
-            orderId: result.order_number || result.order_id.slice(0, 8).toUpperCase(),
-            fullOrderId: result.order_id,
-            nombre: formData.nombre.trim(),
-            total: (result.total ?? total).toFixed(2),
-            anticipo: (result.deposit ?? result.total ?? total).toFixed(2),
-            envio: (result.shipping ?? 0).toFixed(2),
-            metodo: 'paypal',
-            municipio: formData.municipio || '',
-            departamento: formData.departamento || '',
-        });
-        router.push(`/checkout/done?${params.toString()}`);
-    };
-
     if (items.length === 0 && !orderSuccess) {
         return <EmptyCartState />;
     }
 
     return (
-        <main className="min-h-dvh bg-[#0a0a0a] text-white pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
-            {/* ✨ Background Glows */}
-            <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
-            <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10" />
+        <main className="min-h-dvh bg-[#07080a] text-white pt-24 pb-36 lg:pb-24 px-4 sm:px-6 relative overflow-hidden">
+            {/* ✨ Apple-style ambient glows */}
+            <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-primary/[0.04] blur-[150px] -z-10 pointer-events-none" />
+            <div className="absolute bottom-1/3 right-0 w-[500px] h-[500px] bg-primary/[0.03] blur-[140px] -z-10 pointer-events-none" />
 
             <div className="max-w-7xl mx-auto">
-                {/* 🔙 Botón Volver */}
-                <button
-                    onClick={() => router.back()}
-                    className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-8 group cursor-pointer"
-                >
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-xs font-bold uppercase tracking-widest">Volver</span>
-                </button>
+                {/* 🔙 Botón Volver & Badge de Seguridad */}
+                <div className="flex items-center justify-between mb-6 sm:mb-8">
+                    <button
+                        onClick={() => router.back()}
+                        className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors group cursor-pointer active:scale-[0.98]"
+                    >
+                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                        <span className="text-xs font-bold uppercase tracking-widest">Volver a la tienda</span>
+                    </button>
 
-                <header className="mb-8 md:mb-12">
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300 text-xs font-bold uppercase tracking-wider">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Checkout Seguro</span>
+                    </div>
+                </div>
+
+                {/* 🏷️ Header Principal */}
+                <header className="mb-6">
+                    <h1 className="text-2xl sm:text-3xl font-black tracking-tight uppercase leading-none text-white">
                         Finalizar Pedido
                     </h1>
-                    <p className="text-gray-500 mt-2 font-medium text-sm md:text-base">
-                        Completa tus datos para procesar tu orden.
+                    <p className="text-zinc-400 mt-1 font-medium text-xs sm:text-sm">
+                        Ingresa tus datos de entrega y selecciona tu forma de pago.
                     </p>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12">
-                    {/* 🧾 COLUMNA IZQUIERDA: FORMULARIO */}
-                    <div className="lg:col-span-7 space-y-6 md:space-y-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-8">
+                    {/* 🧾 COLUMNA IZQUIERDA: FORMULARIO INTERACTIVO COLAPSABLE */}
+                    <div className="lg:col-span-7 space-y-4">
+                        {/* 1. Información de Contacto: Siempre visible */}
                         <PersonalInfoSection
                             formData={formData}
                             errores={errores}
@@ -297,6 +369,7 @@ export default function CheckoutPage() {
                             onBlur={handleBlur}
                         />
 
+                        {/* 2. Lugar de Entrega: Colapsable interactivo con auto-despliegue */}
                         <ShippingDetailsSection
                             formData={formData}
                             errores={errores}
@@ -306,17 +379,27 @@ export default function CheckoutPage() {
                             onChange={handleChange}
                             onBlur={handleBlur}
                             onDetectLocation={detectLocation}
+                            isOpen={shippingOpen}
+                            onToggle={() => setShippingOpen((prev) => !prev)}
+                            onShippingComplete={handleShippingComplete}
                         />
 
+                        {/* 3. Método de Pago: Colapsable interactivo con auto-despliegue */}
                         <PaymentMethodSection
                             metodoPago={metodoPago}
                             setMetodoPago={setMetodoPago}
                             paymentMethods={paymentMethods}
                             bankAccounts={bankAccounts}
+                            paymentType={paymentType}
+                            setPaymentType={setPaymentType}
+                            depositAmount={anticipo}
+                            fullAmount={orderTotal}
+                            isOpen={paymentOpen}
+                            onToggle={() => setPaymentOpen((prev) => !prev)}
                         />
                     </div>
 
-                    {/* 🛒 COLUMNA DERECHA: RESUMEN */}
+                    {/* 🛒 COLUMNA DERECHA: RESUMEN LATERAL (DESKTOP) */}
                     <div className="lg:col-span-5">
                         <OrderSummarySidebar
                             items={items}
@@ -338,12 +421,30 @@ export default function CheckoutPage() {
                             isSubmitting={isSubmitting}
                             orderPayload={buildOrderPayload()}
                             handleSubmit={handleSubmit}
-                            onPayPalSuccess={handlePayPalSuccess}
-                            onPayPalError={(msg) => toastMsg.error(msg)}
+                            paymentType={paymentType}
+                            setPaymentType={setPaymentType}
+                            paymentMethods={paymentMethods}
                         />
                     </div>
                 </div>
             </div>
+
+            {/* 📱 BARRA INFERIOR FIJA PARA MÓVILES */}
+            <MobileCheckoutBar
+                total={total}
+                anticipo={anticipo}
+                chargeAmount={chargeAmount}
+                paymentType={paymentType}
+                isCard={isCardPayment}
+                isSubmitting={isSubmitting}
+                isFormValid={isFormValid}
+                metodoPago={metodoPago}
+                aceptoTerminos={aceptoTerminos}
+                onSubmit={handleSubmit}
+                items={items}
+                shippingCost={shippingCost}
+                discountAmount={discountAmount}
+            />
         </main>
     );
 }

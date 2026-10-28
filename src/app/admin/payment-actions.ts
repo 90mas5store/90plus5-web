@@ -52,21 +52,23 @@ export async function getPaymentMethodsAdmin(): Promise<PaymentMethodRecord[]> {
             .order('sort_order', { ascending: true })
 
         if (error || !data || data.length === 0) {
-            return DEFAULT_PAYMENT_METHODS
+            return DEFAULT_PAYMENT_METHODS.filter(p => p.code !== 'paypal' && p.type !== 'paypal')
         }
 
-        const methods = [...data] as PaymentMethodRecord[]
-        if (!methods.some((m) => m.code === 'paypal')) {
-            const paypalDefault = DEFAULT_PAYMENT_METHODS.find((p) => p.code === 'paypal')
-            if (paypalDefault) {
-                methods.push(paypalDefault)
+        let methods = [...data] as PaymentMethodRecord[]
+        methods = methods.filter(m => m.code !== 'paypal' && m.type !== 'paypal')
+
+        for (const defaultMethod of DEFAULT_PAYMENT_METHODS) {
+            if (defaultMethod.code === 'paypal' || defaultMethod.type === 'paypal') continue
+            if (!methods.some(m => m.code === defaultMethod.code || m.type === defaultMethod.type)) {
+                methods.push(defaultMethod)
             }
         }
 
-        return methods
+        return methods.sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99))
     } catch (err) {
         console.warn('[payment-actions] Using default payment methods fallback:', err)
-        return DEFAULT_PAYMENT_METHODS
+        return DEFAULT_PAYMENT_METHODS.filter(p => p.code !== 'paypal' && p.type !== 'paypal')
     }
 }
 

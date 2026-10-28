@@ -45,7 +45,7 @@ export default function PaymentItem({ payment }: { payment: Payment }) {
                         {isCompleted && <ShieldCheck className="w-4 h-4 text-green-500 shrink-0" />}
                     </div>
                     <div className="text-xs sm:text-sm text-gray-400 font-mono truncate">
-                        {payment.method === 'paypal' ? 'PayPal / Tarjeta' : payment.method} · {new Date(payment.created_at).toLocaleDateString()}
+                        {payment.method === 'paypal' ? 'PayPal (Histórico)' : payment.method === 'tarjeta' ? 'Tarjeta' : payment.method} · {new Date(payment.created_at).toLocaleDateString()}
                     </div>
                     {payment.notes && (
                         <div className="text-[11px] sm:text-xs bg-black/40 border border-white/5 rounded-lg p-2 text-gray-400 mt-2 break-words">

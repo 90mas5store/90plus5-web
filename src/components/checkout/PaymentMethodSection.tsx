@@ -1,22 +1,33 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from '@/lib/motion';
 import {
     CreditCard,
     Building2,
-    CheckCircle2,
-    AlertCircle,
     ExternalLink,
     DollarSign,
+    Lock,
+    Copy,
+    Check,
+    ChevronDown,
+    CheckCircle2,
 } from 'lucide-react';
 import { PaymentMethodConfig, BankAccountRecord } from '@/lib/config/banks';
+import PaymentTypeSelector from './PaymentTypeSelector';
 
 interface PaymentMethodSectionProps {
     metodoPago: string;
     setMetodoPago: (value: string) => void;
     paymentMethods: PaymentMethodConfig[];
     bankAccounts: BankAccountRecord[];
+    paymentType?: 'deposit' | 'full';
+    setPaymentType?: (type: 'deposit' | 'full') => void;
+    depositAmount?: number;
+    fullAmount?: number;
+    isOpen: boolean;
+    onToggle: () => void;
 }
 
 export default function PaymentMethodSection({
@@ -24,160 +35,253 @@ export default function PaymentMethodSection({
     setMetodoPago,
     paymentMethods,
     bankAccounts,
+    paymentType = 'deposit',
+    setPaymentType,
+    depositAmount = 0,
+    fullAmount = 0,
+    isOpen,
+    onToggle,
 }: PaymentMethodSectionProps) {
+    const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
+
+    const handleCopyNumber = (accountNumber: string, id: string) => {
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(accountNumber);
+            setCopiedAccountId(id);
+            setTimeout(() => setCopiedAccountId(null), 2000);
+        }
+    };
+
+    const selectedMethod = paymentMethods.find((m) => (m.code || m.id) === metodoPago);
+    const isCard = metodoPago === 'tarjeta' || selectedMethod?.type === 'tarjeta';
+    const isComplete = Boolean(metodoPago);
+
     return (
-        <section className="bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-            <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20">
-                    <CreditCard className="w-6 h-6 text-primary" />
+        <section
+            id="section-pago"
+            className="relative bg-[#0d0e12]/60 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-xl scroll-mt-24 transition-all overflow-hidden"
+        >
+            {/* Specular top highlight */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
+            {/* Clickable Header for Collapsible accordion */}
+            <div
+                onClick={onToggle}
+                className="flex items-center justify-between p-5 sm:p-6 cursor-pointer select-none group hover:bg-white/[0.02] transition-colors"
+            >
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-primary shrink-0">
+                        <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                        <h2 className="text-base font-black uppercase tracking-tight text-white flex items-center gap-2">
+                            Método de Pago
+                        </h2>
+                        {!isOpen && selectedMethod && (
+                            <p className="text-xs text-zinc-400 truncate mt-0.5">
+                                {selectedMethod.name} {isCard && (paymentType === 'full' ? '· Pago Total' : '· Anticipo 50%')}
+                            </p>
+                        )}
+                    </div>
                 </div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Método de Pago</h2>
+
+                <div className="flex items-center gap-3 shrink-0">
+                    {isComplete && !isOpen && (
+                        <span className="hidden sm:flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Listo
+                        </span>
+                    )}
+
+                    <div
+                        className={`w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 group-hover:text-white transition-transform duration-300 ${
+                            isOpen ? 'rotate-180' : ''
+                        }`}
+                    >
+                        <ChevronDown className="w-4 h-4" />
+                    </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
-                {paymentMethods
-                    .filter((opt) => opt.active !== false)
-                    .map((opt) => {
-                    const optCode = opt.code || opt.id;
-                    const isDisabled = opt.is_coming_soon;
-                    const isPaypal = opt.type === 'paypal' || optCode === 'paypal';
+            {/* Collapsible Content */}
+            <AnimatePresence initial={false}>
+                {isOpen && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                        className="overflow-hidden px-5 sm:px-6 pb-6 pt-1 border-t border-white/5"
+                    >
+                        {/* Opciones de pago */}
+                        <div className="space-y-3 pt-3">
+                            {paymentMethods
+                                .filter((opt) => opt.active !== false && (opt.type as string) !== 'paypal' && opt.code !== 'paypal')
+                                .map((opt) => {
+                                    const optCode = opt.code || opt.id;
+                                    const isSelected = metodoPago === optCode;
+                                    const isDisabled = opt.is_coming_soon;
 
-                    let IconComponent = CreditCard;
-                    if (opt.type === 'transferencia') IconComponent = Building2;
-                    if (opt.type === 'link_pago') IconComponent = ExternalLink;
-                    if (opt.type === 'efectivo') IconComponent = DollarSign;
+                                    let IconComponent = CreditCard;
+                                    if (opt.type === 'transferencia') IconComponent = Building2;
+                                    if (opt.type === 'link_pago') IconComponent = ExternalLink;
+                                    if (opt.type === 'efectivo') IconComponent = DollarSign;
 
-                    return (
-                        <label
-                            key={opt.id || optCode}
-                            className={`group relative flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer overflow-hidden ${
-                                metodoPago === optCode
-                                    ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(229,9,20,0.15)]'
-                                    : 'border-white/5 bg-black/40 hover:border-white/20'
-                            } ${isDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
-                        >
-                            <div
-                                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
-                                    metodoPago === optCode
-                                        ? 'bg-primary text-white'
-                                        : isPaypal
-                                        ? 'bg-[#003087]/20 text-[#0079C1] border border-[#0079C1]/30 group-hover:bg-[#003087]/30'
-                                        : 'bg-white/5 text-gray-500 group-hover:text-white'
-                                }`}
-                            >
-                                {isPaypal ? (
-                                    <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                                        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.82.875 4.965-.039.194-.086.39-.14.586-.882 4.417-3.834 6.721-8.528 6.721H9.278l-1.39 8.813a.642.642 0 0 1-.633.542zM8.88 12.182h1.666c3.275 0 5.28-1.571 5.943-4.893.037-.184.07-.367.098-.549.324-1.62-.02-2.73-.895-3.328-.737-.503-1.921-.692-3.64-.692H6.942L4.99 17.587h2.478l1.412-5.405z" />
-                                    </svg>
-                                ) : (
-                                    <IconComponent className="w-6 h-6" />
-                                )}
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-black uppercase tracking-tight text-sm">{opt.name}</span>
-                                    {opt.is_coming_soon && (
-                                        <span className="text-[8px] bg-white/10 px-2 py-0.5 rounded-full text-gray-400 font-bold tracking-widest uppercase">
-                                            PRÓXIMAMENTE
-                                        </span>
+                                    const isCardOption = opt.type === 'tarjeta' || optCode === 'tarjeta';
+
+                                    return (
+                                        <div
+                                            key={opt.id || optCode}
+                                            onClick={() => !isDisabled && setMetodoPago(optCode)}
+                                            className={`group relative p-4 rounded-xl border transition-all cursor-pointer select-none active:scale-[0.99] ${
+                                                isSelected
+                                                    ? 'border-white/30 bg-white/[0.07] shadow-sm'
+                                                    : 'border-white/[0.08] bg-black/30 hover:border-white/15 hover:bg-black/50'
+                                            } ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-3.5 min-w-0">
+                                                    <div
+                                                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                                            isSelected ? 'bg-white text-black' : 'bg-white/5 text-zinc-400'
+                                                        }`}
+                                                    >
+                                                        <IconComponent className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-sm sm:text-base text-white">
+                                                                {opt.name}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
+                                                            {opt.description}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Radio circle */}
+                                                <div
+                                                    className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                                                        isSelected ? 'border-primary bg-primary' : 'border-white/20'
+                                                    }`}
+                                                >
+                                                    {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+
+                        {/* Contenido dinámico según método */}
+                        <AnimatePresence mode="wait">
+                            {/* 💳 Tarjeta PixelPay */}
+                            {isCard && (
+                                <motion.div
+                                    key="card-info"
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="mt-5 pt-5 border-t border-white/10 space-y-4 overflow-hidden"
+                                >
+                                    {setPaymentType && depositAmount > 0 && fullAmount > 0 && (
+                                        <PaymentTypeSelector
+                                            paymentType={paymentType}
+                                            onChange={setPaymentType}
+                                            depositAmount={depositAmount}
+                                            fullAmount={fullAmount}
+                                        />
                                     )}
-                                </div>
-                                <p className="text-xs text-gray-500 font-medium">{opt.description}</p>
-                            </div>
-                            <input
-                                type="radio"
-                                name="metodoPago"
-                                value={optCode}
-                                checked={metodoPago === optCode}
-                                onChange={(e) => !isDisabled && setMetodoPago(e.target.value)}
-                                className="hidden"
-                                disabled={isDisabled}
-                            />
-                            {metodoPago === optCode && (
-                                <motion.div layoutId="check" className="absolute right-6">
-                                    <CheckCircle2 className="w-6 h-6 text-primary" />
+
+                                    <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs text-zinc-300">
+                                        <span className="flex items-center gap-2">
+                                            <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
+                                            Cobro seguro con PixelPay (Visa & Mastercard)
+                                        </span>
+                                        <span className="text-xs text-zinc-400 uppercase font-mono font-bold">3D Secure</span>
+                                    </div>
                                 </motion.div>
                             )}
-                        </label>
-                    );
-                })}
-            </div>
 
-            <AnimatePresence>
-                {metodoPago === 'transferencia' && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="mt-6 p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4"
-                    >
-                        <div className="flex items-center gap-2">
-                            <Building2 className="w-5 h-5 text-primary" />
-                            <h3 className="text-sm font-black uppercase tracking-tight text-white">
-                                Cuentas Bancarias para Transferencia
-                            </h3>
-                        </div>
-                        <p className="text-xs text-gray-400">
-                            Puedes realizar la transferencia del anticipo del 50% (o total) a cualquiera de nuestras cuentas oficiales:
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                            {bankAccounts
-                                .filter((b) => b.activo)
-                                .map((bank) => (
-                                    <div key={bank.id} className="p-3.5 bg-black/50 border border-white/10 rounded-xl space-y-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            {bank.logo && (
-                                                <div className="relative w-5 h-5 shrink-0 rounded overflow-hidden">
-                                                    <Image src={bank.logo} alt={bank.banco} fill sizes="20px" className="object-contain" />
-                                                </div>
-                                            )}
-                                            <span className="font-black text-xs text-white uppercase">{bank.banco}</span>
-                                        </div>
-                                        <div className="text-[11px] font-mono font-bold text-primary tracking-wider">{bank.numero}</div>
-                                        <div className="text-[10px] text-gray-400 font-medium truncate">{bank.titular}</div>
-                                        <div className="text-[9px] text-gray-500 uppercase">{bank.tipo}</div>
+                            {/* 🏦 Transferencias */}
+                            {metodoPago === 'transferencia' && (
+                                <motion.div
+                                    key="bank-info"
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="mt-5 pt-5 border-t border-white/10 space-y-3.5 overflow-hidden"
+                                >
+                                    <p className="text-xs text-zinc-300">
+                                        Transfiere el 50% de anticipo a cualquiera de nuestras cuentas oficiales:
+                                    </p>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {bankAccounts
+                                            .filter((b) => b.activo)
+                                            .map((bank) => {
+                                                const isCopied = copiedAccountId === bank.id;
+                                                return (
+                                                    <div
+                                                        key={bank.id}
+                                                        className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-2"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                {bank.logo && (
+                                                                    <div className="relative w-5 h-5 shrink-0 rounded overflow-hidden">
+                                                                        <Image
+                                                                            src={bank.logo}
+                                                                            alt={bank.banco}
+                                                                            fill
+                                                                            sizes="20px"
+                                                                            className="object-contain"
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                                <span className="font-bold text-sm text-white uppercase">
+                                                                    {bank.banco}
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-xs text-zinc-400 uppercase font-medium">{bank.tipo}</span>
+                                                        </div>
+
+                                                        <div className="flex items-center justify-between bg-black/60 rounded-lg px-3 py-2">
+                                                            <span className="text-sm font-mono font-bold text-primary select-all">
+                                                                {bank.numero}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCopyNumber(bank.numero, bank.id)}
+                                                                className="text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1.5 cursor-pointer"
+                                                            >
+                                                                {isCopied ? (
+                                                                    <>
+                                                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                                                        <span className="text-emerald-400">Listo</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Copy className="w-3.5 h-3.5" />
+                                                                        <span>Copiar</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="text-xs text-zinc-400 truncate">
+                                                            Titular: {bank.titular}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                     </div>
-                                ))}
-                        </div>
-                    </motion.div>
-                )}
-
-                {metodoPago === 'paypal' && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="mt-6 p-5 rounded-2xl bg-[#003087]/10 border border-[#0079C1]/30 space-y-3"
-                    >
-                        <div className="flex items-center gap-2">
-                            <CreditCard className="w-5 h-5 text-[#0079C1]" />
-                            <h3 className="text-sm font-black uppercase tracking-tight text-white">
-                                Pago con Tarjeta Internacional o Saldo PayPal
-                            </h3>
-                        </div>
-                        <p className="text-xs text-gray-300 leading-relaxed">
-                            Aceptamos tarjetas de débito o crédito internacionales (Visa, Mastercard, Amex) y saldo de cuenta PayPal en USD al tipo de cambio oficial.
-                        </p>
-                        <p className="text-[11px] text-amber-400/90 lg:hidden font-medium bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-                            👇 <strong>Atención en celular:</strong> Llena tus datos de entrega y desplázate al final de la página (en el Resumen) para pulsar el botón oficial de PayPal o Tarjeta.
-                        </p>
-                    </motion.div>
-                )}
-
-                {paymentMethods.find((m) => (m.code || m.id) === metodoPago)?.is_coming_soon && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="mt-6 p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-start gap-3"
-                    >
-                        <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                        <div>
-                            <p className="text-sm font-bold text-white uppercase tracking-tight">Función no disponible</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                                Estamos trabajando para integrar esta opción de pago. Por favor selecciona otro método por ahora.
-                            </p>
-                        </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </motion.div>
                 )}
             </AnimatePresence>

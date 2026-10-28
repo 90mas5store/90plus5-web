@@ -135,20 +135,20 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              `script-src 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com https://cdn.jsdelivr.net`,
-              `script-src-elem 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com https://cdn.jsdelivr.net`,
+              `script-src 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://va.vercel-scripts.com https://cdn.jsdelivr.net`,
+              `script-src-elem 'self' ${isDev ? "'unsafe-eval' " : ""}'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://va.vercel-scripts.com https://cdn.jsdelivr.net`,
               "script-src-attr 'none'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' blob: data: https://a.espncdn.com https://i.imgur.com https://res.cloudinary.com https://upload.wikimedia.org https://90mas5.store https://fhvxolslqrrkefsvbcrq.supabase.co https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://*.paypalobjects.com https://cdn.jsdelivr.net https://staticimgly.com",
+              "img-src 'self' blob: data: https://a.espncdn.com https://i.imgur.com https://res.cloudinary.com https://upload.wikimedia.org https://90mas5.store https://fhvxolslqrrkefsvbcrq.supabase.co https://*.facebook.com https://www.google-analytics.com https://www.googletagmanager.com https://cdn.jsdelivr.net https://staticimgly.com https://pixelpay.app https://*.pixelpay.app https://*.cloudfront.net",
               "media-src 'self' blob: data: https://fhvxolslqrrkefsvbcrq.supabase.co https://res.cloudinary.com https://i.imgur.com",
               "font-src 'self' data:",
               "worker-src 'self' blob: https://cdn.jsdelivr.net",
-              "frame-src 'self' https://www.paypal.com https://www.sandbox.paypal.com",
+              "frame-src 'self' https://pixelpay.app https://*.pixelpay.app https://pixelpay.dev https://*.pixelpay.dev",
               "object-src 'none'",
               "base-uri 'self'",
-              "form-action 'self'",
+              "form-action 'self' https://pixelpay.app https://*.pixelpay.app https://pixelpay.dev https://*.pixelpay.dev",
               "frame-ancestors 'none'",
-              "connect-src 'self' https://site.api.espn.com https://*.espn.com https://*.espncdn.com https://*.facebook.com https://connect.facebook.net https://www.google-analytics.com https://www.googletagmanager.com https://fhvxolslqrrkefsvbcrq.supabase.co wss://fhvxolslqrrkefsvbcrq.supabase.co https://www.paypal.com https://www.sandbox.paypal.com https://*.paypalobjects.com https://va.vercel-scripts.com https://cdn.jsdelivr.net https://staticimgly.com",
+              "connect-src 'self' https://site.api.espn.com https://*.espn.com https://*.espncdn.com https://*.facebook.com https://connect.facebook.net https://www.google-analytics.com https://www.googletagmanager.com https://fhvxolslqrrkefsvbcrq.supabase.co wss://fhvxolslqrrkefsvbcrq.supabase.co https://va.vercel-scripts.com https://cdn.jsdelivr.net https://staticimgly.com https://pixelpay.app https://*.pixelpay.app https://pixelpay.dev https://*.pixelpay.dev",
               "upgrade-insecure-requests",
             ].join('; '),
           },
@@ -263,7 +263,6 @@ const nextConfig = {
     optimizePackageImports: [
       'framer-motion',
       'lucide-react',
-      '@paypal/react-paypal-js',
       'canvas-confetti',
       'clsx',
       'tailwind-merge',
@@ -280,27 +279,27 @@ const nextConfig = {
 };
 
 export default withSentryConfig(withBundleAnalyzer(withPWA(nextConfig)), {
-    // Subir source maps solo en CI/CD para no exponer código en dev
-    silent: true,
-    org: process.env.SENTRY_ORG,
-    project: process.env.SENTRY_PROJECT,
+  // Subir source maps solo en CI/CD para no exponer código en dev
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
 
-    // Ocultar source maps del bundle público
-    hideSourceMaps: true,
+  // Ocultar source maps del bundle público
+  hideSourceMaps: true,
 
-    webpack: {
-        // Eliminar logging de debug de Sentry (reemplaza disableLogger)
-        treeshake: {
-            removeDebugLogging: true,
-        },
-
-        // Tree-shaking de Sentry para reducir bundle size
-        automaticVercelMonitors: false,
-
-        // Deshabilitar anotaciones de componentes React — previene errores de hidratación
-        // (inyecta data-sentry-component attrs que deben coincidir SSR↔CSR exactamente)
-        reactComponentAnnotation: {
-            enabled: false,
-        },
+  webpack: {
+    // Eliminar logging de debug de Sentry (reemplaza disableLogger)
+    treeshake: {
+      removeDebugLogging: true,
     },
+
+    // Tree-shaking de Sentry para reducir bundle size
+    automaticVercelMonitors: false,
+
+    // Deshabilitar anotaciones de componentes React — previene errores de hidratación
+    // (inyecta data-sentry-component attrs que deben coincidir SSR↔CSR exactamente)
+    reactComponentAnnotation: {
+      enabled: false,
+    },
+  },
 });

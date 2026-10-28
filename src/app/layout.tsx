@@ -135,7 +135,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                                 "width": 512,
                                 "height": 512
                             },
-                            "description": "La mejor tienda de camisetas de fútbol en Honduras con sede en Tegucigalpa. Especialistas en equipaciones oficiales temporada 25/26 bajo pedido (3 a 5 semanas) en versión jugador y aficionado. Envíos a todo Honduras vía Cargo Expreso (CAEX).",
+                            "description": "La mejor tienda de camisetas de fútbol en Honduras con sede en Tegucigalpa. Especialistas en equipaciones oficiales bajo pedido (3 a 5 semanas) en versión jugador y aficionado. Envíos a todo Honduras vía Cargo Expreso (CAEX).",
                             "foundingDate": SITE_CONFIG.foundingDate,
                             "areaServed": {
                                 "@type": "Country",
@@ -169,7 +169,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             "@type": ["OnlineStore", "SportingGoodsStore", "Store"],
                             "name": SITE_CONFIG.name,
                             "alternateName": ["90mas5 Store", "90+5", "Noventa más Cinco Store"],
-                            "description": "Tienda deportiva online líder en Honduras con sede de operaciones en Tegucigalpa. Especialistas en camisetas de fútbol oficiales temporada 25/26 en versión jugador y aficionado bajo pedido (3 a 5 semanas de llegada). Operación 100% digital sin tienda física ni stock para venta inmediata, ofreciendo el catálogo más amplio del país, atención personalizada 1 a 1 por WhatsApp, anticipo del 50% y envíos seguros a nivel nacional vía Cargo Expreso (CAEX).",
+                            "description": "Tienda deportiva online líder en Honduras con sede de operaciones en Tegucigalpa. Especialistas en camisetas de fútbol oficiales en versión jugador y aficionado bajo pedido (3 a 5 semanas de llegada). Operación 100% digital sin tienda física ni stock para venta inmediata, ofreciendo el catálogo más amplio del país, atención personalizada 1 a 1 por WhatsApp, anticipo del 50% y envíos seguros a nivel nacional vía Cargo Expreso (CAEX).",
                             "url": SITE_URL,
                             "telephone": CONTACT.phone,
                             "email": CONTACT.email,
@@ -177,7 +177,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             "logo": `${SITE_URL}/logo.svg`,
                             "priceRange": SITE_CONFIG.priceRange,
                             "currenciesAccepted": SITE_CONFIG.currency,
-                            "paymentAccepted": "Transferencia bancaria directa / ACH (BAC Credomatic, Banco Atlántida, Ficohsa, Banpaís, Occidente), PayPal, Tarjetas de débito y crédito internacionales",
+                            "paymentAccepted": "Transferencia bancaria directa / ACH (BAC Credomatic, Banco Atlántida, Ficohsa, Banpaís, Occidente), Tarjetas de débito y crédito",
                             "knowsAbout": [
                                 "Tiendas deportivas en Honduras",
                                 "Tienda deportiva en Tegucigalpa",

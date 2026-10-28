@@ -133,7 +133,7 @@ export default function AdminTasaCambioPage() {
                         </h1>
                     </div>
                     <p className="text-xs md:text-sm text-gray-400">
-                        Configura la tasa de conversión para pagos internacionales con **PayPal** y tarjetas en dólares.
+                        Configura la tasa de conversión para cobros en línea con tarjetas y pasarelas en dólares.
                     </p>
                 </div>
 
@@ -270,7 +270,7 @@ export default function AdminTasaCambioPage() {
 
                             {/* Monto USD */}
                             <div className="space-y-1">
-                                <span className="text-[11px] font-bold text-gray-400">Cobro en PayPal (Dólares USD):</span>
+                                <span className="text-[11px] font-bold text-gray-400">Equivalente en Dólares (USD):</span>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-400 font-mono">
                                         $
@@ -297,7 +297,7 @@ export default function AdminTasaCambioPage() {
                             <span>Cobros 100% Seguros</span>
                         </div>
                         <p className="text-xs text-gray-400 leading-relaxed">
-                            Al usar la API oficial de PayPal, el monto en USD es verificado estrictamente en el servidor antes de confirmar cualquier pedido.
+                            El monto en USD o Lempiras es verificado estrictamente en el servidor antes de confirmar cualquier pedido.
                         </p>
                     </div>
                 </div>

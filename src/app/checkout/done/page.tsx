@@ -90,9 +90,9 @@ function CheckoutDoneContent() {
   };
 
   const handleShare = () => {
-    const isPaypal = metodo === "paypal";
-    const message = isPaypal
-      ? `👋 Hola, soy *${nombre}*. Acabo de realizar mi pedido *#${orderId}* pagado con *PayPal / Tarjeta* por un monto de *L${total}*.`
+    const isOnline = metodo === "tarjeta" || metodo === "pasarela" || metodo === "pixelpay";
+    const message = isOnline
+      ? `👋 Hola, soy *${nombre}*. Acabo de realizar mi pedido *#${orderId}* pagado con *Tarjeta* por un monto de *L${total}*.`
       : `👋 Hola, soy *${nombre}*. Te comparto el comprobante de mi pedido *${orderId}* por un monto de *L${total}* (${metodo}).`;
     const whatsappURL = getWhatsappLink({ message });
     window.open(whatsappURL, "_blank");
@@ -164,7 +164,7 @@ function CheckoutDoneContent() {
 
                 <div className="flex justify-between items-center pb-3 border-b border-white/5">
                   <span className="text-gray-400 text-sm">
-                    {metodo === "paypal"
+                    {metodo === "tarjeta" || metodo === "pasarela" || metodo === "pixelpay"
                       ? (parseFloat(anticipo || "0") >= parseFloat(total || "0") ? "Monto Pagado (100%)" : "Anticipo Pagado (50%)")
                       : "Anticipo (50%)"}
                   </span>
@@ -173,8 +173,8 @@ function CheckoutDoneContent() {
 
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400 text-sm">Método de Pago</span>
-                  <span className="font-bold text-white">
-                    {metodo === "paypal" ? "PayPal / Tarjeta" : metodo}
+                  <span className="font-bold text-white capitalize">
+                    {metodo === "tarjeta" ? "Tarjeta de Crédito / Débito" : metodo}
                   </span>
                 </div>
 
@@ -412,7 +412,7 @@ function CheckoutDoneContent() {
               </>
             )}
 
-            {metodo === "paypal" && (
+            {(metodo === "tarjeta" || metodo === "pasarela" || metodo === "pixelpay") && (
               <section className="bg-emerald-500/10 backdrop-blur-md sm:backdrop-blur-xl border border-emerald-500/20 p-6 sm:p-8 rounded-[2rem] space-y-6">
                 <div className="flex items-center gap-3 text-emerald-400">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
@@ -423,7 +423,7 @@ function CheckoutDoneContent() {
                       Pago Verificado con Éxito
                     </h2>
                     <p className="text-xs text-emerald-400 font-bold">
-                      Procesado y confirmado vía PayPal / Tarjeta
+                      Procesado y confirmado vía Tarjeta en línea
                     </p>
                   </div>
                 </div>

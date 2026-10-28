@@ -15,7 +15,7 @@ export interface PaymentMethodRecord {
     code: string;
     name: string;
     description: string;
-    type: 'transferencia' | 'efectivo' | 'link_pago' | 'tarjeta' | 'paypal' | 'otro';
+    type: 'transferencia' | 'efectivo' | 'link_pago' | 'tarjeta' | 'otro' | 'paypal';
     active: boolean;
     is_coming_soon: boolean;
     sort_order: number;
@@ -63,6 +63,17 @@ export let DEFAULT_PAYMENT_METHODS: PaymentMethodRecord[] = [
         instructions: 'Realiza el depósito o transferencia y sube tu comprobante.'
     },
     {
+        id: 'pm-tarjeta',
+        code: 'tarjeta',
+        name: 'Tarjeta de Crédito / Débito (PixelPay)',
+        description: 'Pago seguro en línea con tarjeta Visa o Mastercard (3D Secure).',
+        type: 'tarjeta',
+        active: true,
+        is_coming_soon: false,
+        sort_order: 2,
+        instructions: 'Paga de forma instantánea y protegida con tu tarjeta de crédito o débito.'
+    },
+    {
         id: 'pm-link_pago',
         code: 'link_pago',
         name: 'Solicitar Link de Pago',
@@ -70,19 +81,8 @@ export let DEFAULT_PAYMENT_METHODS: PaymentMethodRecord[] = [
         type: 'link_pago',
         active: true,
         is_coming_soon: false,
-        sort_order: 2,
-        instructions: 'Al completar el pedido, nuestro equipo te enviará el link por WhatsApp.'
-    },
-    {
-        id: 'pm-paypal',
-        code: 'paypal',
-        name: 'PayPal / Tarjetas Internacionales',
-        description: 'Paga de forma instantánea y segura con saldo PayPal, tarjeta de crédito o débito.',
-        type: 'paypal',
-        active: true,
-        is_coming_soon: false,
         sort_order: 3,
-        instructions: 'Paga en dólares (USD) de forma segura con tu cuenta de PayPal o tarjeta.',
+        instructions: 'Al completar el pedido, nuestro equipo te enviará el link por WhatsApp.'
     },
     {
         id: 'pm-efectivo',
@@ -94,17 +94,6 @@ export let DEFAULT_PAYMENT_METHODS: PaymentMethodRecord[] = [
         is_coming_soon: false,
         sort_order: 4,
         instructions: 'Prepara el monto exacto para entregarlo al repartidor.'
-    },
-    {
-        id: 'pm-tarjeta',
-        code: 'tarjeta',
-        name: 'Tarjeta de Crédito / Débito (Local)',
-        description: 'Pago seguro en línea con tarjeta Visa/Mastercard.',
-        type: 'tarjeta',
-        active: false,
-        is_coming_soon: true,
-        sort_order: 5,
-        instructions: 'Integración en desarrollo.'
     }
 ];
 

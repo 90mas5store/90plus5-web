@@ -33,16 +33,52 @@ export async function GET() {
             .order('sort_order', { ascending: true })
 
         let methods: PaymentMethodRecord[] = (methodsErr || !methodsData || methodsData.length === 0)
-            ? DEFAULT_PAYMENT_METHODS
-            : (methodsData as PaymentMethodRecord[])
+            ? [...DEFAULT_PAYMENT_METHODS]
+            : [...(methodsData as PaymentMethodRecord[])]
 
-        // Asegurar que PayPal siempre esté disponible en el listado si la base de datos no lo tenía
-        if (!methods.some((m) => m.code === 'paypal')) {
-            const paypalDefault = DEFAULT_PAYMENT_METHODS.find((p) => p.code === 'paypal')
-            if (paypalDefault) {
-                methods.push(paypalDefault)
+        // Limpiar cualquier residuo de paypal que haya quedado en la BD
+        const hasPaypal = methods.some(m => m.code === 'paypal' || m.type === 'paypal');
+        if (hasPaypal) {
+            try {
+                await supabase.from('payment_methods').delete().or('code.eq.paypal,type.eq.paypal');
+            } catch {
+                // silent catch
+            }
+            methods = methods.filter(m => m.code !== 'paypal' && m.type !== 'paypal');
+        }
+
+        // Asegurar que métodos default (como tarjeta / PixelPay) aparezcan en el panel admin y se persistan en BD
+        for (const def of DEFAULT_PAYMENT_METHODS) {
+            if (def.code === 'paypal' || def.type === 'paypal') continue;
+            const exists = methods.some(m => m.code === def.code || m.type === def.type);
+            if (!exists) {
+                try {
+                    const { data: inserted } = await supabase
+                        .from('payment_methods')
+                        .insert([{
+                            code: def.code,
+                            name: def.name,
+                            description: def.description,
+                            type: def.type,
+                            active: def.active,
+                            is_coming_soon: def.is_coming_soon,
+                            sort_order: def.sort_order,
+                            instructions: def.instructions || ''
+                        }])
+                        .select();
+
+                    if (inserted && inserted.length > 0) {
+                        methods.push(inserted[0]);
+                    } else {
+                        methods.push(def);
+                    }
+                } catch {
+                    methods.push(def);
+                }
             }
         }
+
+        methods.sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99));
 
         // Fetch bank accounts from Supabase DB
         const { data: banksData, error: banksErr } = await supabase

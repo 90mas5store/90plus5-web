@@ -37,10 +37,10 @@ export default function TerminosPage() {
                     <strong>Transferencia Bancaria:</strong> Requerimos un anticipo del 50% para procesar pedidos bajo encargo, cancelando el 50% restante al momento de la entrega o despacho. Aceptamos transferencias directas a nuestras cuentas de BAC Credomatic y Banco Atlántida, así como transferencias ACH interbancarias desde Ficohsa, Banpaís, Banco de Occidente y otros bancos de Honduras.
                 </li>
                 <li>
-                    <strong>PayPal y Tarjetas Internacionales (Débito / Crédito):</strong> Los pagos procesados a través de la pasarela oficial de PayPal se cobran al 100% en Dólares Estadounidenses (USD) al tipo de cambio oficial publicado en la tienda. La confirmación del pago y el procesamiento del pedido son inmediatos.
+                    <strong>Tarjetas de Crédito y Débito (Nacionales e Internacionales):</strong> Los pagos procesados electrónicamente a través de enlaces de pago o pasarelas seguras se procesan de inmediato. La confirmación del pago y el procesamiento del pedido son automáticos.
                 </li>
                 <li>
-                    <strong>Seguridad en Pagos Electrónicos:</strong> Todas las transacciones con tarjeta son procesadas de extremo a extremo por PayPal bajo los más estrictos estándares de seguridad y encriptación PCI-DSS. 90+5 Store no almacena ni tiene acceso a los números completos de tu tarjeta de crédito o débito.
+                    <strong>Seguridad en Pagos Electrónicos:</strong> Todas las transacciones con tarjeta son procesadas de extremo a extremo bajo los más estrictos estándares de seguridad y encriptación PCI-DSS. 90+5 Store nunca almacena ni tiene acceso a los números completos de tu tarjeta de crédito o débito ni a tus códigos CVV.
                 </li>
                 <li>
                     <strong>Plazo de Confirmación:</strong> Los pedidos con método de transferencia bancaria que no reciban su comprobante en un plazo de 48 horas podrán ser cancelados para no demorar la orden de importación.

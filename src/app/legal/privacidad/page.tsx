@@ -22,7 +22,7 @@ export default function PrivacidadPage() {
                 <li>Nombre completo.</li>
                 <li>Dirección de entrega y departamento/municipio de destino.</li>
                 <li>Correo electrónico y número de teléfono (para notificaciones del estado del pedido y coordinación de entrega).</li>
-                <li>Información transaccional de pagos. <strong>Importante:</strong> Los datos de tu tarjeta de crédito o débito son introducidos directamente en los formularios seguros de <strong>PayPal (PayPal Holdings, Inc.)</strong>. 90+5 Store nunca tiene acceso, procesa ni almacena números de tarjeta ni códigos de seguridad CVV.</li>
+                <li>Información transaccional de pagos. <strong>Importante:</strong> Los datos de tu tarjeta de crédito o débito son introducidos directamente en los formularios encriptados de la pasarela de pagos certificada. 90+5 Store nunca tiene acceso, procesa ni almacena números de tarjeta ni códigos de seguridad CVV.</li>
             </ul>
 
             <h2>2. Uso de la Información</h2>
@@ -42,7 +42,7 @@ export default function PrivacidadPage() {
                 <strong>Nunca vendemos ni comercializamos tus datos personales.</strong> Únicamente compartimos la información estrictamente necesaria con proveedores de servicios autorizados para completar tu compra:
             </p>
             <ul>
-                <li><strong>PayPal:</strong> Como pasarela de pagos internacional certificada PCI-DSS Nivel 1 para el cobro seguro y encriptado con tarjetas de crédito, débito o saldo PayPal.</li>
+                <li><strong>Pasarelas de Pago Electrónico:</strong> Entidades bancarias y pasarelas certificadas PCI-DSS Nivel 1 para el cobro seguro y encriptado con tarjetas de crédito y débito.</li>
                 <li><strong>Empresas de Mensajería y Logística:</strong> Para hacer llegar tus paquetes a la dirección indicada en todo el territorio hondureño.</li>
                 <li><strong>Infraestructura en la Nube (Supabase / Vercel / Resend):</strong> Para el almacenamiento seguro de pedidos y el envío de recibos digitales por correo.</li>
             </ul>

@@ -56,13 +56,13 @@ export async function fetchPaymentMethods(): Promise<PaymentMethodRecord[]> {
             return DEFAULT_PAYMENT_METHODS.filter(p => p.active).sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99));
         }
 
-        const methods = [...data] as PaymentMethodRecord[];
-        const hasPaypal = methods.some((m) => m.code === 'paypal');
-        if (!hasPaypal) {
-            const paypalDefault = DEFAULT_PAYMENT_METHODS.find(p => p.code === 'paypal');
-            if (paypalDefault && paypalDefault.active) {
-                methods.push(paypalDefault);
-            }
+        let methods = [...data] as PaymentMethodRecord[];
+        methods = methods.filter(m => m.code !== 'paypal' && m.type !== 'paypal');
+
+        const cardIdx = methods.findIndex(p => p.code === 'tarjeta' || p.type === 'tarjeta');
+        if (cardIdx === -1) {
+            const defaultCard = DEFAULT_PAYMENT_METHODS.find(p => p.code === 'tarjeta');
+            if (defaultCard) methods.push(defaultCard);
         }
 
         return methods

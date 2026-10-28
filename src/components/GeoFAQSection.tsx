@@ -22,7 +22,7 @@ const faqs = [
     },
     {
         question: "¿Cómo se realiza el pago de un pedido por encargo?",
-        answer: "Al ser productos bajo pedido, solicitamos un anticipo del 50% para encargar e importar tu camiseta. El 50% restante se cancela cuando tu pedido esté listo para entrega en Tegucigalpa o previo al despacho nacional. Aceptamos transferencias bancarias directas o interbancarias ACH (BAC Credomatic, Banco Atlántida, Ficohsa, Banpaís, Banco de Occidente) y pagos electrónicos vía PayPal con tarjetas internacionales.",
+        answer: "Al ser productos bajo pedido, solicitamos un anticipo del 50% para encargar e importar tu camiseta. El 50% restante se cancela cuando tu pedido esté listo para entrega en Tegucigalpa o previo al despacho nacional. Aceptamos transferencias bancarias directas o interbancarias ACH (BAC Credomatic, Banco Atlántida, Ficohsa, Banpaís, Banco de Occidente) y tarjetas a través de enlaces de pago seguros.",
     },
     {
         question: "¿Por qué la experiencia de compra en 90+5 Store está centrada en el cliente?",

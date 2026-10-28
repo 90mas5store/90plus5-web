@@ -62,28 +62,17 @@ export default function PaymentMethodModal({
                                 value={editingMethod.type}
                                 onChange={(e) => {
                                     const newType = e.target.value as PaymentMethodRecord["type"];
-                                    const isPaypal = newType === "paypal";
                                     setEditingMethod({
                                         ...editingMethod,
                                         type: newType,
-                                        code:
-                                            isPaypal && (!editingMethod.code || editingMethod.code.startsWith("metodo_"))
-                                                ? "paypal"
-                                                : editingMethod.code,
-                                        name: isPaypal && !editingMethod.name ? "PayPal / Tarjetas Internacionales" : editingMethod.name,
-                                        description:
-                                            isPaypal && !editingMethod.description
-                                                ? "Paga de forma instantánea y segura con saldo PayPal, tarjeta de crédito o débito."
-                                                : editingMethod.description,
                                     });
                                 }}
                                 className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-xs sm:text-sm text-white focus:border-primary outline-none"
                             >
-                                <option value="paypal" className="bg-black">PayPal / Tarjetas Internacionales (USD)</option>
                                 <option value="transferencia" className="bg-black">Transferencia Bancaria</option>
                                 <option value="link_pago" className="bg-black">Solicitar Link de Pago (WhatsApp)</option>
                                 <option value="efectivo" className="bg-black">Efectivo / Pago al Entregar</option>
-                                <option value="tarjeta" className="bg-black">Tarjeta de Crédito / Débito</option>
+                                <option value="tarjeta" className="bg-black">Tarjeta de Crédito / Débito (PixelPay)</option>
                                 <option value="otro" className="bg-black">Otro Método Personalizado</option>
                             </select>
                         </div>
