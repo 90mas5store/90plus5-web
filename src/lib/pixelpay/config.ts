@@ -17,6 +17,10 @@ export const PIXELPAY_CONFIG = {
     sandboxEndpoint: 'https://pixelpay.app/api/v2/transaction/hosted/sandbox',
     productionEndpoint: process.env.PIXELPAY_ENDPOINT || 'https://pixelpay.app/api/v2/transaction/hosted/other',
     
+    // Dominio de la plataforma PixelPay del comercio (`app_url` en la firma de seguridad).
+    // Si no se define, se deriva del origen del endpoint Hosted activo.
+    appUrl: process.env.PIXELPAY_APP_URL || '',
+
     // Status / Direct API Endpoint
     apiEndpoint: process.env.PIXELPAY_ENV === 'live' || process.env.PIXELPAY_ENV === 'production'
         ? 'https://pixelpay.app'

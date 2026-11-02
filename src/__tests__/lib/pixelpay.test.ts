@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { 
     generatePixelPaySignature, 
     buildPixelPayHostedUrl, 
-    verifyPixelPayPaymentHash 
+    verifyPixelPayPaymentHash,
+    getPixelPayAppUrl,
+    parsePixelPayCallback
 } from '@/lib/pixelpay/client';
 import { PIXELPAY_CONFIG } from '@/lib/pixelpay/config';
 import { createHash } from 'crypto';
@@ -63,5 +65,57 @@ describe('PixelPay Integration Client', () => {
     it('rejects an invalid paymentHash', () => {
         expect(verifyPixelPayPaymentHash('invalid_hash_value_123', 'ORD-HASH-123')).toBe(false);
         expect(verifyPixelPayPaymentHash('', 'ORD-HASH-123')).toBe(false);
+    });
+
+    it('matches the official documentation signature example (ORDER-8888)', () => {
+        const signature = generatePixelPaySignature(
+            '1234567890',
+            'ORDER-8888',
+            'https://pixelpay.dev',
+            '@s4ndb0x-abcd-1234-n1l4-p1x3l'
+        );
+        // La documentación muestra el resultado abreviado: `688084a6...e852ee2a`
+        expect(signature.startsWith('688084a6')).toBe(true);
+        expect(signature.endsWith('e852ee2a')).toBe(true);
+    });
+
+    it('signs with the PixelPay platform domain (app_url), not the store URL', () => {
+        const url = new URL(buildPixelPayHostedUrl({
+            orderId: 'ORD-SIGN-1',
+            amount: 1,
+            customer: { name: 'Ana Lopez', email: 'ana@example.com' },
+        }));
+        const expected = generatePixelPaySignature(
+            PIXELPAY_CONFIG.key,
+            'ORD-SIGN-1',
+            getPixelPayAppUrl(),
+            PIXELPAY_CONFIG.secret
+        );
+        expect(getPixelPayAppUrl()).toBe(new URL(PIXELPAY_CONFIG.sandboxEndpoint).origin);
+        expect(url.searchParams.get('_client_signature')).toBe(expected);
+    });
+
+    it('parses the official _callback payload format', () => {
+        const parsed = parsePixelPayCallback({
+            ref: '4oRJCUc0',
+            uuid: 'P-a039903a-449c-4911-bf43-85b776284e97',
+            status: 'paid',
+            amount: 1,
+            order: '4oRJCUc0',
+            payment_hash: '0b3de9ea8cd10f2494360bfc136c77e6',
+            card_issuer: 'BAC Credomatic',
+            authorization_id: 'AUTH-123456',
+            card_brand: 'visa',
+        });
+        expect(parsed).toEqual({
+            orderId: '4oRJCUc0',
+            paymentHash: '0b3de9ea8cd10f2494360bfc136c77e6',
+            status: 'paid',
+            paymentUuid: 'P-a039903a-449c-4911-bf43-85b776284e97',
+            amount: 1,
+            cardIssuer: 'BAC Credomatic',
+            authorizationId: 'AUTH-123456',
+            cardBrand: 'visa',
+        });
     });
 });
