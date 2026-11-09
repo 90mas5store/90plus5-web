@@ -49,4 +49,5 @@ next-env.d.ts
 # Agent scratch directory
 scratch/
 .claude/
+supabase/.temp/
 

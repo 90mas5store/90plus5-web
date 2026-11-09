@@ -71,11 +71,20 @@ export default function CheckoutPage() {
                 const res = await fetch('/api/payment-methods', { cache: 'no-store' });
                 if (res.ok && isMounted) {
                     const data = await res.json();
+                    const filterMethods = (list: PaymentMethodConfig[]) =>
+                        list.filter((m) => {
+                            if (m.active === false) return false;
+                            if (m.code === 'tarjeta' || m.type === 'tarjeta') {
+                                return process.env.NEXT_PUBLIC_ENABLE_PIXELPAY === 'true';
+                            }
+                            return true;
+                        }).sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99));
+
                     if (Array.isArray(data)) {
-                        setPaymentMethods([...data].sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99)));
+                        setPaymentMethods(filterMethods(data));
                     } else if (data && typeof data === 'object') {
                         if (data.methods && Array.isArray(data.methods)) {
-                            setPaymentMethods([...data.methods].sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99)));
+                            setPaymentMethods(filterMethods(data.methods));
                         }
                         if (data.bankAccounts && Array.isArray(data.bankAccounts)) {
                             setBankAccounts([...data.bankAccounts].sort((a, b) => (a.orden || 99) - (b.orden || 99)));
@@ -123,7 +132,7 @@ export default function CheckoutPage() {
     const anticipo = orderTotal * BUSINESS_LOGIC.ORDER.DEPOSIT_PERCENTAGE;
 
     const selectedMethod = paymentMethods.find((m) => (m.code || m.id) === metodoPago);
-    const isCardPayment = metodoPago === 'tarjeta' || selectedMethod?.type === 'tarjeta';
+    const isCardPayment = process.env.NEXT_PUBLIC_ENABLE_PIXELPAY === 'true' && (metodoPago === 'tarjeta' || selectedMethod?.type === 'tarjeta');
     const chargeAmount = isCardPayment && paymentType === 'full' ? orderTotal : anticipo;
 
     // Validación de secciones

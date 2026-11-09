@@ -23,7 +23,7 @@ export default function StoreGeoAuthoritySection() {
             icon: <Sparkles className="w-5 h-5 text-[#E50914]" />,
             badge: "Calidad de Jugador",
             title: "Versión Jugador y Personalización",
-            desc: "Equipaciones oficiales temporada 25/26 con tela transpirable profesional y estampados oficiales con tu número favorito o tu propio nombre.",
+            desc: "Equipaciones oficiales de la Colección con tela transpirable profesional y estampados oficiales con tu número favorito o tu propio nombre.",
         },
         {
             icon: <MessageCircle className="w-5 h-5 text-[#E50914]" />,

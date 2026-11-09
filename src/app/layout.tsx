@@ -37,7 +37,7 @@ export const metadata: Metadata = {
         default: "90+5 Store | Tienda Deportiva en Tegucigalpa · Camisetas de Fútbol en Honduras",
         template: "%s | 90+5 Store",
     },
-    description: "La tienda deportiva online líder en Honduras con sede en Tegucigalpa. Camisetas de fútbol oficiales 25/26 versión jugador y aficionado bajo pedido (3 a 5 semanas) y envíos a todo Honduras vía Cargo Expreso (CAEX). Experiencia 100% digital centrada en ti.",
+    description: "La tienda deportiva online líder en Honduras con sede en Tegucigalpa. Camisetas de fútbol oficiales versión jugador y aficionado bajo pedido (3 a 5 semanas) y envíos a todo Honduras vía Cargo Expreso (CAEX). Experiencia 100% digital centrada en ti.",
     applicationName: SITE_CONFIG.name,
     authors: [{ name: SITE_CONFIG.name, url: SITE_URL }],
     keywords: [
@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     manifest: "/manifest.json",
     openGraph: {
         title: "90+5 Store | Tienda Deportiva Online en Honduras · Sede Tegucigalpa",
-        description: "Camisetas de fútbol oficiales 25/26 versión jugador y aficionado bajo pedido (3 a 5 semanas) con personalización y envíos seguros a toda Honduras vía Cargo Expreso (CAEX).",
+        description: "Camisetas de fútbol oficiales versión jugador y aficionado bajo pedido (3 a 5 semanas) con personalización y envíos seguros a toda Honduras vía Cargo Expreso (CAEX).",
         url: SITE_URL,
         siteName: SITE_CONFIG.name,
         locale: SITE_CONFIG.locale,
@@ -214,7 +214,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             "hasOfferCatalog": {
                                 "@type": "OfferCatalog",
                                 "name": "Camisetas de Fútbol y Ropa Deportiva",
-                                "description": "Catálogo completo de equipaciones deportivas oficiales temporada 25/26. Real Madrid, Barcelona, Olimpia, Motagua, Bayern Munich, Liga Hondubet, Premier League, Selecciones y Colección Retro.",
+                                "description": "Catálogo completo de equipaciones deportivas oficiales. Real Madrid, Barcelona, Olimpia, Motagua, Bayern Munich, Liga Hondubet, Premier League, Selecciones y Colección Retro.",
                                 "itemListElement": [
                                     { "@type": "ListItem", "position": 1, "name": "Camisetas versión jugador con tecnología transpirable" },
                                     { "@type": "ListItem", "position": 2, "name": "Camisetas versión aficionado con escudos bordados" },

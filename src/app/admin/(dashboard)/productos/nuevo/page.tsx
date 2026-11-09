@@ -1,500 +1,80 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { clearProductCache } from '@/lib/api';
-import { revalidateProduct, syncFeaturedOrderAction } from '@/app/admin/actions';
-import { Save, ArrowLeft, Loader2 } from 'lucide-react';
-import { buildProductSlug, generateUniqueSlug, sanitizeSlugPart } from '@/lib/utils/slug';
+import { useState } from 'react';
 import Link from 'next/link';
-import useToastMessage from '@/hooks/useToastMessage';
+import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
-import { GalleryImage } from '@/components/admin/ProductGalleryManager';
-import ProductMediaSection from '@/components/admin/products/ProductMediaSection';
-
-import {
-    AdminSize,
-    AdminPatch,
-    AdminVariant,
-    AdminPlayer,
-    AdminProductFormData,
-    CatalogItem,
-} from '@/types/adminProduct';
-
+import { useCreateProductForm } from '@/components/admin/products/useCreateProductForm';
 import ProductGeneralInfoSection from '@/components/admin/products/ProductGeneralInfoSection';
 import ProductVariantsSection from '@/components/admin/products/ProductVariantsSection';
 import ProductLeaguesSection from '@/components/admin/products/ProductLeaguesSection';
 import ProductPatchesSection from '@/components/admin/products/ProductPatchesSection';
 import ProductPlayersSection from '@/components/admin/products/ProductPlayersSection';
+import ProductMediaSection from '@/components/admin/products/ProductMediaSection';
+import QuickCreateModal from '@/components/admin/products/QuickCreateModal';
 
 export default function CreateProductPage() {
-    const router = useRouter();
-    const supabaseRef = useRef(createClient());
-    const supabase = supabaseRef.current;
-    const toast = useToastMessage();
+    const {
+        loading,
+        saving,
+        teams,
+        leagues,
+        categories,
+        brands,
+        allSizes,
+        availableVersions,
+        featuredProducts,
+        filteredSizes,
+        filteredPatches,
+        addSize,
+        formData,
+        setFormData,
+        handleChange,
+        isAutoSlug,
+        setIsAutoSlug,
+        slugChecking,
+        slugIsUnique,
+        variants,
+        addVariant,
+        updateVariant,
+        removeVariant,
+        toggleVariantSize,
+        applyAdultPreset,
+        applySinglePreset,
+        variantToDelete,
+        setVariantToDelete,
+        productPatches,
+        toggleProductPatch,
+        selectedLeagues,
+        toggleSelectedLeague,
+        productImages,
+        setProductImages,
+        teamPlayers,
+        selectedPlayerIds,
+        togglePlayer,
+        selectAllPlayers,
+        deselectAllPlayers,
+        newPlayer,
+        setNewPlayer,
+        addingPlayer,
+        handleAddPlayer,
+        suggestedBrandName,
+        handleTeamCreated,
+        handleBrandCreated,
+        handleSave,
+    } = useCreateProductForm();
 
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-
-    // Catálogos
-    const [teams, setTeams] = useState<CatalogItem[]>([]);
-    const [leagues, setLeagues] = useState<CatalogItem[]>([]);
-    const [categories, setCategories] = useState<CatalogItem[]>([]);
-    const [brands, setBrands] = useState<CatalogItem[]>([]);
-    const [allSizes, setAllSizes] = useState<AdminSize[]>([]);
-    const [allPatches, setAllPatches] = useState<AdminPatch[]>([]);
-    const [availableVersions, setAvailableVersions] = useState<string[]>(['Fan', 'Player', 'Estandar']);
-
-    // Estado del Formulario Principal
-    const [formData, setFormData] = useState<AdminProductFormData>({
-        name: '',
-        description: '',
-        slug: '',
-        image_url: '',
-        team_id: '',
-        league_id: '',
-        category_id: '',
-        brand_id: '',
-        gender: '',
-        active: true,
-        featured: false,
-        allows_customization: true,
-        sort_order: 0,
-        season: '',
+    const [quickModal, setQuickModal] = useState<{ open: boolean; type: 'team' | 'brand' }>({
+        open: false,
+        type: 'team',
     });
 
-    // Tallas y parches filtrados
-    const filteredSizes = useMemo(() => {
-        return allSizes.filter(
-            (s) =>
-                (!s.category_id || !formData.category_id || s.category_id === formData.category_id) &&
-                (!s.gender || !formData.gender || s.gender === formData.gender)
-        );
-    }, [allSizes, formData.category_id, formData.gender]);
-
-    const filteredPatches = useMemo(() => {
-        return allPatches.filter(
-            (p) => !p.category_id || !formData.category_id || p.category_id === formData.category_id
-        );
-    }, [allPatches, formData.category_id]);
-
-    // Gestión Avanzada
-    const [variants, setVariants] = useState<AdminVariant[]>([]);
-    const [productPatches, setProductPatches] = useState<Set<string>>(new Set<string>());
-    const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set<string>());
-    const [variantToDelete, setVariantToDelete] = useState<string | null>(null);
-    const [playerToDelete, setPlayerToDelete] = useState<string | null>(null);
-
-    // Galería
-    const [productImages, setProductImages] = useState<GalleryImage[]>([]);
-
-    // Jugadores
-    const [teamPlayers, setTeamPlayers] = useState<AdminPlayer[]>([]);
-    const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set<string>());
-    const [newPlayer, setNewPlayer] = useState({ name: '', number: '' });
-    const [addingPlayer, setAddingPlayer] = useState(false);
-    const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
-
-    // Slug Auto-Generación & Unicidad
-    const [isAutoSlug, setIsAutoSlug] = useState(true);
-    const [slugChecking, setSlugChecking] = useState(false);
-    const [slugIsUnique, setSlugIsUnique] = useState<boolean | null>(null);
-
-    // Auto-generación de slug
-    useEffect(() => {
-        if (!isAutoSlug) return;
-        const teamName = teams.find((t) => t.id === formData.team_id)?.name;
-        const brandName = brands.find((b) => b.id === formData.brand_id)?.name;
-        const categoryName = categories.find((c) => c.id === formData.category_id)?.name;
-
-        const autoSlug = buildProductSlug({
-            teamName,
-            brandName,
-            name: formData.name,
-            season: formData.season,
-            categoryName,
-            gender: formData.gender,
-        });
-
-        setFormData((prev) => ({ ...prev, slug: autoSlug }));
-    }, [formData.name, formData.team_id, formData.brand_id, formData.category_id, formData.season, formData.gender, teams, brands, categories, isAutoSlug]);
-
-    // Chequeo de unicidad
-    useEffect(() => {
-        if (!formData.slug) {
-            setSlugIsUnique(null);
-            return;
-        }
-
-        const timer = setTimeout(async () => {
-            setSlugChecking(true);
-            try {
-                const uniqueSlug = await generateUniqueSlug(supabase, formData.slug);
-                setSlugIsUnique(uniqueSlug === formData.slug);
-            } catch (err) {
-                console.error('Error verificando slug:', err);
-            } finally {
-                setSlugChecking(false);
-            }
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [formData.slug, supabase]);
-
-    // Carga Inicial de Catálogos
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                const [teamsRes, leaguesRes, catsRes, sizesRes, patchesRes, brandsRes, variantsRes, featuredRes] =
-                    await Promise.all([
-                        supabase.from('teams').select('id, name').order('name'),
-                        supabase.from('leagues').select('id, name').order('name'),
-                        supabase.from('categories').select('id, name').order('name'),
-                        supabase
-                            .from('sizes')
-                            .select('id, label, sort_order, category_id, gender')
-                            .eq('active', true)
-                            .order('sort_order'),
-                        supabase.from('patches').select('id, name, category_id').eq('active', true).order('name'),
-                        supabase.from('brands').select('id, name').eq('active', true).is('deleted_at', null).order('name'),
-                        supabase.from('product_variants').select('version'),
-                        supabase
-                            .from('products')
-                            .select('id, name, sort_order, teams(name)')
-                            .eq('featured', true)
-                            .is('deleted_at', null)
-                            .order('sort_order', { ascending: true }),
-                    ]);
-
-                setTeams(teamsRes.data || []);
-                setLeagues(leaguesRes.data || []);
-                setCategories(catsRes.data || []);
-                setAllSizes(sizesRes.data || []);
-                setAllPatches(patchesRes.data || []);
-                setBrands(brandsRes.data || []);
-                setFeaturedProducts(featuredRes.data || []);
-
-                if (variantsRes.data) {
-                    const dbVersions = Array.from(
-                        new Set<string>((variantsRes.data as { version: string }[]).map((v) => String(v.version)))
-                    );
-                    setAvailableVersions(Array.from(new Set(['Fan', 'Player', 'Estandar', ...dbVersions])).sort());
-                }
-
-                // Default initial variant
-                const defaultVariant: AdminVariant = {
-                    tempId: `default_${Date.now()}`,
-                    version: 'Fan',
-                    price: 1200,
-                    cost: 0,
-                    active: true,
-                    original_price: 0,
-                    active_original_price: false,
-                    sizeIds: new Set(sizesRes.data?.map((s: { id: string }) => s.id) || []),
-                };
-                setVariants([defaultVariant]);
-            } catch (error) {
-                console.error('Error cargando catálogos:', error);
-                toast.error('Error al cargar datos iniciales');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadData();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Cargar Jugadores cuando se selecciona un equipo
-    useEffect(() => {
-        if (!formData.team_id) {
-            setTeamPlayers([]);
-            setSelectedPlayerIds(new Set());
-            return;
-        }
-
-        const loadPlayers = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('players')
-                    .select('id, name, number, active')
-                    .eq('team_id', formData.team_id)
-                    .eq('active', true)
-                    .order('number');
-
-                if (error) throw error;
-                const activePlayers = data || [];
-                setTeamPlayers(activePlayers);
-                // Por defecto, en producto nuevo se preseleccionan los jugadores activos del equipo
-                setSelectedPlayerIds(new Set(activePlayers.map((p) => p.id)));
-            } catch (error) {
-                console.error('Error cargando jugadores:', error);
-            }
-        };
-
-        loadPlayers();
-    }, [formData.team_id, supabase]);
-
-    const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-    ) => {
-        const { name, value, type } = e.target;
-        const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-
-        setFormData((prev) => {
-            const next = { ...prev, [name]: val };
-            if (name === 'slug') {
-                setIsAutoSlug(false);
-                next.slug = sanitizeSlugPart(String(val));
-            }
-            return next;
-        });
-    };
-
-    // Variantes Handlers
-    const addVariant = () => {
-        const newVariant: AdminVariant = {
-            tempId: `new_${Date.now()}`,
-            version: 'Player',
-            price: 1400,
-            cost: 0,
-            active: true,
-            original_price: 0,
-            active_original_price: false,
-            sizeIds: new Set(filteredSizes.map((s) => s.id)),
-        };
-        setVariants((prev) => [...prev, newVariant]);
-    };
-
-    const updateVariant = (tempId: string, field: keyof AdminVariant, value: unknown) => {
-        setVariants((prev) =>
-            prev.map((v) => (v.tempId === tempId ? { ...v, [field]: value } : v))
-        );
-    };
-
-    const removeVariant = (tempId: string) => {
-        setVariantToDelete(tempId);
-    };
-
-    const toggleVariantSize = (tempId: string, sizeId: string) => {
-        setVariants((prev) =>
-            prev.map((v) => {
-                if (v.tempId !== tempId) return v;
-                const nextSizes = new Set(v.sizeIds);
-                if (nextSizes.has(sizeId)) nextSizes.delete(sizeId);
-                else nextSizes.add(sizeId);
-                return { ...v, sizeIds: nextSizes };
-            })
-        );
-    };
-
-    // Parches y Ligas
-    const toggleProductPatch = (patchId: string) => {
-        setProductPatches((prev) => {
-            const next = new Set(prev);
-            if (next.has(patchId)) next.delete(patchId);
-            else next.add(patchId);
-            return next;
-        });
-    };
-
-    const toggleSelectedLeague = (leagueId: string) => {
-        setSelectedLeagues((prev) => {
-            const next = new Set(prev);
-            if (next.has(leagueId)) next.delete(leagueId);
-            else next.add(leagueId);
-            return next;
-        });
-    };
-
-    // Jugadores Handlers
-    const togglePlayer = (playerId: string) => {
-        setSelectedPlayerIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(playerId)) next.delete(playerId);
-            else next.add(playerId);
-            return next;
-        });
-    };
-
-    const selectAllPlayers = () => {
-        setSelectedPlayerIds(new Set(teamPlayers.filter((p) => p.active !== false).map((p) => p.id)));
-    };
-
-    const deselectAllPlayers = () => {
-        setSelectedPlayerIds(new Set());
-    };
-
-    const handleAddPlayer = async () => {
-        if (!formData.team_id || !newPlayer.name || !newPlayer.number) return;
-        setAddingPlayer(true);
-        try {
-            const { data, error } = await supabase
-                .from('players')
-                .insert({
-                    team_id: formData.team_id,
-                    name: newPlayer.name.trim().toUpperCase(),
-                    number: parseInt(newPlayer.number),
-                    active: true,
-                })
-                .select('id, name, number, active')
-                .single();
-
-            if (error) throw error;
-            setTeamPlayers((prev) => [...prev, data]);
-            // Marcar automáticamente en esta camisa el jugador recién creado
-            setSelectedPlayerIds((prev) => new Set(prev).add(data.id));
-            setNewPlayer({ name: '', number: '' });
-            toast.success('Jugador agregado a la plantilla y asignado');
-        } catch (error) {
-            console.error('Error agregando jugador:', error);
-            toast.error('Error al agregar jugador');
-        } finally {
-            setAddingPlayer(false);
-        }
-    };
-
-    // Guardar Producto
-    const handleSave = async () => {
-        const rawSlug = formData.slug || formData.name;
-        if (!formData.name || !rawSlug) {
-            toast.error('Nombre y Slug son obligatorios');
-            return;
-        }
-
-        setSaving(true);
-        try {
-            const cleanSlug = await generateUniqueSlug(supabase, rawSlug);
-            const allLeagueIds = new Set<string>(selectedLeagues);
-            if (formData.league_id) allLeagueIds.add(formData.league_id);
-            const primaryLeagueId =
-                formData.league_id || (allLeagueIds.size > 0 ? Array.from(allLeagueIds)[0] : null);
-
-            // 1. Insertar Producto
-            const { data: newProd, error: prodError } = await supabase
-                .from('products')
-                .insert({
-                    name: formData.name,
-                    description: formData.description,
-                    slug: cleanSlug,
-                    image_url: formData.image_url,
-                    team_id: formData.team_id || null,
-                    league_id: primaryLeagueId,
-                    category_id: formData.category_id || null,
-                    brand_id: formData.brand_id && formData.brand_id !== 'pending' ? formData.brand_id : null,
-                    gender: formData.gender || null,
-                    active: formData.active,
-                    featured: formData.featured,
-                    allows_customization: formData.allows_customization,
-                    sort_order: formData.sort_order,
-                    season: formData.season || null,
-                })
-                .select('id')
-                .single();
-
-            if (prodError) throw prodError;
-            const createdId = newProd.id;
-
-            // 2. Insertar Parches
-            if (productPatches.size > 0) {
-                const patchesPayload = Array.from(productPatches).map((pid) => ({
-                    product_id: createdId,
-                    patch_id: pid,
-                }));
-                const { error: patchError } = await supabase
-                    .from('product_patches')
-                    .insert(patchesPayload);
-                if (patchError) throw patchError;
-            }
-
-            // 3. Insertar Ligas
-            if (allLeagueIds.size > 0) {
-                const leaguesPayload = Array.from(allLeagueIds).map((lid) => ({
-                    product_id: createdId,
-                    league_id: lid,
-                }));
-                const { error: leagueError } = await supabase
-                    .from('product_leagues')
-                    .insert(leaguesPayload);
-                if (leagueError) throw leagueError;
-            }
-
-            // 4. Insertar Imágenes Adicionales
-            if (productImages.length > 0) {
-                const imagesPayload = productImages.map((img, i) => ({
-                    product_id: createdId,
-                    image_url: img.image_url,
-                    sort_order: i,
-                }));
-                const { error: imgError } = await supabase.from('product_images').insert(imagesPayload);
-                if (imgError) throw imgError;
-            }
-
-            // 5. Insertar Jugadores de esta Camisa (product_players)
-            if (selectedPlayerIds.size > 0) {
-                const playersMap = new Map(teamPlayers.map((p) => [p.id, p]));
-                const playersPayload = Array.from(selectedPlayerIds).map((pid) => ({
-                    product_id: createdId,
-                    player_id: pid,
-                    sort_order: playersMap.get(pid)?.number ?? 0,
-                }));
-                const { error: plError } = await supabase
-                    .from('product_players')
-                    .insert(playersPayload);
-                if (plError) throw plError;
-            }
-
-            // 6. Insertar Variantes y Tallas
-
-            for (const v of variants) {
-                const { data: newV, error: inError } = await supabase
-                    .from('product_variants')
-                    .insert({
-                        product_id: createdId,
-                        version: v.version,
-                        price: v.price,
-                        cost: v.cost,
-                        active: v.active,
-                        original_price: v.original_price,
-                        active_original_price: v.active_original_price,
-                    })
-                    .select('id')
-                    .single();
-
-                if (inError) throw inError;
-
-                if (v.sizeIds.size > 0) {
-                    const sizesPayload = Array.from(v.sizeIds).map((sid) => ({
-                        variant_id: newV.id,
-                        size_id: sid,
-                        active: true,
-                    }));
-                    const { error: szError } = await supabase
-                        .from('variant_sizes')
-                        .insert(sizesPayload);
-                    if (szError) throw szError;
-                }
-            }
-
-            // Sincronizar orden único de destacados con desplazamiento automático
-            if (formData.featured) {
-                await syncFeaturedOrderAction({
-                    targetProductId: createdId,
-                    targetOrder: formData.sort_order,
-                    isFeatured: true,
-                });
-            }
-
-            clearProductCache();
-            await revalidateProduct(cleanSlug);
-            toast.success('Producto creado exitosamente');
-            router.push('/admin/productos');
-        } catch (error) {
-            console.error('Error al crear producto:', error);
-            toast.error(`Error: ${(error as Error).message}`);
-        } finally {
-            setSaving(false);
-        }
+    const handleApplySeasonMove = (cleanName: string, season: string) => {
+        setFormData((prev) => ({
+            ...prev,
+            name: cleanName,
+            season: season,
+        }));
     };
 
     if (loading) {
@@ -507,39 +87,53 @@ export default function CreateProductPage() {
 
     return (
         <div className="max-w-6xl mx-auto pb-32 animate-in fade-in duration-500 relative">
-            {/* Header */}
-            <div className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur-xl border-b border-white/5 pb-4 mb-6 pt-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <Link
-                        href="/admin/productos"
-                        className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </Link>
-                    <div>
-                        <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                            Nuevo Producto
-                        </h1>
-                        <p className="text-gray-400 text-xs font-mono opacity-60">
-                            Crear un nuevo ítem en el catálogo
-                        </p>
+            {/* Header Sticky de Creación Estilo Apple */}
+            <div className="sticky top-0 z-30 bg-[#07080a]/80 backdrop-blur-2xl border-b border-white/[0.08] py-4 mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 relative shadow-lg">
+                <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 max-w-6xl mx-auto">
+                    <div className="flex items-center gap-3">
+                        <Link
+                            href="/admin/productos"
+                            className="w-9 h-9 rounded-2xl bg-white/[0.05] border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-all active:scale-[0.96] shadow-sm"
+                            title="Volver al catálogo"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </Link>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    Nuevo Producto
+                                </span>
+                            </div>
+                            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate max-w-md sm:max-w-xl">
+                                {formData.name || 'Crear Nueva Prenda'}
+                            </h1>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 self-end sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-2xl font-bold text-sm flex items-center gap-2 transition-all shadow-[0_4px_20px_rgba(229,9,20,0.35)] disabled:opacity-50 cursor-pointer active:scale-[0.97]"
+                        >
+                            {saving ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            <span>{saving ? 'Guardando...' : 'Guardar Producto'}</span>
+                        </button>
                     </div>
                 </div>
-                <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="bg-primary hover:bg-primary/90 text-white font-bold px-6 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(229,9,20,0.3)] disabled:opacity-50 cursor-pointer"
-                >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    <span>Guardar</span>
-                </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Columna Principal */}
                 <div className="lg:col-span-8 space-y-8">
-                    {/* Información General */}
+                    {/* Información General con Cascada Flexible */}
                     <ProductGeneralInfoSection
                         formData={formData}
                         onChange={handleChange}
@@ -551,6 +145,10 @@ export default function CreateProductPage() {
                         slugChecking={slugChecking}
                         slugIsUnique={slugIsUnique}
                         featuredProducts={featuredProducts}
+                        suggestedBrandName={suggestedBrandName}
+                        onApplySeasonMove={handleApplySeasonMove}
+                        onOpenNewTeam={() => setQuickModal({ open: true, type: 'team' })}
+                        onOpenNewBrand={() => setQuickModal({ open: true, type: 'brand' })}
                     />
 
                     {/* Plantilla de Jugadores (Dorsales) */}
@@ -573,17 +171,22 @@ export default function CreateProductPage() {
                         variants={variants}
                         availableVersions={availableVersions}
                         filteredSizes={filteredSizes}
+                        allSizes={allSizes}
+                        categories={categories}
                         formData={formData}
                         onAddVariant={addVariant}
                         onUpdateVariant={updateVariant}
-                        onRemoveVariant={removeVariant}
+                        onRemoveVariant={(tempId) => setVariantToDelete(tempId)}
                         onToggleVariantSize={toggleVariantSize}
+                        onApplyAdultPreset={applyAdultPreset}
+                        onApplySinglePreset={applySinglePreset}
+                        onQuickCreateSize={addSize}
                     />
                 </div>
 
-                {/* Columna Lateral (Imágenes, Ligas y Parches) */}
+                {/* Columna Lateral */}
                 <div className="lg:col-span-4 space-y-6">
-                    {/* Imagen Principal y Galería de Imágenes */}
+                    {/* Imagen Principal y Galería */}
                     <ProductMediaSection
                         imageUrl={formData.image_url}
                         onImageUrlChange={(url) => setFormData((prev) => ({ ...prev, image_url: url }))}
@@ -592,38 +195,55 @@ export default function CreateProductPage() {
                         disabled={saving}
                     />
 
-                    {/* Ligas Múltiples */}
+                    {/* Ligas / Competiciones (Multi-torneo) */}
                     <ProductLeaguesSection
                         leagues={leagues}
                         selectedLeagues={selectedLeagues}
                         onToggleLeague={toggleSelectedLeague}
+                        primaryLeagueId={formData.league_id}
                     />
 
-                    {/* Parches */}
+                    {/* Parches Disponibles Organizados por Torneo */}
                     <ProductPatchesSection
                         filteredPatches={filteredPatches}
                         productPatches={productPatches}
                         categoryId={formData.category_id}
                         onTogglePatch={toggleProductPatch}
+                        leagues={leagues}
+                        selectedLeagues={selectedLeagues}
                     />
                 </div>
             </div>
 
-            {/* Confirmación para eliminar variante */}
+            {/* Modal Confirmar Eliminación de Variante */}
             <ConfirmDialog
-                open={variantToDelete !== null}
-                title="Eliminar variante"
-                message="¿Estás seguro de eliminar esta variante del producto?"
+                open={Boolean(variantToDelete)}
+                title="Eliminar Variante"
+                message="¿Estás seguro de que deseas eliminar esta variante del producto?"
                 confirmLabel="Eliminar"
+                danger
                 onConfirm={() => {
                     if (variantToDelete) {
-                        setVariants((prev) => prev.filter((v) => v.tempId !== variantToDelete));
+                        removeVariant(variantToDelete);
                         setVariantToDelete(null);
                     }
                 }}
                 onCancel={() => setVariantToDelete(null)}
             />
+            {/* Modal de Creación Rápida de Equipo / Marca */}
+            <QuickCreateModal
+                isOpen={quickModal.open}
+                type={quickModal.type}
+                leagues={leagues}
+                onClose={() => setQuickModal((prev) => ({ ...prev, open: false }))}
+                onCreated={(item) => {
+                    if (quickModal.type === 'team') {
+                        handleTeamCreated(item);
+                    } else {
+                        handleBrandCreated(item);
+                    }
+                }}
+            />
         </div>
     );
 }
-

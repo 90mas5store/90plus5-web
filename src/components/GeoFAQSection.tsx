@@ -38,7 +38,7 @@ const faqs = [
     },
     {
         question: "¿Tienen camisetas de Real Madrid, Barcelona y otros clubes internacionales?",
-        answer: "Sí. Puedes encargar camisetas de los clubes más importantes del mundo: Real Madrid, FC Barcelona, Manchester City, Liverpool, Arsenal, PSG, Bayern Munich, Juventus, Inter de Milán y más, en versión aficionado y jugador, temporada 25/26.",
+        answer: "Sí. Puedes encargar camisetas de los clubes más importantes del mundo: Real Madrid, FC Barcelona, Manchester City, Liverpool, Arsenal, PSG, Bayern Munich, Juventus, Inter de Milán y más, en versión aficionado y jugador de la Colección Oficial.",
     },
     {
         question: "¿Tienen camisetas del Mundial 2026?",

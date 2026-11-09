@@ -116,7 +116,12 @@ export default function PaymentMethodSection({
                         {/* Opciones de pago */}
                         <div className="space-y-3 pt-3">
                             {paymentMethods
-                                .filter((opt) => opt.active !== false && (opt.type as string) !== 'paypal' && opt.code !== 'paypal')
+                                .filter((opt) => {
+                                    if (opt.active === false) return false;
+                                    if ((opt.type as string) === 'paypal' || opt.code === 'paypal') return false;
+                                    if ((opt.type === 'tarjeta' || opt.code === 'tarjeta') && process.env.NEXT_PUBLIC_ENABLE_PIXELPAY !== 'true') return false;
+                                    return true;
+                                })
                                 .map((opt) => {
                                     const optCode = opt.code || opt.id;
                                     const isSelected = metodoPago === optCode;

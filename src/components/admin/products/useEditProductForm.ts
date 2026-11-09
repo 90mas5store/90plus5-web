@@ -7,11 +7,12 @@ import useToastMessage from '@/hooks/useToastMessage';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { sanitizeSlugPart } from '@/lib/utils/slug';
 import { GalleryImage } from '@/components/admin/ProductGalleryManager';
-import { AdminProductFormData } from '@/types/adminProduct';
+import { AdminProductFormData, CatalogItem } from '@/types/adminProduct';
 import {
     fetchProductForEdit,
     saveProductChanges,
     deleteProductById,
+    fetchTeamBrandSuggestion,
 } from './productAdminService';
 import { useProductCatalogs } from './hooks/useProductCatalogs';
 import { useProductSlug } from './hooks/useProductSlug';
@@ -28,6 +29,7 @@ export function useEditProductForm(id: string) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [confirmDeleteProduct, setConfirmDeleteProduct] = useState(false);
+    const [suggestedBrandName, setSuggestedBrandName] = useState<string | null>(null);
 
     // Estado del Formulario Principal
     const [formData, setFormData] = useState<AdminProductFormData>({
@@ -53,10 +55,15 @@ export function useEditProductForm(id: string) {
         leagues,
         categories,
         brands,
+        allSizes,
+        allPatches,
         availableVersions,
         featuredProducts,
         filteredSizes,
         filteredPatches,
+        addTeam,
+        addBrand,
+        addSize,
     } = useProductCatalogs(formData.category_id, formData.gender);
 
     // 2️⃣ Gestión de Slugs
@@ -78,6 +85,8 @@ export function useEditProductForm(id: string) {
         updateVariant,
         removeVariant,
         toggleVariantSize,
+        applyAdultPreset,
+        applySinglePreset,
         variantToDelete,
         setVariantToDelete,
     } = useProductVariantsManager(filteredSizes);
@@ -100,6 +109,36 @@ export function useEditProductForm(id: string) {
     const [productPatches, setProductPatches] = useState<Set<string>>(new Set<string>());
     const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set<string>());
     const [productImages, setProductImages] = useState<GalleryImage[]>([]);
+
+    // ⚡ Cascada Reactiva si el usuario cambia de equipo mientras edita
+    const initialTeamLoadedRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (loading || !formData.team_id) return;
+        if (initialTeamLoadedRef.current === null) {
+            initialTeamLoadedRef.current = formData.team_id;
+            return;
+        }
+        if (formData.team_id === initialTeamLoadedRef.current) return;
+        initialTeamLoadedRef.current = formData.team_id;
+
+        const currentTeam = teams.find((t) => t.id === formData.team_id);
+        if (!currentTeam) return;
+
+        if (currentTeam.league_id) {
+            const leagueId = currentTeam.league_id;
+            setFormData((prev) => ({
+                ...prev,
+                league_id: leagueId,
+            }));
+            setSelectedLeagues(new Set([leagueId]));
+
+            // Auto-seleccionar parches de la liga del nuevo equipo
+            const leaguePatches = allPatches
+                .filter((p) => p.competition_id === leagueId)
+                .map((p) => p.id);
+            setProductPatches(new Set(leaguePatches));
+        }
+    }, [formData.team_id, loading, teams, allPatches]);
 
     // 📥 Cargar Producto
     useEffect(() => {
@@ -155,8 +194,21 @@ export function useEditProductForm(id: string) {
     const toggleSelectedLeague = (leagueId: string) => {
         setSelectedLeagues((prev) => {
             const next = new Set(prev);
-            if (next.has(leagueId)) next.delete(leagueId);
-            else next.add(leagueId);
+            if (next.has(leagueId)) {
+                next.delete(leagueId);
+            } else {
+                next.add(leagueId);
+                const compPatches = allPatches
+                    .filter((p) => p.competition_id === leagueId)
+                    .map((p) => p.id);
+                if (compPatches.length > 0) {
+                    setProductPatches((cur) => {
+                        const nextP = new Set(cur);
+                        compPatches.forEach((pid) => nextP.add(pid));
+                        return nextP;
+                    });
+                }
+            }
             return next;
         });
     };
@@ -207,6 +259,30 @@ export function useEditProductForm(id: string) {
         }
     };
 
+    const handleTeamCreated = (newTeam: CatalogItem) => {
+        addTeam(newTeam);
+        setFormData((prev) => ({
+            ...prev,
+            team_id: newTeam.id,
+            league_id: newTeam.league_id || prev.league_id,
+        }));
+        if (newTeam.league_id) {
+            setSelectedLeagues(new Set([newTeam.league_id]));
+            const leaguePatches = allPatches
+                .filter((p) => p.competition_id === newTeam.league_id)
+                .map((p) => p.id);
+            setProductPatches(new Set(leaguePatches));
+        }
+    };
+
+    const handleBrandCreated = (newBrand: CatalogItem) => {
+        addBrand(newBrand);
+        setFormData((prev) => ({
+            ...prev,
+            brand_id: newBrand.id,
+        }));
+    };
+
     return {
         id,
         loading,
@@ -216,10 +292,12 @@ export function useEditProductForm(id: string) {
         leagues,
         categories,
         brands,
+        allSizes,
         availableVersions,
         featuredProducts,
         filteredSizes,
         filteredPatches,
+        addSize,
         formData,
         setFormData,
         handleChange,
@@ -233,6 +311,8 @@ export function useEditProductForm(id: string) {
         updateVariant,
         removeVariant,
         toggleVariantSize,
+        applyAdultPreset,
+        applySinglePreset,
         variantToDelete,
         setVariantToDelete,
         productPatches,
@@ -250,6 +330,9 @@ export function useEditProductForm(id: string) {
         setNewPlayer,
         addingPlayer,
         handleAddPlayer,
+        suggestedBrandName,
+        handleTeamCreated,
+        handleBrandCreated,
         confirmDeleteProduct,
         setConfirmDeleteProduct,
         handleDeleteProduct,

@@ -59,10 +59,15 @@ export async function fetchPaymentMethods(): Promise<PaymentMethodRecord[]> {
         let methods = [...data] as PaymentMethodRecord[];
         methods = methods.filter(m => m.code !== 'paypal' && m.type !== 'paypal');
 
-        const cardIdx = methods.findIndex(p => p.code === 'tarjeta' || p.type === 'tarjeta');
-        if (cardIdx === -1) {
-            const defaultCard = DEFAULT_PAYMENT_METHODS.find(p => p.code === 'tarjeta');
-            if (defaultCard) methods.push(defaultCard);
+        const isPixelPayEnabled = process.env.NEXT_PUBLIC_ENABLE_PIXELPAY === 'true';
+        if (!isPixelPayEnabled) {
+            methods = methods.filter(m => m.code !== 'tarjeta' && m.type !== 'tarjeta');
+        } else {
+            const cardIdx = methods.findIndex(p => p.code === 'tarjeta' || p.type === 'tarjeta');
+            if (cardIdx === -1) {
+                const defaultCard = DEFAULT_PAYMENT_METHODS.find(p => p.code === 'tarjeta');
+                if (defaultCard) methods.push(defaultCard);
+            }
         }
 
         return methods

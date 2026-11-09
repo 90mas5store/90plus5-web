@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Edit, Trash2, Search, X, Save, Loader2, Tag, ChevronLeft, ChevronRight } from 'lucide-react'
 import useToastMessage from '@/hooks/useToastMessage'
-import ImageUpload from '@/components/admin/ImageUpload'
+import LogoUpload from '@/components/admin/LogoUpload'
 import { motion, AnimatePresence } from '@/lib/motion'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
 
@@ -183,7 +183,10 @@ export default function BrandsPage() {
             </div>
 
             {/* Content */}
-            <div className="bg-neutral-900 border border-white/5 rounded-3xl overflow-hidden p-6 md:p-8">
+            <div className="relative bg-[#0d0e12]/60 backdrop-blur-xl border border-white/[0.08] rounded-3xl overflow-hidden shadow-2xl p-6 md:p-8">
+                {/* Specular Top Highlight */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+
                 {/* Search */}
                 <div className="mb-4 md:mb-8 flex flex-col md:flex-row gap-3 md:gap-4 justify-between">
                     <div className="relative w-full md:w-96">
@@ -319,29 +322,30 @@ export default function BrandsPage() {
             {/* Modal Create/Edit */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    <div
+                        className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
                         onClick={() => { setIsModalOpen(false); setEditingBrand(null); }}
                     >
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
+                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 280 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-neutral-900 border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+                            className="relative bg-[#0d0e12] border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
                         >
+                            {/* Specular Highlight */}
+                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold text-white">
+                                <h2 className="text-xl font-bold text-white uppercase tracking-tight">
                                     {editingBrand ? 'Editar Marca' : 'Nueva Marca'}
                                 </h2>
                                 <button
                                     onClick={() => { setIsModalOpen(false); setEditingBrand(null); }}
-                                    className="p-2 hover:bg-white/10 rounded-xl transition-all"
+                                    className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
                                 >
-                                    <X className="w-5 h-5 text-gray-400" />
+                                    <X className="w-4 h-4" />
                                 </button>
                             </div>
 
@@ -377,14 +381,14 @@ export default function BrandsPage() {
                                     />
                                 </div>
 
-                                {/* Logo */}
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-300 mb-2">Logo</label>
-                                    <ImageUpload
-                                        value={formData.logo_url}
-                                        onChange={(url) => setFormData(prev => ({ ...prev, logo_url: url }))}
-                                    />
-                                </div>
+                                {/* Logo Oficial Optimizado */}
+                                <LogoUpload
+                                    value={formData.logo_url}
+                                    onChange={(url) => setFormData(prev => ({ ...prev, logo_url: url }))}
+                                    folder="brands"
+                                    label="Logo de la Marca"
+                                    description="PNG o SVG transparente del isotipo o logotipo de la marca técnica"
+                                />
 
                                 {/* Sort Order */}
                                 <div>
@@ -427,7 +431,7 @@ export default function BrandsPage() {
                                 </button>
                             </div>
                         </motion.div>
-                    </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
 

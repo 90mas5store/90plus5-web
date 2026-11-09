@@ -172,8 +172,26 @@ export function useEstilosManager() {
         try {
             await supabase.from("product_patches").delete().eq("patch_id", id);
             const { error } = await supabase.from("patches").delete().eq("id", id);
-            if (error) throw error;
-            toast.success("Parche eliminado");
+            if (error) {
+                // FK violation (23503 o 409 Conflict) → en uso en order_items, desactivar en lugar de romper integridad
+                if (
+                    error.code === "23503" ||
+                    (error as any).status === 409 ||
+                    error.message?.toLowerCase().includes("foreign key") ||
+                    error.message?.toLowerCase().includes("violates foreign key constraint")
+                ) {
+                    const { error: updateError } = await supabase
+                        .from("patches")
+                        .update({ active: false })
+                        .eq("id", id);
+                    if (updateError) throw updateError;
+                    toast.success("Parche desactivado — está vinculado a pedidos históricos");
+                } else {
+                    throw error;
+                }
+            } else {
+                toast.success("Parche eliminado");
+            }
             fetchPatches();
         } catch (err: unknown) {
             toast.error(`Error: ${(err as Error).message}`);
@@ -201,14 +219,29 @@ export function useEstilosManager() {
     };
 
     const handleSaveSize = async () => {
-        if (!sizeForm.label.trim()) {
+        const trimmedLabel = sizeForm.label.trim();
+        if (!trimmedLabel) {
             toast.error("La etiqueta es obligatoria");
             return;
         }
+
+        // 🛡️ Detección preventiva de duplicados por etiqueta
+        if (!editingSize) {
+            const isDuplicate = sizes.some(
+                (s) =>
+                    s.active &&
+                    s.label.trim().toLowerCase() === trimmedLabel.toLowerCase()
+            );
+            if (isDuplicate) {
+                toast.error(`Ya existe la talla "${trimmedLabel}" en el catálogo. No necesitas duplicarla.`);
+                return;
+            }
+        }
+
         setSizeSaving(true);
         try {
             const payload = {
-                label: sizeForm.label.trim(),
+                label: trimmedLabel,
                 sort_order: sizeForm.sort_order !== "" ? parseInt(sizeForm.sort_order) : null,
                 category_id: sizeForm.category_id || null,
                 gender: sizeForm.gender || null,
@@ -233,6 +266,230 @@ export function useEstilosManager() {
             fetchSizes();
         } catch (err: unknown) {
             toast.error(`Error: ${(err as Error).message}`);
+        } finally {
+            setSizeSaving(false);
+        }
+    };
+
+    // ⚡ Generación de Presets Oficiales sin duplicación
+    const handleGeneratePreset = async (
+        presetType: 'clothing' | 'kids' | 'shoes_us' | 'shoes_eu' | 'adult' | 'woman' | 'shoes_man' | 'shoes_woman' | 'shoes_kids'
+    ) => {
+        setSizeSaving(true);
+        try {
+            const PRESET_DEFINITIONS: Record<
+                string,
+                Array<{ label: string; sort_order: number; additional_cost: number; gender: string | null }>
+            > = {
+                // 👕 Escala Universal de Ropa (Hombre, Mujer y Unisex: XS a 4XL)
+                clothing: [
+                    { label: 'XS', sort_order: 1, additional_cost: 0, gender: null },
+                    { label: 'S', sort_order: 2, additional_cost: 0, gender: null },
+                    { label: 'M', sort_order: 3, additional_cost: 0, gender: null },
+                    { label: 'L', sort_order: 4, additional_cost: 0, gender: null },
+                    { label: 'XL', sort_order: 5, additional_cost: 0, gender: null },
+                    { label: '2XL', sort_order: 6, additional_cost: 0, gender: null },
+                    { label: '3XL', sort_order: 7, additional_cost: 100, gender: null },
+                    { label: '4XL', sort_order: 8, additional_cost: 100, gender: null },
+                ],
+                adult: [
+                    { label: 'XS', sort_order: 1, additional_cost: 0, gender: null },
+                    { label: 'S', sort_order: 2, additional_cost: 0, gender: null },
+                    { label: 'M', sort_order: 3, additional_cost: 0, gender: null },
+                    { label: 'L', sort_order: 4, additional_cost: 0, gender: null },
+                    { label: 'XL', sort_order: 5, additional_cost: 0, gender: null },
+                    { label: '2XL', sort_order: 6, additional_cost: 0, gender: null },
+                    { label: '3XL', sort_order: 7, additional_cost: 100, gender: null },
+                    { label: '4XL', sort_order: 8, additional_cost: 100, gender: null },
+                ],
+                woman: [
+                    { label: 'XS', sort_order: 1, additional_cost: 0, gender: null },
+                    { label: 'S', sort_order: 2, additional_cost: 0, gender: null },
+                    { label: 'M', sort_order: 3, additional_cost: 0, gender: null },
+                    { label: 'L', sort_order: 4, additional_cost: 0, gender: null },
+                    { label: 'XL', sort_order: 5, additional_cost: 0, gender: null },
+                ],
+                // 👶 Escala de Ropa Infantil
+                kids: [
+                    { label: '2 años', sort_order: 1, additional_cost: 0, gender: 'kid' },
+                    { label: '4 años', sort_order: 2, additional_cost: 0, gender: 'kid' },
+                    { label: '6 años', sort_order: 3, additional_cost: 0, gender: 'kid' },
+                    { label: '8 años', sort_order: 4, additional_cost: 0, gender: 'kid' },
+                    { label: '10 años', sort_order: 5, additional_cost: 0, gender: 'kid' },
+                    { label: '12 años', sort_order: 6, additional_cost: 0, gender: 'kid' },
+                    { label: '14 años', sort_order: 7, additional_cost: 0, gender: 'kid' },
+                    { label: '16 años', sort_order: 8, additional_cost: 0, gender: 'kid' },
+                ],
+                // 👟 Calzado Numeración US
+                shoes_us: [
+                    { label: '5', sort_order: 1, additional_cost: 0, gender: 'woman' },
+                    { label: '5.5', sort_order: 2, additional_cost: 0, gender: 'woman' },
+                    { label: '6', sort_order: 3, additional_cost: 0, gender: 'woman' },
+                    { label: '6.5', sort_order: 4, additional_cost: 0, gender: 'woman' },
+                    { label: '7', sort_order: 5, additional_cost: 0, gender: null },
+                    { label: '7.5', sort_order: 6, additional_cost: 0, gender: null },
+                    { label: '8', sort_order: 7, additional_cost: 0, gender: null },
+                    { label: '8.5', sort_order: 8, additional_cost: 0, gender: null },
+                    { label: '9', sort_order: 9, additional_cost: 0, gender: 'man' },
+                    { label: '9.5', sort_order: 10, additional_cost: 0, gender: 'man' },
+                    { label: '10', sort_order: 11, additional_cost: 0, gender: 'man' },
+                    { label: '10.5', sort_order: 12, additional_cost: 0, gender: 'man' },
+                    { label: '11', sort_order: 13, additional_cost: 0, gender: 'man' },
+                    { label: '12', sort_order: 14, additional_cost: 0, gender: 'man' },
+                ],
+                shoes_man: [
+                    { label: '7.5', sort_order: 6, additional_cost: 0, gender: null },
+                    { label: '8', sort_order: 7, additional_cost: 0, gender: null },
+                    { label: '8.5', sort_order: 8, additional_cost: 0, gender: null },
+                    { label: '9', sort_order: 9, additional_cost: 0, gender: 'man' },
+                    { label: '9.5', sort_order: 10, additional_cost: 0, gender: 'man' },
+                    { label: '10', sort_order: 11, additional_cost: 0, gender: 'man' },
+                    { label: '11', sort_order: 13, additional_cost: 0, gender: 'man' },
+                    { label: '12', sort_order: 14, additional_cost: 0, gender: 'man' },
+                ],
+                // 👟 Calzado Numeración EU
+                shoes_eu: [
+                    { label: '35 EU', sort_order: 1, additional_cost: 0, gender: 'woman' },
+                    { label: '36 EU', sort_order: 2, additional_cost: 0, gender: 'woman' },
+                    { label: '37 EU', sort_order: 3, additional_cost: 0, gender: 'woman' },
+                    { label: '38 EU', sort_order: 4, additional_cost: 0, gender: null },
+                    { label: '39 EU', sort_order: 5, additional_cost: 0, gender: null },
+                    { label: '40 EU', sort_order: 6, additional_cost: 0, gender: null },
+                    { label: '41 EU', sort_order: 7, additional_cost: 0, gender: null },
+                    { label: '42 EU', sort_order: 8, additional_cost: 0, gender: 'man' },
+                    { label: '43 EU', sort_order: 9, additional_cost: 0, gender: 'man' },
+                    { label: '44 EU', sort_order: 10, additional_cost: 0, gender: 'man' },
+                    { label: '45 EU', sort_order: 11, additional_cost: 0, gender: 'man' },
+                ],
+                shoes_woman: [
+                    { label: '5', sort_order: 1, additional_cost: 0, gender: 'woman' },
+                    { label: '5.5', sort_order: 2, additional_cost: 0, gender: 'woman' },
+                    { label: '6', sort_order: 3, additional_cost: 0, gender: 'woman' },
+                    { label: '6.5', sort_order: 4, additional_cost: 0, gender: 'woman' },
+                    { label: '7', sort_order: 5, additional_cost: 0, gender: null },
+                    { label: '7.5', sort_order: 6, additional_cost: 0, gender: null },
+                    { label: '8', sort_order: 7, additional_cost: 0, gender: null },
+                ],
+                shoes_kids: [
+                    { label: '28 EU', sort_order: 1, additional_cost: 0, gender: 'kid' },
+                    { label: '29 EU', sort_order: 2, additional_cost: 0, gender: 'kid' },
+                    { label: '30 EU', sort_order: 3, additional_cost: 0, gender: 'kid' },
+                    { label: '31 EU', sort_order: 4, additional_cost: 0, gender: 'kid' },
+                    { label: '32 EU', sort_order: 5, additional_cost: 0, gender: 'kid' },
+                    { label: '33 EU', sort_order: 6, additional_cost: 0, gender: 'kid' },
+                    { label: '34 EU', sort_order: 7, additional_cost: 0, gender: 'kid' },
+                    { label: '35 EU', sort_order: 8, additional_cost: 0, gender: 'kid' },
+                ],
+            };
+
+            const targetDefs = PRESET_DEFINITIONS[presetType] || [];
+            const shoeCat = categories.find((c) => /tenis|calzado|zapato/i.test(c.name));
+            const isShoePreset = presetType.startsWith('shoes');
+            const targetCatId = isShoePreset && shoeCat ? shoeCat.id : null;
+            let createdCount = 0;
+
+            for (const item of targetDefs) {
+                // Verificar si ya existe con esa etiqueta
+                const existing = sizes.find(
+                    (s) => s.label.trim().toLowerCase() === item.label.toLowerCase()
+                );
+
+                if (existing) {
+                    // Si existe pero está inactiva o con campos desactualizados
+                    if (!existing.active || (isShoePreset && existing.category_id !== targetCatId)) {
+                        await supabase
+                            .from('sizes')
+                            .update({
+                                active: true,
+                                gender: item.gender,
+                                category_id: targetCatId,
+                                additional_cost: item.additional_cost,
+                                sort_order: item.sort_order,
+                            })
+                            .eq('id', existing.id);
+                        createdCount++;
+                    }
+                } else {
+                    // Si no existe, la creamos
+                    const { error } = await supabase.from('sizes').insert({
+                        label: item.label,
+                        sort_order: item.sort_order,
+                        additional_cost: item.additional_cost,
+                        gender: item.gender,
+                        category_id: targetCatId,
+                        active: true,
+                    });
+                    if (error) console.error('Error insertando talla de preset:', error);
+                    else createdCount++;
+                }
+            }
+
+            toast.success(
+                createdCount > 0
+                    ? `Se agregaron/activaron ${createdCount} tallas del preset`
+                    : 'Las tallas de este preset ya estaban completas'
+            );
+            fetchSizes();
+        } catch (err: unknown) {
+            toast.error(`Error: ${(err as Error).message}`);
+        } finally {
+            setSizeSaving(false);
+        }
+    };
+
+    // 🧹 Herramienta de Limpieza de Duplicados en Base de Datos
+    const handleCleanupDuplicates = async () => {
+        setSizeSaving(true);
+        try {
+            const seen = new Map<string, Size>();
+            const toDeactivate: { duplicateId: string; canonicalId: string }[] = [];
+
+            // Identificar duplicados redundantes
+            for (const s of sizes) {
+                if (!s.active) continue;
+                const labelNorm = s.label.trim().toLowerCase();
+                // Normalizar género: si es adult clothing (XS-4XL), 'man' y 'null/universal' son equivalentes
+                const isAdultStandard = ['xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl'].includes(labelNorm);
+                const genderKey =
+                    isAdultStandard && (s.gender === 'man' || !s.gender)
+                        ? 'adult_unisex'
+                        : s.gender || 'universal';
+                const key = `${labelNorm}_${genderKey}`;
+
+                if (seen.has(key)) {
+                    const canonical = seen.get(key)!;
+                    // Preferir el universal (sin category_id) como canónico
+                    if (s.category_id === null && canonical.category_id !== null) {
+                        toDeactivate.push({ duplicateId: canonical.id, canonicalId: s.id });
+                        seen.set(key, s);
+                    } else {
+                        toDeactivate.push({ duplicateId: s.id, canonicalId: canonical.id });
+                    }
+                } else {
+                    seen.set(key, s);
+                }
+            }
+
+            if (toDeactivate.length === 0) {
+                toast.info('No se detectaron tallas duplicadas activas.');
+                return;
+            }
+
+            for (const pair of toDeactivate) {
+                // Re-apuntar variant_sizes si existen al canónico
+                await supabase
+                    .from('variant_sizes')
+                    .update({ size_id: pair.canonicalId })
+                    .eq('size_id', pair.duplicateId);
+
+                // Desactivar el duplicado
+                await supabase.from('sizes').update({ active: false }).eq('id', pair.duplicateId);
+            }
+
+            toast.success(`Se consolidaron y desactivaron ${toDeactivate.length} tallas duplicadas.`);
+            fetchSizes();
+        } catch (err: unknown) {
+            toast.error(`Error al limpiar duplicados: ${(err as Error).message}`);
         } finally {
             setSizeSaving(false);
         }
@@ -394,6 +651,8 @@ export function useEstilosManager() {
         openNewSize,
         handleSaveSize,
         handleDeleteSize,
+        handleGeneratePreset,
+        handleCleanupDuplicates,
 
         // Plantillas
         teams,

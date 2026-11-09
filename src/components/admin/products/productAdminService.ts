@@ -32,8 +32,9 @@ export interface LoadedProductData {
     selectedPlayerIds: Set<string>;
 }
 
-export interface SaveProductParams {
-    id: string;
+import { getTeamBrandsMap } from '@/lib/teamBrandSettings';
+
+export interface CreateProductParams {
     formData: AdminProductFormData;
     productPatches: Set<string>;
     selectedLeagues: Set<string>;
@@ -43,21 +44,56 @@ export interface SaveProductParams {
     variants: AdminVariant[];
 }
 
+export interface SaveProductParams extends CreateProductParams {
+    id: string;
+}
+
+/**
+ * Consulta la sugerencia de marca para un equipo basada en su último producto
+ */
+export async function fetchTeamBrandSuggestion(
+    supabase: SupabaseClient,
+    teamId: string
+): Promise<string | null> {
+    if (!teamId) return null;
+    try {
+        // 1. Consultar configuración directa asignada en el CRM de Equipos
+        const brandMap = await getTeamBrandsMap(supabase);
+        if (brandMap && brandMap[teamId]) {
+            return brandMap[teamId];
+        }
+
+        // 2. Fallback: consultar el último producto creado para ese equipo
+        const { data, error } = await supabase
+            .from('products')
+            .select('brand_id')
+            .eq('team_id', teamId)
+            .not('brand_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (error || !data || data.length === 0) return null;
+        return data[0].brand_id || null;
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Carga todos los catálogos auxiliares necesarios para la edición de productos
  */
 export async function fetchProductCatalogs(supabase: SupabaseClient): Promise<ProductCatalogData> {
     const [teamsRes, leaguesRes, catsRes, sizesRes, patchesRes, brandsRes, variantsRes, featuredRes] =
         await Promise.all([
-            supabase.from('teams').select('id, name').order('name'),
+            supabase.from('teams').select('id, name, league_id, country').order('name'),
             supabase.from('leagues').select('id, name').order('name'),
             supabase.from('categories').select('id, name').order('name'),
             supabase
                 .from('sizes')
-                .select('id, label, sort_order, category_id, gender')
+                .select('id, label, sort_order, category_id, gender, additional_cost, active')
                 .eq('active', true)
                 .order('sort_order'),
-            supabase.from('patches').select('id, name, category_id').eq('active', true).order('name'),
+            supabase.from('patches').select('id, name, category_id, competition_id').eq('active', true).order('name'),
             supabase.from('brands').select('id, name').eq('active', true).is('deleted_at', null).order('name'),
             supabase.from('product_variants').select('version'),
             supabase
@@ -369,6 +405,150 @@ export async function saveProductChanges(
     await revalidateProduct(cleanSlug);
 
     return cleanSlug;
+}
+
+/**
+ * Crea un nuevo producto y todas sus dependencias relacionadas en la base de datos
+ */
+export async function createProduct(
+    supabase: SupabaseClient,
+    params: CreateProductParams
+): Promise<{ id: string; slug: string }> {
+    const {
+        formData,
+        productPatches,
+        selectedLeagues,
+        productImages,
+        selectedPlayerIds,
+        teamPlayers,
+        variants,
+    } = params;
+
+    const rawSlug = formData.slug || formData.name;
+    const cleanSlug = await generateUniqueSlug(supabase, rawSlug);
+    const allLeagueIds = new Set<string>(selectedLeagues);
+    if (formData.league_id) allLeagueIds.add(formData.league_id);
+    const primaryLeagueId =
+        formData.league_id || (allLeagueIds.size > 0 ? Array.from(allLeagueIds)[0] : null);
+
+    // 1. Insertar Registro Principal de Producto
+    const { data: newProd, error: prodError } = await supabase
+        .from('products')
+        .insert({
+            name: formData.name,
+            description: formData.description,
+            slug: cleanSlug,
+            image_url: formData.image_url,
+            team_id: formData.team_id || null,
+            league_id: primaryLeagueId,
+            category_id: formData.category_id || null,
+            brand_id: formData.brand_id && formData.brand_id !== 'pending' ? formData.brand_id : null,
+            gender: formData.gender || null,
+            active: formData.active,
+            featured: formData.featured,
+            allows_customization: formData.allows_customization,
+            sort_order: formData.sort_order,
+            season: formData.season || null,
+        })
+        .select('id')
+        .single();
+
+    if (prodError) throw prodError;
+    const createdId = newProd.id;
+
+    // 2. Insertar Parches
+    if (productPatches.size > 0) {
+        const patchesPayload = Array.from(productPatches).map((pid) => ({
+            product_id: createdId,
+            patch_id: pid,
+        }));
+        const { error: patchError } = await supabase
+            .from('product_patches')
+            .insert(patchesPayload);
+        if (patchError) throw patchError;
+    }
+
+    // 3. Insertar Ligas Adicionales
+    if (allLeagueIds.size > 0) {
+        const leaguesPayload = Array.from(allLeagueIds).map((lid) => ({
+            product_id: createdId,
+            league_id: lid,
+        }));
+        const { error: leagueError } = await supabase
+            .from('product_leagues')
+            .insert(leaguesPayload);
+        if (leagueError) throw leagueError;
+    }
+
+    // 4. Insertar Imágenes Adicionales
+    if (productImages.length > 0) {
+        const imagesPayload = productImages.map((img, i) => ({
+            product_id: createdId,
+            image_url: img.image_url,
+            sort_order: i,
+        }));
+        const { error: imgError } = await supabase.from('product_images').insert(imagesPayload);
+        if (imgError) throw imgError;
+    }
+
+    // 5. Insertar Jugadores de esta Camisa (product_players)
+    if (selectedPlayerIds.size > 0) {
+        const playersMap = new Map(teamPlayers.map((p) => [p.id, p]));
+        const playersPayload = Array.from(selectedPlayerIds).map((pid) => ({
+            product_id: createdId,
+            player_id: pid,
+            sort_order: playersMap.get(pid)?.number ?? 0,
+        }));
+        const { error: plError } = await supabase
+            .from('product_players')
+            .insert(playersPayload);
+        if (plError) throw plError;
+    }
+
+    // 6. Insertar Variantes y Tallas
+    for (const v of variants) {
+        const { data: newV, error: inError } = await supabase
+            .from('product_variants')
+            .insert({
+                product_id: createdId,
+                version: v.version,
+                price: v.price,
+                cost: v.cost,
+                active: v.active,
+                original_price: v.original_price,
+                active_original_price: v.active_original_price,
+            })
+            .select('id')
+            .single();
+
+        if (inError) throw inError;
+
+        if (newV && newV.id && v.sizeIds.size > 0) {
+            const sizesPayload = Array.from(v.sizeIds).map((sid) => ({
+                variant_id: newV.id,
+                size_id: sid,
+                active: true,
+            }));
+            const { error: sizesError } = await supabase
+                .from('variant_sizes')
+                .insert(sizesPayload);
+            if (sizesError) throw sizesError;
+        }
+    }
+
+    // 7. Sincronizar orden único de destacados si aplica
+    if (formData.featured) {
+        await syncFeaturedOrderAction({
+            targetProductId: createdId,
+            targetOrder: formData.sort_order,
+            isFeatured: true,
+        });
+    }
+
+    clearProductCache();
+    await revalidateProduct(cleanSlug);
+
+    return { id: createdId, slug: cleanSlug };
 }
 
 /**

@@ -50,6 +50,8 @@ export let DEFAULT_BANK_ACCOUNTS: BankAccountRecord[] = [
     },
 ];
 
+export const IS_PIXELPAY_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PIXELPAY === 'true';
+
 export let DEFAULT_PAYMENT_METHODS: PaymentMethodRecord[] = [
     {
         id: 'pm-transferencia',
@@ -68,8 +70,8 @@ export let DEFAULT_PAYMENT_METHODS: PaymentMethodRecord[] = [
         name: 'Tarjeta de Crédito / Débito (PixelPay)',
         description: 'Pago seguro en línea con tarjeta Visa o Mastercard (3D Secure).',
         type: 'tarjeta',
-        active: true,
-        is_coming_soon: false,
+        active: IS_PIXELPAY_ENABLED,
+        is_coming_soon: !IS_PIXELPAY_ENABLED,
         sort_order: 2,
         instructions: 'Paga de forma instantánea y protegida con tu tarjeta de crédito o débito.'
     },

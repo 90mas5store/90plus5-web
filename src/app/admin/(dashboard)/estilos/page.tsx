@@ -46,6 +46,8 @@ export default function EstilosPage() {
         openNewSize,
         handleSaveSize,
         handleDeleteSize,
+        handleGeneratePreset,
+        handleCleanupDuplicates,
 
         // Plantillas
         teams,
@@ -140,6 +142,8 @@ export default function EstilosPage() {
                     onOpenNewSize={openNewSize}
                     onSaveSize={handleSaveSize}
                     onOpenDeleteSize={id => setSizeDeleteTarget(id)}
+                    onGeneratePreset={handleGeneratePreset}
+                    onCleanupDuplicates={handleCleanupDuplicates}
                 />
             )}
 

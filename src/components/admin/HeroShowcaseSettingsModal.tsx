@@ -152,7 +152,7 @@ export default function HeroShowcaseSettingsModal({ isOpen, onClose }: HeroShowc
                                             type="text"
                                             value={settings.quickTagBadge}
                                             onChange={(e) => setSettings({ ...settings, quickTagBadge: e.target.value })}
-                                            placeholder="Ej. Prenda Oficial 24/25 o En Stock"
+                                            placeholder="Ej. Colección Oficial o En Stock"
                                             className="w-full bg-black/60 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-primary outline-none"
                                         />
                                     </div>

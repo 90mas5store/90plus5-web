@@ -3,12 +3,16 @@ export interface AdminSize {
     label: string;
     category_id: string | null;
     gender: string | null;
+    sort_order?: number | null;
+    additional_cost?: number;
+    active?: boolean;
 }
 
 export interface AdminPatch {
     id: string;
     name: string;
     category_id: string | null;
+    competition_id?: string | null;
 }
 
 export interface AdminVariant {
@@ -50,4 +54,7 @@ export interface AdminProductFormData {
 export interface CatalogItem {
     id: string;
     name: string;
+    slug?: string | null;
+    league_id?: string | null;
+    country?: string | null;
 }

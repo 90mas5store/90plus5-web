@@ -236,7 +236,9 @@ export default function LeaguesPage() {
             </div>
 
             {/* Content */}
-            <div className="bg-neutral-900 border border-white/5 rounded-3xl overflow-hidden p-6 md:p-8">
+            <div className="relative bg-[#0d0e12]/60 backdrop-blur-xl border border-white/[0.08] rounded-3xl overflow-hidden shadow-2xl p-6 md:p-8">
+                {/* Specular Top Highlight */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
 
                 {/* Tools */}
                 <div className="mb-4 md:mb-8 flex flex-col md:flex-row gap-3 md:gap-4 justify-between">
@@ -393,21 +395,28 @@ export default function LeaguesPage() {
             {/* Modal */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
                         <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90dvh]"
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                            className="bg-[#0d0e12] border border-white/10 rounded-3xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90dvh]"
                         >
+                            {/* Specular Top Highlight */}
+                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
                             {/* Modal Header */}
-                            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
-                                <h2 className="text-xl font-bold text-white">
+                            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                                <h2 className="text-xl font-bold text-white uppercase tracking-tight">
                                     {editingLeague ? 'Editar Liga' : 'Nueva Liga'}
                                 </h2>
-                                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">
-                                    <X className="w-6 h-6" />
+                                <button
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                >
+                                    <X className="w-4 h-4" />
                                 </button>
                             </div>
 
@@ -478,7 +487,7 @@ export default function LeaguesPage() {
                                             value={formData.season}
                                             onChange={(e) => setFormData(prev => ({ ...prev, season: e.target.value }))}
                                             className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-primary outline-none"
-                                            placeholder="Ej: 2024-2025"
+                                            placeholder="Ej: 2024/25 o 1998"
                                         />
                                     </div>
 

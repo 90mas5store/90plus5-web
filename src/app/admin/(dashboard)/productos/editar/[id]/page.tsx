@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
@@ -11,6 +12,7 @@ import ProductLeaguesSection from '@/components/admin/products/ProductLeaguesSec
 import ProductPatchesSection from '@/components/admin/products/ProductPatchesSection';
 import ProductPlayersSection from '@/components/admin/products/ProductPlayersSection';
 import ProductMediaSection from '@/components/admin/products/ProductMediaSection';
+import QuickCreateModal from '@/components/admin/products/QuickCreateModal';
 
 export default function EditProductPage() {
     const params = useParams();
@@ -25,10 +27,12 @@ export default function EditProductPage() {
         leagues,
         categories,
         brands,
+        allSizes,
         availableVersions,
         featuredProducts,
         filteredSizes,
         filteredPatches,
+        addSize,
         formData,
         setFormData,
         handleChange,
@@ -42,6 +46,8 @@ export default function EditProductPage() {
         updateVariant,
         removeVariant,
         toggleVariantSize,
+        applyAdultPreset,
+        applySinglePreset,
         variantToDelete,
         setVariantToDelete,
         productPatches,
@@ -59,11 +65,19 @@ export default function EditProductPage() {
         setNewPlayer,
         addingPlayer,
         handleAddPlayer,
+        suggestedBrandName,
+        handleTeamCreated,
+        handleBrandCreated,
         confirmDeleteProduct,
         setConfirmDeleteProduct,
         handleDeleteProduct,
         handleSave,
     } = useEditProductForm(id);
+
+    const [quickModal, setQuickModal] = useState<{ open: boolean; type: 'team' | 'brand' }>({
+        open: false,
+        type: 'team',
+    });
 
     if (loading) {
         return (
@@ -101,6 +115,16 @@ export default function EditProductPage() {
                         slugIsUnique={slugIsUnique}
                         featuredProducts={featuredProducts}
                         currentProductId={id}
+                        suggestedBrandName={suggestedBrandName}
+                        onApplySeasonMove={(cleanName, season) => {
+                            setFormData((prev) => ({
+                                ...prev,
+                                name: cleanName,
+                                season: season,
+                            }));
+                        }}
+                        onOpenNewTeam={() => setQuickModal({ open: true, type: 'team' })}
+                        onOpenNewBrand={() => setQuickModal({ open: true, type: 'brand' })}
                     />
 
                     {/* Plantilla de Jugadores (Dorsales) */}
@@ -123,11 +147,16 @@ export default function EditProductPage() {
                         variants={variants}
                         availableVersions={availableVersions}
                         filteredSizes={filteredSizes}
+                        allSizes={allSizes}
+                        categories={categories}
                         formData={formData}
                         onAddVariant={addVariant}
                         onUpdateVariant={updateVariant}
                         onRemoveVariant={removeVariant}
                         onToggleVariantSize={toggleVariantSize}
+                        onApplyAdultPreset={applyAdultPreset}
+                        onApplySinglePreset={applySinglePreset}
+                        onQuickCreateSize={addSize}
                     />
                 </div>
 
@@ -147,6 +176,7 @@ export default function EditProductPage() {
                         leagues={leagues}
                         selectedLeagues={selectedLeagues}
                         onToggleLeague={toggleSelectedLeague}
+                        primaryLeagueId={formData.league_id}
                     />
 
                     {/* Parches */}
@@ -155,6 +185,8 @@ export default function EditProductPage() {
                         productPatches={productPatches}
                         categoryId={formData.category_id}
                         onTogglePatch={toggleProductPatch}
+                        leagues={leagues}
+                        selectedLeagues={selectedLeagues}
                     />
                 </div>
             </div>
@@ -182,6 +214,21 @@ export default function EditProductPage() {
                 confirmLabel="Eliminar Definitivamente"
                 onConfirm={handleDeleteProduct}
                 onCancel={() => setConfirmDeleteProduct(false)}
+            />
+
+            {/* Modal de Creación Rápida de Equipo / Marca */}
+            <QuickCreateModal
+                isOpen={quickModal.open}
+                type={quickModal.type}
+                leagues={leagues}
+                onClose={() => setQuickModal((prev) => ({ ...prev, open: false }))}
+                onCreated={(item) => {
+                    if (quickModal.type === 'team') {
+                        handleTeamCreated(item);
+                    } else {
+                        handleBrandCreated(item);
+                    }
+                }}
             />
         </div>
     );

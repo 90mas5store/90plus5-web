@@ -46,11 +46,35 @@ export function useProductCatalogs(categoryId?: string, gender?: string) {
     }, [supabase]);
 
     const filteredSizes = useMemo(() => {
-        return allSizes.filter(
-            (s) =>
-                (!s.category_id || !categoryId || s.category_id === categoryId) &&
-                (!s.gender || !gender || s.gender === gender)
-        );
+        const matches = allSizes.filter((s) => {
+            if (s.active === false) return false;
+            const categoryMatch = !s.category_id || !categoryId || s.category_id === categoryId;
+            const genderMatch = !s.gender || !gender || s.gender === gender;
+            return categoryMatch && genderMatch;
+        });
+
+        // Deduplicar por etiqueta limpia
+        const seen = new Set<string>();
+        const deduped = matches.filter((s) => {
+            const key = s.label.trim().toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        return deduped.sort((a, b) => {
+            const isKidA = /año/i.test(a.label);
+            const isKidB = /año/i.test(b.label);
+            if (isKidA && isKidB) {
+                return parseInt(a.label.replace(/[^\d]/g, ''), 10) - parseInt(b.label.replace(/[^\d]/g, ''), 10);
+            }
+            const numA = parseFloat(a.label.replace(/[^\d.]/g, ''));
+            const numB = parseFloat(b.label.replace(/[^\d.]/g, ''));
+            if (!isNaN(numA) && !isNaN(numB) && !isKidA && !isKidB) {
+                return numA - numB;
+            }
+            return (a.sort_order ?? 99) - (b.sort_order ?? 99);
+        });
     }, [allSizes, categoryId, gender]);
 
     const filteredPatches = useMemo(() => {
@@ -58,6 +82,27 @@ export function useProductCatalogs(categoryId?: string, gender?: string) {
             (p) => !p.category_id || !categoryId || p.category_id === categoryId
         );
     }, [allPatches, categoryId]);
+
+    const addTeam = (newTeam: CatalogItem) => {
+        setTeams((prev) => {
+            if (prev.some((t) => t.id === newTeam.id)) return prev;
+            return [...prev, newTeam].sort((a, b) => a.name.localeCompare(b.name));
+        });
+    };
+
+    const addBrand = (newBrand: CatalogItem) => {
+        setBrands((prev) => {
+            if (prev.some((b) => b.id === newBrand.id)) return prev;
+            return [...prev, newBrand].sort((a, b) => a.name.localeCompare(b.name));
+        });
+    };
+
+    const addSize = (newSize: AdminSize) => {
+        setAllSizes((prev) => {
+            if (prev.some((s) => s.id === newSize.id)) return prev;
+            return [...prev, newSize].sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99));
+        });
+    };
 
     return {
         loadingCatalogs,
@@ -71,5 +116,8 @@ export function useProductCatalogs(categoryId?: string, gender?: string) {
         featuredProducts,
         filteredSizes,
         filteredPatches,
+        addTeam,
+        addBrand,
+        addSize,
     };
 }

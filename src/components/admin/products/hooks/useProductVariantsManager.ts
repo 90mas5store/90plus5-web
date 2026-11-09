@@ -28,7 +28,8 @@ export function useProductVariantsManager(filteredSizes: AdminSize[]) {
     };
 
     const removeVariant = (tempId: string) => {
-        setVariantToDelete(tempId);
+        setVariants((prev) => prev.filter((v) => v.tempId !== tempId));
+        setVariantToDelete(null);
     };
 
     const toggleVariantSize = (tempId: string, sizeId: string) => {
@@ -43,6 +44,48 @@ export function useProductVariantsManager(filteredSizes: AdminSize[]) {
         );
     };
 
+    // ⚡ Presets de 1-Clic para Acelerar la Creación de Productos
+    const applyAdultPreset = () => {
+        const allSizeIds = new Set(filteredSizes.map((s) => s.id));
+        const fanVariant: AdminVariant = {
+            tempId: `preset_fan_${Date.now()}`,
+            version: 'Fan',
+            price: 1200,
+            cost: 0,
+            active: true,
+            original_price: 0,
+            active_original_price: false,
+            sizeIds: allSizeIds,
+        };
+        const playerVariant: AdminVariant = {
+            tempId: `preset_player_${Date.now() + 1}`,
+            version: 'Player',
+            price: 1500,
+            cost: 0,
+            active: true,
+            original_price: 0,
+            active_original_price: false,
+            sizeIds: allSizeIds,
+        };
+        setVariants([fanVariant, playerVariant]);
+    };
+
+    const applySinglePreset = (version: string, defaultPrice = 1200) => {
+        const allSizeIds = new Set(filteredSizes.map((s) => s.id));
+        setVariants([
+            {
+                tempId: `preset_${version.toLowerCase()}_${Date.now()}`,
+                version,
+                price: defaultPrice,
+                cost: 0,
+                active: true,
+                original_price: 0,
+                active_original_price: false,
+                sizeIds: allSizeIds,
+            },
+        ]);
+    };
+
     return {
         variants,
         setVariants,
@@ -50,6 +93,8 @@ export function useProductVariantsManager(filteredSizes: AdminSize[]) {
         updateVariant,
         removeVariant,
         toggleVariantSize,
+        applyAdultPreset,
+        applySinglePreset,
         variantToDelete,
         setVariantToDelete,
     };
