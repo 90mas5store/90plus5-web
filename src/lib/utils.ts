@@ -29,19 +29,31 @@ export function formatDate(
     if (isNaN(date.getTime())) return "Fecha inválida";
 
     try {
-        const options: Intl.DateTimeFormatOptions = {
+        const tz = timeZone || HONDURAS_TIMEZONE;
+
+        const datePart = new Intl.DateTimeFormat("es-HN", {
             day: "numeric",
             month: "long",
             year: "numeric",
-            ...(includeTime && {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true
-            }),
-            timeZone: timeZone || undefined // undefined usa la del navegador
-        };
+            timeZone: tz,
+        }).format(date);
 
-        return new Intl.DateTimeFormat("es-HN", options).format(date);
+        if (!includeTime) {
+            return datePart;
+        }
+
+        const timePart = new Intl.DateTimeFormat("es-HN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: tz,
+        }).format(date);
+
+        // Normalizamos espacios no separables (narrow no-break space \u202f o \u00a0 en p. m.)
+        const cleanTime = timePart.replace(/[\u202F\u00A0]/g, " ");
+
+        // Formato determinista idéntico en servidor (Node) y cliente (Navegador)
+        return `${datePart}, ${cleanTime}`;
     } catch (e) {
         // Fallback si falla la detección
         return date.toLocaleDateString("es-HN");

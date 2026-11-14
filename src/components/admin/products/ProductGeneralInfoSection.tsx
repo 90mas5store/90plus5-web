@@ -298,7 +298,7 @@ export default function ProductGeneralInfoSection({
                         name="season"
                         value={formData.season}
                         onChange={onChange}
-                        placeholder="Ej. 2024/25 o 1998"
+                        placeholder="Ej. Temporada Actual o Edición Retro"
                         className="w-full bg-[#14151b] border border-white/10 hover:border-white/20 focus:border-primary/80 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-3.5 text-white placeholder-zinc-500 font-medium transition-all text-sm outline-none shadow-inner"
                     />
                 </div>

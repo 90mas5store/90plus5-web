@@ -8,7 +8,7 @@ import { useLiveMatches, LiveMatchData } from "@/hooks/useLiveMatches";
 import { Product } from "@/lib/types";
 import { fetchProductsByTeamIds } from "@/lib/api";
 import ProductCard from "@/components/ui/ProductCard";
-import { translateTeamNameToSpanish } from "@/lib/teamNames";
+import { translateTeamNameToSpanish, translateTeamShortName } from "@/lib/teamNames";
 import { usePrefersReducedMotion } from "@/hooks/useOptimization";
 import useToastMessage from "@/hooks/useToastMessage";
 import { motion, AnimatePresence } from "@/lib/motion";
@@ -259,6 +259,8 @@ export default function MatchdayLiveSection({ allProducts = [] }: MatchdayLiveSe
     const isLive = !currentMatch.isFinished && !currentMatch.isUpcoming;
     const homeName = translateTeamNameToSpanish(currentMatch.homeTeam);
     const awayName = translateTeamNameToSpanish(currentMatch.awayTeam);
+    const homeShort = translateTeamShortName(homeName, currentMatch.homeShortTeam);
+    const awayShort = translateTeamShortName(awayName, currentMatch.awayShortTeam);
     const competitionName = currentMatch.leagueName || "Competición Oficial";
 
     return (
@@ -310,8 +312,10 @@ export default function MatchdayLiveSection({ allProducts = [] }: MatchdayLiveSe
                             className="relative flex items-center gap-1.5 p-1 rounded-2xl bg-white/[0.04] border border-white/5 overflow-x-auto pb-1 scrollbar-none w-full sm:w-auto"
                         >
                             {activeEntries.map(([id, m], idx) => {
-                                const hName = translateTeamNameToSpanish(m.homeTeam);
-                                const aName = translateTeamNameToSpanish(m.awayTeam);
+                                const hFull = translateTeamNameToSpanish(m.homeTeam);
+                                const aFull = translateTeamNameToSpanish(m.awayTeam);
+                                const hShort = translateTeamShortName(hFull, m.homeShortTeam);
+                                const aShort = translateTeamShortName(aFull, m.awayShortTeam);
                                 const active = idx === activeMatchIndex;
                                 return (
                                     <button
@@ -334,7 +338,8 @@ export default function MatchdayLiveSection({ allProducts = [] }: MatchdayLiveSe
                                         <span className={`relative z-10 transition-colors duration-200 ${
                                             active ? "text-black font-bold" : "text-white/60 hover:text-white"
                                         }`}>
-                                            {hName} vs {aName}
+                                            <span className="sm:hidden">{hShort} vs {aShort}</span>
+                                            <span className="hidden sm:inline">{hFull} vs {aFull}</span>
                                         </span>
                                     </button>
                                 );
@@ -378,7 +383,8 @@ export default function MatchdayLiveSection({ allProducts = [] }: MatchdayLiveSe
                                     </div>
                                     <div className="min-w-0">
                                         <h3 className="text-xs sm:text-lg font-black text-white truncate sm:whitespace-normal">
-                                            {homeName}
+                                            <span className="sm:hidden">{homeShort}</span>
+                                            <span className="hidden sm:inline">{homeName}</span>
                                         </h3>
                                     </div>
                                 </div>
@@ -423,7 +429,8 @@ export default function MatchdayLiveSection({ allProducts = [] }: MatchdayLiveSe
                                 <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end text-right min-w-0">
                                     <div className="min-w-0">
                                         <h3 className="text-xs sm:text-lg font-black text-white truncate sm:whitespace-normal">
-                                            {awayName}
+                                            <span className="sm:hidden">{awayShort}</span>
+                                            <span className="hidden sm:inline">{awayName}</span>
                                         </h3>
                                     </div>
                                     <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white/[0.06] border border-white/10 p-1.5 sm:p-2 flex items-center justify-center shrink-0">
@@ -448,6 +455,15 @@ export default function MatchdayLiveSection({ allProducts = [] }: MatchdayLiveSe
                     <div className="mt-4 pt-3 border-t border-white/10 flex justify-center">
                         <button
                             onClick={() => {
+                                if (typeof window !== "undefined" && window.trackEvent) {
+                                    window.trackEvent("matchday_click", {
+                                        section: "live_section",
+                                        action: "open_match_center",
+                                        matchId: currentMatchEntry?.[0],
+                                        homeTeam: homeName,
+                                        awayTeam: awayName,
+                                    });
+                                }
                                 setSelectedMatch(currentMatch);
                                 setIsModalOpen(true);
                             }}

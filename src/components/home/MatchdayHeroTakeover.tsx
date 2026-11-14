@@ -191,7 +191,21 @@ export default function MatchdayHeroTakeover() {
     (e) => (e.type === "goal" || e.type === "penalty-goal" || e.type === "own-goal") && !e.disallowed
   );
 
+  const handleTrackMatchday = (action: string, extra?: Record<string, unknown>) => {
+    if (typeof window !== "undefined" && window.trackEvent) {
+      window.trackEvent("matchday_click", {
+        section: "hero_takeover",
+        action,
+        matchId: activeItem.id,
+        homeTeam: homeName,
+        awayTeam: awayName,
+        ...extra,
+      });
+    }
+  };
+
   const handleOpenMatchCenter = () => {
+    handleTrackMatchday("open_match_center");
     setIsPaused(true);
     setSelectedMatch(match);
     setIsModalOpen(true);
@@ -268,7 +282,10 @@ export default function MatchdayHeroTakeover() {
                             <Image src={item.homeLogo} alt="" width={16} height={16} className="w-full h-full object-contain" />
                           </div>
                         )}
-                        <span className={`tracking-tight ${isActive ? "text-white font-bold" : "text-white/80"}`}>{item.homeShort}</span>
+                        <span className={`tracking-tight ${isActive ? "text-white font-bold" : "text-white/80"}`}>
+                          <span className="sm:hidden">{item.homeShort}</span>
+                          <span className="hidden sm:inline">{item.homeName}</span>
+                        </span>
                       </div>
 
                       {/* Marcador o Horario */}
@@ -283,7 +300,10 @@ export default function MatchdayHeroTakeover() {
                       )}
 
                       <div className="relative z-10 flex items-center gap-1.5">
-                        <span className={`tracking-tight ${isActive ? "text-white font-bold" : "text-white/80"}`}>{item.awayShort}</span>
+                        <span className={`tracking-tight ${isActive ? "text-white font-bold" : "text-white/80"}`}>
+                          <span className="sm:hidden">{item.awayShort}</span>
+                          <span className="hidden sm:inline">{item.awayName}</span>
+                        </span>
                         {item.awayLogo && (
                           <div className="w-4 h-4 relative shrink-0">
                             <Image src={item.awayLogo} alt="" width={16} height={16} className="w-full h-full object-contain" />
@@ -450,6 +470,7 @@ export default function MatchdayHeroTakeover() {
                           href={activeItem.homeTeamId
                             ? `/catalogo?equipo=${encodeURIComponent(activeItem.homeTeamId)}`
                             : `/catalogo?query=${encodeURIComponent(homeName)}`}
+                          onClick={() => handleTrackMatchday("cta_team_shirt", { team: homeName, side: "home" })}
                           className="px-4 sm:px-5 py-2.5 sm:py-3 min-h-[44px] rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.97] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2 cursor-pointer text-center"
                         >
                           <Shirt className="w-4 h-4 shrink-0" />
@@ -463,6 +484,7 @@ export default function MatchdayHeroTakeover() {
                           href={activeItem.awayTeamId
                             ? `/catalogo?equipo=${encodeURIComponent(activeItem.awayTeamId)}`
                             : `/catalogo?query=${encodeURIComponent(awayName)}`}
+                          onClick={() => handleTrackMatchday("cta_team_shirt", { team: awayName, side: "away" })}
                           className="px-4 sm:px-5 py-2.5 sm:py-3 min-h-[44px] rounded-2xl bg-white/10 hover:bg-white/15 active:scale-[0.97] border border-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all backdrop-blur-md flex items-center justify-center gap-2 cursor-pointer text-center"
                         >
                           <Shirt className="w-4 h-4 text-gray-300 shrink-0" />
@@ -477,6 +499,7 @@ export default function MatchdayHeroTakeover() {
                   {!activeItem.hasHomeInDb && !activeItem.hasAwayInDb && (
                     <Link
                       href="/catalogo"
+                      onClick={() => handleTrackMatchday("cta_catalog")}
                       className="px-5 py-2.5 sm:py-3 min-h-[44px] rounded-2xl bg-[#E50914] hover:bg-red-700 active:scale-[0.97] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center justify-center gap-2"
                     >
                       <span>Mirá el Catálogo</span>

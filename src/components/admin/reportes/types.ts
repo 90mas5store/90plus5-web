@@ -25,6 +25,7 @@ export interface ShareStatItem {
     team_name: string | null;
     season: string | null;
     count: number;
+    last_shared_at?: string;
 }
 
 export interface StatusOption {

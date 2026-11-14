@@ -41,7 +41,7 @@ export async function GET(req?: NextRequest) {
   const tz = 'America/Tegucigalpa';
   const todayDateStr = new Date(now).toLocaleDateString('en-CA', { timeZone: tz });
   const todayYmd = todayDateStr.replace(/-/g, '');
-  const CACHE_KEY = `live-matches:v12:${todayYmd}`;
+  const CACHE_KEY = `live-matches:v13:${todayYmd}`;
   const STALE_CACHE_KEY = `live-matches:stale:${todayYmd}`;
 
   const isDebug = req ? req.nextUrl.searchParams.get('debug') === '1' : false;
@@ -375,8 +375,8 @@ export async function GET(req?: NextRequest) {
       const matchDataPayload: LiveMatchData = {
         homeTeam: team.name,
         awayTeam: opponentName,
-        homeShortTeam: team.name,
-        awayShortTeam: opponentName,
+        homeShortTeam: translateTeamShortName(team.name),
+        awayShortTeam: translateTeamShortName(opponentName),
         homeAbbr,
         awayAbbr,
         homeTeamDbName: team.name,

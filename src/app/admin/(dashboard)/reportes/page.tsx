@@ -3,11 +3,12 @@
 import { FileSpreadsheet } from 'lucide-react';
 import { useReportesData } from '@/components/admin/reportes/useReportesData';
 import OrderExportSection from '@/components/admin/reportes/OrderExportSection';
-import VipLoyaltySection from '@/components/admin/reportes/VipLoyaltySection';
-import BestSellersSection from '@/components/admin/reportes/BestSellersSection';
-import KitSharesSection from '@/components/admin/reportes/KitSharesSection';
 
-export default function ReportesPage() {
+interface ReportesPageProps {
+    embedded?: boolean;
+}
+
+export default function ReportesPage({ embedded = false }: ReportesPageProps) {
     const {
         startDate,
         setStartDate,
@@ -16,72 +17,36 @@ export default function ReportesPage() {
         selectedStatuses,
         toggleStatus,
         setPreset,
-        topBuyers,
-        loadingBuyers,
-        loadTopBuyers,
-        bestSellers,
-        loadingBest,
-        loadBestSellers,
-        shareStats,
-        loadingShares,
-        loadShareStats,
     } = useReportesData();
 
-    const handleStartDateChange = (val: string) => {
-        setStartDate(val);
-        loadBestSellers(val, endDate, selectedStatuses);
-        loadShareStats(val, endDate);
-    };
-
-    const handleEndDateChange = (val: string) => {
-        setEndDate(val);
-        loadBestSellers(startDate, val, selectedStatuses);
-        loadShareStats(startDate, val);
-    };
-
     return (
-        <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 pb-28">
-            {/* HEADER */}
-            <div>
-                <h1 className="text-xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3">
-                    <FileSpreadsheet className="w-5 h-5 md:w-8 md:h-8 text-primary" />
-                    Reportes de Pedidos y CRM
-                </h1>
-                <p className="text-gray-400 mt-1 md:mt-2 text-xs md:text-sm">
-                    Exporta pedidos para proveedores, analiza productos más vendidos y gestiona el programa de fidelización VIP.
-                </p>
-            </div>
+        <div className={embedded ? 'space-y-4 sm:space-y-5' : 'max-w-5xl mx-auto space-y-4 sm:space-y-6 pb-28'}>
+            {!embedded && (
+                <div className="p-4 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl bg-[#0a0c10]/80 backdrop-blur-xl border border-white/[0.08] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <span className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+                            <FileSpreadsheet className="w-5 h-5" />
+                        </span>
+                        <div>
+                            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight">
+                                Lista Fábrica & Proveedores
+                            </h1>
+                            <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
+                                Genera y descarga hojas de cálculo en Excel (.xlsx) y CSV con el formato exacto requerido por tus proveedores de camisetas.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-            {/* 📦 1. EXPORTACIÓN DE PEDIDOS PARA PROVEEDORES */}
             <OrderExportSection
                 startDate={startDate}
                 endDate={endDate}
                 selectedStatuses={selectedStatuses}
-                onStartDateChange={handleStartDateChange}
-                onEndDateChange={handleEndDateChange}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
                 onToggleStatus={toggleStatus}
                 onSetPreset={setPreset}
-            />
-
-            {/* 👑 2. SECCIÓN TOP COMPRADORES & PROGRAMA DE FIDELIDAD VIP */}
-            <VipLoyaltySection
-                topBuyers={topBuyers}
-                loadingBuyers={loadingBuyers}
-                onRefresh={loadTopBuyers}
-            />
-
-            {/* 📈 3. PRODUCTOS MÁS VENDIDOS */}
-            <BestSellersSection
-                bestSellers={bestSellers}
-                loading={loadingBest}
-                onRefresh={() => loadBestSellers(startDate, endDate, selectedStatuses)}
-            />
-
-            {/* 📸 4. PRESUMES DE KIT */}
-            <KitSharesSection
-                shareStats={shareStats}
-                loading={loadingShares}
-                onRefresh={() => loadShareStats(startDate, endDate)}
             />
         </div>
     );

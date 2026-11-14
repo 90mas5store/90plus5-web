@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import type { LiveMatchData } from "@/hooks/useLiveMatches";
 import type { StandingRow } from "@/app/api/standings/route";
 import { resolveMatchColors } from "@/lib/teamColors";
-import { translateTeamNameToSpanish } from "@/lib/teamNames";
+import { translateTeamNameToSpanish, translateTeamShortName } from "@/lib/teamNames";
 
 import { getResolvedLeagueSlug, projectMomentum } from "./matchUtils";
 import { MatchScoreboard } from "./MatchScoreboard";
@@ -170,12 +170,20 @@ export default function MatchCenterModal({
   }, [isOpen, currentLeagueSlug, teamSearchParam, teamCacheKey, standingsByLeague]);
 
   const homeName = useMemo(
-    () => (activeMatch ? translateTeamNameToSpanish(activeMatch.homeShortTeam || activeMatch.homeTeam) : ""),
+    () => (activeMatch ? translateTeamNameToSpanish(activeMatch.homeTeam) : ""),
     [activeMatch]
   );
   const awayName = useMemo(
-    () => (activeMatch ? translateTeamNameToSpanish(activeMatch.awayShortTeam || activeMatch.awayTeam) : ""),
+    () => (activeMatch ? translateTeamNameToSpanish(activeMatch.awayTeam) : ""),
     [activeMatch]
+  );
+  const homeShort = useMemo(
+    () => (activeMatch ? translateTeamShortName(homeName, activeMatch.homeShortTeam) : ""),
+    [activeMatch, homeName]
+  );
+  const awayShort = useMemo(
+    () => (activeMatch ? translateTeamShortName(awayName, activeMatch.awayShortTeam) : ""),
+    [activeMatch, awayName]
   );
 
   const colors = useMemo(() => {
@@ -347,8 +355,8 @@ export default function MatchCenterModal({
             <div className="block lg:hidden mb-4">
               <MatchScoreboard
                 match={activeMatch}
-                homeName={homeName}
-                awayName={awayName}
+                homeName={homeShort}
+                awayName={awayShort}
                 homeColor={colors.homeColor}
                 awayColor={colors.awayColor}
                 isHomeWhite={colors.isHomeWhite}

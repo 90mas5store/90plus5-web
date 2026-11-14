@@ -233,11 +233,225 @@ const EXCLUDED_FROM_NATIONALS = new Set([
   'rcd espana',
   'real cd espana',
   'cd real espana',
+  'real club deportivo espana',
   'sporting cristal',
   'barcelona sc',
   'universidad de chile',
   'america de cali',
 ]);
+
+/**
+ * Diccionario de nombres cortos para clubes (especialmente en vista móvil).
+ * Convierte nombres largos oficiales (ej. "Club Deportivo Olimpia") en su versión corta ("Olimpia").
+ */
+const CLUB_SHORT_NAMES: Record<string, string> = {
+  // Liga Nacional de Honduras & Centroamérica
+  'club deportivo olimpia': 'Olimpia',
+  'cd olimpia': 'Olimpia',
+  'c.d. olimpia': 'Olimpia',
+  'club olimpia deportivo': 'Olimpia',
+  'olimpia deportivo': 'Olimpia',
+  'olimpia tegucigalpa': 'Olimpia',
+  'olimpia': 'Olimpia',
+  'futbol club motagua': 'Motagua',
+  'fc motagua': 'Motagua',
+  'cd motagua': 'Motagua',
+  'c.d. motagua': 'Motagua',
+  'motagua': 'Motagua',
+  'club deportivo marathon': 'Marathón',
+  'cd marathon': 'Marathón',
+  'c.d. marathon': 'Marathón',
+  'marathon': 'Marathón',
+  'real club deportivo espana': 'Real España',
+  'real cd espana': 'Real España',
+  'rcd espana': 'Real España',
+  'cd real espana': 'Real España',
+  'real espana': 'Real España',
+  'club deportivo victoria': 'Victoria',
+  'cd victoria': 'Victoria',
+  'club deportivo y social vida': 'Vida',
+  'cds vida': 'Vida',
+  'cd vida': 'Vida',
+  'club deportivo genesis': 'Génesis',
+  'cd genesis': 'Génesis',
+  'genesis de comayagua': 'Génesis',
+  'genesis fc': 'Génesis',
+  'club deportivo real sociedad': 'Real Sociedad',
+  'cd real sociedad': 'Real Sociedad',
+  'real sociedad de tocoa': 'Real Sociedad',
+  'olancho fc': 'Olancho',
+  'potros de olancho': 'Olancho',
+  'juticalpa fc': 'Juticalpa',
+  'cd juticalpa': 'Juticalpa',
+  'lobos upnfm': 'Lobos UPNFM',
+  'upnfm': 'Lobos UPNFM',
+  'platense fc': 'Platense',
+  'cd platense': 'Platense',
+  'cd choloma': 'Choloma',
+  'club deportivo choloma': 'Choloma',
+  'honduras progreso': 'Honduras Progreso',
+  'cd honduras progreso': 'Honduras Progreso',
+  'deportivo saprissa': 'Saprissa',
+  'liga deportiva alajuelense': 'Alajuelense',
+  'ld alajuelense': 'Alajuelense',
+  'club sport herediano': 'Herediano',
+  'cs herediano': 'Herediano',
+  'club sport cartagines': 'Cartaginés',
+  'cs cartagines': 'Cartaginés',
+  'comunicaciones fc': 'Comunicaciones',
+  'csd comunicaciones': 'Comunicaciones',
+  'csd municipal': 'Municipal',
+  'antigua gfc': 'Antigua',
+  'real esteli fc': 'Real Estelí',
+  'real esteli': 'Real Estelí',
+  'diriangen fc': 'Diriangén',
+  'cacique diriangen': 'Diriangén',
+  'alianza fc': 'Alianza',
+  'cd aguila': 'Águila',
+  'club deportivo aguila': 'Águila',
+  'cd fas': 'FAS',
+  'club deportivo fas': 'FAS',
+  'tauro fc': 'Tauro',
+  'plaza amador': 'Plaza Amador',
+  'cd plaza amador': 'Plaza Amador',
+  'sporting san miguelito': 'San Miguelito',
+  'cavalry fc': 'Cavalry',
+  'forge fc': 'Forge',
+
+  // Europa & Internacionales
+  'fc barcelona': 'Barcelona',
+  'futbol club barcelona': 'Barcelona',
+  'barcelona': 'Barcelona',
+  'real madrid cf': 'Real Madrid',
+  'real madrid club de futbol': 'Real Madrid',
+  'real madrid': 'Real Madrid',
+  'club atletico de madrid': 'Atlético Madrid',
+  'atletico de madrid': 'Atlético Madrid',
+  'atletico madrid': 'Atlético Madrid',
+  'real betis balompie': 'Real Betis',
+  'real betis': 'Real Betis',
+  'athletic club': 'Athletic',
+  'athletic bilbao': 'Athletic',
+  'paris saint-germain': 'PSG',
+  'paris saint germain': 'PSG',
+  'paris sg': 'PSG',
+  'manchester united': 'Man United',
+  'manchester united fc': 'Man United',
+  'manchester city': 'Man City',
+  'manchester city fc': 'Man City',
+  'bayern munich': 'Bayern',
+  'fc bayern munich': 'Bayern',
+  'fc bayern munchen': 'Bayern',
+  'bayern munchen': 'Bayern',
+  'borussia dortmund': 'Dortmund',
+  'bayer leverkusen': 'Leverkusen',
+  'bayer 04 leverkusen': 'Leverkusen',
+  'inter miami cf': 'Inter Miami',
+  'club internacional de futbol miami': 'Inter Miami',
+  'inter miami': 'Inter Miami',
+  'chelsea fc': 'Chelsea',
+  'arsenal fc': 'Arsenal',
+  'liverpool fc': 'Liverpool',
+  'tottenham hotspur': 'Tottenham',
+  'tottenham hotspur fc': 'Tottenham',
+  'newcastle united': 'Newcastle',
+  'aston villa': 'Aston Villa',
+  'juventus fc': 'Juventus',
+  'ac milan': 'Milan',
+  'a.c. milan': 'Milan',
+  'inter milan': 'Inter',
+  'fc internazionale milano': 'Inter',
+  'internazionale': 'Inter',
+  'ssc napoli': 'Napoli',
+  'as roma': 'Roma',
+  'ss lazio': 'Lazio',
+  'sl benfica': 'Benfica',
+  'fc porto': 'Porto',
+  'sporting cp': 'Sporting CP',
+  'sporting lisbon': 'Sporting CP',
+  'ca boca juniors': 'Boca Juniors',
+  'club atletico boca juniors': 'Boca Juniors',
+  'boca juniors': 'Boca Juniors',
+  'ca river plate': 'River Plate',
+  'club atletico river plate': 'River Plate',
+  'river plate': 'River Plate',
+  'racing club de avellaneda': 'Racing',
+  'ca independiente': 'Independiente',
+  'san lorenzo de almagro': 'San Lorenzo',
+  'cr flamengo': 'Flamengo',
+  'se palmeiras': 'Palmeiras',
+  'sc corinthians': 'Corinthians',
+  'sao paulo fc': 'São Paulo',
+  'club america': 'América',
+  'cf america': 'América',
+  'chivas guadalajara': 'Chivas',
+  'cd guadalajara': 'Chivas',
+  'cruz azul': 'Cruz Azul',
+  'tigres uanl': 'Tigres',
+  'cf monterrey': 'Monterrey',
+  'rayados de monterrey': 'Monterrey',
+  'pumas unam': 'Pumas',
+  'al nassr fc': 'Al Nassr',
+  'al-nassr': 'Al Nassr',
+  'al hilal sfc': 'Al Hilal',
+  'al-hilal': 'Al Hilal',
+  'al ittihad': 'Al Ittihad',
+};
+
+/**
+ * Acorta el nombre de un club eliminando prefijos institucionales largos
+ * (ej. "Club Deportivo Olimpia" -> "Olimpia", "Fútbol Club Motagua" -> "Motagua").
+ */
+export function shortenClubName(rawName?: string | null): string {
+  if (!rawName) return '';
+  const clean = rawName.trim();
+  if (!clean) return '';
+
+  const norm = normalizeForLookup(clean);
+  if (CLUB_SHORT_NAMES[norm]) {
+    return CLUB_SHORT_NAMES[norm];
+  }
+
+  let shortened = clean;
+
+  // Caso especial: "Real Club Deportivo X" / "Real CD X" / "RCD X" -> "Real X"
+  if (/^(?:real\s+club\s+deportivo|real\s+c\.?d\.?|r\.?c\.?d\.?)\s+/i.test(shortened)) {
+    shortened = shortened.replace(/^(?:real\s+club\s+deportivo|real\s+c\.?d\.?|r\.?c\.?d\.?)\s+/i, 'Real ');
+  } else {
+    // Eliminar prefijos institucionales largos
+    shortened = shortened.replace(
+      /^(?:club\s+deportivo\s+y\s+social|club\s+social\s+y\s+deportivo|club\s+deportivo|club\s+atl[eé]tico|club\s+olimpia|club\s+sport|f[uú]tbol\s+club|liga\s+deportiva|asociaci[oó]n\s+deportiva|sociedad\s+deportiva|uni[oó]n\s+deportiva|deportivo)\s+/i,
+      ''
+    );
+
+    // Eliminar siglas de prefijo comunes (CD, FC, CF, CA, CSD, etc.)
+    shortened = shortened.replace(
+      /^(?:c\.?d\.?s\.?|c\.?s\.?d\.?|c\.?d\.?|f\.?c\.?|c\.?f\.?|c\.?a\.?|c\.?s\.?|a\.?d\.?|s\.?d\.?|u\.?d\.?|s\.?c\.?|a\.?c\.?|s\.?l\.?|c\.?r\.?|s\.?e\.?|l\.?d\.?)\s+/i,
+      ''
+    );
+
+    // Si aún inicia con "Club " y tiene más palabras (ej. "Club América" -> "América")
+    if (/^club\s+\S+/i.test(shortened)) {
+      shortened = shortened.replace(/^club\s+/i, '');
+    }
+  }
+
+  // Eliminar sufijos institucionales (FC, CF, SC, Deportivo, etc.)
+  shortened = shortened.replace(
+    /\s+(?:f\.?c\.?|c\.?f\.?|s\.?c\.?|a\.?c\.?|c\.?d\.?|s\.?a\.?d\.?|s\.?f\.?c\.?|g\.?f\.?c\.?|deportivo)$/i,
+    ''
+  );
+
+  shortened = shortened.trim();
+
+  // Verificar nuevamente en el diccionario tras limpiar prefijos/sufijos
+  const normAfter = normalizeForLookup(shortened);
+  if (CLUB_SHORT_NAMES[normAfter]) {
+    return CLUB_SHORT_NAMES[normAfter];
+  }
+
+  return shortened || clean;
+}
 
 const CLUB_PREFIXES = [
   'real ', 'club ', 'deportivo ', 'atletico ', 'atlético ', 'sporting ',
@@ -298,23 +512,32 @@ export function translateTeamNameToSpanish(rawName?: string | null): string {
 }
 
 /**
- * Traduce el nombre corto de una selección al español.
+ * Traduce el nombre corto de una selección al español o acorta el nombre de un club
+ * (ej. "Club Deportivo Olimpia" -> "Olimpia").
  */
 export function translateTeamShortName(rawName?: string | null, fallbackShort?: string | null): string {
   if (!rawName && !fallbackShort) return '';
 
   const normRaw = normalizeForLookup(rawName || '');
+  const normFallback = normalizeForLookup(fallbackShort || '');
+
+  if (normRaw && CLUB_SHORT_NAMES[normRaw]) {
+    return CLUB_SHORT_NAMES[normRaw];
+  }
+  if (normFallback && CLUB_SHORT_NAMES[normFallback]) {
+    return CLUB_SHORT_NAMES[normFallback];
+  }
+
   if (normRaw && (EXCLUDED_FROM_NATIONALS.has(normRaw) || normRaw.includes('real espana'))) {
-    return fallbackShort || rawName || '';
+    return shortenClubName(rawName || fallbackShort);
   }
 
   if (normRaw && NATIONAL_TEAMS_ES[normRaw] && !CLUB_PREFIXES.some(p => normRaw.startsWith(p))) {
     return NATIONAL_TEAMS_ES[normRaw].shortName;
   }
 
-  const normFallback = normalizeForLookup(fallbackShort || '');
   if (normFallback && (EXCLUDED_FROM_NATIONALS.has(normFallback) || normFallback.includes('real espana'))) {
-    return fallbackShort || rawName || '';
+    return shortenClubName(fallbackShort || rawName);
   }
 
   if (normFallback && NATIONAL_TEAMS_ES[normFallback] && !CLUB_PREFIXES.some(p => normFallback.startsWith(p))) {
@@ -330,15 +553,14 @@ export function translateTeamShortName(rawName?: string | null, fallbackShort?: 
     }
   }
 
-  if (fallbackShort) {
-    const translatedFallback = translateTeamNameToSpanish(fallbackShort);
-    if (translatedFallback && translatedFallback !== fallbackShort) {
-      return translatedFallback;
-    }
-    return fallbackShort;
+  const shortRaw = rawName ? shortenClubName(rawName) : '';
+  const shortFallback = fallbackShort ? shortenClubName(translateTeamNameToSpanish(fallbackShort)) : '';
+
+  if (shortRaw && shortFallback) {
+    return shortFallback.length <= shortRaw.length ? shortFallback : shortRaw;
   }
 
-  return rawName || '';
+  return shortFallback || shortRaw || rawName || fallbackShort || '';
 }
 
 /**

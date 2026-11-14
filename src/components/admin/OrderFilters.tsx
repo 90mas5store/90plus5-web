@@ -50,35 +50,37 @@ export default function OrderFilters() {
         <div className="relative">
             <button
                 onClick={() => setOpen(v => !v)}
-                className={`p-2 border rounded-xl transition-all ${hasFilters
-                    ? 'border-primary bg-primary/20 text-primary'
-                    : 'border-white/10 hover:bg-white/5 text-gray-400'}`}
+                className={`p-2 sm:p-2.5 rounded-xl border transition-all active:scale-[0.98] cursor-pointer ${
+                    hasFilters
+                        ? 'border-white/30 bg-white/15 text-white'
+                        : 'border-white/[0.08] bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white'
+                }`}
                 title="Filtros"
             >
-                <SlidersHorizontal className="w-5 h-5" />
+                <SlidersHorizontal className="w-4 h-4" />
             </button>
 
             {open && (
                 <>
-                    <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs" onClick={() => setOpen(false)} />
-                    <div className="absolute right-0 top-12 z-50 w-[calc(100vw-2rem)] max-w-xs sm:w-72 bg-neutral-900 border border-white/10 rounded-2xl p-4 shadow-2xl space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-white">Filtros</span>
+                    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs" onClick={() => setOpen(false)} />
+                    <div className="absolute right-0 top-12 z-50 w-[calc(100vw-2rem)] max-w-xs sm:w-72 bg-[#0a0c10]/95 backdrop-blur-2xl border border-white/[0.12] rounded-2xl p-4 shadow-2xl space-y-4 relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent">
+                        <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+                            <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">Filtros Avanzados</span>
                             {hasFilters && (
-                                <button onClick={clearFilters} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1">
+                                <button onClick={clearFilters} className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer">
                                     <X className="w-3 h-3" /> Limpiar
                                 </button>
                             )}
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Estado</label>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-1.5">Estado</label>
                             <select
                                 value={currentStatus}
                                 onChange={e => applyFilter('status', e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+                                className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-white/30"
                             >
-                                <option value="">Todos</option>
+                                <option value="">Todos los estados</option>
                                 {ORDER_STATUSES.map(s => (
                                     <option key={s.value} value={s.value}>{s.label}</option>
                                 ))}
@@ -86,30 +88,30 @@ export default function OrderFilters() {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Desde</label>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-1.5">Desde</label>
                             <input
                                 type="date"
                                 value={currentStart}
                                 onChange={e => applyFilter('startDate', e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+                                className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-white/30"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Hasta</label>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-1.5">Hasta</label>
                             <input
                                 type="date"
                                 value={currentEnd}
                                 onChange={e => applyFilter('endDate', e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+                                className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-white/30"
                             />
                         </div>
 
                         <button
                             onClick={() => setOpen(false)}
-                            className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold text-white transition-colors"
+                            className="w-full py-2 bg-white text-black font-extrabold hover:bg-neutral-200 active:scale-[0.98] rounded-xl text-xs transition-all cursor-pointer shadow-sm"
                         >
-                            Aplicar
+                            Aplicar Filtros
                         </button>
                     </div>
                 </>

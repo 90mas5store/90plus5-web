@@ -91,6 +91,7 @@ export function useProductCustomizer({ product }: UseProductCustomizerProps) {
                     slug: producto.slug,
                     productName: producto.modelo || product.name,
                     teamName: producto.equipo || null,
+                    season: product.season || null,
                     imageUrl: producto.imagen || null,
                     price: precioActual || producto.precio || 0,
                 }

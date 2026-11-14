@@ -144,8 +144,8 @@ export default function MatchdayHeaderBanner() {
   const matchItems = activeEntries.map(([id, match]) => {
     const homeFullName = match.homeTeamDbName || translateTeamNameToSpanish(match.homeTeam);
     const awayFullName = match.awayTeamDbName || translateTeamNameToSpanish(match.awayTeam);
-    const homeShortName = match.homeShortTeam || translateTeamShortName(homeFullName);
-    const awayShortName = match.awayShortTeam || translateTeamShortName(awayFullName);
+    const homeShortName = translateTeamShortName(homeFullName, match.homeShortTeam);
+    const awayShortName = translateTeamShortName(awayFullName, match.awayShortTeam);
     const homeAbbr = match.homeAbbr ? translateTeamAbbr(homeFullName, match.homeAbbr) : (match.homeShortTeam?.slice(0, 3) || translateTeamAbbr(homeFullName));
     const awayAbbr = match.awayAbbr ? translateTeamAbbr(awayFullName, match.awayAbbr) : (match.awayShortTeam?.slice(0, 3) || translateTeamAbbr(awayFullName));
     const homeScore = match.homeScore;

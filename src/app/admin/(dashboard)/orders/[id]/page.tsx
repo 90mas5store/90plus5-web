@@ -82,7 +82,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                             <CopyButton text={order.id} label="ID" />
                         </div>
                         <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm flex-wrap">
-                            <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] md:text-xs font-mono text-gray-400">
+                            <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] md:text-xs font-mono text-gray-400" suppressHydrationWarning>
                                 {formatDate(order.created_at, true, HONDURAS_TIMEZONE)}
                             </span>
                             <span className="text-gray-500">|</span>

@@ -67,6 +67,21 @@ export function sendAnalyticsEvent(eventType: AnalyticsEventType, metadata?: Rec
     }
 }
 
+/**
+ * Registra el evento `purchase` una única vez por pedido (evita duplicados entre checkout y /checkout/done o recargas).
+ */
+export function trackPurchaseOnce(orderKey: string, metadata: Record<string, unknown>) {
+    if (typeof window === 'undefined' || !orderKey) return;
+    const storageKey = `90plus5_purchase_tracked_${orderKey}`;
+    try {
+        if (sessionStorage.getItem(storageKey)) return;
+        sessionStorage.setItem(storageKey, '1');
+    } catch {
+        // continuar aunque sessionStorage esté restringido
+    }
+    sendAnalyticsEvent('purchase', metadata);
+}
+
 export default function AnalyticsTracker() {
     const pathname = usePathname();
     const searchParams = useSearchParams();

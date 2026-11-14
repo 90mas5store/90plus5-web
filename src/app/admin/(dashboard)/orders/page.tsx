@@ -1,22 +1,17 @@
-import { createClient } from '@/lib/supabase/server'
-import { Eye, ChevronLeft, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
-import { formatDate, HONDURAS_TIMEZONE } from '@/lib/utils'
-
-import OrderSearch from '@/components/admin/OrderSearch'
-import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
-import OrderFilters from '@/components/admin/OrderFilters'
+import { createClient } from '@/lib/supabase/server';
+import { OperacionesHubClient } from '@/components/admin/operaciones/OperacionesHubClient';
+import { OrdersView } from '@/components/admin/operaciones/OrdersView';
 
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 25;
 
 export default async function OrdersPage({
-    searchParams
+    searchParams,
 }: {
-    searchParams?: { q?: string; page?: string; status?: string; startDate?: string; endDate?: string }
+    searchParams?: { q?: string; page?: string; status?: string; startDate?: string; endDate?: string; tab?: string };
 }) {
-    const supabase = await createClient()
+    const supabase = await createClient();
     const queryTerm = (searchParams?.q || '').slice(0, 100);
     const statusFilter = searchParams?.status || '';
     const startDate = searchParams?.startDate || '';
@@ -34,191 +29,45 @@ export default async function OrdersPage({
     if (queryTerm) {
         const sanitized = queryTerm.replace(/[%_,().]/g, '');
         if (sanitized) {
-            query = query.or(`customer_name.ilike.%${sanitized}%,customer_email.ilike.%${sanitized}%,id.ilike.%${sanitized}%`)
+            query = query.or(`customer_name.ilike.%${sanitized}%,customer_email.ilike.%${sanitized}%,id.ilike.%${sanitized}%`);
         }
     }
     if (statusFilter) {
-        query = query.eq('status', statusFilter)
+        query = query.eq('status', statusFilter);
     }
     if (startDate) {
-        query = query.gte('created_at', `${startDate}T00:00:00`)
+        query = query.gte('created_at', `${startDate}T00:00:00`);
     }
     if (endDate) {
-        query = query.lte('created_at', `${endDate}T23:59:59`)
+        query = query.lte('created_at', `${endDate}T23:59:59`);
     }
 
     const { data: orders, error, count } = await query;
 
-    // Build base params for pagination links (preserving all active filters)
-    const baseParams: Record<string, string> = {}
-    if (queryTerm) baseParams.q = queryTerm
-    if (statusFilter) baseParams.status = statusFilter
-    if (startDate) baseParams.startDate = startDate
-    if (endDate) baseParams.endDate = endDate
+    const baseParams: Record<string, string> = {};
+    if (queryTerm) baseParams.q = queryTerm;
+    if (statusFilter) baseParams.status = statusFilter;
+    if (startDate) baseParams.startDate = startDate;
+    if (endDate) baseParams.endDate = endDate;
 
-    const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
-
-    if (error) {
-        return <div className="text-red-500 bg-red-500/10 p-4 rounded-xl">Error cargando pedidos: {error.message}</div>
-    }
+    const totalCount = count ?? 0;
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
     return (
-        <div className="space-y-6 pb-28">
-            {/* HEADER & ACTIONS */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Gestión de Pedidos</h1>
-                    <p className="text-gray-400 text-xs md:text-sm">Administra y rastrea las compras recientes.</p>
-                </div>
-
-                <div className="flex gap-2 w-full md:w-auto">
-                    {/* Buscador Real */}
-                    <OrderSearch />
-
-                    <OrderFilters />
-                </div>
-            </div>
-
-            {/* TABLE / CARDS */}
-            <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-
-
-                <div className="md:hidden divide-y divide-white/5">
-                    {orders?.map((order) => (
-                        <Link
-                            key={order.id}
-                            href={`/admin/orders/${order.id}`}
-                            className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 transition-colors"
-                        >
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                    <span className="font-mono font-black text-white text-xs">#{order.id.slice(0, 8).toUpperCase()}</span>
-                                    <OrderStatusBadge status={order.status} />
-                                </div>
-                                <div className="text-sm font-semibold text-white truncate">{order.customer_name}</div>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[10px] text-gray-500">{formatDate(order.created_at, false, HONDURAS_TIMEZONE)}</span>
-                                    {order.shipping_municipality && (
-                                        <>
-                                            <span className="text-gray-700">·</span>
-                                            <span className="text-[10px] text-gray-500 truncate">{order.shipping_municipality}</span>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                                <span className="font-black text-white text-sm">L {order.total_amount?.toLocaleString("es-HN") ?? 0}</span>
-                                <ChevronRight className="w-4 h-4 text-gray-600" />
-                            </div>
-                        </Link>
-                    ))}
-                    {(!orders || orders.length === 0) && (
-                        <div className="px-6 py-16 text-center text-gray-500">
-                            <p className="font-bold mb-1">No se encontraron pedidos</p>
-                            <p className="text-sm">Aún no hay ventas registradas.</p>
-                        </div>
-                    )}
-                </div>
-
-
-                <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-black/40 text-gray-400 text-xs uppercase font-bold tracking-wider">
-                            <tr>
-                                <th className="px-6 py-4 border-b border-white/5"># Ref.</th>
-                                <th className="px-6 py-4 border-b border-white/5">Cliente</th>
-                                <th className="px-6 py-4 border-b border-white/5">Ubicación</th>
-                                <th className="px-6 py-4 border-b border-white/5">Fecha</th>
-                                <th className="px-6 py-4 border-b border-white/5 text-center">Estado</th>
-                                <th className="px-6 py-4 border-b border-white/5 text-right">Total</th>
-                                <th className="px-6 py-4 border-b border-white/5 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-sm">
-                            {orders?.map((order) => (
-                                <tr key={order.id} className="hover:bg-white/5 transition-colors group">
-                                    <td className="px-6 py-4 font-mono">
-                                        <span className="text-white font-bold">#{order.id.slice(0, 8).toUpperCase()}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-white mb-0.5">{order.customer_name}</div>
-                                        <div className="text-xs text-gray-500">{order.customer_email}</div>
-                                        <div className="text-xs text-gray-600 font-mono mt-1">{order.customer_phone}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-400 text-xs">
-                                        <div className="text-white font-medium">{order.shipping_municipality}</div>
-                                        <div>{order.shipping_department}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-400 text-sm">
-                                        {formatDate(order.created_at, true, HONDURAS_TIMEZONE)}
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <OrderStatusBadge status={order.status} />
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-bold text-white">
-                                        L {order.total_amount?.toLocaleString("es-HN") ?? 0}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <Link
-                                            href={`/admin/orders/${order.id}`}
-                                            className="inline-flex items-center justify-center p-2 rounded-lg bg-white/5 hover:bg-primary hover:text-white transition-all text-gray-400"
-                                        >
-                                            <Eye className="w-4 h-4" />
-                                        </Link>
-                                    </td>
-                                </tr>
-                            ))}
-
-                            {(!orders || orders.length === 0) && (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-20 text-center text-gray-500">
-                                        <p className="text-lg font-bold mb-2">No se encontraron pedidos</p>
-                                        <p className="text-sm">Parece que aún no hay ventas registradas.</p>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* PAGINACIÓN */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
-                        <p className="text-xs text-gray-500">
-                            Mostrando {from + 1}–{Math.min(to + 1, count ?? 0)} de <span className="text-white font-bold">{count}</span> pedidos
-                        </p>
-                        <div className="flex items-center gap-2">
-                            {currentPage > 1 ? (
-                                <Link
-                                    href={`?${new URLSearchParams({ ...baseParams, page: String(currentPage - 1) })}`}
-                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold"
-                                >
-                                    <ChevronLeft className="w-3.5 h-3.5" /> Anterior
-                                </Link>
-                            ) : (
-                                <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.02] text-gray-600 text-xs font-bold cursor-not-allowed">
-                                    <ChevronLeft className="w-3.5 h-3.5" /> Anterior
-                                </span>
-                            )}
-                            <span className="text-xs text-gray-500 px-2">
-                                {currentPage} / {totalPages}
-                            </span>
-                            {currentPage < totalPages ? (
-                                <Link
-                                    href={`?${new URLSearchParams({ ...baseParams, page: String(currentPage + 1) })}`}
-                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold"
-                                >
-                                    Siguiente <ChevronRight className="w-3.5 h-3.5" />
-                                </Link>
-                            ) : (
-                                <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.02] text-gray-600 text-xs font-bold cursor-not-allowed">
-                                    Siguiente <ChevronRight className="w-3.5 h-3.5" />
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    )
+        <OperacionesHubClient
+            ordersCount={totalCount}
+            ordersContent={
+                <OrdersView
+                    orders={orders ?? []}
+                    count={totalCount}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    from={from}
+                    to={to}
+                    baseParams={baseParams}
+                    errorMessage={error?.message ?? null}
+                />
+            }
+        />
+    );
 }

@@ -18,6 +18,7 @@ import {
 import Button from "../../../components/ui/MainButton";
 import type { BankAccount } from "../../../lib/config/banks";
 import { getWhatsappLink } from "@/lib/whatsapp";
+import { trackPurchaseOnce } from "@/components/analytics/AnalyticsTracker";
 
 interface CartItem {
   imagen: string;
@@ -43,12 +44,25 @@ function CheckoutDoneContent() {
   const metodo = params.get("metodo") || "transferencia";
   const municipio = params.get("municipio");
   const departamento = params.get("departamento");
+  const paymentStatus = params.get("status");
 
   const [productos, setProductos] = useState<CartItem[]>([]);
   const [copied, setCopied] = useState("");
   const [expandedBank, setExpandedBank] = useState<number | null>(null); // null = todas colapsadas
   const [bancosDisponibles, setBancosDisponibles] = useState<BankAccount[]>([]);
   const [bancosLoading, setBancosLoading] = useState(true);
+
+  useEffect(() => {
+    const orderKey = fullOrderId || orderId;
+    if (orderKey && (paymentStatus === "success" || metodo !== "tarjeta")) {
+      trackPurchaseOnce(orderKey, {
+        order_id: fullOrderId || undefined,
+        order_number: orderId || undefined,
+        total: total ? Number(total) : undefined,
+        payment_method: metodo,
+      });
+    }
+  }, [fullOrderId, orderId, paymentStatus, metodo, total]);
 
   useEffect(() => {
     const savedCart = localStorage.getItem("cartItems");

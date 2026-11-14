@@ -21,6 +21,7 @@ import ShippingDetailsSection from '@/components/checkout/ShippingDetailsSection
 import PaymentMethodSection from '@/components/checkout/PaymentMethodSection';
 import OrderSummarySidebar from '@/components/checkout/OrderSummarySidebar';
 import MobileCheckoutBar from '@/components/checkout/MobileCheckoutBar';
+import { trackPurchaseOnce } from '@/components/analytics/AnalyticsTracker';
 
 export default function CheckoutPage() {
     const router = useRouter();
@@ -103,6 +104,20 @@ export default function CheckoutPage() {
 
     // 🛡️ Idempotency key determinista basada en el contenido del carrito
     const idempotencyKey = useRef('');
+    const checkoutTrackedRef = useRef(false);
+
+    useEffect(() => {
+        if (items.length > 0 && !checkoutTrackedRef.current) {
+            checkoutTrackedRef.current = true;
+            if (typeof window !== 'undefined' && window.trackEvent) {
+                window.trackEvent('checkout_start', {
+                    itemCount: items.length,
+                    total,
+                });
+            }
+        }
+    }, [items.length, total]);
+
     useEffect(() => {
         const cartFingerprint = items
             .map((i) => `${i.id}:${i.variant_id || ''}:${i.size_id || ''}:${i.cantidad}:${i.dorsalNombre || ''}:${i.dorsalNumero || ''}`)
@@ -302,6 +317,17 @@ export default function CheckoutPage() {
             if (!response.ok || !result.success) {
                 console.error('❌ Server Error Details:', result);
                 throw new Error(result.details || result.error || 'Error desconocido al crear la orden');
+            }
+
+            const orderKey = String(result.order_id || result.order_number || '');
+            if (orderKey) {
+                trackPurchaseOnce(orderKey, {
+                    order_id: result.order_id,
+                    order_number: result.order_number,
+                    total: result.total,
+                    item_count: items.length,
+                    payment_method: metodoPago,
+                });
             }
 
             setOrderSuccess(true);

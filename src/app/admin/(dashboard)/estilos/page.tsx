@@ -75,36 +75,42 @@ export default function EstilosPage() {
     } = useEstilosManager();
 
     return (
-        <div className="max-w-6xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-            {/* HEADER */}
-            <div className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur-xl border-b border-white/5 pb-0 mb-8 pt-6 -mx-4 px-4 md:mx-0 md:px-0 md:pt-8">
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
-                        <Scissors className="w-5 h-5 text-violet-400" />
-                    </div>
+        <div className="space-y-4 sm:space-y-6">
+            {/* ENCABEZADO HOMOLOGADO */}
+            <div className="p-4 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl bg-[#0a0c10]/80 backdrop-blur-xl border border-white/[0.08] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                    <span className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+                        <Scissors className="w-5 h-5" />
+                    </span>
                     <div>
-                        <h1 className="text-2xl font-black text-white tracking-tight">Personalización</h1>
-                        <p className="text-gray-500 text-xs">Gestión de parches, tallas y plantillas de jugadores</p>
+                        <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight">
+                            Personalización & Estilos
+                        </h1>
+                        <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
+                            Gestión centralizada de parches oficiales, tallas por categoría y dorsales de jugadores.
+                        </p>
                     </div>
                 </div>
 
-                {/* TABS */}
-                <div className="flex gap-1">
-                    {TABS.map(tab => (
-                        <button
-                            key={tab.key}
-                            type="button"
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all border-b-2 cursor-pointer ${
-                                activeTab === tab.key
-                                    ? "text-white border-white"
-                                    : "text-gray-500 border-transparent hover:text-gray-300"
-                            }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+                {/* SEGMENTED CONTROL APPLE */}
+                <div className="inline-flex items-center gap-1 bg-white/[0.04] p-1 rounded-xl sm:rounded-2xl border border-white/[0.06] overflow-x-auto shrink-0">
+                    {TABS.map((tab) => {
+                        const isActive = activeTab === tab.key;
+                        return (
+                            <button
+                                key={tab.key}
+                                type="button"
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`text-xs px-3.5 py-1.5 rounded-lg sm:rounded-xl transition-all whitespace-nowrap cursor-pointer active:scale-[0.98] ${
+                                    isActive
+                                        ? "bg-white text-black font-extrabold shadow-xs"
+                                        : "text-neutral-300 hover:text-white hover:bg-white/5 font-semibold"
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -123,7 +129,7 @@ export default function EstilosPage() {
                     onOpenEditPatch={openEditPatch}
                     onOpenNewPatch={openNewPatch}
                     onSavePatch={handleSavePatch}
-                    onDeletePatch={id => setPatchDeleteTarget(id)}
+                    onDeletePatch={(id) => setPatchDeleteTarget(id)}
                 />
             )}
 
@@ -141,7 +147,7 @@ export default function EstilosPage() {
                     onOpenEditSize={openEditSize}
                     onOpenNewSize={openNewSize}
                     onSaveSize={handleSaveSize}
-                    onOpenDeleteSize={id => setSizeDeleteTarget(id)}
+                    onOpenDeleteSize={(id) => setSizeDeleteTarget(id)}
                     onGeneratePreset={handleGeneratePreset}
                     onCleanupDuplicates={handleCleanupDuplicates}
                 />
@@ -169,7 +175,7 @@ export default function EstilosPage() {
                     onAddPlayer={handleAddPlayer}
                     onSavePlayer={handleSavePlayer}
                     onOpenEditPlayer={openEditPlayer}
-                    onOpenDeletePlayer={id => setPlayerDeleteTarget(id)}
+                    onOpenDeletePlayer={(id) => setPlayerDeleteTarget(id)}
                     onRestorePlayer={handleRestorePlayer}
                 />
             )}
@@ -180,6 +186,7 @@ export default function EstilosPage() {
                 title="Eliminar parche"
                 message="¿Eliminar este parche? Se quitará de todos los productos que lo tengan asignado."
                 confirmLabel="Eliminar"
+                danger
                 onConfirm={() => {
                     if (patchDeleteTarget) handleDeletePatch(patchDeleteTarget);
                 }}
@@ -192,6 +199,7 @@ export default function EstilosPage() {
                 title="Eliminar talla"
                 message="Si la talla está en uso por productos existentes se desactivará automáticamente (no se eliminará). Si no está en uso, se eliminará definitivamente."
                 confirmLabel="Continuar"
+                danger
                 onConfirm={() => {
                     if (sizeDeleteTarget) handleDeleteSize(sizeDeleteTarget);
                 }}
@@ -204,6 +212,7 @@ export default function EstilosPage() {
                 title="Desactivar jugador"
                 message="¿Desactivar este jugador? Puedes restaurarlo desde la lista de inactivos."
                 confirmLabel="Desactivar"
+                danger
                 onConfirm={() => {
                     if (playerDeleteTarget) handleDeletePlayer(playerDeleteTarget);
                 }}

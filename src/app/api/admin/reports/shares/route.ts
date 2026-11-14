@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { getStoreDayEndIso, getStoreDayStartIso } from '@/lib/analytics/timezone'
 
 export async function GET(request: NextRequest) {
     try {
@@ -20,8 +21,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Fechas requeridas' }, { status: 400 })
         }
 
-        const startDateISO = `${startDate}T00:00:00.000Z`
-        const endDateISO = `${endDate}T23:59:59.999Z`
+        const startDateISO = getStoreDayStartIso(startDate)
+        const endDateISO = getStoreDayEndIso(endDate)
 
         const adminSupabase = createAdminClient()
 

@@ -21,13 +21,13 @@ export default function OrderSearch() {
 
     return (
         <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-500 pointer-events-none" />
             <input
                 type="text"
-                placeholder="Buscar pedido..."
+                placeholder="Buscar por cliente o # ref..."
                 onChange={(e) => handleSearch(e.target.value)}
                 defaultValue={searchParams.get('q')?.toString()}
-                className="w-full bg-black border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:border-primary outline-none text-white placeholder:text-gray-600 transition-colors focus:bg-white/5"
+                className="w-full bg-black/40 border border-white/[0.08] rounded-xl py-2 pl-9 pr-3.5 text-xs sm:text-sm text-white placeholder:text-neutral-500 focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all"
             />
         </div>
     );

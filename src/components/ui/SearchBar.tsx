@@ -102,7 +102,7 @@ export default function SearchBar({
     const navigateToResult = useCallback(
         (item: SearchResult) => {
             triggerHaptic(12);
-            saveSearch(item.title);
+            saveSearch(item.title, 1);
             setIsOpen(false);
             onChange('');
             onNavigate?.();
@@ -117,7 +117,7 @@ export default function SearchBar({
             e.preventDefault();
             if (!value.trim()) return;
             triggerHaptic(10);
-            saveSearch(value.trim());
+            saveSearch(value.trim(), results.length);
             setIsOpen(false);
             onNavigate?.();
             onClose?.();
@@ -127,7 +127,7 @@ export default function SearchBar({
                 router.push(`/catalogo?query=${encodeURIComponent(value.trim())}`);
             }
         },
-        [value, onNavigate, onClose, onSearch, router, saveSearch]
+        [value, results.length, onNavigate, onClose, onSearch, router, saveSearch]
     );
 
     // Keyboard navigation
@@ -182,7 +182,7 @@ export default function SearchBar({
     const handleSelectTerm = (term: string, href?: string) => {
         triggerHaptic(8);
         onChange(term);
-        saveSearch(term);
+        saveSearch(term, href ? 1 : results.length);
         // If an explicit href is specified (like a direct filter link), navigate
         if (href && !pathname?.includes('/catalogo')) {
             setIsOpen(false);

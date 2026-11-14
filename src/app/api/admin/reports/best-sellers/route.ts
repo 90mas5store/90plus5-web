@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getStoreDayEndIso, getStoreDayStartIso } from '@/lib/analytics/timezone'
 
 export async function GET(request: NextRequest) {
     try {
@@ -19,8 +20,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Fechas requeridas' }, { status: 400 })
         }
 
-        const endDateAdjusted = new Date(endDate)
-        endDateAdjusted.setHours(23, 59, 59, 999)
+        const startDateIso = getStoreDayStartIso(startDate)
+        const endDateIso = getStoreDayEndIso(endDate)
 
         let query = supabase
             .from('orders')
@@ -32,8 +33,8 @@ export async function GET(request: NextRequest) {
                     products (name, season, teams (name), brands (name))
                 )
             `)
-            .gte('created_at', startDate)
-            .lte('created_at', endDateAdjusted.toISOString())
+            .gte('created_at', startDateIso)
+            .lte('created_at', endDateIso)
 
         if (status && status !== 'all') {
             const statuses = status.split(',')

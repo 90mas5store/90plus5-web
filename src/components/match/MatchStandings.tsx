@@ -3,7 +3,7 @@
 import React, { memo } from "react";
 import { Award } from "lucide-react";
 import type { StandingRow } from "@/app/api/standings/route";
-import { translateTeamNameToSpanish } from "@/lib/teamNames";
+import { translateTeamNameToSpanish, translateTeamShortName } from "@/lib/teamNames";
 
 export interface StandingGroupData {
   groupName?: string;
@@ -107,11 +107,14 @@ function MatchStandingsComponent({
             <tbody className="divide-y divide-white/[0.04]">
               {currentStandings.map((row) => {
                 const translatedRowTeamName = translateTeamNameToSpanish(row.teamName);
+                const shortRowTeamName = translateTeamShortName(translatedRowTeamName, row.teamShort);
                 const isMatchTeam =
                   translatedRowTeamName.toLowerCase().includes(homeName.toLowerCase()) ||
                   homeName.toLowerCase().includes(translatedRowTeamName.toLowerCase()) ||
+                  shortRowTeamName.toLowerCase() === homeName.toLowerCase() ||
                   translatedRowTeamName.toLowerCase().includes(awayName.toLowerCase()) ||
-                  awayName.toLowerCase().includes(translatedRowTeamName.toLowerCase());
+                  awayName.toLowerCase().includes(translatedRowTeamName.toLowerCase()) ||
+                  shortRowTeamName.toLowerCase() === awayName.toLowerCase();
 
                 return (
                   <tr
@@ -149,7 +152,8 @@ function MatchStandingsComponent({
                         />
                       )}
                       <span className="truncate max-w-[140px] sm:max-w-[170px] text-xs font-medium">
-                        {translatedRowTeamName}
+                        <span className="sm:hidden">{shortRowTeamName}</span>
+                        <span className="hidden sm:inline">{translatedRowTeamName}</span>
                       </span>
                     </td>
                     <td className="py-2.5 px-2 text-center font-mono text-gray-400 tabular-nums">

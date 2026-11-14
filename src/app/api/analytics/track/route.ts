@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { extractGeoFromRequest } from '@/lib/analytics/geo';
 import { z } from 'zod';
 
 const eventSchema = z.object({
@@ -11,6 +12,7 @@ const eventSchema = z.object({
         'add_to_cart',
         'matchday_click',
         'checkout_start',
+        'purchase',
     ]),
     path: z.string().max(500),
     referrer: z.string().max(1000).nullable().optional(),
@@ -45,20 +47,50 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: true, ignored: true });
         }
 
+        // Extraer ubicación geográfica de los encabezados HTTP (Vercel, Cloudflare, etc.)
+        const geo = extractGeoFromRequest(request);
+
+        const enrichedMetadata = {
+            ...(metadata || {}),
+            geo: {
+                country: geo.country,
+                city: geo.city,
+                region: geo.region,
+            },
+        };
+
         const supabase = createAdminClient();
-        const { error } = await supabase.from('analytics_events').insert({
+
+        // 1. Intentar insertar con las columnas de geolocalización
+        const { error: insertError } = await supabase.from('analytics_events').insert({
             event_type,
             path: path.slice(0, 500),
             referrer: referrer ? referrer.slice(0, 1000) : null,
             device: device || 'desktop',
             session_id: session_id || 'anon_' + Math.random().toString(36).substring(2, 12),
-            metadata: metadata || {},
+            country: geo.country,
+            city: geo.city,
+            region: geo.region,
+            metadata: enrichedMetadata,
         });
 
-        if (error) {
-            // Loguear silenciosamente si la tabla aún no existe o error temporal
-            console.warn('[analytics/track] DB write warning:', error.message);
-            return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+        // 2. Si las columnas aún no han sido migradas en Supabase (error de columna inexistente), fallback a insertar sin columnas
+        if (insertError) {
+            if (insertError.message?.includes('column') || insertError.code === '42703' || insertError.code === 'PGRST204') {
+                const { error: fallbackError } = await supabase.from('analytics_events').insert({
+                    event_type,
+                    path: path.slice(0, 500),
+                    referrer: referrer ? referrer.slice(0, 1000) : null,
+                    device: device || 'desktop',
+                    session_id: session_id || 'anon_' + Math.random().toString(36).substring(2, 12),
+                    metadata: enrichedMetadata,
+                });
+                if (fallbackError) {
+                    console.warn('[analytics/track] DB fallback write warning:', fallbackError.message);
+                }
+            } else {
+                console.warn('[analytics/track] DB write warning:', insertError.message);
+            }
         }
 
         return NextResponse.json({ ok: true });

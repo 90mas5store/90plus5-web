@@ -21,7 +21,7 @@ export function useRecentSearches() {
         setRecentSearches(getStoredSearches());
     }, []);
 
-    const saveSearch = useCallback((term: string) => {
+    const saveSearch = useCallback((term: string, resultsCount?: number) => {
         if (typeof window === 'undefined' || !term.trim()) return;
         const cleanTerm = term.trim();
         const current = getStoredSearches().filter(
@@ -39,8 +39,11 @@ export function useRecentSearches() {
             typeof window !== 'undefined' &&
             (window as unknown as { trackEvent?: (type: string, data: Record<string, unknown>) => void }).trackEvent
         ) {
+            const hasResults = typeof resultsCount === 'number' ? resultsCount > 0 : true;
             (window as unknown as { trackEvent: (type: string, data: Record<string, unknown>) => void }).trackEvent('search', {
                 searchTerm: cleanTerm,
+                resultsCount,
+                has_results: hasResults,
             });
         }
     }, []);

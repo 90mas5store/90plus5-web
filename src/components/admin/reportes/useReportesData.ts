@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { TopBuyer, BestSellerItem, ShareStatItem } from './types';
 
 export function useReportesData() {
-    // Fechas y Filtro de Estados
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    // 1️⃣ Fechas inicializadas de forma segura una sola vez (Último mes por defecto)
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 1);
+        return d.toISOString().split('T')[0];
+    });
+    const [endDate, setEndDate] = useState(() => {
+        return new Date().toISOString().split('T')[0];
+    });
+
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['all']);
 
     // Estados de Métricas
@@ -36,9 +43,9 @@ export function useReportesData() {
 
     // 📥 Cargar Más Vendidos
     const loadBestSellers = useCallback(async (start?: string, end?: string, statuses?: string[]) => {
-        const s = start ?? startDate;
-        const e = end ?? endDate;
-        const st = statuses ?? selectedStatuses;
+        const s = start || startDate;
+        const e = end || endDate;
+        const st = statuses || selectedStatuses;
         if (!s || !e) return;
 
         setLoadingBest(true);
@@ -56,10 +63,10 @@ export function useReportesData() {
         }
     }, [startDate, endDate, selectedStatuses]);
 
-    // 📥 Cargar Presumes de Kits
+    // 📥 Cargar Presumes de Kits (con registro de última fecha)
     const loadShareStats = useCallback(async (start?: string, end?: string) => {
-        const s = start ?? startDate;
-        const e = end ?? endDate;
+        const s = start || startDate;
+        const e = end || endDate;
         if (!s || !e) return;
 
         setLoadingShares(true);
@@ -77,8 +84,12 @@ export function useReportesData() {
                     team_name: row.team_name,
                     season: row.season,
                     count: 0,
+                    last_shared_at: row.created_at,
                 };
                 existing.count++;
+                if (row.created_at && (!existing.last_shared_at || new Date(row.created_at) > new Date(existing.last_shared_at))) {
+                    existing.last_shared_at = row.created_at;
+                }
                 map.set(key, existing);
             }
             const sorted = Array.from(map.values())
@@ -92,21 +103,16 @@ export function useReportesData() {
         }
     }, [startDate, endDate]);
 
-    // Inicialización de Fechas y Datos Iniciales
+    // 🚀 Montaje Inicial ÚNICO (Evita el loop que reseteaba las fechas seleccionadas)
+    const initializedRef = useRef(false);
     useEffect(() => {
-        const today = new Date();
-        const lastMonth = new Date();
-        lastMonth.setMonth(lastMonth.getMonth() - 1);
-        const endStr = today.toISOString().split('T')[0];
-        const startStr = lastMonth.toISOString().split('T')[0];
-
-        setEndDate(endStr);
-        setStartDate(startStr);
+        if (initializedRef.current) return;
+        initializedRef.current = true;
 
         loadTopBuyers();
-        loadBestSellers(startStr, endStr, ['all']);
-        loadShareStats(startStr, endStr);
-    }, [loadTopBuyers, loadBestSellers, loadShareStats]);
+        loadBestSellers(startDate, endDate, ['all']);
+        loadShareStats(startDate, endDate);
+    }, [loadTopBuyers, loadBestSellers, loadShareStats, startDate, endDate]);
 
     const toggleStatus = (value: string) => {
         if (value === 'all') {

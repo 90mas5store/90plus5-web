@@ -46,25 +46,34 @@ export default function ProductsPage() {
     } = useAdminProducts()
 
     return (
-        <div className="space-y-4 md:space-y-8 animate-in fade-in duration-500">
-            {/* HEADER & ACCIONES */}
-            <div className="flex flex-col md:flex-row gap-3 md:gap-6 justify-between items-start md:items-center">
-                <div>
-                    <h1 className="text-xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3">
-                        <Shirt className="w-5 h-5 md:w-8 md:h-8 text-primary" />
-                        Catálogo de Productos
-                    </h1>
-                    <p className="text-gray-400 mt-1 md:mt-2 text-sm">
-                        Gestiona tu inventario, precios y existencias.
-                    </p>
+        <div className="space-y-4 sm:space-y-6 pb-28 max-w-7xl mx-auto">
+            {/* ═══════════════════ HEADER HOMOLOGADO ═══════════════════ */}
+            <div className="p-4 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl bg-[#0a0c10]/80 backdrop-blur-xl border border-white/[0.08] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                    <span className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+                        <Shirt className="w-5 h-5" />
+                    </span>
+                    <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight">
+                                Catálogo de Productos
+                            </h1>
+                            <span className="text-[10px] sm:text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-neutral-300">
+                                {filteredProducts.length} camisetas
+                            </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
+                            Gestiona tu inventario, precios, versiones y existencias activas.
+                        </p>
+                    </div>
                 </div>
 
                 <Link
                     href="/admin/productos/nuevo"
-                    className="group bg-white text-black px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-200 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-white/5 w-full md:w-auto text-sm md:text-base"
+                    className="bg-white text-black font-extrabold px-4 py-2.5 rounded-xl hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm shrink-0"
                 >
-                    <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                    Nuevo Producto
+                    <Plus className="w-4 h-4" />
+                    <span>Nueva Camiseta</span>
                 </Link>
             </div>
 

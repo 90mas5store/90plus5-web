@@ -132,6 +132,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         modelo: newItem.modelo,
         equipo: newItem.equipo,
         talla: newItem.talla,
+        version: newItem.version,
+        parche: newItem.parche,
+        dorsalNombre: newItem.dorsalNombre,
+        dorsalNumero: newItem.dorsalNumero,
         precio: newItem.precio,
         cantidad: newItem.cantidad,
       });

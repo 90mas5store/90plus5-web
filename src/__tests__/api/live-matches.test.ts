@@ -684,4 +684,16 @@ describe('Live Matches API Endpoint (/api/live-matches)', () => {
     expect(goalsAt42[0].disallowed).toBe(true);
     expect(goalsAt42[0].playerName).toBe('Vinicius Jr');
   });
+
+  it('shortens long club names properly for mobile (e.g., Club Deportivo Olimpia -> Olimpia)', async () => {
+    const { translateTeamShortName, translateTeamNameToSpanish } = await import('@/lib/teamNames');
+
+    expect(translateTeamShortName('Club Deportivo Olimpia', 'Club Deportivo Olimpia')).toBe('Olimpia');
+    expect(translateTeamShortName('CD Olimpia')).toBe('Olimpia');
+    expect(translateTeamShortName('Fútbol Club Motagua')).toBe('Motagua');
+    expect(translateTeamShortName('Club Deportivo Marathón')).toBe('Marathón');
+    expect(translateTeamShortName('Real Club Deportivo España')).toBe('Real España');
+    expect(translateTeamShortName('FC Barcelona')).toBe('Barcelona');
+    expect(translateTeamNameToSpanish('Club Deportivo Olimpia')).toBe('Club Deportivo Olimpia');
+  });
 });

@@ -1,134 +1,122 @@
-import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
-import { formatDate, HONDURAS_TIMEZONE } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server';
+import { Activity } from 'lucide-react';
+import { getStartOfDayInStoreTz } from '@/lib/analytics/timezone';
+import DashboardMetrics from '@/components/admin/DashboardMetrics';
+import DashboardActionCards from '@/components/admin/dashboard/DashboardActionCards';
+import DashboardQuickActions from '@/components/admin/dashboard/DashboardQuickActions';
+import DashboardOrdersFeed, { DashboardOrder } from '@/components/admin/dashboard/DashboardOrdersFeed';
 
-import DashboardMetrics from '@/components/admin/DashboardMetrics'
-import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
-
-export const revalidate = 300; // Revalidar cada 5 minutos
+export const revalidate = 60; // Revalidar cada 60 segundos
 
 export default async function AdminDashboard() {
-    const supabase = await createClient()
+    const supabase = await createClient();
 
-    // Traer pedidos (solo info general, sin items pesados)
-    const { data: orders, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10); // Limit reduced for dashboard view
+    // 1️⃣ Calcular inicio del día en zona horaria local Honduras (UTC-6)
+    const startOfDay = getStartOfDayInStoreTz(new Date());
 
-    if (error) {
-        return <div className="text-red-500 p-4">Error cargando pedidos: {error.message}</div>
-    }
+    // 2️⃣ Consultas concurrentes optimizadas en paralelo
+    const [
+        todayOrdersRes,
+        pendingPaymentRes,
+        depositPaidRes,
+        readyDeliveryRes,
+        inTransitRes,
+        recentOrdersRes,
+    ] = await Promise.all([
+        supabase
+            .from('orders')
+            .select('id, total_amount, status')
+            .gte('created_at', startOfDay.toISOString())
+            .neq('status', 'cancelled')
+            .neq('status', 'Cancelled'),
+        supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending_payment_50'),
+        supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['deposit_paid', 'payment_verified']),
+        supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['ready_for_delivery', 'pending_second_payment']),
+        supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['processing', 'in_transit', 'shipped_to_hn']),
+        supabase
+            .from('orders')
+            .select('id, customer_name, customer_email, customer_phone, status, total_amount, created_at')
+            .order('created_at', { ascending: false })
+            .limit(10),
+    ]);
 
-    // Métricas precisas via RPC (una sola query agregada)
-    const { data: stats } = await supabase.rpc('get_order_stats').single();
+    // Métricas del día actual
+    const todayOrdersData = todayOrdersRes.data || [];
+    const todayOrdersCount = todayOrdersData.length;
+    const todaySales = todayOrdersData.reduce((acc, o) => acc + (Number(o.total_amount) || 0), 0);
+    const todayAvgTicket = todayOrdersCount > 0 ? todaySales / todayOrdersCount : 0;
 
-    const trueTotalOrders = (stats as { total_orders: number } | null)?.total_orders || 0;
-    const estimatedTotalSales = (stats as { total_sales: number } | null)?.total_sales || 0;
+    // Conteo de estados urgentes
+    const pendingPaymentCount = pendingPaymentRes.count ?? 0;
+    const depositPaidCount = depositPaidRes.count ?? 0;
+    const readyDeliveryCount = readyDeliveryRes.count ?? 0;
+    const inTransitCount = inTransitRes.count ?? 0;
+
+    const orders: DashboardOrder[] = (recentOrdersRes.data || []).map((o) => ({
+        id: o.id,
+        customer_name: o.customer_name || 'Aficionado 90+5',
+        customer_email: o.customer_email,
+        customer_phone: o.customer_phone,
+        status: o.status,
+        total_amount: Number(o.total_amount) || 0,
+        created_at: o.created_at,
+    }));
 
     return (
-        <div className="space-y-6 md:space-y-8">
-            {/* HEADER */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto pb-16">
+            {/* ═══════════════════ HEADER LIMPIO (Apple Design) ═══════════════════ */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-[#0a0c10]/80 backdrop-blur-xl border border-white/[0.08]">
                 <div>
-                    <h2 className="text-2xl md:text-3xl font-black text-white">Resumen de Ventas</h2>
-                    <p className="text-gray-400 text-sm">Bienvenido de vuelta, Master.</p>
-                </div>
-                <Link
-                    href="/admin/settings/bancos"
-                    className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition-all shrink-0"
-                >
-                    💳 Bancos y Formas de Pago
-                </Link>
-            </div>
-
-            {/* METRICAS */}
-            <DashboardMetrics totalOrders={trueTotalOrders} totalSales={estimatedTotalSales} />
-
-            {/* TABLA / CARDS PEDIDOS */}
-            <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden">
-                <div className="p-4 md:p-6 border-b border-white/5 flex justify-between items-center">
-                    <h3 className="font-bold text-base md:text-lg">Últimas Órdenes</h3>
-                    <Link href="/admin/orders" className="text-primary text-xs md:text-sm font-bold hover:underline">Ver todas</Link>
-                </div>
-
-
-                <div className="md:hidden divide-y divide-white/5">
-                    {orders?.map((order) => (
-                        <Link
-                            key={order.id}
-                            href={`/admin/orders/${order.id}`}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 active:bg-white/10 transition-colors"
-                        >
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-mono font-black text-white text-xs">#{order.id.slice(0, 8).toUpperCase()}</span>
-                                    <OrderStatusBadge status={order.status} />
-                                </div>
-                                <div className="text-sm font-semibold text-gray-200 truncate">{order.customer_name}</div>
-                                <div className="text-[10px] text-gray-500 mt-0.5">{formatDate(order.created_at, false, HONDURAS_TIMEZONE)}</div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                                <span className="font-black text-white text-sm">L {order.total_amount?.toLocaleString("es-HN")}</span>
-                                <ChevronRight className="w-4 h-4 text-gray-600" />
-                            </div>
-                        </Link>
-                    ))}
-                    {(!orders || orders.length === 0) && (
-                        <p className="px-4 py-10 text-center text-gray-500 text-sm italic">Aún no hay pedidos...</p>
-                    )}
-                </div>
-
-
-                <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-white/5 text-gray-400 text-xs uppercase font-bold">
-                            <tr>
-                                <th className="px-6 py-4"># Ref.</th>
-                                <th className="px-6 py-4">Cliente</th>
-                                <th className="px-6 py-4">Estado</th>
-                                <th className="px-6 py-4">Total</th>
-                                <th className="px-6 py-4">Fecha</th>
-                                <th className="px-6 py-4 text-right">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-sm">
-                            {orders?.map((order) => (
-                                <tr key={order.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="px-6 py-4 font-mono font-bold">
-                                        <span className="text-white">#{order.id.slice(0, 8).toUpperCase()}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-white">{order.customer_name}</div>
-                                        <div className="text-xs text-gray-500">{order.customer_email}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <OrderStatusBadge status={order.status} />
-                                    </td>
-                                    <td className="px-6 py-4 font-bold text-white">
-                                        L {order.total_amount?.toLocaleString("es-HN")}
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-400">
-                                        {formatDate(order.created_at, true, HONDURAS_TIMEZONE)}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <Link href={`/admin/orders/${order.id}`} className="text-primary font-bold hover:underline">Ver</Link>
-                                    </td>
-                                </tr>
-                            ))}
-                            {(!orders || orders.length === 0) && (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500 italic">
-                                        Aún no hay pedidos...
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="p-1.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                            <Activity className="w-4 h-4" />
+                        </span>
+                        <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                            Cockpit Operativo
+                        </h1>
+                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-[11px] font-medium text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Tienda Activa
+                        </span>
+                    </div>
+                    <p className="text-xs text-neutral-400">
+                        Atención urgente de pedidos, transferencias por verificar y actividad de hoy.
+                    </p>
                 </div>
             </div>
+
+            {/* ═══════════════════ 1. PULSO DEL DÍA (MÉTRICAS VIVAS) ═══════════════════ */}
+            <DashboardMetrics
+                todayOrders={todayOrdersCount}
+                todaySales={todaySales}
+                todayAvgTicket={todayAvgTicket}
+            />
+
+            {/* ═══════════════════ 2. BANDEJA DE ACCIÓN OPERATIVA (URGENCIAS HOY) ═══════════════════ */}
+            <DashboardActionCards
+                pendingPaymentCount={pendingPaymentCount}
+                depositPaidCount={depositPaidCount}
+                readyDeliveryCount={readyDeliveryCount}
+                inTransitCount={inTransitCount}
+            />
+
+            {/* ═══════════════════ 3. ACCIONES FRECUENTES TÁCTILES ═══════════════════ */}
+            <DashboardQuickActions />
+
+            {/* ═══════════════════ 4. BANDEJA DE ENTRADA RECIENTE CON WHATSAPP ═══════════════════ */}
+            <DashboardOrdersFeed orders={orders} />
         </div>
-    )
+    );
 }
