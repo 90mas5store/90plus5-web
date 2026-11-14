@@ -1,6 +1,7 @@
 "use client";
 
 import { Shirt, RotateCcw, MessageCircle } from "lucide-react";
+import { BUSINESS_LOGIC } from "@/lib/constants";
 
 interface CatalogEmptyStateProps {
     onClearFilters: () => void;
@@ -8,7 +9,16 @@ interface CatalogEmptyStateProps {
 
 export default function CatalogEmptyState({ onClearFilters }: CatalogEmptyStateProps) {
     const whatsappMessage = encodeURIComponent("¡Hola 90+5 Store! No encontré un modelo en el catálogo online, ¿me podrían confirmar si lo tienen disponible para traer bajo pedido?");
-    const whatsappUrl = `https://wa.me/50499000000?text=${whatsappMessage}`;
+    const whatsappUrl = `https://wa.me/${BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER}?text=${whatsappMessage}`;
+
+    const handleWhatsAppClick = () => {
+        if (typeof window !== "undefined" && window.trackEvent) {
+            window.trackEvent("whatsapp_click", {
+                slug: "catalogo-sin-resultados",
+                productName: "Consulta Bajo Pedido (Sin resultados)",
+            });
+        }
+    };
 
     return (
         <div className="text-center py-16 sm:py-24 px-4 max-w-xl mx-auto">
@@ -35,6 +45,7 @@ export default function CatalogEmptyState({ onClearFilters }: CatalogEmptyStateP
 
                 <a
                     href={whatsappUrl}
+                    onClick={handleWhatsAppClick}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-lg shadow-emerald-950/40"

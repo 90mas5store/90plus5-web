@@ -1,4 +1,4 @@
-import type { AnalyticsEventType } from './types';
+import type { AnalyticsEventType, AnalyticsWhatsAppClickItem } from './types';
 import { formatDateKeyInStoreTz, getStoreDateParts } from './timezone';
 
 export interface RawAnalyticsEvent {
@@ -43,11 +43,13 @@ export interface EventsAggregation {
     totalProductViews: number;
     totalSearches: number;
     totalCarts: number;
+    totalWhatsAppClicks: number;
     totalMatchdayClicks: number;
     uniqueSessions: Set<string>;
     realtimeSessions: Set<string>;
     sessionsWithProductView: Set<string>;
     sessionsWithCart: Set<string>;
+    sessionsWithWhatsApp: Set<string>;
     sessionsWithCheckout: Set<string>;
     sessionsWithPurchase: Set<string>;
     matchdaySessions: Set<string>;
@@ -63,6 +65,7 @@ export interface EventsAggregation {
     versionMap: Map<string, number>;
     patchCounts: { withPatch: number; total: number };
     playerMap: Map<string, PlayerDemandBucket>;
+    whatsappClicks: AnalyticsWhatsAppClickItem[];
 }
 
 export function normalizeVersionLabel(raw?: unknown): string | null {
@@ -167,11 +170,13 @@ export function aggregateEvents(
         totalProductViews: 0,
         totalSearches: 0,
         totalCarts: 0,
+        totalWhatsAppClicks: 0,
         totalMatchdayClicks: 0,
         uniqueSessions: new Set(),
         realtimeSessions: new Set(),
         sessionsWithProductView: new Set(),
         sessionsWithCart: new Set(),
+        sessionsWithWhatsApp: new Set(),
         sessionsWithCheckout: new Set(),
         sessionsWithPurchase: new Set(),
         matchdaySessions: new Set(),
@@ -187,6 +192,7 @@ export function aggregateEvents(
         versionMap: new Map(),
         patchCounts: { withPatch: 0, total: 0 },
         playerMap: new Map(),
+        whatsappClicks: [],
     };
 
     for (const ev of chronological) {
@@ -313,6 +319,74 @@ export function aggregateEvents(
                         count: (currentP?.count || 0) + qty,
                     });
                 }
+                break;
+            }
+
+            case 'whatsapp_click': {
+                agg.totalWhatsAppClicks++;
+                agg.sessionsWithWhatsApp.add(sess);
+
+                const slug = String(
+                    meta.slug || ev.path.replace('/producto/', '').split('?')[0] || 'producto'
+                ).trim();
+                const productName = String(meta.productName || meta.modelo || slug).trim();
+                const teamName = typeof meta.teamName === 'string'
+                    ? meta.teamName
+                    : typeof meta.equipo === 'string'
+                        ? meta.equipo
+                        : null;
+
+                const sizeVal = typeof meta.talla === 'string' ? meta.talla.trim().toUpperCase() : '';
+                if (sizeVal) {
+                    agg.sizeMap.set(sizeVal, (agg.sizeMap.get(sizeVal) || 0) + 1);
+                }
+
+                const versionVal = normalizeVersionLabel(meta.version);
+                if (versionVal) {
+                    agg.versionMap.set(versionVal, (agg.versionMap.get(versionVal) || 0) + 1);
+                }
+
+                agg.patchCounts.total += 1;
+                const patchStr = typeof meta.parche === 'string' ? meta.parche.trim() : '';
+                if (patchStr && patchStr.toLowerCase() !== 'ninguno' && patchStr.toLowerCase() !== 'sin parche') {
+                    agg.patchCounts.withPatch += 1;
+                }
+
+                const dorsalNombre = typeof meta.dorsalNombre === 'string' ? meta.dorsalNombre.trim() : '';
+                const dorsalNumero = meta.dorsalNumero != null ? String(meta.dorsalNumero).trim() : '';
+                if (dorsalNombre) {
+                    const playerKey = `${dorsalNombre.toLowerCase()}__${dorsalNumero}`;
+                    const currentP = agg.playerMap.get(playerKey);
+                    agg.playerMap.set(playerKey, {
+                        name: dorsalNombre,
+                        number: dorsalNumero || null,
+                        count: (currentP?.count || 0) + 1,
+                    });
+                }
+
+                const dorsalFormatted = dorsalNombre
+                    ? dorsalNumero
+                        ? `#${dorsalNumero} ${dorsalNombre}`
+                        : dorsalNombre
+                    : dorsalNumero
+                        ? `#${dorsalNumero}`
+                        : null;
+
+                agg.whatsappClicks.unshift({
+                    id: ev.id,
+                    slug,
+                    productName,
+                    teamName,
+                    version: versionVal,
+                    size: sizeVal || null,
+                    patch: patchStr || null,
+                    dorsal: dorsalFormatted,
+                    price: Number(meta.precio || meta.price) || 0,
+                    device: normalizeDeviceLabel(ev.device),
+                    country: evCountry,
+                    city: evCity,
+                    created_at: ev.created_at,
+                });
                 break;
             }
 

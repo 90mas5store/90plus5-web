@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Sparkles, MessageCircle, ArrowRight, ShieldCheck, Flame } from "lucide-react";
 import { SITE_CONFIG } from "@/lib/config/site";
+import { BUSINESS_LOGIC } from "@/lib/constants";
 
 interface InFeedCardProps {
     type: "versions_guide" | "whatsapp_concierge";
@@ -46,9 +47,17 @@ export default function CatalogInFeedBento({ type }: InFeedCardProps) {
     }
 
     if (type === "whatsapp_concierge") {
-        const whatsappNumber = "50499000000"; // fallback o variable
+        const whatsappNumber = BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER;
         const message = encodeURIComponent("¡Hola 90+5 Store! Estuve viendo el catálogo y busco una camiseta que no encontré en la web. ¿Me podrían ayudar a cotizarla bajo pedido?");
         const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${message}`;
+        const handleWhatsAppClick = () => {
+            if (typeof window !== "undefined" && window.trackEvent) {
+                window.trackEvent("whatsapp_click", {
+                    slug: "servicio-bajo-pedido",
+                    productName: "Servicio Bajo Pedido (Catálogo)",
+                });
+            }
+        };
 
         return (
             <div className="col-span-2 md:col-span-2 lg:col-span-2 rounded-[1.6rem] md:rounded-[1.9rem] overflow-hidden border border-white/10 bg-gradient-to-br from-emerald-950/40 via-[#0e1017] to-[#07080a] p-5 sm:p-7 flex flex-col justify-between relative shadow-xl hover:border-emerald-500/30 transition-all duration-300 group min-h-[300px]">
@@ -77,6 +86,7 @@ export default function CatalogInFeedBento({ type }: InFeedCardProps) {
 
                     <a
                         href={whatsappUrl}
+                        onClick={handleWhatsAppClick}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500 text-white text-xs font-bold transition-all active:scale-95 shadow-sm hover:shadow-emerald-500/20"

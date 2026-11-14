@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Shirt } from 'lucide-react';
 import { QuickClub } from '@/types/search';
+import { trackSearchAnalytics } from '@/hooks/useRecentSearches';
 
 interface SearchNoResultsProps {
     value: string;
@@ -13,6 +14,16 @@ export default function SearchNoResults({
     topClubs,
     onSelectTerm,
 }: SearchNoResultsProps) {
+    // Registrar automáticamente búsquedas en vivo que no arrojan resultados tras una pausa de escritura (1.2s)
+    useEffect(() => {
+        const clean = value.trim();
+        if (clean.length < 3) return;
+        const timer = setTimeout(() => {
+            trackSearchAnalytics(clean, 0);
+        }, 1200);
+        return () => clearTimeout(timer);
+    }, [value]);
+
     return (
         <div className="px-5 py-8 text-center space-y-4" onMouseDown={(e) => e.stopPropagation()}>
             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-gray-500">

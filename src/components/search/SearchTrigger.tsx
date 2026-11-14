@@ -118,7 +118,7 @@ export default function SearchTrigger({
     const navigateToResult = useCallback(
         (item: SearchResult) => {
             triggerHaptic(12);
-            saveSearch(item.title);
+            saveSearch(item.title, 1);
             handleClose();
             router.push(item.href);
         },
@@ -130,18 +130,18 @@ export default function SearchTrigger({
             e.preventDefault();
             if (!searchValue.trim()) return;
             triggerHaptic(10);
-            saveSearch(searchValue.trim());
+            saveSearch(searchValue.trim(), results.length);
             handleClose();
             router.push(`/catalogo?query=${encodeURIComponent(searchValue.trim())}`);
         },
-        [searchValue, handleClose, router, saveSearch]
+        [searchValue, results.length, handleClose, router, saveSearch]
     );
 
     const handleSelectTerm = useCallback(
         (term: string, href?: string) => {
             triggerHaptic(8);
             setSearchValue(term);
-            saveSearch(term);
+            saveSearch(term, 1);
             if (href) {
                 handleClose();
                 router.push(href);

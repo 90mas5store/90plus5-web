@@ -106,25 +106,34 @@ export default function AnalyticsTrafficTrendCard({
                             </span>
                         </div>
 
-                        <div className="h-44 flex items-end justify-between gap-1 sm:gap-2 pt-8 pb-2 px-1 border-b border-white/[0.06] overflow-x-auto">
+                        <div className="h-52 flex items-end justify-between gap-1 sm:gap-2 pt-16 pb-2 px-1 border-b border-white/[0.06]">
                             {viewsTrend.map((item, idx) => {
                                 const hasViews = item.views > 0;
                                 const hasVisitors = item.visitors > 0;
                                 const ordersCount = item.orders ?? 0;
                                 const heightPercent = hasViews ? Math.max(Math.round((item.views / maxDailyViews) * 100), 10) : 3;
                                 const visitorHeightPercent = hasVisitors ? Math.max(Math.round((item.visitors / maxDailyViews) * 100), 7) : 3;
+                                const isFirst = idx === 0;
+                                const isLast = idx === viewsTrend.length - 1 && viewsTrend.length > 1;
+                                const tooltipAlignClass = isFirst
+                                    ? 'left-0'
+                                    : isLast
+                                        ? 'right-0'
+                                        : 'left-1/2 -translate-x-1/2';
 
                                 return (
                                     <div
                                         key={idx}
-                                        className="flex-1 max-w-[48px] min-w-[24px] flex flex-col items-center gap-1.5 h-full justify-end group relative"
+                                        className="flex-1 max-w-[48px] min-w-0 flex flex-col items-center gap-1.5 h-full justify-end group relative"
                                     >
-                                        <div className="absolute -top-16 bg-[#0a0c10] border border-white/15 px-2.5 py-1.5 rounded-xl text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-2xl">
-                                            <p className="font-bold text-white">{item.date}</p>
-                                            <p className="text-primary font-mono">{item.views} vistas</p>
+                                        <div
+                                            className={`absolute bottom-full mb-2 ${tooltipAlignClass} bg-[#0d1017]/95 backdrop-blur-md border border-white/20 px-3 py-2 rounded-xl text-[11px] leading-snug text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-[0_10px_30px_rgba(0,0,0,0.85)]`}
+                                        >
+                                            <p className="font-extrabold text-white mb-0.5">{item.date}</p>
+                                            <p className="text-primary font-mono font-semibold">{item.views} vistas</p>
                                             <p className="text-neutral-300 font-mono">{item.visitors} visitantes</p>
                                             {ordersCount > 0 && (
-                                                <p className="text-white font-mono font-bold">
+                                                <p className="text-white font-mono font-bold mt-0.5 pt-0.5 border-t border-white/10">
                                                     {ordersCount} {ordersCount === 1 ? 'pedido' : 'pedidos'} (L {(item.revenue ?? 0).toLocaleString('es-HN')})
                                                 </p>
                                             )}
@@ -170,22 +179,30 @@ export default function AnalyticsTrafficTrendCard({
                 )
             ) : hourlyData.length === 24 ? (
                 <div>
-                    <div className="h-36 flex items-end justify-between gap-0.5 sm:gap-1 pt-6 px-1 border-b border-white/[0.06] relative overflow-x-auto">
+                    <div className="h-44 flex items-end justify-between gap-0.5 sm:gap-1 pt-14 px-1 border-b border-white/[0.06] relative">
                         {hourlyData.map((h) => {
                             const isPeak = peakHour && peakHour.hour === h.hour && h.views > 0;
                             const hasViews = h.views > 0;
                             const heightPercent = hasViews ? Math.max(Math.round((h.views / maxHourlyViews) * 100), 10) : 0;
+                            const tooltipAlignClass =
+                                h.hour <= 2
+                                    ? 'left-0'
+                                    : h.hour >= 21
+                                        ? 'right-0'
+                                        : 'left-1/2 -translate-x-1/2';
 
                             return (
                                 <div
                                     key={h.hour}
-                                    className="flex-1 min-w-[14px] max-w-[36px] h-full flex items-end justify-center group relative cursor-pointer"
+                                    className="flex-1 min-w-0 max-w-[36px] h-full flex items-end justify-center group relative cursor-pointer"
                                 >
-                                    <div className="absolute -top-14 bg-[#0a0c10] border border-white/15 px-2.5 py-1 rounded-xl text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-2xl">
-                                        <p className="font-bold text-white">{h.label}</p>
+                                    <div
+                                        className={`absolute bottom-full mb-2 ${tooltipAlignClass} bg-[#0d1017]/95 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-xl text-[11px] leading-snug text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-[0_10px_30px_rgba(0,0,0,0.85)]`}
+                                    >
+                                        <p className="font-extrabold text-white mb-0.5">{h.label}</p>
                                         <p className="text-neutral-300 font-mono">{h.views} visitas</p>
                                         {h.orders > 0 && (
-                                            <p className="text-primary font-mono font-bold">{h.orders} pedidos</p>
+                                            <p className="text-primary font-mono font-bold mt-0.5">{h.orders} pedidos</p>
                                         )}
                                     </div>
 
@@ -213,7 +230,7 @@ export default function AnalyticsTrafficTrendCard({
                             return (
                                 <div
                                     key={h.hour}
-                                    className="flex-1 min-w-[14px] max-w-[36px] h-4 flex items-center justify-center text-center"
+                                    className="flex-1 min-w-0 max-w-[36px] h-4 flex items-center justify-center text-center"
                                 >
                                     {isMajorTick ? (
                                         <span

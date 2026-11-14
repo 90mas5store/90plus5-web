@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAnalyticsDateRange, isCancelledStatus } from '@/lib/analytics/range';
-import { aggregateEvents, type RawAnalyticsEvent } from '@/lib/analytics/eventsAggregator';
+import { aggregateEvents, normalizeProductKey, type RawAnalyticsEvent } from '@/lib/analytics/eventsAggregator';
+import { FOOTBALL_ALIASES } from '@/constants/footballAliases';
 import { aggregateOrders, type RawAnalyticsOrder } from '@/lib/analytics/ordersAggregator';
 import {
     buildAnalyticsSummary,
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
         const startIso = startDate.toISOString();
         const endIso = endDate.toISOString();
 
-        const [eventsRes, ordersRes, prevEventsRes, prevOrdersRes] = await Promise.all([
+        const [eventsRes, ordersRes, prevEventsRes, prevOrdersRes, catalogProdsRes] = await Promise.all([
             adminDb
                 .from('analytics_events')
                 .select('*')
@@ -92,6 +93,9 @@ export async function GET(request: NextRequest) {
                     .gte('created_at', prevStartDate.toISOString())
                     .lte('created_at', prevEndDate.toISOString())
                 : Promise.resolve({ data: null, error: null }),
+            adminDb
+                .from('products')
+                .select('slug, season, name, active, teams (name)'),
         ]);
 
         const isMissingEventsTable = Boolean(
@@ -116,28 +120,58 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // Construir índice del catálogo para enriquecer temporadas y validar búsquedas históricas sin resultsCount
+        const seasonLookup = new Map<string, string>();
+        const searchableCatalogStrings: string[] = [];
+        const dbProds = (catalogProdsRes?.data || []) as Array<{
+            slug?: string | null;
+            season?: string | null;
+            name?: string | null;
+            active?: boolean | null;
+            teams?: { name?: string | null } | Array<{ name?: string | null }> | null;
+        }>;
+
+        for (const p of dbProds) {
+            if (p.slug && p.season) {
+                seasonLookup.set(p.slug, p.season);
+            }
+            if (p.active !== false) {
+                if (p.name) searchableCatalogStrings.push(normalizeProductKey(p.name));
+                const teamObj = Array.isArray(p.teams) ? p.teams[0] : p.teams;
+                if (teamObj?.name) searchableCatalogStrings.push(normalizeProductKey(teamObj.name));
+            }
+        }
+        for (const alias of FOOTBALL_ALIASES) {
+            const targetNorm = normalizeProductKey(alias.targetTeam);
+            if (searchableCatalogStrings.some((s) => s.includes(targetNorm))) {
+                searchableCatalogStrings.push(normalizeProductKey(alias.alias));
+            }
+        }
+
+        // Si un evento histórico de 'search' no traía resultsCount (bug antiguo en móvil), verificar contra el catálogo actual
+        if (searchableCatalogStrings.length > 0) {
+            for (const ev of events) {
+                if (ev.event_type === 'search' && ev.metadata && typeof ev.metadata === 'object') {
+                    const meta = ev.metadata as Record<string, unknown>;
+                    if (meta.resultsCount === undefined && typeof meta.searchTerm === 'string') {
+                        const q = normalizeProductKey(meta.searchTerm);
+                        if (q.length >= 2) {
+                            const matched = searchableCatalogStrings.some((text) => text.includes(q) || q.includes(text));
+                            if (!matched) {
+                                meta.has_results = false;
+                                meta.resultsCount = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         const eventsAgg = aggregateEvents(events, {
             host: request.nextUrl.host,
             now,
         });
         const ordersAgg = aggregateOrders(orders);
-
-        // Enriquecer temporada desde DB para los productos más vistos
-        const topSlugs = Array.from(eventsAgg.productMap.keys()).slice(0, 20);
-        const seasonLookup = new Map<string, string>();
-        if (topSlugs.length > 0) {
-            try {
-                const { data: dbProds } = await adminDb
-                    .from('products')
-                    .select('slug, season')
-                    .in('slug', topSlugs);
-                dbProds?.forEach((p) => {
-                    if (p.slug && p.season) seasonLookup.set(p.slug, p.season);
-                });
-            } catch {
-                // Continuar sin bloquear si falla el enriquecimiento de temporada
-            }
-        }
 
         let previousBaseline: PreviousPeriodBaseline | null = null;
         if (prevStartDate && prevEndDate) {

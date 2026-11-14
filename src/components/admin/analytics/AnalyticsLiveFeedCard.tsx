@@ -15,6 +15,7 @@ const BADGE_CONFIG: Record<string, { label: string; isHighlight?: boolean }> = {
     product_view: { label: 'Camiseta' },
     search: { label: 'Búsqueda' },
     add_to_cart: { label: 'Carrito', isHighlight: true },
+    whatsapp_click: { label: 'WhatsApp', isHighlight: true },
     matchday_click: { label: 'Matchday' },
     checkout_start: { label: 'Checkout', isHighlight: true },
     purchase: { label: 'Compra', isHighlight: true },
@@ -30,6 +31,7 @@ export default function AnalyticsLiveFeedCard({
         if (filter === 'commerce') {
             return recentEvents.filter((ev) =>
                 ev.event_type === 'add_to_cart' ||
+                ev.event_type === 'whatsapp_click' ||
                 ev.event_type === 'checkout_start' ||
                 ev.event_type === 'purchase' ||
                 ev.event_type === 'product_view'
@@ -124,6 +126,20 @@ export default function AnalyticsLiveFeedCard({
                             .filter(Boolean)
                             .join(' ');
 
+                        const isWhatsApp = ev.event_type === 'whatsapp_click';
+                        const meta = (ev.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
+                        const metaDetail = isWhatsApp || ev.event_type === 'add_to_cart' || ev.event_type === 'product_view'
+                            ? [
+                                meta.teamName || meta.equipo,
+                                meta.productName || meta.modelo,
+                                meta.version ? `(${meta.version}${meta.talla ? ` · ${meta.talla}` : ''})` : meta.talla ? `(${meta.talla})` : null,
+                            ]
+                                .filter(Boolean)
+                                .join(' ')
+                            : ev.event_type === 'search' && meta.searchTerm
+                                ? `"${meta.searchTerm}"`
+                                : null;
+
                         return (
                             <div
                                 key={ev.id}
@@ -132,19 +148,27 @@ export default function AnalyticsLiveFeedCard({
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span
                                         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
-                                            badge.isHighlight
-                                                ? 'bg-primary/10 text-primary border-primary/20'
-                                                : 'bg-white/[0.05] text-neutral-300 border-white/[0.08]'
+                                            isWhatsApp
+                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                : badge.isHighlight
+                                                    ? 'bg-primary/10 text-primary border-primary/20'
+                                                    : 'bg-white/[0.05] text-neutral-300 border-white/[0.08]'
                                         }`}
                                     >
                                         <span
                                             className={`w-1.5 h-1.5 rounded-full ${
-                                                badge.isHighlight ? 'bg-primary' : 'bg-white/40'
+                                                isWhatsApp
+                                                    ? 'bg-emerald-400'
+                                                    : badge.isHighlight
+                                                        ? 'bg-primary'
+                                                        : 'bg-white/40'
                                             }`}
                                         />
                                         {badge.label}
                                     </span>
-                                    <span className="font-mono text-neutral-200 truncate">{ev.path}</span>
+                                    <span className="font-mono text-neutral-200 truncate">
+                                        {metaDetail ? `${metaDetail} (${ev.path})` : ev.path}
+                                    </span>
                                     {geoText && (
                                         <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-[10px] text-neutral-400 shrink-0">
                                             {geoText}

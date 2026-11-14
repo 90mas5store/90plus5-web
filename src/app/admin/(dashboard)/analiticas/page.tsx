@@ -74,6 +74,7 @@ export default function AdminAnaliticasPage({ embedded = false }: AdminAnalitica
                     />
                     <AnalyticsFunnelCard
                         funnel={data?.conversionFunnel || []}
+                        whatsappClicks={data?.whatsappClicks || []}
                         loading={loading}
                     />
                 </div>

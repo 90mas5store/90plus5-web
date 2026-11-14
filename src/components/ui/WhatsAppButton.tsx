@@ -19,6 +19,12 @@ export default function WhatsAppButton() {
     }
 
     const handleClick = () => {
+        if (typeof window !== "undefined" && window.trackEvent) {
+            window.trackEvent("whatsapp_click", {
+                slug: "boton-flotante",
+                productName: "Consulta General (Botón Flotante)",
+            });
+        }
         const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
         window.open(url, "_blank");
     };

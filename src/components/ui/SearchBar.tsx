@@ -182,7 +182,7 @@ export default function SearchBar({
     const handleSelectTerm = (term: string, href?: string) => {
         triggerHaptic(8);
         onChange(term);
-        saveSearch(term, href ? 1 : results.length);
+        saveSearch(term, 1);
         // If an explicit href is specified (like a direct filter link), navigate
         if (href && !pathname?.includes('/catalogo')) {
             setIsOpen(false);

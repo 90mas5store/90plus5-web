@@ -5,25 +5,29 @@ import {
     Filter,
     Users,
     Eye,
+    MessageCircle,
     ShoppingBag,
     CreditCard,
     CheckCircle2,
     TrendingDown,
     Lightbulb,
     ArrowRight,
+    Clock,
 } from 'lucide-react';
-import { AnalyticsFunnelStep } from '@/lib/analytics/types';
+import { AnalyticsFunnelStep, AnalyticsWhatsAppClickItem } from '@/lib/analytics/types';
+import { getCountryFlag } from '@/lib/analytics/geo';
 
 interface AnalyticsFunnelCardProps {
     funnel: AnalyticsFunnelStep[];
+    whatsappClicks?: AnalyticsWhatsAppClickItem[];
     loading?: boolean;
 }
 
-export default function AnalyticsFunnelCard({ funnel }: AnalyticsFunnelCardProps) {
+export default function AnalyticsFunnelCard({ funnel, whatsappClicks = [] }: AnalyticsFunnelCardProps) {
     const insight = useMemo(() => {
         if (!funnel || funnel.length < 2) return null;
 
-        const droppableSteps = funnel.slice(0, funnel.length - 1);
+        const droppableSteps = funnel.slice(0, funnel.length - 1).filter((s) => s.id !== 'whatsapp');
         const worstStep = [...droppableSteps].sort((a, b) => b.dropOffPercentage - a.dropOffPercentage)[0];
 
         if (!worstStep || worstStep.dropOffPercentage <= 0) return null;
@@ -62,6 +66,7 @@ export default function AnalyticsFunnelCard({ funnel }: AnalyticsFunnelCardProps
     const stepIcons = {
         visit: Users,
         product: Eye,
+        whatsapp: MessageCircle,
         cart: ShoppingBag,
         checkout: CreditCard,
         order: CheckCircle2,
@@ -162,10 +167,11 @@ export default function AnalyticsFunnelCard({ funnel }: AnalyticsFunnelCardProps
                     </div>
 
                     {/* Vista en Cuadrícula para Tablet / Desktop */}
-                    <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                         {funnel.map((step, idx) => {
                             const IconComponent = stepIcons[step.id] || Users;
                             const isLast = idx === funnel.length - 1;
+                            const isWhatsApp = step.id === 'whatsapp';
 
                             return (
                                 <div
@@ -173,7 +179,7 @@ export default function AnalyticsFunnelCard({ funnel }: AnalyticsFunnelCardProps
                                     className="relative flex flex-col justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300 group"
                                 >
                                     {!isLast && (
-                                        <div className="hidden lg:block absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-white/20 group-hover:text-white/50 transition-colors pointer-events-none">
+                                        <div className="hidden xl:block absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-white/20 group-hover:text-white/50 transition-colors pointer-events-none">
                                             <ArrowRight className="w-4 h-4" />
                                         </div>
                                     )}
@@ -184,7 +190,9 @@ export default function AnalyticsFunnelCard({ funnel }: AnalyticsFunnelCardProps
                                                 className={`p-2 rounded-xl border transition-transform duration-200 ${
                                                     isLast
                                                         ? 'bg-primary/10 text-primary border-primary/20'
-                                                        : 'bg-white/[0.04] text-neutral-300 border-white/[0.08]'
+                                                        : isWhatsApp
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                            : 'bg-white/[0.04] text-neutral-300 border-white/[0.08]'
                                                 }`}
                                             >
                                                 <IconComponent className="w-4 h-4" />
@@ -193,7 +201,9 @@ export default function AnalyticsFunnelCard({ funnel }: AnalyticsFunnelCardProps
                                                 className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full border ${
                                                     isLast
                                                         ? 'bg-primary/10 text-primary border-primary/20'
-                                                        : 'bg-white/[0.04] text-neutral-300 border-white/[0.08]'
+                                                        : isWhatsApp
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                            : 'bg-white/[0.04] text-neutral-300 border-white/[0.08]'
                                                 }`}
                                             >
                                                 {step.percentage}%
@@ -217,13 +227,22 @@ export default function AnalyticsFunnelCard({ funnel }: AnalyticsFunnelCardProps
                                         <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden my-2">
                                             <div
                                                 className={`h-full rounded-full transition-all duration-500 ${
-                                                    isLast ? 'bg-primary' : 'bg-white/75'
+                                                    isLast
+                                                        ? 'bg-primary'
+                                                        : isWhatsApp
+                                                            ? 'bg-emerald-400'
+                                                            : 'bg-white/75'
                                                 }`}
                                                 style={{ width: `${Math.max(step.percentage, 4)}%` }}
                                             />
                                         </div>
 
-                                        {!isLast ? (
+                                        {isWhatsApp ? (
+                                            <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold font-mono">
+                                                <MessageCircle className="w-3 h-3 shrink-0" />
+                                                <span>Chat directo</span>
+                                            </div>
+                                        ) : !isLast ? (
                                             <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-semibold font-mono">
                                                 <TrendingDown className="w-3 h-3 shrink-0 text-neutral-500" />
                                                 <span>{step.dropOffPercentage}% fuga</span>
@@ -239,6 +258,81 @@ export default function AnalyticsFunnelCard({ funnel }: AnalyticsFunnelCardProps
                             );
                         })}
                     </div>
+
+                    {/* Bitácora detallada de clics a WhatsApp (Producto, Configuración y Hora exacta) */}
+                    {whatsappClicks.length > 0 && (
+                        <div className="pt-3 border-t border-white/[0.06] space-y-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                    <h3 className="text-xs font-extrabold text-white tracking-tight uppercase">
+                                        Detalle de Clics a WhatsApp (Hora y Camiseta)
+                                    </h3>
+                                </div>
+                                <span className="text-[11px] font-mono text-neutral-400">
+                                    Últimos {whatsappClicks.length} chats iniciados
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                                {whatsappClicks.map((item) => {
+                                    const dt = new Date(item.created_at);
+                                    const dateTimeStr = dt.toLocaleString('es-HN', {
+                                        timeZone: 'America/Tegucigalpa',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                        hour12: true,
+                                    });
+                                    const details = [
+                                        item.version,
+                                        item.size ? `Talla ${item.size}` : null,
+                                        item.dorsal,
+                                        item.patch,
+                                    ].filter(Boolean);
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between gap-3 text-xs"
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold shrink-0">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                                        WhatsApp
+                                                    </span>
+                                                    <span className="font-bold text-white truncate">
+                                                        {item.teamName ? `${item.teamName} — ` : ''}
+                                                        {item.productName}
+                                                    </span>
+                                                </div>
+                                                {details.length > 0 && (
+                                                    <p className="text-[11px] text-neutral-400 font-mono mt-1 truncate">
+                                                        {details.join(' · ')}
+                                                        {item.price && item.price > 0 ? ` · L ${item.price.toLocaleString('es-HN')}` : ''}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="text-right shrink-0">
+                                                <div className="inline-flex items-center gap-1 text-[11px] font-mono text-neutral-300">
+                                                    <Clock className="w-3 h-3 text-neutral-500" />
+                                                    <span>{dateTimeStr}</span>
+                                                </div>
+                                                {(item.country || item.city) && (
+                                                    <p className="text-[10px] text-neutral-500 mt-0.5">
+                                                        {item.country ? getCountryFlag(item.country) : ''} {item.city || item.device}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Recomendación Accionable Basada en Datos Reales */}
                     {insight && (

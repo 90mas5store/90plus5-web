@@ -5,6 +5,7 @@ export type AnalyticsEventType =
     | 'product_view'
     | 'search'
     | 'add_to_cart'
+    | 'whatsapp_click'
     | 'matchday_click'
     | 'checkout_start'
     | 'purchase';
@@ -45,12 +46,28 @@ export interface AnalyticsShippingRegionStat {
 }
 
 export interface AnalyticsFunnelStep {
-    id: 'visit' | 'product' | 'cart' | 'checkout' | 'order';
+    id: 'visit' | 'product' | 'whatsapp' | 'cart' | 'checkout' | 'order';
     name: string;
     description: string;
     count: number;
     percentage: number;
     dropOffPercentage: number;
+}
+
+export interface AnalyticsWhatsAppClickItem {
+    id: string;
+    slug: string;
+    productName: string;
+    teamName?: string | null;
+    version?: string | null;
+    size?: string | null;
+    patch?: string | null;
+    dorsal?: string | null;
+    price?: number;
+    device: string;
+    country?: string | null;
+    city?: string | null;
+    created_at: string;
 }
 
 export interface AnalyticsMissedSearch {
@@ -170,6 +187,7 @@ export interface AnalyticsSummary {
     totalProductViews: number;
     totalSearches: number;
     totalCarts: number;
+    totalWhatsAppClicks?: number;
     totalOrders?: number;
     totalMatchdayClicks: number;
     conversionRate: number;
@@ -178,6 +196,7 @@ export interface AnalyticsSummary {
     realtimeActiveVisitors: number;
     deltas?: AnalyticsDeltas;
     conversionFunnel: AnalyticsFunnelStep[];
+    whatsappClicks?: AnalyticsWhatsAppClickItem[];
     viewsTrend: {
         date: string;
         views: number;

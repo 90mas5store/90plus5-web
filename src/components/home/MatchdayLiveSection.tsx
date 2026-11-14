@@ -12,6 +12,7 @@ import { translateTeamNameToSpanish, translateTeamShortName } from "@/lib/teamNa
 import { usePrefersReducedMotion } from "@/hooks/useOptimization";
 import useToastMessage from "@/hooks/useToastMessage";
 import { motion, AnimatePresence } from "@/lib/motion";
+import { BUSINESS_LOGIC } from "@/lib/constants";
 
 const MatchCenterModal = dynamic(() => import("@/components/match/MatchCenterModal"), {
     ssr: false,
@@ -520,7 +521,16 @@ export default function MatchdayLiveSection({ allProducts = [] }: MatchdayLiveSe
                             </p>
                         </div>
                         <a
-                            href={`https://wa.me/50499999999?text=${encodeURIComponent(`Hola 90+5 Store, quisiera cotizar la camiseta de ${homeName} / ${awayName}`)}`}
+                            href={`https://wa.me/${BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hola 90+5 Store, quisiera cotizar la camiseta de ${homeName} / ${awayName}`)}`}
+                            onClick={() => {
+                                if (typeof window !== "undefined" && window.trackEvent) {
+                                    window.trackEvent("whatsapp_click", {
+                                        slug: "cotizar-matchday",
+                                        productName: `Cotización Matchday (${homeName} vs ${awayName})`,
+                                        teamName: `${homeName} / ${awayName}`,
+                                    });
+                                }
+                            }}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-md active:scale-95"

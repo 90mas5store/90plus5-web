@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCart } from '@/context/CartContext';
 import useToastMessage from '@/hooks/useToastMessage';
 import { CustomizerProduct } from '@/types/productCustomizer';
@@ -78,13 +78,16 @@ export function useProductCustomizer({ product }: UseProductCustomizerProps) {
         precioConRecargo,
     });
 
-    // 📊 Analytics de vista de producto
+    // 📊 Analytics de vista de producto (una única vez por producto, sin re-disparar al cambiar entre Fan y Player)
+    const trackedSlugRef = useRef<string | null>(null);
+
     useEffect(() => {
-        if (!producto.slug) return;
+        if (!producto.slug || trackedSlugRef.current === producto.slug) return;
         if (
             typeof window !== 'undefined' &&
             (window as unknown as { trackEvent?: (type: string, data: Record<string, unknown>) => void }).trackEvent
         ) {
+            trackedSlugRef.current = producto.slug;
             (window as unknown as { trackEvent: (type: string, data: Record<string, unknown>) => void }).trackEvent(
                 'product_view',
                 {
@@ -93,11 +96,11 @@ export function useProductCustomizer({ product }: UseProductCustomizerProps) {
                     teamName: producto.equipo || null,
                     season: product.season || null,
                     imageUrl: producto.imagen || null,
-                    price: precioActual || producto.precio || 0,
+                    price: producto.precio || 0,
                 }
             );
         }
-    }, [producto.slug, producto.modelo, producto.equipo, producto.imagen, precioActual, product.name, producto.precio]);
+    }, [producto.slug, producto.modelo, producto.equipo, producto.imagen, product.name, product.season, producto.precio]);
 
     // 🛒 Añadir al carrito
     const handleAddToCart = () => {

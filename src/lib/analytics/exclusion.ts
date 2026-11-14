@@ -36,6 +36,12 @@ export function isAnalyticsExcluded(): boolean {
     // 1. Siempre excluir localhost / entornos de desarrollo
     if (isLocalhost()) return true;
 
+    // 1.5. Excluir bots de captura / despliegue (Vercel Screenshot, HeadlessChrome, etc.)
+    const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '').toLowerCase();
+    if (ua.includes('vercel') || ua.includes('headless')) {
+        return true;
+    }
+
     // 2. Comprobar bandera en localStorage
     try {
         if (localStorage.getItem(ANALYTICS_EXCLUSION_STORAGE_KEY) === 'true') {

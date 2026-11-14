@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { SelectedOption } from '@/types/productCustomizer';
+import { BUSINESS_LOGIC } from '@/lib/constants';
 
 interface ProductShareInfo {
     slug?: string;
@@ -151,6 +152,33 @@ export function useProductShare({
         const shareUrl = buildShareUrl();
         const precio = precioConRecargo || producto.precio || 0;
 
+        const dorsalNombre = quiereDorsal
+            ? (modoDorsal === 'jugador' ? jugadorSeleccionado?.nombre : nombrePersonalizado) || null
+            : null;
+        const dorsalNumero = quiereDorsal
+            ? (modoDorsal === 'jugador' ? jugadorSeleccionado?.numero : numeroPersonalizado) || null
+            : null;
+
+        if (
+            typeof window !== 'undefined' &&
+            (window as unknown as { trackEvent?: (type: string, data: Record<string, unknown>) => void }).trackEvent
+        ) {
+            (window as unknown as { trackEvent: (type: string, data: Record<string, unknown>) => void }).trackEvent(
+                'whatsapp_click',
+                {
+                    slug: producto.slug || null,
+                    productName: producto.modelo,
+                    teamName: producto.equipo,
+                    version: versionSeleccionada?.label || null,
+                    talla: tallaSeleccionada?.label || null,
+                    parche: parcheSeleccionado?.label || null,
+                    dorsalNombre,
+                    dorsalNumero,
+                    precio,
+                }
+            );
+        }
+
         const E = {
             fire: '\u{1F525}',
             shirt: '\u{1F455}',
@@ -162,8 +190,8 @@ export function useProductShare({
         };
 
         const lines: string[] = [
+            `¡Hola *90+5 Store*! Quiero pedir esta camiseta:`,
             `${E.fire} *${producto.equipo} – ${producto.modelo}*`,
-            `_La encontré en 90+5 y está brutal_`,
             '',
         ];
 
@@ -192,13 +220,17 @@ export function useProductShare({
             lines.push('');
         }
 
-        if (precio > 0) lines.push(`${E.money} *L${precio.toLocaleString('es-HN')}*`);
+        if (precio > 0) lines.push(`${E.money} *Precio: L${precio.toLocaleString('es-HN')}*`);
         lines.push('');
-        lines.push(`${E.down} Miralo acá:`);
+        lines.push(`${E.down} Enlace de la camiseta:`);
         lines.push(shareUrl);
 
         const text = encodeURIComponent(lines.join('\n'));
-        window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+        window.open(
+            `https://wa.me/${BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER}?text=${text}`,
+            '_blank',
+            'noopener,noreferrer'
+        );
     };
 
     return {

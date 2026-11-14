@@ -10,6 +10,7 @@ const eventSchema = z.object({
         'product_view',
         'search',
         'add_to_cart',
+        'whatsapp_click',
         'matchday_click',
         'checkout_start',
         'purchase',
@@ -38,10 +39,20 @@ export async function POST(request: NextRequest) {
 
         const { event_type, path, referrer, device, session_id, metadata } = parse.data;
 
-        // No registrar eventos en rutas administrativas o si el dispositivo está excluido (Admin / Dueño)
+        // No registrar eventos en rutas administrativas, dispositivos excluidos (Admin / Dueño) o bots de despliegue (Vercel / Headless)
+        const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
+        const isBotOrAutomated =
+            userAgent.includes('vercel') ||
+            userAgent.includes('headless') ||
+            userAgent.includes('lighthouse') ||
+            userAgent.includes('bot') ||
+            userAgent.includes('crawler') ||
+            userAgent.includes('spider');
+
         const isExcluded =
             request.cookies.get('90plus5_ignore_analytics')?.value === 'true' ||
-            request.headers.get('x-ignore-analytics') === 'true';
+            request.headers.get('x-ignore-analytics') === 'true' ||
+            isBotOrAutomated;
 
         if (path.startsWith('/admin') || isExcluded) {
             return NextResponse.json({ ok: true, ignored: true });

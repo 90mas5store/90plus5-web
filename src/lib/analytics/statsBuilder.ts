@@ -74,12 +74,17 @@ export function buildAnalyticsSummary(params: BuildAnalyticsSummaryParams): Anal
         : 0;
     const cartRate = roundRate(eventsAgg.sessionsWithCart.size, uniqueVisitorCount);
 
-    // Embudo de conversión de 5 pasos
+    // Embudo de conversión de 6 pasos (incluye intención directa por WhatsApp)
     const step1Count = uniqueVisitorCount;
     const step2Count = eventsAgg.sessionsWithProductView.size;
+    const stepWaCount = eventsAgg.sessionsWithWhatsApp?.size || 0;
     const step3Count = eventsAgg.sessionsWithCart.size;
     const step4Count = eventsAgg.sessionsWithCheckout.size;
     const step5Count = Math.max(totalOrders, eventsAgg.sessionsWithPurchase.size);
+    const activeIntentSessions = new Set<string>([
+        ...eventsAgg.sessionsWithCart,
+        ...(eventsAgg.sessionsWithWhatsApp || []),
+    ]).size;
 
     const checkoutAbandonmentRate = step4Count > 0
         ? Math.max(0, Math.round(((step4Count - step5Count) / step4Count) * 100))
@@ -100,19 +105,27 @@ export function buildAnalyticsSummary(params: BuildAnalyticsSummaryParams): Anal
             description: 'Interés en fichas de producto',
             count: step2Count,
             percentage: step1Count > 0 ? Math.round((step2Count / step1Count) * 100) : 0,
-            dropOffPercentage: step2Count > 0 ? Math.max(0, Math.round(((step2Count - step3Count) / step2Count) * 100)) : 0,
+            dropOffPercentage: step2Count > 0 ? Math.max(0, Math.round(((step2Count - activeIntentSessions) / step2Count) * 100)) : 0,
+        },
+        {
+            id: 'whatsapp',
+            name: '3. Pedir por WhatsApp',
+            description: 'Consulta directa desde ficha',
+            count: eventsAgg.totalWhatsAppClicks || stepWaCount,
+            percentage: step1Count > 0 ? Math.round((stepWaCount / step1Count) * 100) : 0,
+            dropOffPercentage: 0,
         },
         {
             id: 'cart',
-            name: '3. Añadido al Carrito',
-            description: 'Intención de compra real',
+            name: '4. Añadido al Carrito',
+            description: 'Intención de compra en web',
             count: step3Count,
             percentage: step1Count > 0 ? Math.round((step3Count / step1Count) * 100) : 0,
             dropOffPercentage: step3Count > 0 ? Math.max(0, Math.round(((step3Count - step4Count) / step3Count) * 100)) : 0,
         },
         {
             id: 'checkout',
-            name: '4. Checkout Iniciado',
+            name: '5. Checkout Iniciado',
             description: 'Ingreso al proceso de pago',
             count: step4Count,
             percentage: step1Count > 0 ? Math.round((step4Count / step1Count) * 100) : 0,
@@ -120,7 +133,7 @@ export function buildAnalyticsSummary(params: BuildAnalyticsSummaryParams): Anal
         },
         {
             id: 'order',
-            name: '5. Pedido Confirmado',
+            name: '6. Pedido Confirmado',
             description: 'Conversión final exitosa',
             count: step5Count,
             percentage: step1Count > 0 ? Math.round((step5Count / step1Count) * 100) : 0,
@@ -414,6 +427,7 @@ export function buildAnalyticsSummary(params: BuildAnalyticsSummaryParams): Anal
         totalProductViews: eventsAgg.totalProductViews,
         totalSearches: eventsAgg.totalSearches,
         totalCarts: eventsAgg.totalCarts,
+        totalWhatsAppClicks: eventsAgg.totalWhatsAppClicks || 0,
         totalOrders,
         totalMatchdayClicks: eventsAgg.totalMatchdayClicks,
         conversionRate,
@@ -422,6 +436,7 @@ export function buildAnalyticsSummary(params: BuildAnalyticsSummaryParams): Anal
         realtimeActiveVisitors: eventsAgg.realtimeSessions.size,
         deltas,
         conversionFunnel,
+        whatsappClicks: (eventsAgg.whatsappClicks || []).slice(0, 20),
         viewsTrend,
         topProducts,
         topSearches,
@@ -484,6 +499,7 @@ export function getEmptySummary(range: AnalyticsRange = '7d'): AnalyticsSummary 
         totalProductViews: 0,
         totalSearches: 0,
         totalCarts: 0,
+        totalWhatsAppClicks: 0,
         totalOrders: 0,
         totalMatchdayClicks: 0,
         conversionRate: 0,
@@ -499,6 +515,7 @@ export function getEmptySummary(range: AnalyticsRange = '7d'): AnalyticsSummary 
             cartRatePct: null,
         },
         conversionFunnel: [],
+        whatsappClicks: [],
         viewsTrend: [],
         topProducts: [],
         topSearches: [],

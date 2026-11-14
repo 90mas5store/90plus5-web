@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MessageCircle, ShieldCheck, MapPin, CreditCard, Sparkles } from "lucide-react";
+import { BUSINESS_LOGIC } from "@/lib/constants";
 
 export default function HomeTrustAndLocal() {
     const pillars = [
@@ -71,7 +72,15 @@ export default function HomeTrustAndLocal() {
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto relative z-10">
                         <a
-                            href="https://wa.me/50499999999?text=Hola%2090%2B5%20Store%2C%20quisiera%20cotizar%20una%20camiseta%20especial"
+                            href={`https://wa.me/${BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER}?text=Hola%2090%2B5%20Store%2C%20quisiera%20cotizar%20una%20camiseta%20especial`}
+                            onClick={() => {
+                                if (typeof window !== "undefined" && window.trackEvent) {
+                                    window.trackEvent("whatsapp_click", {
+                                        slug: "cotizar-camiseta-especial",
+                                        productName: "Cotización Camiseta Especial (Home)",
+                                    });
+                                }
+                            }}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl sm:rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs sm:text-sm transition-all duration-200 shadow-xl shadow-emerald-500/20 active:scale-95 text-center"

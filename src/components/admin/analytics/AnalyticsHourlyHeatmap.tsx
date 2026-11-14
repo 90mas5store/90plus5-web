@@ -51,23 +51,31 @@ export default function AnalyticsHourlyHeatmap({ hourlyData, loading }: Analytic
             {hourlyData && hourlyData.length === 24 ? (
                 <div>
                     {/* Área Gráfica: Todas las columnas ancladas al mismo nivel base (items-end) */}
-                    <div className="h-28 sm:h-32 flex items-end justify-between gap-0.5 sm:gap-1 pt-4 sm:pt-6 px-1 border-b border-white/10 relative overflow-x-auto">
+                    <div className="h-40 sm:h-44 flex items-end justify-between gap-0.5 sm:gap-1 pt-14 px-1 border-b border-white/10 relative">
                         {hourlyData.map((h) => {
                             const isPeak = peakHour && peakHour.hour === h.hour && h.views > 0;
                             const hasViews = h.views > 0;
                             const heightPercent = hasViews ? Math.max(Math.round((h.views / maxViews) * 100), 10) : 0;
+                            const tooltipAlignClass =
+                                h.hour <= 2
+                                    ? 'left-0'
+                                    : h.hour >= 21
+                                        ? 'right-0'
+                                        : 'left-1/2 -translate-x-1/2';
 
                             return (
                                 <div
                                     key={h.hour}
-                                    className="flex-1 min-w-[14px] max-w-[36px] h-full flex items-end justify-center group relative cursor-pointer"
+                                    className="flex-1 min-w-0 max-w-[36px] h-full flex items-end justify-center group relative cursor-pointer"
                                 >
                                     {/* Tooltip Hover estilo Apple Glass */}
-                                    <div className="absolute -top-12 bg-black/95 border border-white/20 px-2.5 py-1 rounded-xl text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-2xl">
-                                        <p className="font-bold text-white">{h.label}</p>
+                                    <div
+                                        className={`absolute bottom-full mb-2 ${tooltipAlignClass} bg-[#0d1017]/95 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-xl text-[11px] leading-snug text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-[0_10px_30px_rgba(0,0,0,0.85)]`}
+                                    >
+                                        <p className="font-extrabold text-white mb-0.5">{h.label}</p>
                                         <p className="text-amber-400 font-mono">{h.views} visitas</p>
                                         {h.orders > 0 && (
-                                            <p className="text-emerald-400 font-mono">{h.orders} compras</p>
+                                            <p className="text-emerald-400 font-mono mt-0.5">{h.orders} compras</p>
                                         )}
                                     </div>
 

@@ -106,4 +106,36 @@ describe('Analytics Track API (/api/analytics/track)', () => {
         const data = await res.json();
         expect(data.ignored).toBe(true);
     });
+
+    it('ignores tracking when user-agent includes vercel or headless', async () => {
+        const vercelReq = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({
+                event_type: 'page_view',
+                path: '/',
+            }),
+            headers: {
+                'user-agent': 'vercel-screenshot/1.0',
+            },
+        });
+
+        const vercelRes = await POST(vercelReq);
+        expect(vercelRes.status).toBe(200);
+        expect((await vercelRes.json()).ignored).toBe(true);
+
+        const headlessReq = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({
+                event_type: 'page_view',
+                path: '/',
+            }),
+            headers: {
+                'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 HeadlessChrome/120.0.0.0',
+            },
+        });
+
+        const headlessRes = await POST(headlessReq);
+        expect(headlessRes.status).toBe(200);
+        expect((await headlessRes.json()).ignored).toBe(true);
+    });
 });
