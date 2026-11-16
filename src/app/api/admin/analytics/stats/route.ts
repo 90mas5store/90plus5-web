@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAnalyticsDateRange, isCancelledStatus } from '@/lib/analytics/range';
 import { aggregateEvents, normalizeProductKey, type RawAnalyticsEvent } from '@/lib/analytics/eventsAggregator';
+import { isAutomatedAnalyticsEvent } from '@/lib/analytics/exclusion';
 import { FOOTBALL_ALIASES } from '@/constants/footballAliases';
 import { aggregateOrders, type RawAnalyticsOrder } from '@/lib/analytics/ordersAggregator';
 import {
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
             prevStartDate && prevEndDate
                 ? adminDb
                     .from('analytics_events')
-                    .select('event_type, session_id')
+                    .select('event_type, session_id, path, referrer, device, country, city, metadata, created_at')
                     .gte('created_at', prevStartDate.toISOString())
                     .lte('created_at', prevEndDate.toISOString())
                     .limit(MAX_EVENTS_LIMIT)
@@ -110,7 +111,8 @@ export async function GET(request: NextRequest) {
             console.warn('[admin/analytics/stats] orders query warning:', ordersRes.error.message);
         }
 
-        const events = (eventsRes.data || []) as RawAnalyticsEvent[];
+        const rawEvents = (eventsRes.data || []) as RawAnalyticsEvent[];
+        const events = rawEvents.filter((ev) => !isAutomatedAnalyticsEvent(ev));
         const orders = (ordersRes.data || []) as RawAnalyticsOrder[];
 
         if (events.length === 0 && orders.length === 0) {
@@ -175,7 +177,7 @@ export async function GET(request: NextRequest) {
 
         let previousBaseline: PreviousPeriodBaseline | null = null;
         if (prevStartDate && prevEndDate) {
-            const prevEvents = (prevEventsRes.data || []) as { event_type?: string; session_id?: string | null }[];
+            const prevEvents = (prevEventsRes.data || []) as Partial<RawAnalyticsEvent>[];
             const prevOrders = (prevOrdersRes.data || []) as { status?: string | null; total_amount?: number | null }[];
 
             const prevVisitors = new Set<string>();
@@ -183,6 +185,7 @@ export async function GET(request: NextRequest) {
             let prevPageViews = 0;
 
             for (const ev of prevEvents) {
+                if (isAutomatedAnalyticsEvent(ev)) continue;
                 if (ev.session_id) {
                     prevVisitors.add(ev.session_id);
                     if (ev.event_type === 'add_to_cart') prevCartSessions.add(ev.session_id);
@@ -217,7 +220,7 @@ export async function GET(request: NextRequest) {
             seasonLookup,
             previousBaseline,
             eventsCount: events.length,
-            truncated: events.length >= MAX_EVENTS_LIMIT,
+            truncated: rawEvents.length >= MAX_EVENTS_LIMIT,
         });
 
         if (isMissingEventsTable) {

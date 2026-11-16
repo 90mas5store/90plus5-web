@@ -6,15 +6,9 @@ import { EscaparateTab, EscaparateTabItem } from './types';
 
 export const ESCAPARATE_TABS: EscaparateTabItem[] = [
     {
-        key: 'banners',
-        label: 'Banners Hero',
-        description: 'Carrusel principal de la portada',
-        icon: LayoutTemplate,
-    },
-    {
         key: 'special',
-        label: 'Banners Especiales',
-        description: 'Colecciones y colaboraciones',
+        label: 'Hero & Colecciones',
+        description: 'Banner principal de portada y drops especiales',
         icon: Sparkles,
     },
     {

@@ -175,12 +175,12 @@ const STATIC_QUICK_ACTIONS: QuickActionItem[] = [
     },
     {
         id: 'settings-banners',
-        title: 'Banners de Inicio (Hero)',
-        subtitle: 'Carrusel principal y llamadas a la acción',
-        href: '/admin/escaparate?tab=banners',
+        title: 'Hero & Colecciones Especiales',
+        subtitle: 'Carrusel principal de la portada, drops y colecciones',
+        href: '/admin/escaparate?tab=special',
         category: 'Tienda',
         icon: LayoutTemplate,
-        keywords: ['banners', 'hero', 'slider', 'inicio', 'portada'],
+        keywords: ['banners', 'hero', 'slider', 'inicio', 'portada', 'especiales', 'colecciones'],
     },
     {
         id: 'settings-marquee',

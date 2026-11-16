@@ -138,4 +138,35 @@ describe('Analytics Track API (/api/analytics/track)', () => {
         expect(headlessRes.status).toBe(200);
         expect((await headlessRes.json()).ignored).toBe(true);
     });
+
+    it('ignores tracking for Google, AI scrapers (ChatGPT, Higgsfield) and US Data Center cities', async () => {
+        const googleInspectionReq = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({ event_type: 'page_view', path: '/catalogo' }),
+            headers: {
+                'user-agent': 'Mozilla/5.0 (compatible; Google-InspectionTool/1.0;)',
+            },
+        });
+        expect((await (await POST(googleInspectionReq)).json()).ignored).toBe(true);
+
+        const higgsfieldReq = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({ event_type: 'page_view', path: '/' }),
+            headers: {
+                'user-agent': 'Higgsfield-Agent/1.0',
+            },
+        });
+        expect((await (await POST(higgsfieldReq)).json()).ignored).toBe(true);
+
+        const datacenterReq = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({ event_type: 'page_view', path: '/' }),
+            headers: {
+                'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36',
+                'x-vercel-ip-country': 'US',
+                'x-vercel-ip-city': 'Council%20Bluffs',
+            },
+        });
+        expect((await (await POST(datacenterReq)).json()).ignored).toBe(true);
+    });
 });

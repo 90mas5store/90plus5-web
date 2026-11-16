@@ -1,5 +1,6 @@
 import type { AnalyticsEventType, AnalyticsWhatsAppClickItem } from './types';
 import { formatDateKeyInStoreTz, getStoreDateParts } from './timezone';
+import { isAutomatedAnalyticsEvent } from './exclusion';
 
 export interface RawAnalyticsEvent {
     id: string;
@@ -196,6 +197,8 @@ export function aggregateEvents(
     };
 
     for (const ev of chronological) {
+        if (isAutomatedAnalyticsEvent(ev)) continue;
+
         const sess = ev.session_id || `anon_${ev.id}`;
         const meta = (ev.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
         const evTime = ev.created_at ? new Date(ev.created_at) : now;

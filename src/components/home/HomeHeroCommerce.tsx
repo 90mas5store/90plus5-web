@@ -58,90 +58,70 @@ export default function HomeHeroCommerce({
         }
     }, []);
 
-    // Construcción de slides: Flagship Hero Principal como #1 (editable en admin) + Banners especiales / estándar
+    // Construcción de slides: Banners especiales activos configurados en el Admin
+    // Si no hay ninguno activo, se usa el fallback de la tienda por defecto
     const slides: UnifiedHeroSlide[] = useMemo(() => {
         const activeSpecial = (specialBanners || []).filter((sb) => sb.active !== false);
-        const heroFromDb = activeSpecial.find((sb) => sb.slug === "hero-principal");
 
-        // Slide #1: Si existe en la BD bajo "hero-principal", se usa la configuración del Admin; si no, fallback
-        const mainStoreHero: UnifiedHeroSlide = heroFromDb
-            ? {
-                  id: heroFromDb.id,
-                  title: heroFromDb.title || "CAMISETAS OFICIALES",
-                  subtitle: heroFromDb.subtitle || "La tienda deportiva #1 en Honduras. Versión Jugador y Aficionado bajo pedido.",
-                  linkUrl: heroFromDb.link_url || "/catalogo",
-                  buttonText: heroFromDb.button_text || "Comprar Ahora",
-                  backgroundImageUrl: heroFromDb.background_image_url || "/heroes/home.jpg",
-                  backgroundVideoUrl: heroFromDb.background_video_url || undefined,
-                  logoUrl: heroFromDb.logo_url || undefined,
-                  decorationImageUrl: heroFromDb.decoration_image_url || undefined,
-                  badgePrimaryText: heroFromDb.badge_primary_text || "Nueva Temporada",
-                  badgeSecondaryText: heroFromDb.badge_secondary_text || "90+5 Store Honduras",
-                  badgeSecondaryIcon: heroFromDb.badge_secondary_icon || "trophy",
-                  imagePositionDesktop: heroFromDb.image_position_desktop || "50% 50%",
-                  imagePositionMobile: heroFromDb.image_position_mobile || "50% 50%",
-                  isMainHero: true,
-              }
-            : {
-                  id: "main-store-hero",
-                  title: "CAMISETAS OFICIALES",
-                  subtitle: "La tienda deportiva #1 en Honduras. Versión Jugador y Aficionado con dorsal y parches oficiales de tus clubes y selecciones favoritas.",
-                  linkUrl: "/catalogo",
-                  buttonText: "Comprar Ahora",
-                  badgePrimaryText: "Nueva Temporada",
-                  badgeSecondaryText: "90+5 Store Honduras",
-                  badgeSecondaryIcon: "trophy",
-                  backgroundImageUrl: "/heroes/home.jpg",
-                  isMainHero: true,
-              };
-
-        const otherSlides: UnifiedHeroSlide[] = [];
-
-        // Agregar los demás banners especiales (excluyendo el hero principal)
-        activeSpecial
-            .filter((sb) => sb.id !== mainStoreHero.id && sb.slug !== "hero-principal")
-            .forEach((sb) => {
-                otherSlides.push({
+        // 1. Si hay banners especiales activos creados por el admin, renderizar exclusivamente esos
+        if (activeSpecial.length > 0) {
+            return activeSpecial.map((sb, index) => {
+                const isFirst = index === 0;
+                return {
                     id: sb.id,
-                    title: sb.title || "COLECCIÓN ESPECIAL",
-                    subtitle: sb.subtitle || "Prendas oficiales versión jugador y aficionado.",
+                    title: sb.title || (isFirst ? "CAMISETAS OFICIALES" : "COLECCIÓN ESPECIAL"),
+                    subtitle: sb.subtitle || (isFirst ? "La tienda deportiva #1 en Honduras. Versión Jugador y Aficionado bajo pedido." : "Prendas oficiales versión jugador y aficionado."),
                     linkUrl: sb.link_url && sb.link_url !== "/catalogo"
                         ? sb.link_url
-                        : (sb.slug ? `/coleccion/${sb.slug}` : "/catalogo"),
-                    buttonText: sb.button_text || "Ver Colección",
+                        : (sb.slug && sb.slug !== "hero-principal" ? `/coleccion/${sb.slug}` : "/catalogo"),
+                    buttonText: sb.button_text || (isFirst ? "Comprar Ahora" : "Ver Colección"),
                     backgroundImageUrl: sb.background_image_url || undefined,
                     backgroundVideoUrl: sb.background_video_url || undefined,
                     logoUrl: sb.logo_url || undefined,
                     decorationImageUrl: sb.decoration_image_url || undefined,
-                    badgePrimaryText: sb.badge_primary_text || "Colección Exclusiva",
-                    badgeSecondaryText: sb.badge_secondary_text || "Edición Limitada",
-                    badgeSecondaryIcon: sb.badge_secondary_icon || "star",
+                    badgePrimaryText: sb.badge_primary_text || (isFirst ? "Nueva Temporada" : "Colección Exclusiva"),
+                    badgeSecondaryText: sb.badge_secondary_text || (isFirst ? "90+5 Store Honduras" : "Edición Limitada"),
+                    badgeSecondaryIcon: sb.badge_secondary_icon || (isFirst ? "trophy" : "star"),
                     imagePositionDesktop: sb.image_position_desktop || "50% 50%",
                     imagePositionMobile: sb.image_position_mobile || "50% 50%",
-                });
-            });
-
-        // Agregar banners estándar activos si no hay especiales
-        if (otherSlides.length === 0 && banners && banners.length > 0) {
-            banners.forEach((b: any) => {
-                otherSlides.push({
-                    id: b.id || `banner-${b.sort_order || 0}`,
-                    title: b.title || "NUEVOS INGRESOS",
-                    subtitle: b.description || "Envíos a todo Honduras vía CAEX.",
-                    linkUrl: b.link_url || "/catalogo",
-                    buttonText: b.button_text || "Explorar Tienda",
-                    backgroundImageUrl: b.image_url || undefined,
-                    backgroundVideoUrl: b.video_url || undefined,
-                    badgePrimaryText: "Drop Oficial",
-                    badgeSecondaryText: "Disponibles Ya",
-                    badgeSecondaryIcon: "flame",
-                    imagePositionDesktop: b.image_position_desktop || "50% 40%",
-                    imagePositionMobile: b.image_position_mobile || "50% 50%",
-                });
+                    isMainHero: isFirst || sb.slug === "hero-principal",
+                };
             });
         }
 
-        return [mainStoreHero, ...otherSlides];
+        // 2. Fallback de banners estándar si existieran
+        if (banners && banners.length > 0) {
+            return banners.map((b: any) => ({
+                id: b.id || `banner-${b.sort_order || 0}`,
+                title: b.title || "NUEVOS INGRESOS",
+                subtitle: b.description || "Envíos a todo Honduras vía CAEX.",
+                linkUrl: b.link_url || "/catalogo",
+                buttonText: b.button_text || "Explorar Tienda",
+                backgroundImageUrl: b.image_url || undefined,
+                backgroundVideoUrl: b.video_url || undefined,
+                badgePrimaryText: "Drop Oficial",
+                badgeSecondaryText: "Disponibles Ya",
+                badgeSecondaryIcon: "flame",
+                imagePositionDesktop: b.image_position_desktop || "50% 40%",
+                imagePositionMobile: b.image_position_mobile || "50% 50%",
+            }));
+        }
+
+        // 3. Fallback de emergencia solo si no hay ningún banner configurado en la BD
+        return [
+            {
+                id: "main-store-hero",
+                title: "CAMISETAS OFICIALES",
+                subtitle: "La tienda deportiva #1 en Honduras. Versión Jugador y Aficionado con dorsal y parches oficiales de tus clubes y selecciones favoritas.",
+                linkUrl: "/catalogo",
+                buttonText: "Comprar Ahora",
+                badgePrimaryText: "Nueva Temporada",
+                badgeSecondaryText: "90+5 Store Honduras",
+                badgeSecondaryIcon: "trophy",
+                backgroundImageUrl: "/heroes/home.jpg",
+                isMainHero: true,
+            },
+        ];
     }, [specialBanners, banners]);
 
     const hasMultiple = slides.length > 1;

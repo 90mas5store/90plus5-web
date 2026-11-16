@@ -7,7 +7,6 @@ import EscaparateHeader from '@/components/admin/escaparate/EscaparateHeader';
 import EscaparateTabs, { ESCAPARATE_TABS } from '@/components/admin/escaparate/EscaparateTabs';
 import { EscaparateTab } from '@/components/admin/escaparate/types';
 
-import BannersPage from '@/app/admin/(dashboard)/settings/banners/page';
 import SpecialBannersPage from '@/app/admin/(dashboard)/settings/special-banners/page';
 import AdminMarqueeSettingsPage from '@/app/admin/(dashboard)/settings/marquesina/page';
 import AdminTorneosSettingsPage from '@/app/admin/(dashboard)/settings/torneos/page';
@@ -15,20 +14,23 @@ import AdminHomeStylesSettingsPage from '@/app/admin/(dashboard)/settings/estilo
 
 function EscaparateContent() {
     const searchParams = useSearchParams();
-    const initialTab = (searchParams.get('tab') as EscaparateTab) || 'banners';
+    const queryTab = searchParams.get('tab');
+    const initialTab: EscaparateTab = queryTab === 'banners' ? 'special' : ((queryTab as EscaparateTab) || 'special');
 
     const isValidTab = (t: string): t is EscaparateTab => {
         return ESCAPARATE_TABS.some((tab) => tab.key === t);
     };
 
     const [activeTab, setActiveTab] = useState<EscaparateTab>(
-        isValidTab(initialTab) ? initialTab : 'banners'
+        isValidTab(initialTab) ? initialTab : 'special'
     );
 
     useEffect(() => {
-        const queryTab = searchParams.get('tab');
-        if (queryTab && isValidTab(queryTab)) {
-            setActiveTab(queryTab);
+        const tab = searchParams.get('tab');
+        if (tab === 'banners') {
+            setActiveTab('special');
+        } else if (tab && isValidTab(tab)) {
+            setActiveTab(tab);
         }
     }, [searchParams]);
 
@@ -42,7 +44,6 @@ function EscaparateContent() {
 
             {/* Contenido Dinámico por Pestaña */}
             <div className="min-h-[500px]">
-                {activeTab === 'banners' && <BannersPage />}
                 {activeTab === 'special' && <SpecialBannersPage />}
                 {activeTab === 'marquesina' && <AdminMarqueeSettingsPage />}
                 {activeTab === 'matchday' && <AdminTorneosSettingsPage />}

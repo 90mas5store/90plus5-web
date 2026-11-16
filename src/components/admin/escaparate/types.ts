@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type EscaparateTab = 'banners' | 'special' | 'marquesina' | 'matchday' | 'estilos';
+export type EscaparateTab = 'special' | 'marquesina' | 'matchday' | 'estilos';
 
 export interface EscaparateTabItem {
     key: EscaparateTab;

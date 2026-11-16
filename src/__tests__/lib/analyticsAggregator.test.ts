@@ -199,5 +199,62 @@ describe('Analytics Engine (Fase 1)', () => {
         expect(range7d.prevStartDate).not.toBeNull();
         expect(range7d.prevEndDate).not.toBeNull();
     });
+
+    it('excludes automated US data center traffic and midnight headless tablet pings while keeping real US visitors', () => {
+        const now = new Date('2026-11-15T18:00:00.000Z');
+        const events: RawAnalyticsEvent[] = [
+            // Bot 1: Google Cloud Council Bluffs en la madrugada
+            {
+                id: 'bot-cb',
+                event_type: 'page_view',
+                path: '/',
+                device: 'tablet',
+                session_id: 'sess_bot_cb',
+                country: 'US',
+                city: 'Council Bluffs',
+                created_at: '2026-11-15T11:22:55.000Z', // 05:22 AM HN
+            },
+            // Bot 2: AWS/GCP Columbus ráfaga nocturna
+            {
+                id: 'bot-col',
+                event_type: 'product_view',
+                path: '/producto/argentina-2006',
+                device: 'desktop',
+                session_id: 'sess_bot_col',
+                country: 'US',
+                city: 'Columbus',
+                created_at: '2026-11-15T05:10:07.000Z',
+            },
+            // Bot 3: Huella histórica sin país de Council Bluffs (tablet en "/" a las 03:23 AM HN sin referrer)
+            {
+                id: 'bot-hist',
+                event_type: 'page_view',
+                path: '/',
+                referrer: null,
+                device: 'tablet',
+                session_id: 'sess_bot_hist',
+                country: null,
+                city: null,
+                created_at: '2026-11-13T09:23:36.000Z', // 03:23 AM HN
+            },
+            // Usuario Real en EE. UU. (Miami)
+            {
+                id: 'real-us',
+                event_type: 'page_view',
+                path: '/catalogo',
+                device: 'mobile',
+                session_id: 'sess_real_miami',
+                country: 'US',
+                city: 'Miami',
+                created_at: '2026-11-15T16:00:00.000Z',
+            },
+        ];
+
+        const agg = aggregateEvents(events, { host: '90plus5.store', now });
+        expect(agg.uniqueSessions.size).toBe(1);
+        expect(agg.totalPageViews).toBe(1);
+        expect(agg.totalProductViews).toBe(0);
+        expect(agg.sessions.get('sess_real_miami')?.city).toBe('Miami');
+    });
 });
 

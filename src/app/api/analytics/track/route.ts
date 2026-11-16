@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { extractGeoFromRequest } from '@/lib/analytics/geo';
+import { isBotUserAgent, isDataCenterBotLocation } from '@/lib/analytics/exclusion';
 import { z } from 'zod';
 
 const eventSchema = z.object({
@@ -39,15 +40,15 @@ export async function POST(request: NextRequest) {
 
         const { event_type, path, referrer, device, session_id, metadata } = parse.data;
 
-        // No registrar eventos en rutas administrativas, dispositivos excluidos (Admin / Dueño) o bots de despliegue (Vercel / Headless)
-        const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
+        // Extraer ubicación geográfica de los encabezados HTTP (Vercel, Cloudflare, etc.)
+        const geo = extractGeoFromRequest(request);
+
+        // No registrar eventos en rutas administrativas, dispositivos excluidos (Admin / Dueño),
+        // bots de despliegue/indexación/IA (Google, Vercel, Meta, OpenAI, Higgsfield) o Data Centers en EE. UU.
+        const userAgent = request.headers.get('user-agent') || '';
         const isBotOrAutomated =
-            userAgent.includes('vercel') ||
-            userAgent.includes('headless') ||
-            userAgent.includes('lighthouse') ||
-            userAgent.includes('bot') ||
-            userAgent.includes('crawler') ||
-            userAgent.includes('spider');
+            isBotUserAgent(userAgent) ||
+            isDataCenterBotLocation(geo.country, geo.city);
 
         const isExcluded =
             request.cookies.get('90plus5_ignore_analytics')?.value === 'true' ||
@@ -57,9 +58,6 @@ export async function POST(request: NextRequest) {
         if (path.startsWith('/admin') || isExcluded) {
             return NextResponse.json({ ok: true, ignored: true });
         }
-
-        // Extraer ubicación geográfica de los encabezados HTTP (Vercel, Cloudflare, etc.)
-        const geo = extractGeoFromRequest(request);
 
         const enrichedMetadata = {
             ...(metadata || {}),

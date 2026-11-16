@@ -135,17 +135,26 @@ export default function SpecialBannerContentSection({
 
                     {/* link_url field */}
                     <div className="space-y-3">
-                        <label className="text-xs font-bold text-white flex items-center gap-2">
-                            <LinkIcon size={14} className="text-primary" /> URL DE DESTINO AL HACER CLIC
-                        </label>
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs font-bold text-white flex items-center gap-2">
+                                <LinkIcon size={14} className="text-primary" /> URL DE DESTINO AL HACER CLIC
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => onUpdateField("link_url", "/catalogo")}
+                                className="text-[10px] text-primary hover:underline font-bold"
+                            >
+                                Usar /catalogo
+                            </button>
+                        </div>
                         <input
                             value={formData.link_url || ""}
                             onChange={e => onUpdateField("link_url", e.target.value)}
                             className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-sm text-white font-mono focus:border-primary/50 outline-none"
-                            placeholder="/coleccion/el-clasico"
+                            placeholder="/catalogo o /coleccion/nombre"
                         />
                         <p className="text-[10px] text-gray-500">
-                            Por defecto lleva a la página de la colección especial (`/coleccion/${formData.slug || "..."}`).
+                            Puedes usar <strong className="text-neutral-300">/catalogo</strong> en tantos banners como quieras, o una ruta de colección específica.
                         </p>
                     </div>
 

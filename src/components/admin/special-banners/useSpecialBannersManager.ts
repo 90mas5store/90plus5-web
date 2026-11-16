@@ -210,8 +210,9 @@ export function useSpecialBannersManager() {
             payload.slug = generateSlug(payload.title);
         }
 
-        if ((!payload.link_url || payload.link_url === "/catalogo") && payload.slug) {
-            payload.link_url = `/coleccion/${payload.slug}`;
+        // Si no se especificó URL de destino, por defecto apunta a su colección o al catálogo
+        if (!payload.link_url?.trim()) {
+            payload.link_url = payload.slug ? `/coleccion/${payload.slug}` : "/catalogo";
         }
 
         try {
@@ -270,8 +271,12 @@ export function useSpecialBannersManager() {
             clearProductCache("config");
             await revalidateBannersAction().catch(() => {});
         } catch (err: unknown) {
-            const error = err as { message?: string };
-            toast.error(error?.message || "Error al guardar banner");
+            const error = err as { code?: string; message?: string };
+            if (error?.code === "23505" || error?.message?.includes("idx_special_banners_slug")) {
+                toast.error(`El slug de colección "${payload.slug}" ya está en uso. Por favor cámbialo en "SLUG DE LA COLECCIÓN".`);
+            } else {
+                toast.error(error?.message || "Error al guardar banner");
+            }
         } finally {
             setSaving(false);
         }
