@@ -12,7 +12,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const staticRoutes: MetadataRoute.Sitemap = [
         { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1.0 },
         { url: `${BASE_URL}/catalogo`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.95 },
-        { url: `${BASE_URL}/legal/envios`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.85 },
+        { url: `${BASE_URL}/rastreo`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.85 },
+        { url: `${BASE_URL}/legal/envios`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
         { url: `${BASE_URL}/conectar`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
         { url: `${BASE_URL}/legal/terminos`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
         { url: `${BASE_URL}/legal/privacidad`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
@@ -26,28 +27,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             supabase = await createClient();
         }
 
-        // 2. Productos activos (con imágenes optimizadas para Google Images)
+        // 2. Productos activos (Prioridad máxima después del inicio)
         const { data: products } = await supabase
             .from('products')
-            .select('slug, updated_at, featured, image_url, name, teams(name)')
+            .select('slug, updated_at, featured, image_url')
             .eq('active', true);
 
         const productRoutes: MetadataRoute.Sitemap = (products || [])
             .filter((p: any) => Boolean(p.slug))
             .map((product: any) => {
-                const teamName = (product.teams as any)?.name;
-                const imageTitle = teamName ? `${teamName} - ${product.name}` : product.name;
                 const lastMod = product.updated_at ? new Date(product.updated_at) : new Date();
                 return {
                     url: `${BASE_URL}/producto/${product.slug}`,
                     lastModified: isNaN(lastMod.getTime()) ? new Date() : lastMod,
-                    changeFrequency: 'weekly',
-                    priority: product.featured ? 0.9 : 0.7,
+                    changeFrequency: 'daily',
+                    priority: product.featured ? 0.95 : 0.9,
                     ...(product.image_url ? {
-                        images: [{
-                            url: product.image_url,
-                            title: imageTitle,
-                        }],
+                        images: [product.image_url],
                     } : {}),
                 };
             });
@@ -55,7 +51,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // 3. Páginas de categoría (/catalogo?categoria=...)
         const { data: categories } = await supabase
             .from('categories')
-            .select('slug, name')
+            .select('slug')
             .is('deleted_at', null);
 
         const categoryRoutes: MetadataRoute.Sitemap = (categories || [])
@@ -63,29 +59,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             .map((cat: any) => ({
                 url: `${BASE_URL}/catalogo?categoria=${encodeURIComponent(cat.slug)}`,
                 lastModified: new Date(),
-                changeFrequency: 'daily',
-                priority: 0.85,
+                changeFrequency: 'weekly',
+                priority: 0.75,
             }));
 
-        // 4. Páginas de liga (/catalogo?liga=...)
-        const { data: leagues } = await supabase
-            .from('leagues')
-            .select('slug, name')
-            .is('deleted_at', null);
-
-        const leagueRoutes: MetadataRoute.Sitemap = (leagues || [])
-            .filter((l: any) => Boolean(l.slug))
-            .map((league: any) => ({
-                url: `${BASE_URL}/catalogo?liga=${encodeURIComponent(league.slug)}`,
-                lastModified: new Date(),
-                changeFrequency: 'daily',
-                priority: 0.85,
-            }));
-
-        // 5. Páginas de equipos (/catalogo?equipo=...)
+        // 4. Páginas de equipos (/catalogo?equipo=...)
         const { data: teams } = await supabase
             .from('teams')
-            .select('slug, name')
+            .select('slug')
             .is('deleted_at', null);
 
         const teamRoutes: MetadataRoute.Sitemap = (teams || [])
@@ -93,14 +74,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             .map((team: any) => ({
                 url: `${BASE_URL}/catalogo?equipo=${encodeURIComponent(team.slug)}`,
                 lastModified: new Date(),
-                changeFrequency: 'daily',
-                priority: 0.8,
+                changeFrequency: 'weekly',
+                priority: 0.75,
+            }));
+
+        // 5. Páginas de liga (/catalogo?liga=...)
+        const { data: leagues } = await supabase
+            .from('leagues')
+            .select('slug')
+            .is('deleted_at', null);
+
+        const leagueRoutes: MetadataRoute.Sitemap = (leagues || [])
+            .filter((l: any) => Boolean(l.slug))
+            .map((league: any) => ({
+                url: `${BASE_URL}/catalogo?liga=${encodeURIComponent(league.slug)}`,
+                lastModified: new Date(),
+                changeFrequency: 'weekly',
+                priority: 0.7,
             }));
 
         // 6. Páginas de marcas (/catalogo?marca=...)
         const { data: brands } = await supabase
             .from('brands')
-            .select('slug, name')
+            .select('slug')
             .eq('active', true)
             .is('deleted_at', null);
 
@@ -110,10 +106,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                 url: `${BASE_URL}/catalogo?marca=${encodeURIComponent(brand.slug)}`,
                 lastModified: new Date(),
                 changeFrequency: 'weekly',
-                priority: 0.8,
+                priority: 0.65,
             }));
 
-        const allRoutes = [...staticRoutes, ...categoryRoutes, ...leagueRoutes, ...teamRoutes, ...brandRoutes, ...productRoutes];
+        // Productos van PRIMERO después de las rutas estáticas
+        const allRoutes = [
+            ...staticRoutes,
+            ...productRoutes,
+            ...categoryRoutes,
+            ...teamRoutes,
+            ...leagueRoutes,
+            ...brandRoutes,
+        ];
         const uniqueRoutes = Array.from(new Map(allRoutes.map((r) => [r.url, r])).values());
         return uniqueRoutes;
     } catch (error) {
