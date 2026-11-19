@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Product, Config, Category } from '@/lib/types';
 import { getCatalogPaginated } from '@/lib/api';
+import { SearchExecutionMeta } from '@/lib/search/searchEngine';
 import { CatalogFilters } from '@/components/catalogo/CatalogFilterPanel';
 import { ToastHook } from '@/types/checkout';
 import { ExtendedLeague } from './useCatalogMetadata';
@@ -17,6 +18,7 @@ function extractSeasonYear(season: string): number {
 interface UseCatalogProductsProps {
     initialProducts?: Product[];
     initialTotal?: number;
+    initialSearchMeta?: SearchExecutionMeta;
     topSellerIds?: string[];
     queryParam: string | null;
     selectedCategoryObj: Category | null | undefined;
@@ -34,6 +36,7 @@ interface UseCatalogProductsProps {
 export function useCatalogProducts({
     initialProducts = [],
     initialTotal = 0,
+    initialSearchMeta,
     topSellerIds = [],
     queryParam,
     selectedCategoryObj,
@@ -49,6 +52,7 @@ export function useCatalogProducts({
 }: UseCatalogProductsProps) {
     const [productos, setProductos] = useState<Product[]>(initialProducts);
     const [totalProducts, setTotalProducts] = useState(initialTotal);
+    const [searchMeta, setSearchMeta] = useState<SearchExecutionMeta | undefined>(initialSearchMeta);
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(!initialProducts.length);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -111,7 +115,7 @@ export function useCatalogProducts({
                     priceMax = max;
                 }
 
-                const { data, count } = await getCatalogPaginated({
+                const { data, count, searchMeta: nextMeta } = await getCatalogPaginated({
                     page: pageNum,
                     limit: PRODUCTS_PER_PAGE,
                     query: queryParam || '',
@@ -132,6 +136,7 @@ export function useCatalogProducts({
                     setProductos((prev) => [...prev, ...data]);
                 } else {
                     setProductos(data);
+                    setSearchMeta(queryParam ? nextMeta : undefined);
                     if (shouldScrollOnFilterRef.current && contentRef.current) {
                         const headerHeight = typeof window !== 'undefined'
                             ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 72)
@@ -191,6 +196,7 @@ export function useCatalogProducts({
     return {
         productos,
         totalProducts,
+        searchMeta,
         loading,
         loadingMore,
         contentRef,

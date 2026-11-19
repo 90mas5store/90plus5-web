@@ -2,6 +2,8 @@ import { Product, Brand, Config, ShippingZone, SupabaseRawProduct } from "./type
 import { supabase } from "./supabase/client";
 import { getLeagueLogoUrl } from "./leagueLogos";
 import { matchPlayers } from "./search/playerMatch";
+import { buildSearchIndex, searchCatalog, SearchExecutionMeta, SearchIndex } from "./search/searchEngine";
+import { DEFAULT_SEARCH_SETTINGS, SearchSettingsConfig } from "./search/searchSettingsTypes";
 
 export type SortOption =
   | "relevance"
@@ -26,21 +28,44 @@ export interface CatalogParams {
   topSellerIds?: string[];
   season?: string;
   version?: string;
+  searchSettings?: SearchSettingsConfig;
 }
 
 // ✅ Cliente Supabase inicializado correctamente
 // ⚠️ NUNCA hacer console.log del cliente - expone credenciales
 
+async function fetchAllProductPatchRelations(): Promise<Array<{ product_id: string; patch_id: string }>> {
+  const PAGE = 1000;
+  const rows: Array<{ product_id: string; patch_id: string }> = [];
+  try {
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("product_patches")
+        .select("product_id, patch_id")
+        .range(from, from + PAGE - 1);
+      if (error || !data) break;
+      rows.push(...(data as Array<{ product_id: string; patch_id: string }>));
+      if (data.length < PAGE) break;
+    }
+  } catch {
+    // No bloquear la carga del catálogo si la tabla no es accesible
+  }
+  return rows;
+}
+
 async function fetchCatalogFromSupabase(): Promise<Product[]> {
-  const { data, error } = await supabase
-    .from("products")
-    .select(`
+  const [productsRes, productPatchRows, patchesRes] = await Promise.all([
+    supabase
+      .from("products")
+      .select(`
             id,
             name,
             slug,
             description,
             image_url,
             featured,
+            sort_order,
+            trending_until,
             category_id,
             league_id,
             team_id,
@@ -58,7 +83,9 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
                 id,
                 version,
                 price,
-                active
+                active,
+                original_price,
+                active_original_price
             ),
             product_leagues (
                 league_id
@@ -66,18 +93,44 @@ async function fetchCatalogFromSupabase(): Promise<Product[]> {
             season,
             allows_customization
         `)
+      .eq("active", true)
+      .order("name", { ascending: true }),
+    fetchAllProductPatchRelations(),
+    supabase
+      .from("patches")
+      .select("id, name")
+      .eq("active", true)
+      .then((res) => res, () => ({ data: null })),
+  ]);
 
-    .eq("active", true)
-    .order("name", { ascending: true });
-
-  if (error) {
-    console.error("Error fetching catalog from Supabase:", error);
-    throw error;
+  if (productsRes.error) {
+    console.error("Error fetching catalog from Supabase:", productsRes.error);
+    throw productsRes.error;
   }
 
-  // Adaptar estructura de Supabase al formato interno
-  //  NO aplicamos sort - respetamos el orden de la BD (sort_order)
-  return (data || []).map(adaptSupabaseProductToProduct);
+  // Enriquecer nombres de parches por producto para búsqueda unificada (ej. "boca libertadores")
+  const patchNameById = new Map<string, string>();
+  for (const patch of (patchesRes.data ?? []) as Array<{ id: string; name: string }>) {
+    if (patch?.id && patch?.name) patchNameById.set(patch.id, patch.name);
+  }
+
+  const patchNamesByProduct = new Map<string, string[]>();
+  for (const rel of productPatchRows) {
+    const patchName = patchNameById.get(rel.patch_id);
+    if (!patchName) continue;
+    const list = patchNamesByProduct.get(rel.product_id) ?? [];
+    if (!list.includes(patchName)) list.push(patchName);
+    patchNamesByProduct.set(rel.product_id, list);
+  }
+
+  return (productsRes.data || []).map((raw) => {
+    const adapted = adaptSupabaseProductToProduct(raw as SupabaseRawProduct);
+    const patchNames = patchNamesByProduct.get(adapted.id);
+    if (patchNames && patchNames.length > 0) {
+      adapted.patch_names = patchNames;
+    }
+    return adapted;
+  });
 }
 
 export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product {
@@ -97,6 +150,7 @@ export function adaptSupabaseProductToProduct(raw: SupabaseRawProduct): Product 
     equipo: teams?.name ?? "",
     logoEquipo: teams?.logo_url ?? undefined,
     modelo: raw.name,
+    description: raw.description ?? null,
     precio: basePrice,
     imagen: raw.image_url,
     destacado: raw.featured ?? false,
@@ -668,11 +722,14 @@ export function clearProductCache(filter: 'all' | 'catalog' | 'config' = 'all') 
 
   if (filter === 'all' || filter === 'catalog') {
     memoryCache.catalog = null;
+    memoryCache.catalog_v2 = null;
     memoryCache.featured = null;
     memoryCache.players_index = null;
+    cachedSearchIndex = null;
     paginatedCache.clear(); // 🧹 Limpiar también el cache de getCatalogPaginated
     if (store) {
       store.removeItem('cache_catalog');
+      store.removeItem('cache_catalog_v2');
       store.removeItem('cache_featured');
       store.removeItem('cache_players_index');
     }
@@ -680,8 +737,12 @@ export function clearProductCache(filter: 'all' | 'catalog' | 'config' = 'all') 
 
   if (filter === 'all' || filter === 'config') {
     memoryCache.config = null;
+    memoryCache.search_settings = null;
+    cachedSearchIndex = null;
     if (store) {
       store.removeItem('cache_config');
+      store.removeItem('cache_config_v5');
+      store.removeItem('cache_search_settings');
       store.removeItem('cache_shipping_zones');
     }
   }
@@ -718,11 +779,35 @@ async function refreshInBackground<T>(key: string, fetcher: () => Promise<T>) {
 
 /* === API principal con cache integrado === */
 
-/** 🏪 Obtener catálogo completo (Legacy - Para compatibilidad) */
+/** 🏪 Obtener catálogo completo (enriquecido con descripción y parches para búsqueda unificada) */
 export async function getCatalog(): Promise<Product[]> {
-  return getCached<Product[]>("catalog", () =>
+  return getCached<Product[]>("catalog_v2", () =>
     fetchCatalogFromSupabase()
   );
+}
+
+/** 🔍 Obtener alias, sinónimos y accesos rápidos del buscador administrados en /admin/catalogo */
+export async function getSearchSettingsClient(): Promise<SearchSettingsConfig> {
+  return getCached<SearchSettingsConfig>("search_settings", async () => {
+    try {
+      if (typeof window !== "undefined") {
+        const res = await fetch("/api/search/settings");
+        if (res.ok) {
+          const data = (await res.json()) as Partial<SearchSettingsConfig>;
+          if (Array.isArray(data.aliases) && Array.isArray(data.quickChips)) {
+            return {
+              aliases: data.aliases,
+              synonyms: Array.isArray(data.synonyms) ? data.synonyms : DEFAULT_SEARCH_SETTINGS.synonyms,
+              quickChips: data.quickChips,
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Fallback a search settings por defecto:", err);
+    }
+    return DEFAULT_SEARCH_SETTINGS;
+  });
 }
 
 /* 🗓️ Helper para parsear año exclusivamente desde la columna de base de datos `season` */
@@ -770,12 +855,54 @@ function compareSeasonsNewestFirst(seasonA?: string | null, seasonB?: string | n
 }
 
 // Cache LRU simple para paginación
-const paginatedCache = new Map<string, { data: { data: Product[]; count: number }, timestamp: number }>();
+const paginatedCache = new Map<
+  string,
+  { data: { data: Product[]; count: number; searchMeta?: SearchExecutionMeta }; timestamp: number }
+>();
+
+// Índice memoizado del motor unificado para evitar reconstruirlo en paginación/filtros
+let cachedSearchIndex: {
+  catalogRef: Product[];
+  playersRef: SearchablePlayer[];
+  aliasesKey: string;
+  index: SearchIndex;
+} | null = null;
+
+function getOrBuildSearchIndex(
+  catalog: Product[],
+  config: Config,
+  players: SearchablePlayer[],
+  settings: SearchSettingsConfig
+): SearchIndex {
+  const aliasesKey = JSON.stringify({ aliases: settings.aliases, synonyms: settings.synonyms });
+  if (
+    cachedSearchIndex &&
+    cachedSearchIndex.catalogRef === catalog &&
+    cachedSearchIndex.playersRef === players &&
+    cachedSearchIndex.aliasesKey === aliasesKey
+  ) {
+    return cachedSearchIndex.index;
+  }
+
+  const index = buildSearchIndex({
+    products: catalog,
+    categories: config.categorias || [],
+    leagues: config.ligas || [],
+    players,
+    aliases: settings.aliases || [],
+    synonyms: settings.synonyms || [],
+  });
+
+  cachedSearchIndex = { catalogRef: catalog, playersRef: players, aliasesKey, index };
+  return index;
+}
 
 /** 🚀 Obtener catálogo paginado (Nuevo - Escalable) 
- *  Ahora con caché en memoria de 60s para navegación instantánea
+ *  Ahora con caché en memoria de 60s y motor de búsqueda unificado con el dropdown
  */
-export async function getCatalogPaginated(params: CatalogParams): Promise<{ data: Product[]; count: number }> {
+export async function getCatalogPaginated(
+  params: CatalogParams
+): Promise<{ data: Product[]; count: number; searchMeta?: SearchExecutionMeta }> {
   const {
     page = 1,
     limit = 24,
@@ -791,6 +918,7 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     topSellerIds = [],
     season = params.season,
     version = params.version,
+    searchSettings: providedSearchSettings,
   } = params;
 
   // 0️⃣ Resolución robusta de slugs para teamId y brandId (evita error UUID de Postgres)
@@ -813,7 +941,8 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
 
   // 1️⃣ Revisar Caché (solo en el navegador — el servidor no puede limpiar este cache desde el cliente)
   const isClient = typeof window !== 'undefined';
-  const cacheKey = JSON.stringify(params) + "_v15_strict_4tier_sort"; // 🔥 v15: Strict 4-tier sorting
+  const cacheParams = { ...params, searchSettings: undefined };
+  const cacheKey = JSON.stringify(cacheParams) + "_v16_unified_search";
   const now = Date.now();
 
   if (isClient) {
@@ -823,147 +952,137 @@ export async function getCatalogPaginated(params: CatalogParams): Promise<{ data
     }
   }
 
-  // Lógica bifurcada: Búsqueda con typos (RPC) vs Navegación normal (Standard)
+  // A) Búsqueda Inteligente Unificada (Propuesta B: mismo motor que el dropdown en vivo + filtros completos)
+  if (searchQuery && searchQuery.trim().length > 0) {
+    const [catalog, config, players, resolvedSettings, genderIds] = await Promise.all([
+      getCatalog(),
+      getConfig(),
+      getSearchablePlayers().catch(() => [] as SearchablePlayer[]),
+      providedSearchSettings ? Promise.resolve(providedSearchSettings) : getSearchSettingsClient(),
+      gender
+        ? (async (): Promise<Set<string>> => {
+            const { data: genderSizes } = await supabase
+              .from("sizes")
+              .select("id")
+              .eq("gender", gender)
+              .eq("active", true);
+            if (!genderSizes || genderSizes.length === 0) return new Set();
+            const sizeIds = genderSizes.map((s: { id: string }) => s.id);
+            const { data: variantSizes } = await supabase
+              .from("variant_sizes")
+              .select("variant_id")
+              .in("size_id", sizeIds)
+              .eq("active", true);
+            if (!variantSizes || variantSizes.length === 0) return new Set();
+            const variantIds = [...new Set(variantSizes.map((vs: { variant_id: string }) => vs.variant_id))];
+            const { data: variantProducts } = await supabase
+              .from("product_variants")
+              .select("product_id")
+              .in("id", variantIds)
+              .eq("active", true);
+            return new Set((variantProducts || []).map((v: { product_id: string }) => v.product_id));
+          })()
+        : Promise.resolve(null),
+    ]);
 
-  // A) Búsqueda Inteligente (Fuzzy con Fallback de Resiliencia + Jugadores)
-  if (searchQuery) {
-    const from = (page - 1) * limit;
+    const searchIndex = getOrBuildSearchIndex(catalog, config, players, resolvedSettings);
+    const searchOutput = searchCatalog(searchIndex, searchQuery, { productLimit: catalog.length });
 
-    // 0. Búsqueda por Jugadores (findPlayersForSearch): obtener camisas donde está listado el jugador
-    const playerProductIds: string[] = [];
-    try {
-      const matchedPlayers = await findPlayersForSearch(searchQuery, 3);
-      matchedPlayers.forEach((mp) => {
-        mp.productIds.forEach((pid) => {
-          if (!playerProductIds.includes(pid)) playerProductIds.push(pid);
+    // Aplicar todos los filtros activos del catálogo sobre los resultados ordenados por relevancia
+    let matchedProducts = searchOutput.products.map((sp) => sp.product);
+
+    if (categoryId) {
+      matchedProducts = matchedProducts.filter((p) => p.category_id === categoryId);
+    }
+    if (leagueId) {
+      matchedProducts = matchedProducts.filter(
+        (p) => p.league_id === leagueId || (p.league_ids && p.league_ids.includes(leagueId))
+      );
+    }
+    if (resolvedTeamId) {
+      matchedProducts = matchedProducts.filter((p) => p.team_id === resolvedTeamId);
+    }
+    if (resolvedBrandId) {
+      matchedProducts = matchedProducts.filter((p) => p.brand_id === resolvedBrandId);
+    }
+    if (genderIds) {
+      matchedProducts = matchedProducts.filter((p) => genderIds.has(p.id));
+    }
+    if (version) {
+      const lowerV = version.toLowerCase();
+      const targetVersion =
+        lowerV.includes("jugador") || lowerV.includes("player")
+          ? "player"
+          : lowerV.includes("fan") || lowerV.includes("aficionado")
+            ? "fan"
+            : lowerV;
+      matchedProducts = matchedProducts.filter((p) =>
+        p.product_variants?.some((v) => v.active !== false && v.version.toLowerCase().includes(targetVersion))
+      );
+    }
+    if (season) {
+      const targetSeason = season.trim().toLowerCase().replace(/[\/\-_]/g, "");
+      matchedProducts = matchedProducts.filter((p) => {
+        if (!p.season) return false;
+        const itemSeason = String(p.season).trim().toLowerCase().replace(/[\/\-_]/g, "");
+        return itemSeason === targetSeason || String(p.season).trim() === season.trim();
+      });
+    }
+    if (priceMin !== undefined || priceMax !== undefined) {
+      matchedProducts = matchedProducts.filter((p) => {
+        if (priceMin !== undefined && p.precio < priceMin) return false;
+        if (priceMax !== undefined && p.precio > priceMax) return false;
+        return true;
+      });
+    }
+
+    // Respetar el orden por relevancia cuando sortBy === "relevance" (defecto);
+    // aplicar el orden elegido solo si el usuario lo solicitó explícitamente.
+    switch (sortBy) {
+      case "price_asc":
+        matchedProducts.sort((a, b) => a.precio - b.precio || compareSeasonsNewestFirst(a.season, b.season));
+        break;
+      case "price_desc":
+        matchedProducts.sort((a, b) => b.precio - a.precio || compareSeasonsNewestFirst(a.season, b.season));
+        break;
+      case "newest":
+        matchedProducts.sort((a, b) => compareSeasonsNewestFirst(a.season, b.season) || ((b.sort_order || 0) - (a.sort_order || 0)));
+        break;
+      case "top_sellers":
+        matchedProducts.sort((a, b) => {
+          const aIsTop = topSellerIds.includes(a.id) ? 0 : 1;
+          const bIsTop = topSellerIds.includes(b.id) ? 0 : 1;
+          if (aIsTop !== bIsTop) return aIsTop - bIsTop;
+          if (aIsTop === 0 && bIsTop === 0) return topSellerIds.indexOf(a.id) - topSellerIds.indexOf(b.id);
+          return compareSeasonsNewestFirst(a.season, b.season);
         });
-      });
-    } catch (pErr) {
-      console.warn("Error finding players for search:", pErr);
+        break;
+      case "alphabetical":
+        matchedProducts.sort((a, b) => {
+          const teamCompare = (a.equipo || "").toLowerCase().trim().localeCompare((b.equipo || "").toLowerCase().trim());
+          if (teamCompare !== 0) return teamCompare;
+          const seasonCompare = compareSeasonsNewestFirst(a.season, b.season);
+          if (seasonCompare !== 0) return seasonCompare;
+          return (a.modelo || "").toLowerCase().trim().localeCompare((b.modelo || "").toLowerCase().trim());
+        });
+        break;
+      case "relevance":
+      default:
+        // Mantener exactamente el ranking por relevancia del motor de búsqueda
+        break;
     }
 
-    // 1. Obtener IDs relevantes tolerando errores ortográficos (RPC PostgreSQL)
-    let ids: string[] = [];
-    try {
-      const { data: fuzzyIds, error: rpcError } = await supabase.rpc('search_fuzzy_products', {
-        search_term: searchQuery,
-        p_category_id: categoryId || null,
-        p_league_id: leagueId || null,
-        p_limit: limit,
-        p_offset: from
-      });
+    const totalCount = matchedProducts.length;
+    const pagedData = matchedProducts.slice((page - 1) * limit, page * limit);
 
-      if (!rpcError && fuzzyIds && fuzzyIds.length > 0) {
-        ids = fuzzyIds.map((item: Record<string, unknown>) => item.id as string);
-      }
-    } catch (err) {
-      console.warn("Fuzzy search RPC exception:", err);
-    }
+    const result = {
+      data: pagedData,
+      count: totalCount,
+      searchMeta: searchOutput.meta,
+    };
 
-    // 2. Fallback Inteligente: Si el RPC no arrojó resultados o falló, buscar coincidencias directas
-    if (ids.length === 0 && playerProductIds.length === 0) {
-      const cleanTerm = searchQuery.trim().toLowerCase();
-      try {
-        let fallbackQuery = supabase
-          .from("products")
-          .select("id")
-          .eq("active", true);
-
-        if (categoryId) fallbackQuery = fallbackQuery.eq("category_id", categoryId);
-        if (leagueId) fallbackQuery = fallbackQuery.eq("league_id", leagueId);
-        if (resolvedTeamId) fallbackQuery = fallbackQuery.eq("team_id", resolvedTeamId);
-        if (resolvedBrandId) fallbackQuery = fallbackQuery.eq("brand_id", resolvedBrandId);
-        if (season) fallbackQuery = fallbackQuery.ilike("season", `%${season.trim()}%`);
-
-        fallbackQuery = fallbackQuery
-          .or(`name.ilike.%${cleanTerm}%,description.ilike.%${cleanTerm}%,slug.ilike.%${cleanTerm}%`)
-          .range(from, from + limit - 1);
-
-        const { data: fallbackData } = await fallbackQuery;
-        if (fallbackData && fallbackData.length > 0) {
-          ids = fallbackData.map((p: { id: string }) => p.id);
-        } else if (cleanTerm.includes('jugador') || cleanTerm.includes('player')) {
-          const { data: vProds } = await supabase
-            .from('product_variants')
-            .select('product_id')
-            .eq('version', 'Player')
-            .eq('active', true);
-          if (vProds && vProds.length > 0) {
-            ids = Array.from(new Set<string>(vProds.map((v: { product_id: string }) => v.product_id))).slice(from, from + limit);
-          }
-        }
-      } catch (fbErr) {
-        console.warn("Search fallback exception:", fbErr);
-      }
-    }
-
-    // Unir IDs de camisas donde sale el jugador (al inicio) con los demás IDs
-    if (playerProductIds.length > 0) {
-      const combined = [...playerProductIds];
-      ids.forEach((id) => {
-        if (!combined.includes(id)) combined.push(id);
-      });
-      ids = combined;
-    }
-
-    if (ids.length > 0) {
-      // 3. Traer el detalle completo de esos IDs
-
-      let fuzzyQuery = supabase
-        .from("products")
-        .select(`
-            id, name, slug, description, image_url, featured,
-            category_id, league_id, team_id, brand_id, trending_until, season,
-            teams ( name, logo_url ),
-            brands ( name, slug, logo_url ),
-            product_variants ( id, version, price, active, original_price, active_original_price ),
-            product_leagues ( league_id )
-        `)
-        .in('id', ids)
-        .eq("active", true);
-
-      if (resolvedTeamId) fuzzyQuery = fuzzyQuery.eq('team_id', resolvedTeamId);
-      if (resolvedBrandId) fuzzyQuery = fuzzyQuery.eq('brand_id', resolvedBrandId);
-      if (season) fuzzyQuery = fuzzyQuery.ilike('season', `%${season.trim()}%`);
-
-      const { data: productsData, error: productsError } = await fuzzyQuery;
-
-      if (productsError) throw productsError;
-
-      // 3. Reordenar en JS aplicando la jerarquía estricta (1. Equipo/Marca, 2. Temporada, 3. Nombre, 4. Precio)
-      const productsMap = new Map(productsData?.map(p => [p.id, p]));
-      const rawSorted = ids.map((id: string) => productsMap.get(id)).filter(Boolean) as SupabaseRawProduct[];
-      const adapted = rawSorted.map(adaptSupabaseProductToProduct);
-
-      adapted.sort((a, b) => {
-        // 1️⃣ Equipo / Marca (A-Z)
-        const teamCompare = (a.equipo || '').toLowerCase().trim().localeCompare((b.equipo || '').toLowerCase().trim());
-        if (teamCompare !== 0) return teamCompare;
-
-        // 2️⃣ Temporada (Nuevo-Viejo, vacíos al final)
-        const seasonCompare = compareSeasonsNewestFirst(a.season, b.season);
-        if (seasonCompare !== 0) return seasonCompare;
-
-        // 3️⃣ Nombre del Producto / Modelo (A-Z)
-        const nameCompare = (a.modelo || '').toLowerCase().trim().localeCompare((b.modelo || '').toLowerCase().trim());
-        if (nameCompare !== 0) return nameCompare;
-
-        // 4️⃣ Precio (Ascendente)
-        return (a.precio || 0) - (b.precio || 0);
-      });
-
-      const result = {
-        data: adapted,
-        count: adapted.length
-      };
-
-      // Cache y retorno (solo cliente)
-      if (isClient) paginatedCache.set(cacheKey, { data: result, timestamp: now });
-      return result;
-    } else {
-      // Búsqueda no arrojó resultados
-      return { data: [], count: 0 };
-    }
+    if (isClient) paginatedCache.set(cacheKey, { data: result, timestamp: now });
+    return result;
   }
 
   // B) Navegación Normal (Sin búsqueda o Fallback)

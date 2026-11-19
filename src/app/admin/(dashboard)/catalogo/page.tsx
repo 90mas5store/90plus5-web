@@ -12,6 +12,7 @@ import LeaguesPage from '@/app/admin/(dashboard)/ligas/page';
 import CategoriesPage from '@/app/admin/(dashboard)/categorias/page';
 import BrandsPage from '@/app/admin/(dashboard)/marcas/page';
 import EstilosPage from '@/app/admin/(dashboard)/estilos/page';
+import SearchAliasesManager from '@/components/admin/catalogo/SearchAliasesManager';
 
 function CatalogoContent() {
     const searchParams = useSearchParams();
@@ -37,7 +38,7 @@ function CatalogoContent() {
             {/* Encabezado Homologado */}
             <CatalogoHeader />
 
-            {/* Control Segmentado Apple 5-en-1 */}
+            {/* Control Segmentado Apple 6-en-1 */}
             <CatalogoTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
             {/* Vista Activa */}
@@ -47,6 +48,7 @@ function CatalogoContent() {
                 {activeTab === 'categorias' && <CategoriesPage />}
                 {activeTab === 'marcas' && <BrandsPage />}
                 {activeTab === 'estilos' && <EstilosPage />}
+                {activeTab === 'busqueda' && <SearchAliasesManager />}
             </div>
         </div>
     );

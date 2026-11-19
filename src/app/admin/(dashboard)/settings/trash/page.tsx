@@ -6,6 +6,8 @@ import { toast } from "react-hot-toast";
 import { RotateCcw, Trash2 } from "lucide-react";
 import Image from "next/image";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import { deleteProductPermanentlyAction } from "@/app/admin/actions";
+import { clearProductCache } from "@/lib/api";
 
 interface DeletedProduct {
     id: string;
@@ -73,8 +75,12 @@ export default function TrashPage() {
     };
 
     const deleteProduct = async (id: string) => {
-        const { error } = await supabase.from("products").delete().eq("id", id);
-        if (error) { toast.error("Error al eliminar"); return; }
+        const res = await deleteProductPermanentlyAction(id, undefined, { fallbackToTrash: false });
+        if (!res.success) {
+            toast.error(res.error || "Error al eliminar");
+            return;
+        }
+        clearProductCache();
         toast.success("Eliminado permanentemente");
         setProducts(p => p.filter(x => x.id !== id));
     };

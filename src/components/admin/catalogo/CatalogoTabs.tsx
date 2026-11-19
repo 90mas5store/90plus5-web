@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Shield, Trophy, Tag, Bookmark, Scissors } from 'lucide-react';
+import { Shield, Trophy, Tag, Bookmark, Scissors, Search } from 'lucide-react';
 import { CatalogoTab, CatalogoTabItem } from './types';
 
 export const CATALOGO_TABS: CatalogoTabItem[] = [
@@ -34,6 +34,12 @@ export const CATALOGO_TABS: CatalogoTabItem[] = [
         label: 'Personalización',
         description: 'Parches, tallas y dorsales',
         icon: Scissors,
+    },
+    {
+        key: 'busqueda',
+        label: 'Búsqueda y Alias',
+        description: 'Apodos de clubes y atajos del buscador',
+        icon: Search,
     },
 ];
 

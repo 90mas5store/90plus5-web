@@ -31,6 +31,9 @@ export function useProductSlug({
     const [slugChecking, setSlugChecking] = useState(false);
     const [slugIsUnique, setSlugIsUnique] = useState<boolean | null>(null);
 
+    const onSlugGeneratedRef = useRef(onSlugGenerated);
+    onSlugGeneratedRef.current = onSlugGenerated;
+
     // Auto-generación de slug
     useEffect(() => {
         if (!isAutoSlug) return;
@@ -47,9 +50,11 @@ export function useProductSlug({
             gender: formData.gender,
         });
 
-        onSlugGenerated(autoSlug);
+        if (autoSlug === formData.slug) return;
+        onSlugGeneratedRef.current(autoSlug);
     }, [
         formData.name,
+        formData.slug,
         formData.team_id,
         formData.brand_id,
         formData.category_id,
@@ -59,29 +64,41 @@ export function useProductSlug({
         brands,
         categories,
         isAutoSlug,
-        onSlugGenerated,
     ]);
 
     // Chequeo de unicidad con debounce
     useEffect(() => {
         if (!formData.slug) {
             setSlugIsUnique(null);
+            setSlugChecking(false);
             return;
         }
 
+        let cancelled = false;
+
         const timer = setTimeout(async () => {
+            if (cancelled) return;
             setSlugChecking(true);
             try {
                 const uniqueSlug = await generateUniqueSlug(supabase, formData.slug, productId);
-                setSlugIsUnique(uniqueSlug === formData.slug);
+                if (!cancelled) {
+                    setSlugIsUnique(uniqueSlug === formData.slug);
+                }
             } catch (err) {
-                console.error('Error verificando slug:', err);
+                if (!cancelled) {
+                    console.error('Error verificando slug:', err);
+                }
             } finally {
-                setSlugChecking(false);
+                if (!cancelled) {
+                    setSlugChecking(false);
+                }
             }
         }, 300);
 
-        return () => clearTimeout(timer);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [formData.slug, productId, supabase]);
 
     return {

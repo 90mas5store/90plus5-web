@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import useToastMessage from '@/hooks/useToastMessage';
@@ -64,12 +64,17 @@ export function useCreateProductForm() {
     } = useProductCatalogs(formData.category_id, formData.gender);
 
     // 2️⃣ Gestión de Slugs
+    const handleSlugGenerated = useCallback(
+        (slug: string) => setFormData((prev) => (prev.slug === slug ? prev : { ...prev, slug })),
+        []
+    );
+
     const { isAutoSlug, setIsAutoSlug, slugChecking, slugIsUnique } = useProductSlug({
         formData,
         teams,
         brands,
         categories,
-        onSlugGenerated: (slug) => setFormData((prev) => ({ ...prev, slug })),
+        onSlugGenerated: handleSlugGenerated,
         initialAutoSlug: true,
     });
 
@@ -151,9 +156,11 @@ export function useCreateProductForm() {
         }
 
         // Consultar sugerencia de marca habitual del equipo
+        let cancelled = false;
         async function checkBrandSuggestion() {
             try {
                 const suggestedBrandId = await fetchTeamBrandSuggestion(supabase, formData.team_id);
+                if (cancelled) return;
                 if (suggestedBrandId) {
                     const brandObj = brands.find((b) => b.id === suggestedBrandId);
                     setSuggestedBrandName(brandObj?.name || null);
@@ -168,11 +175,15 @@ export function useCreateProductForm() {
                     setSuggestedBrandName(null);
                 }
             } catch (err) {
+                if (cancelled) return;
                 console.error('Error sugiriendo marca para equipo:', err);
             }
         }
 
         checkBrandSuggestion();
+        return () => {
+            cancelled = true;
+        };
     }, [formData.team_id, teams, brands, allPatches, supabase]);
 
     // Handlers

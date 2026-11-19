@@ -6,6 +6,8 @@ import { Metadata } from "next";
 import { getConfig, getCatalogPaginated } from "../../lib/api";
 import { createAdminClient } from "../../lib/supabase/admin";
 import { SITE_URL, SITE_CONFIG, SOCIAL_LINKS } from "@/lib/config/site";
+import { getSearchSettings } from "@/lib/search/searchSettings";
+import { SearchExecutionMeta } from "@/lib/search/searchEngine";
 
 // ⚡ ISR & Edge Caching: Servido en <50ms con revalidación en segundo plano y on-demand desde /admin
 export const revalidate = 60;
@@ -200,7 +202,10 @@ export default async function CatalogoPage({ searchParams }: Props) {
   // 4. Fetch inicial de productos (SSR) + top sellers en paralelo
   let initialProducts: import('@/lib/types').Product[] = [];
   let initialTotal = 0;
+  let initialSearchMeta: SearchExecutionMeta | undefined;
   let topSellerIds: string[] = [];
+
+  const searchSettings = searchTerm ? await getSearchSettings().catch(() => undefined) : undefined;
 
   const [catalogResult] = await Promise.all([
     getCatalogPaginated({
@@ -217,7 +222,8 @@ export default async function CatalogoPage({ searchParams }: Props) {
       sortBy: ordenParam,
       priceMin,
       priceMax,
-    }).catch((err) => { console.error("Error fetching catalog:", err); return { data: [], count: 0 }; }),
+      searchSettings,
+    }).catch((err) => { console.error("Error fetching catalog:", err); return { data: [], count: 0, searchMeta: undefined }; }),
     // Query top 5 products by sales in last 30 days
     (async () => {
       try {
@@ -242,6 +248,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   initialProducts = catalogResult.data || [];
   initialTotal = catalogResult.count || 0;
+  initialSearchMeta = catalogResult.searchMeta;
 
   return (
     <Suspense fallback={<CatalogPageSkeleton />}>
@@ -249,6 +256,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
         initialConfig={config}
         initialProducts={initialProducts}
         initialTotal={initialTotal}
+        initialSearchMeta={initialSearchMeta}
         topSellerIds={topSellerIds}
       />
     </Suspense>

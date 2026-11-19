@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type CatalogoTab = 'equipos' | 'ligas' | 'categorias' | 'marcas' | 'estilos';
+export type CatalogoTab = 'equipos' | 'ligas' | 'categorias' | 'marcas' | 'estilos' | 'busqueda';
 
 export interface CatalogoTabItem {
     key: CatalogoTab;

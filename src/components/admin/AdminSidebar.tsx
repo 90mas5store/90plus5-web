@@ -64,7 +64,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                     label: 'Estructura',
                     href: '/admin/catalogo',
                     icon: Layers,
-                    badge: '5 en 1',
+                    badge: '6 en 1',
                 },
             ],
         },

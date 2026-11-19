@@ -22,14 +22,14 @@ export default function ProductEditHeader({
     onRequestDelete,
 }: ProductEditHeaderProps) {
     return (
-        <div className="sticky top-0 z-30 bg-[#07080a]/80 backdrop-blur-2xl border-b border-white/[0.08] py-4 mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 relative shadow-lg">
+        <div className="sticky top-0 z-30 bg-[#07080a]/80 backdrop-blur-2xl border-b border-white/[0.08] py-4 mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 shadow-lg">
             <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 max-w-6xl mx-auto">
                 <div className="flex items-center gap-3">
                     <Link
                         href="/admin/productos"
-                        className="w-9 h-9 rounded-2xl bg-white/[0.05] border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-all active:scale-[0.96] shadow-sm"
+                        className="relative z-10 shrink-0 w-9 h-9 rounded-2xl bg-white/[0.05] border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-all active:scale-[0.96] shadow-sm"
                         title="Volver al catálogo"
                     >
                         <ArrowLeft className="w-5 h-5" />

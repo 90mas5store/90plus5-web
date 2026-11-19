@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Config, Product } from '@/lib/types';
+import { SearchExecutionMeta } from '@/lib/search/searchEngine';
 import { createClient } from '@/lib/supabase/client';
 
 import {
@@ -28,6 +29,7 @@ interface CatalogoContentProps {
     initialConfig?: Config | null;
     initialProducts?: Product[];
     initialTotal?: number;
+    initialSearchMeta?: SearchExecutionMeta;
     topSellerIds?: string[];
 }
 
@@ -35,6 +37,7 @@ export default function CatalogoContent({
     initialConfig = null,
     initialProducts = [],
     initialTotal = 0,
+    initialSearchMeta,
     topSellerIds = [],
 }: CatalogoContentProps) {
     const {
@@ -94,6 +97,7 @@ export default function CatalogoContent({
     const {
         productos,
         totalProducts,
+        searchMeta,
         loading,
         loadingMore,
         contentRef,
@@ -103,6 +107,7 @@ export default function CatalogoContent({
     } = useCatalogProducts({
         initialProducts,
         initialTotal,
+        initialSearchMeta,
         topSellerIds,
         queryParam,
         selectedCategoryObj,
@@ -473,6 +478,8 @@ export default function CatalogoContent({
                 totalProducts={totalProducts}
                 topSellerIds={topSellerIds}
                 liveMatches={liveMatches}
+                queryParam={queryParam}
+                searchMeta={searchMeta}
                 onPersonalizar={() => toast.loading('Abriendo personalización...')}
                 onClearFilters={handleClearAll}
                 onLoadMore={handleLoadMore}

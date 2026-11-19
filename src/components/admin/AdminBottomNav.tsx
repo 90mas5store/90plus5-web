@@ -1,147 +1,238 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import {
+    AnimatePresence,
+    motion,
+    useDragControls,
+    useReducedMotion,
+    type PanInfo,
+} from 'framer-motion';
 import {
     LayoutDashboard,
     Package,
     Shirt,
+    LayoutTemplate,
     MoreHorizontal,
     X,
-    FileSpreadsheet,
-    Tag,
-    Trophy,
-    Shield,
-    Activity,
-    Scissors,
-    DollarSign,
-    Bookmark,
-    Settings,
-    LayoutTemplate,
-    Radio,
-    Trash2,
-    SlidersHorizontal,
-    ArrowRight,
-    LogOut,
     Search,
+    ArrowRight,
+    ChevronRight,
+    DollarSign,
     CreditCard,
-    Users,
+    Tag,
+    Shield,
+    Trophy,
+    Bookmark,
+    Scissors,
+    Sparkles,
+    Radio,
     Megaphone,
+    FileSpreadsheet,
+    Users,
+    Activity,
+    Settings,
+    Lock,
+    Trash2,
+    LogOut,
+    Layers,
+    type LucideIcon,
 } from 'lucide-react';
 
 interface AdminBottomNavProps {
     userEmail?: string;
 }
 
-export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
-    const pathname = usePathname();
-    const [moreOpen, setMoreOpen] = useState(false);
+interface MainNavItem {
+    label: string;
+    href: string;
+    icon: LucideIcon;
+    liveDot?: boolean;
+}
 
-    const isActive = (path: string) => {
-        if (path === '/admin' && pathname === '/admin') return true;
-        if (path !== '/admin' && pathname?.startsWith(path)) return true;
-        return false;
+interface SheetLinkItem {
+    label: string;
+    href: string;
+    icon: LucideIcon;
+    subtitle?: string;
+    liveDot?: boolean;
+    spanFull?: boolean;
+}
+
+const MAIN_ITEMS: MainNavItem[] = [
+    { label: 'Inicio', href: '/admin', icon: LayoutDashboard },
+    { label: 'Pedidos', href: '/admin/orders', icon: Package },
+    { label: 'Productos', href: '/admin/productos', icon: Shirt },
+    { label: 'Portada', href: '/admin/escaparate', icon: LayoutTemplate, liveDot: true },
+];
+
+const FINANCE_ITEMS: SheetLinkItem[] = [
+    {
+        label: 'Contabilidad',
+        href: '/admin/contabilidad',
+        icon: DollarSign,
+        subtitle: 'Ingresos, costos y márgenes',
+        spanFull: true,
+    },
+    { label: 'Cuentas & Pagos', href: '/admin/settings/bancos', icon: CreditCard },
+    { label: 'Descuentos', href: '/admin/descuentos', icon: Tag },
+];
+
+const CATALOGO_ITEMS: SheetLinkItem[] = [
+    { label: 'Equipos', href: '/admin/catalogo?tab=equipos', icon: Shield },
+    { label: 'Ligas', href: '/admin/catalogo?tab=ligas', icon: Trophy },
+    { label: 'Categorías', href: '/admin/catalogo?tab=categorias', icon: Tag },
+    { label: 'Marcas', href: '/admin/catalogo?tab=marcas', icon: Bookmark },
+    { label: 'Personalización', href: '/admin/catalogo?tab=estilos', icon: Scissors },
+    { label: 'Búsqueda y Alias', href: '/admin/catalogo?tab=busqueda', icon: Search },
+];
+
+const SHORTCUT_ITEMS: SheetLinkItem[] = [
+    { label: 'Hero & Colecciones', href: '/admin/escaparate?tab=special', icon: Sparkles },
+    { label: 'Fútbol & Matchday', href: '/admin/escaparate?tab=matchday', icon: Radio, liveDot: true },
+    { label: 'Marquesina', href: '/admin/escaparate?tab=marquesina', icon: Megaphone },
+    { label: 'Lista Fábrica', href: '/admin/orders?tab=fabrica', icon: FileSpreadsheet },
+    { label: 'Clientes VIP', href: '/admin/orders?tab=clientes', icon: Users },
+    { label: 'Analíticas', href: '/admin/orders?tab=analiticas', icon: Activity },
+];
+
+const SYSTEM_PILLS: SheetLinkItem[] = [
+    { label: 'Admins', href: '/admin/settings?tab=admins', icon: Lock },
+    { label: 'Actividad', href: '/admin/settings?tab=activity', icon: Activity },
+    { label: 'Tasa USD', href: '/admin/settings?tab=tasa-cambio', icon: DollarSign },
+    { label: 'Papelera', href: '/admin/settings?tab=trash', icon: Trash2 },
+];
+
+function AdminBottomNavInner({ userEmail }: AdminBottomNavProps) {
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const currentTab = searchParams.get('tab');
+    const routeKey = `${pathname ?? ''}?${currentTab ?? ''}`;
+
+    const [openRouteKey, setOpenRouteKey] = useState<string | null>(null);
+    const moreOpen = openRouteKey === routeKey;
+    const openSheet = () => setOpenRouteKey(routeKey);
+    const closeSheet = () => setOpenRouteKey(null);
+    const prefersReducedMotion = useReducedMotion();
+    const dragControls = useDragControls();
+
+    const isActive = (href: string): boolean => {
+        if (!pathname) return false;
+
+        const [targetPath, queryString] = href.split('?');
+        const targetTab = queryString ? new URLSearchParams(queryString).get('tab') : null;
+
+        if (targetTab) {
+            if (pathname !== targetPath) return false;
+            if (!currentTab) {
+                if (targetPath === '/admin/catalogo' && targetTab === 'equipos') return true;
+                if (targetPath === '/admin/escaparate' && targetTab === 'special') return true;
+                if (targetPath === '/admin/settings' && targetTab === 'admins') return true;
+                return false;
+            }
+            if (
+                targetPath === '/admin/escaparate' &&
+                targetTab === 'special' &&
+                currentTab === 'banners'
+            ) {
+                return true;
+            }
+            return currentTab === targetTab;
+        }
+
+        if (targetPath === '/admin' || targetPath === '/admin/settings') {
+            return pathname === targetPath;
+        }
+
+        return pathname === targetPath || pathname.startsWith(`${targetPath}/`);
     };
 
-    // Items principales de la barra fija móvil (los más frecuentados diariamente)
-    const mainItems = [
-        { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-        { label: 'Pedidos', href: '/admin/orders', icon: Package },
-        { label: 'Productos', href: '/admin/productos', icon: Shirt },
-        { label: 'Analíticas', href: '/admin/orders?tab=analiticas', icon: Activity },
-    ];
+    const isMainRouteActive = MAIN_ITEMS.some((item) => isActive(item.href));
+    const isMoreActive = !isMainRouteActive;
+    const isCatalogoActive = isActive('/admin/catalogo');
+    const isSettingsActive = isActive('/admin/settings');
 
-    // Secciones organizadas del Control Center Móvil
-    const moreGroups = [
-        {
-            section: 'Finanzas & Crecimiento',
-            items: [
-                { label: 'Contabilidad', href: '/admin/contabilidad', icon: DollarSign },
-                { label: 'Cuentas & Pagos', href: '/admin/settings/bancos', icon: CreditCard },
-                { label: 'Descuentos', href: '/admin/descuentos', icon: Tag },
-            ],
-        },
-        {
-            section: 'Operaciones & Clientes',
-            items: [
-                { label: 'Clientes VIP', href: '/admin/orders?tab=clientes', icon: Users },
-                { label: 'Lista Fábrica', href: '/admin/orders?tab=fabrica', icon: FileSpreadsheet },
-            ],
-        },
-        {
-            section: 'Catálogo Unificado',
-            items: [
-                { label: 'Estructura (5 en 1)', href: '/admin/catalogo', icon: Shield },
-                { label: 'Equipos', href: '/admin/catalogo?tab=equipos', icon: Shield },
-                { label: 'Ligas', href: '/admin/catalogo?tab=ligas', icon: Trophy },
-                { label: 'Categorías', href: '/admin/catalogo?tab=categorias', icon: Tag },
-                { label: 'Marcas', href: '/admin/catalogo?tab=marcas', icon: Bookmark },
-                { label: 'Personalización', href: '/admin/catalogo?tab=estilos', icon: Scissors },
-            ],
-        },
-        {
-            section: 'Tienda & Escaparate',
-            items: [
-                { label: 'Página Principal', href: '/admin/escaparate', icon: LayoutTemplate },
-                { label: 'Banners de Portada', href: '/admin/escaparate?tab=banners', icon: LayoutTemplate },
-                { label: 'Marquesina de Avisos', href: '/admin/escaparate?tab=marquesina', icon: Megaphone },
-                { label: 'Fútbol & Matchday', href: '/admin/escaparate?tab=matchday', icon: Radio },
-            ],
-        },
-        {
-            section: 'Ajustes del Sistema',
-            items: [
-                { label: 'Configuración', href: '/admin/settings', icon: Settings },
-                { label: 'Papelera', href: '/admin/settings/trash', icon: Trash2 },
-            ],
-        },
-    ];
+    // Bloqueo de scroll y tecla Escape cuando el Control Center está abierto
+    useEffect(() => {
+        if (!moreOpen) return;
 
-    const isSettingsActive = pathname?.startsWith('/admin/settings');
-    const isMoreActive = isSettingsActive || moreGroups.some((group) =>
-        group.items.some((item) => isActive(item.href))
-    );
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setOpenRouteKey(null);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [moreOpen]);
+
+    const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+        if (info.offset.y > 90 || info.velocity.y > 420) {
+            closeSheet();
+        }
+    };
+
+    const pillTransition = prefersReducedMotion
+        ? { duration: 0.14 }
+        : { type: 'spring' as const, bounce: 0, duration: 0.34 };
+
+    const sheetTransition = prefersReducedMotion
+        ? { duration: 0.16, ease: 'easeOut' as const }
+        : { type: 'spring' as const, damping: 32, stiffness: 380, mass: 0.85 };
 
     return (
         <>
             {/* BOTTOM NAV — Barra fija inferior para móvil */}
             <nav
-                className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 shadow-[0_-8px_32px_rgba(0,0,0,0.8)]"
+                className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#07080a]/90 backdrop-blur-2xl border-t border-white/[0.08] shadow-[0_-12px_36px_rgba(0,0,0,0.85)] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
                 aria-label="Navegación admin móvil"
             >
-                <div className="flex items-center h-16">
-                    {mainItems.map((item) => {
+                <div className="flex items-center h-16 px-1">
+                    {MAIN_ITEMS.map((item) => {
                         const active = isActive(item.href);
+                        const Icon = item.icon;
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className="flex flex-col items-center justify-center flex-1 h-full gap-1 active:scale-95 transition-transform"
                                 aria-label={item.label}
+                                aria-current={active ? 'page' : undefined}
+                                className="flex flex-col items-center justify-center flex-1 h-full gap-1 active:scale-[0.94] transition-transform duration-100 select-none"
                             >
-                                <div className="relative flex items-center justify-center">
+                                <div className="relative flex items-center justify-center px-3.5 py-1.5 rounded-xl">
                                     {active && (
-                                        <span className="absolute inset-0 bg-white/20 blur-md rounded-xl scale-[1.8]" />
+                                        <motion.span
+                                            layoutId="admin-bottom-nav-pill"
+                                            transition={pillTransition}
+                                            className="absolute inset-0 rounded-xl bg-white/[0.12] border border-white/[0.18]"
+                                        />
                                     )}
-                                    <div
-                                        className={`relative px-3 py-1.5 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                                            active ? 'bg-white/15 border border-white/30' : ''
-                                        }`}
-                                    >
-                                        <item.icon
-                                            className={`w-5 h-5 transition-all duration-200 ${
-                                                active
-                                                    ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]'
-                                                    : 'text-gray-500'
+                                    <span className="relative flex items-center justify-center">
+                                        <Icon
+                                            className={`w-5 h-5 transition-colors duration-150 ${
+                                                active ? 'text-white' : 'text-neutral-500'
                                             }`}
                                         />
-                                    </div>
+                                        {item.liveDot && (
+                                            <span
+                                                className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-[#07080a]"
+                                                aria-hidden="true"
+                                            />
+                                        )}
+                                    </span>
                                 </div>
                                 <span
-                                    className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${
-                                        active ? 'font-black text-white' : 'font-semibold text-gray-500'
+                                    className={`text-[10px] leading-none tracking-[0.02em] transition-colors duration-150 ${
+                                        active ? 'font-bold text-white' : 'font-medium text-neutral-500'
                                     }`}
                                 >
                                     {item.label}
@@ -150,33 +241,32 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
                         );
                     })}
 
-                    {/* Botón "Más" (Control Center) */}
+                    {/* Botón "Más" — Control Center */}
                     <button
-                        onClick={() => setMoreOpen(true)}
-                        className="flex flex-col items-center justify-center flex-1 h-full gap-1 active:scale-95 transition-transform cursor-pointer"
+                        type="button"
+                        onClick={openSheet}
                         aria-label="Más opciones"
+                        aria-expanded={moreOpen}
+                        aria-haspopup="dialog"
+                        className="flex flex-col items-center justify-center flex-1 h-full gap-1 active:scale-[0.94] transition-transform duration-100 select-none cursor-pointer"
                     >
-                        <div className="relative flex items-center justify-center">
+                        <div className="relative flex items-center justify-center px-3.5 py-1.5 rounded-xl">
                             {isMoreActive && (
-                                <span className="absolute inset-0 bg-white/20 blur-md rounded-xl scale-[1.8]" />
-                            )}
-                            <div
-                                className={`relative px-3 py-1.5 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                                    isMoreActive ? 'bg-white/15 border border-white/30' : ''
-                                }`}
-                            >
-                                <MoreHorizontal
-                                    className={`w-5 h-5 transition-all duration-200 ${
-                                        isMoreActive
-                                            ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]'
-                                            : 'text-gray-500'
-                                    }`}
+                                <motion.span
+                                    layoutId="admin-bottom-nav-pill"
+                                    transition={pillTransition}
+                                    className="absolute inset-0 rounded-xl bg-white/[0.12] border border-white/[0.18]"
                                 />
-                            </div>
+                            )}
+                            <MoreHorizontal
+                                className={`relative w-5 h-5 transition-colors duration-150 ${
+                                    isMoreActive ? 'text-white' : 'text-neutral-500'
+                                }`}
+                            />
                         </div>
                         <span
-                            className={`text-[9px] tracking-widest uppercase transition-all duration-200 ${
-                                isMoreActive ? 'font-black text-white' : 'font-semibold text-gray-500'
+                            className={`text-[10px] leading-none tracking-[0.02em] transition-colors duration-150 ${
+                                isMoreActive ? 'font-bold text-white' : 'font-medium text-neutral-500'
                             }`}
                         >
                             Más
@@ -185,182 +275,367 @@ export default function AdminBottomNav({ userEmail }: AdminBottomNavProps) {
                 </div>
             </nav>
 
-            {/* SHEET "MÁS" — Control Center Móvil estilo iOS */}
-            {moreOpen && (
-                <>
-                    {/* Backdrop */}
-                    <div
-                        className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] md:hidden animate-in fade-in duration-200"
-                        onClick={() => setMoreOpen(false)}
-                    />
+            {/* SHEET "MÁS" — Control Center Móvil */}
+            <AnimatePresence>
+                {moreOpen && (
+                    <>
+                        {/* Scrim / Backdrop */}
+                        <motion.div
+                            key="admin-sheet-backdrop"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.18 }}
+                            className="fixed inset-0 bg-black/75 backdrop-blur-md z-[60] md:hidden"
+                            onClick={() => closeSheet()}
+                            aria-hidden="true"
+                        />
 
-                    {/* Panel Bottom Sheet */}
-                    <div
-                        className="fixed bottom-0 left-0 right-0 z-[70] md:hidden bg-[#0a0a0a] border-t border-white/15 rounded-t-3xl shadow-[0_-20px_60px_rgba(0,0,0,0.9)] max-h-[85dvh] flex flex-col"
-                        style={{
-                            animation: 'adminSheetSlideUp 0.28s cubic-bezier(0.32,0.72,0,1)',
-                        }}
-                    >
-                        {/* Cabecera del Sheet */}
-                        <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-white/5 shrink-0">
-                            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2.5" />
-                            <div className="flex items-center gap-2 pt-1">
-                                <span className="text-sm font-black text-white tracking-tight">
-                                    Control Center
-                                </span>
-                                {userEmail && (
-                                    <span className="text-[10px] text-gray-400 font-mono bg-white/5 px-2 py-0.5 rounded-full truncate max-w-[130px]">
-                                        {userEmail}
-                                    </span>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => setMoreOpen(false)}
-                                className="p-1.5 rounded-xl text-gray-400 hover:text-white bg-white/5 transition-all cursor-pointer"
-                                aria-label="Cerrar menú"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        {/* Contenido con scroll táctil suave */}
-                        <div
-                            className="overflow-y-auto px-4 py-4 space-y-3"
-                            style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+                        {/* Bottom Sheet */}
+                        <motion.div
+                            key="admin-sheet-panel"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Control Center de administración"
+                            initial={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
+                            animate={prefersReducedMotion ? { opacity: 1 } : { y: 0 }}
+                            exit={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
+                            transition={sheetTransition}
+                            drag={prefersReducedMotion ? false : 'y'}
+                            dragControls={dragControls}
+                            dragListener={false}
+                            dragConstraints={{ top: 0 }}
+                            dragElastic={{ top: 0.06, bottom: 0.9 }}
+                            dragSnapToOrigin
+                            onDragEnd={handleDragEnd}
+                            className="fixed bottom-0 left-0 right-0 z-[70] md:hidden bg-[#0a0c10]/95 backdrop-blur-2xl border-t border-white/[0.10] rounded-t-3xl shadow-[0_-24px_64px_rgba(0,0,0,0.92)] max-h-[88dvh] flex flex-col overflow-hidden before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent"
                         >
-                            {/* 🔍 ACCESO RÁPIDO A BÚSQUEDA GLOBAL */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setMoreOpen(false);
-                                    window.dispatchEvent(new CustomEvent('open-admin-command-palette'));
+                            {/* Cabecera arrastrable del Sheet */}
+                            <div
+                                onPointerDown={(e) => {
+                                    if (!prefersReducedMotion) dragControls.start(e);
                                 }}
-                                className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 active:scale-95 transition-all cursor-pointer"
+                                className="relative flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/[0.06] shrink-0 touch-none select-none"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-xl bg-primary/20 text-primary border border-primary/30">
-                                        <Search className="w-4 h-4" />
-                                    </div>
-                                    <div className="text-left">
-                                        <span className="block text-xs font-bold text-white">Búsqueda Rápida Universal</span>
-                                        <span className="block text-[10px] text-gray-400">Buscar pedidos, camisetas, clientes</span>
-                                    </div>
+                                <div
+                                    className="w-10 h-1 bg-white/20 rounded-full absolute left-1/2 -translate-x-1/2 top-2.5"
+                                    aria-hidden="true"
+                                />
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-sm font-black text-white tracking-tight shrink-0">
+                                        Control Center
+                                    </span>
+                                    {userEmail && (
+                                        <span className="text-[10px] text-neutral-400 font-mono bg-white/[0.05] border border-white/[0.06] px-2 py-0.5 rounded-full truncate max-w-[155px]">
+                                            {userEmail}
+                                        </span>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-neutral-400 group-hover:text-white">
-                                    <span className="text-xs font-medium">Buscar</span>
-                                    <ArrowRight className="w-3.5 h-3.5" />
-                                </div>
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() => closeSheet()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="p-1.5 rounded-xl text-neutral-400 hover:text-white bg-white/[0.05] hover:bg-white/[0.10] border border-white/[0.08] active:scale-[0.94] transition-all cursor-pointer shrink-0"
+                                    aria-label="Cerrar menú"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
 
-                            {/* 🌟 BANNER DESTACADO: CENTRO DE CONFIGURACIÓN */}
-                            <Link
-                                href="/admin/settings"
-                                onClick={() => setMoreOpen(false)}
-                                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all relative overflow-hidden group ${
-                                    isSettingsActive
-                                        ? 'bg-white text-black border-white shadow-xl shadow-white/10'
-                                        : 'bg-gradient-to-r from-neutral-900 via-neutral-900 to-black border-white/15 hover:border-white/30'
-                                }`}
+                            {/* Contenido scrollable */}
+                            <div
+                                className="overflow-y-auto overscroll-contain px-4 py-4 space-y-4"
+                                style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className={`p-2.5 rounded-xl border ${
-                                            isSettingsActive
-                                                ? 'bg-black text-white border-black'
-                                                : 'bg-white/10 text-white border-white/20'
-                                        }`}
-                                    >
-                                        <Settings className="w-5 h-5 animate-[spin_10s_linear_infinite]" />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-1.5">
-                                            <span
-                                                className={`text-sm font-extrabold tracking-tight ${
-                                                    isSettingsActive ? 'text-black' : 'text-white'
-                                                }`}
-                                            >
-                                                Centro de Configuración
+                                {/* 1. Búsqueda Rápida Universal */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        closeSheet();
+                                        window.dispatchEvent(new CustomEvent('open-admin-command-palette'));
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] active:scale-[0.97] transition-all cursor-pointer group"
+                                >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+                                            <Search className="w-4 h-4" />
+                                        </div>
+                                        <div className="text-left min-w-0">
+                                            <span className="block text-xs font-bold text-white truncate">
+                                                Búsqueda Rápida Universal
                                             </span>
-                                            <span
-                                                className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                                                    isSettingsActive
-                                                        ? 'bg-black/10 text-black'
-                                                        : 'bg-primary/20 text-primary border border-primary/30'
-                                                }`}
-                                            >
-                                                11 en 1
+                                            <span className="block text-[11px] text-neutral-400 truncate">
+                                                Buscar pedidos, camisetas, clientes
                                             </span>
                                         </div>
-                                        <p
-                                            className={`text-[11px] mt-0.5 ${
-                                                isSettingsActive ? 'text-gray-700' : 'text-gray-400'
-                                            }`}
-                                        >
-                                            Bancos, banners, matchday, tasa y seguridad
-                                        </p>
                                     </div>
-                                </div>
-                                <ArrowRight
-                                    className={`w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1 ${
-                                        isSettingsActive ? 'text-black' : 'text-gray-400'
-                                    }`}
-                                />
-                            </Link>
+                                    <div className="flex items-center gap-1 text-neutral-400 group-hover:text-white shrink-0 pl-2">
+                                        <span className="text-[11px] font-semibold">Buscar</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </div>
+                                </button>
 
-                            {/* GRUPOS DE ACCESOS RÁPIDOS */}
-                            {moreGroups.map((group) => (
-                                <div key={group.section}>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">
-                                        {group.section}
+                                {/* 2. Finanzas & Crecimiento */}
+                                <section aria-label="Finanzas y Crecimiento">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-1 mb-2">
+                                        Finanzas &amp; Crecimiento
                                     </p>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {group.items.map((item) => {
+                                        {FINANCE_ITEMS.map((item) => {
                                             const active = isActive(item.href);
-                                            const IconComponent = item.icon;
-
+                                            const Icon = item.icon;
                                             return (
                                                 <Link
                                                     key={item.href}
                                                     href={item.href}
-                                                    onClick={() => setMoreOpen(false)}
-                                                    className={`relative flex items-center gap-2.5 p-3 rounded-xl border transition-all active:scale-95 ${
+                                                    onClick={() => closeSheet()}
+                                                    className={`relative flex items-center gap-2.5 p-3 rounded-xl border transition-all active:scale-[0.97] ${
+                                                        item.spanFull ? 'col-span-2 justify-between' : ''
+                                                    } ${
                                                         active
-                                                            ? 'bg-white/10 border-white/30 text-white'
-                                                            : 'bg-white/[0.03] border-white/5 text-gray-300 hover:text-white hover:bg-white/5'
+                                                            ? 'bg-white/[0.10] border-white/25 text-white'
+                                                            : 'bg-white/[0.03] border-white/[0.06] text-neutral-300 hover:text-white hover:bg-white/[0.06]'
                                                     }`}
                                                 >
-                                                    <div
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                                            active ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-400'
-                                                        }`}
-                                                    >
-                                                        <IconComponent className="w-4 h-4" />
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <div
+                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                                                                active
+                                                                    ? 'bg-white text-black border-white'
+                                                                    : 'bg-white/[0.05] text-neutral-300 border-white/[0.06]'
+                                                            }`}
+                                                        >
+                                                            <Icon className="w-4 h-4" />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <span className="block font-bold text-xs truncate">
+                                                                {item.label}
+                                                            </span>
+                                                            {item.subtitle && (
+                                                                <span className="block text-[10px] text-neutral-400 truncate mt-0.5">
+                                                                    {item.subtitle}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <span className="font-bold text-xs truncate">
-                                                        {item.label}
-                                                    </span>
-                                                    {active && (
-                                                        <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                                                    {item.spanFull && (
+                                                        <ChevronRight className="w-4 h-4 text-neutral-500 shrink-0" />
+                                                    )}
+                                                    {active && !item.spanFull && (
+                                                        <span
+                                                            className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-emerald-400"
+                                                            aria-hidden="true"
+                                                        />
                                                     )}
                                                 </Link>
                                             );
                                         })}
                                     </div>
-                                </div>
-                            ))}
+                                </section>
 
-                            {/* Cerrar Sesión */}
-                            <form action="/auth/signout" method="post" className="pt-2">
-                                <button className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs py-3 rounded-xl transition-all border border-red-500/20 active:scale-95 cursor-pointer">
-                                    <LogOut className="w-3.5 h-3.5" />
-                                    Cerrar Sesión
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </>
-            )}
+                                {/* 3. Catálogo & Estructura (6 en 1) */}
+                                <section aria-label="Catálogo y Estructura">
+                                    <div className="flex items-center justify-between px-1 mb-2">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                                            Catálogo &amp; Estructura
+                                        </p>
+                                        <Link
+                                            href="/admin/catalogo"
+                                            onClick={() => closeSheet()}
+                                            className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border transition-all active:scale-[0.97] ${
+                                                isCatalogoActive
+                                                    ? 'bg-white text-black border-white'
+                                                    : 'bg-white/[0.05] text-neutral-300 border-white/[0.08] hover:text-white hover:bg-white/[0.10]'
+                                            }`}
+                                        >
+                                            <Layers className="w-3 h-3" />
+                                            <span>6 en 1</span>
+                                            <ChevronRight className="w-3 h-3" />
+                                        </Link>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {CATALOGO_ITEMS.map((item) => {
+                                            const active = isActive(item.href);
+                                            const Icon = item.icon;
+                                            return (
+                                                <Link
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    onClick={() => closeSheet()}
+                                                    className={`relative flex items-center gap-2.5 p-2.5 rounded-xl border transition-all active:scale-[0.97] ${
+                                                        active
+                                                            ? 'bg-white/[0.10] border-white/25 text-white'
+                                                            : 'bg-white/[0.03] border-white/[0.06] text-neutral-300 hover:text-white hover:bg-white/[0.06]'
+                                                    }`}
+                                                >
+                                                    <div
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                                                            active
+                                                                ? 'bg-white text-black border-white'
+                                                                : 'bg-white/[0.05] text-neutral-400 border-white/[0.06]'
+                                                        }`}
+                                                    >
+                                                        <Icon className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="font-bold text-xs truncate">
+                                                        {item.label}
+                                                    </span>
+                                                    {active && (
+                                                        <span
+                                                            className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-emerald-400"
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+
+                                {/* 4. Atajos de Portada & Pedidos */}
+                                <section aria-label="Atajos de Portada y Pedidos">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-1 mb-2">
+                                        Atajos de Portada &amp; Pedidos
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {SHORTCUT_ITEMS.map((item) => {
+                                            const active = isActive(item.href);
+                                            const Icon = item.icon;
+                                            return (
+                                                <Link
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    onClick={() => closeSheet()}
+                                                    className={`relative flex items-center gap-2.5 p-2.5 rounded-xl border transition-all active:scale-[0.97] ${
+                                                        active
+                                                            ? 'bg-white/[0.10] border-white/25 text-white'
+                                                            : 'bg-white/[0.03] border-white/[0.06] text-neutral-300 hover:text-white hover:bg-white/[0.06]'
+                                                    }`}
+                                                >
+                                                    <div
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                                                            active
+                                                                ? 'bg-white text-black border-white'
+                                                                : 'bg-white/[0.05] text-neutral-400 border-white/[0.06]'
+                                                        }`}
+                                                    >
+                                                        <Icon className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="font-bold text-xs truncate">
+                                                        {item.label}
+                                                    </span>
+                                                    {(active || item.liveDot) && (
+                                                        <span
+                                                            className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${
+                                                                active
+                                                                    ? 'bg-emerald-400'
+                                                                    : 'bg-emerald-400/80 animate-pulse'
+                                                            }`}
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+
+                                {/* 5. Sistema (4 en 1) */}
+                                <section aria-label="Sistema y Configuración">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-1 mb-2">
+                                        Sistema
+                                    </p>
+                                    <div
+                                        className={`rounded-2xl border p-3 space-y-2.5 relative overflow-hidden before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/15 before:to-transparent ${
+                                            isSettingsActive
+                                                ? 'bg-white/[0.08] border-white/25'
+                                                : 'bg-white/[0.03] border-white/[0.08]'
+                                        }`}
+                                    >
+                                        <Link
+                                            href="/admin/settings"
+                                            onClick={() => closeSheet()}
+                                            className="flex items-center justify-between gap-3 active:scale-[0.98] transition-transform group"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div
+                                                    className={`p-2 rounded-xl border shrink-0 ${
+                                                        isSettingsActive
+                                                            ? 'bg-white text-black border-white'
+                                                            : 'bg-primary/10 text-primary border-primary/20'
+                                                    }`}
+                                                >
+                                                    <Settings className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-xs font-extrabold text-white tracking-tight">
+                                                            Configuración
+                                                        </span>
+                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-white/[0.08] text-neutral-300 border border-white/[0.08]">
+                                                            4 en 1
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-neutral-400 truncate mt-0.5">
+                                                        Admins, actividad, tasa USD y papelera
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-white shrink-0" />
+                                        </Link>
+
+                                        {/* Accesos directos a las 4 pestañas de Configuración */}
+                                        <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-white/[0.06]">
+                                            {SYSTEM_PILLS.map((pill) => {
+                                                const active = isActive(pill.href);
+                                                const Icon = pill.icon;
+                                                return (
+                                                    <Link
+                                                        key={pill.href}
+                                                        href={pill.href}
+                                                        onClick={() => closeSheet()}
+                                                        className={`flex items-center gap-2 px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all active:scale-[0.97] ${
+                                                            active
+                                                                ? 'bg-white text-black border-white shadow-xs'
+                                                                : 'bg-black/30 text-neutral-300 border-white/[0.06] hover:text-white hover:bg-white/[0.06]'
+                                                        }`}
+                                                    >
+                                                        <Icon
+                                                            className={`w-3.5 h-3.5 shrink-0 ${
+                                                                active ? 'text-black' : 'text-neutral-400'
+                                                            }`}
+                                                        />
+                                                        <span className="truncate">{pill.label}</span>
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* 6. Cerrar Sesión */}
+                                <form action="/auth/signout" method="post" className="pt-1">
+                                    <button
+                                        type="submit"
+                                        className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/15 text-red-400 font-bold text-xs py-3 rounded-xl transition-all border border-red-500/20 active:scale-[0.97] cursor-pointer"
+                                    >
+                                        <LogOut className="w-3.5 h-3.5" />
+                                        Cerrar Sesión
+                                    </button>
+                                </form>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </>
     );
 }
 
+export default function AdminBottomNav(props: AdminBottomNavProps) {
+    return (
+        <Suspense fallback={null}>
+            <AdminBottomNavInner {...props} />
+        </Suspense>
+    );
+}

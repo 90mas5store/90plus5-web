@@ -41,8 +41,18 @@ export default function SearchBar({
     const resultsRef = useRef<HTMLDivElement>(null);
 
     const { recentSearches, saveSearch, removeSearch, clearSearches } = useRecentSearches();
-    const { results, trendingSuggestions, topClubs, allClubs, loadCatalogData, isLoading } =
-        useSearchCatalog(value, enableLiveResults);
+    const {
+        results,
+        totalProductMatches,
+        matchedClub,
+        searchMeta,
+        quickChips,
+        trendingSuggestions,
+        topClubs,
+        allClubs,
+        loadCatalogData,
+        isLoading,
+    } = useSearchCatalog(value, enableLiveResults);
 
     const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -117,7 +127,10 @@ export default function SearchBar({
             e.preventDefault();
             if (!value.trim()) return;
             triggerHaptic(10);
-            saveSearch(value.trim(), results.length);
+            saveSearch(value.trim(), totalProductMatches || results.length, {
+                exactMatch: searchMeta.matchQuality === 'exact',
+                unmatchedTokens: searchMeta.unmatchedCatalogTokens,
+            });
             setIsOpen(false);
             onNavigate?.();
             onClose?.();
@@ -127,7 +140,7 @@ export default function SearchBar({
                 router.push(`/catalogo?query=${encodeURIComponent(value.trim())}`);
             }
         },
-        [value, results.length, onNavigate, onClose, onSearch, router, saveSearch]
+        [value, totalProductMatches, results.length, searchMeta, onNavigate, onClose, onSearch, router, saveSearch]
     );
 
     // Keyboard navigation
@@ -315,6 +328,10 @@ export default function SearchBar({
                         <SearchResultsDropdown
                             value={value}
                             results={results}
+                            totalProductMatches={totalProductMatches}
+                            matchedClub={matchedClub}
+                            searchMeta={searchMeta}
+                            quickChips={quickChips}
                             activeIndex={activeIndex}
                             recentSearches={recentSearches}
                             trendingSuggestions={trendingSuggestions}

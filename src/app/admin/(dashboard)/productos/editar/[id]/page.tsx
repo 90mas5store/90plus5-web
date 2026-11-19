@@ -152,7 +152,7 @@ export default function EditProductPage() {
                         formData={formData}
                         onAddVariant={addVariant}
                         onUpdateVariant={updateVariant}
-                        onRemoveVariant={removeVariant}
+                        onRemoveVariant={(tempId) => setVariantToDelete(tempId)}
                         onToggleVariantSize={toggleVariantSize}
                         onApplyAdultPreset={applyAdultPreset}
                         onApplySinglePreset={applySinglePreset}
@@ -199,7 +199,7 @@ export default function EditProductPage() {
                 confirmLabel="Eliminar"
                 onConfirm={() => {
                     if (variantToDelete) {
-                        setVariants((prev) => prev.filter((v) => v.tempId !== variantToDelete));
+                        removeVariant(variantToDelete);
                         setVariantToDelete(null);
                     }
                 }}

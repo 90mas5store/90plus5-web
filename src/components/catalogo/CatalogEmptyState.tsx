@@ -4,18 +4,26 @@ import { Shirt, RotateCcw, MessageCircle } from "lucide-react";
 import { BUSINESS_LOGIC } from "@/lib/constants";
 
 interface CatalogEmptyStateProps {
+    queryParam?: string | null;
     onClearFilters: () => void;
 }
 
-export default function CatalogEmptyState({ onClearFilters }: CatalogEmptyStateProps) {
-    const whatsappMessage = encodeURIComponent("¡Hola 90+5 Store! No encontré un modelo en el catálogo online, ¿me podrían confirmar si lo tienen disponible para traer bajo pedido?");
+export default function CatalogEmptyState({ queryParam, onClearFilters }: CatalogEmptyStateProps) {
+    const cleanQuery = queryParam?.trim() || "";
+    const whatsappMessage = encodeURIComponent(
+        cleanQuery
+            ? `¡Hola 90+5 Store! Busqué "${cleanQuery}" en el catálogo online y no lo encontré, ¿me podrían confirmar si lo tienen disponible para traer bajo pedido?`
+            : "¡Hola 90+5 Store! No encontré un modelo en el catálogo online, ¿me podrían confirmar si lo tienen disponible para traer bajo pedido?"
+    );
     const whatsappUrl = `https://wa.me/${BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER}?text=${whatsappMessage}`;
 
     const handleWhatsAppClick = () => {
         if (typeof window !== "undefined" && window.trackEvent) {
             window.trackEvent("whatsapp_click", {
                 slug: "catalogo-sin-resultados",
-                productName: "Consulta Bajo Pedido (Sin resultados)",
+                productName: cleanQuery
+                    ? `Consulta Bajo Pedido: ${cleanQuery}`
+                    : "Consulta Bajo Pedido (Sin resultados)",
             });
         }
     };
@@ -27,11 +35,15 @@ export default function CatalogEmptyState({ onClearFilters }: CatalogEmptyStateP
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-                No encontramos prendas con estos filtros
+                {cleanQuery
+                    ? `No encontramos resultados para "${cleanQuery}"`
+                    : "No encontramos prendas con estos filtros"}
             </h3>
 
             <p className="text-white/60 text-xs sm:text-sm font-medium mb-8 leading-relaxed">
-                Prueba relajando los filtros de precio, temporada o liga. También podemos traer cualquier camiseta oficial que busques bajo pedido directamente a Honduras.
+                {cleanQuery
+                    ? "Si buscas un club, selección o edición específica que no aparece aún en el catálogo online, podemos cotizarla y traerla bajo pedido directamente a Honduras."
+                    : "Prueba relajando los filtros de precio, temporada o liga. También podemos traer cualquier camiseta oficial que busques bajo pedido directamente a Honduras."}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -40,7 +52,7 @@ export default function CatalogEmptyState({ onClearFilters }: CatalogEmptyStateP
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider backdrop-blur-md transition-all active:scale-95 cursor-pointer border border-white/10"
                 >
                     <RotateCcw className="w-4 h-4" />
-                    <span>Limpiar filtros</span>
+                    <span>{cleanQuery ? "Ver todo el catálogo" : "Limpiar filtros"}</span>
                 </button>
 
                 <a
@@ -51,7 +63,7 @@ export default function CatalogEmptyState({ onClearFilters }: CatalogEmptyStateP
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-lg shadow-emerald-950/40"
                 >
                     <MessageCircle className="w-4 h-4" />
-                    <span>Preguntar por WhatsApp</span>
+                    <span>{cleanQuery ? `Pedir "${cleanQuery}" por WhatsApp` : "Preguntar por WhatsApp"}</span>
                 </a>
             </div>
         </div>

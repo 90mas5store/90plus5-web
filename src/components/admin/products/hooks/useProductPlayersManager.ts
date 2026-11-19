@@ -22,6 +22,8 @@ export function useProductPlayersManager(teamId: string) {
             return;
         }
 
+        let mounted = true;
+
         const loadPlayers = async () => {
             try {
                 const { data, error } = await supabase
@@ -32,13 +34,19 @@ export function useProductPlayersManager(teamId: string) {
                     .order('number');
 
                 if (error) throw error;
+                if (!mounted) return;
                 setTeamPlayers(data || []);
             } catch (error) {
+                if (!mounted) return;
                 console.error('Error cargando jugadores del equipo:', error);
             }
         };
 
         loadPlayers();
+
+        return () => {
+            mounted = false;
+        };
     }, [teamId, supabase]);
 
     const togglePlayer = (playerId: string) => {

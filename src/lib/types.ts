@@ -12,6 +12,7 @@ export interface Product {
   equipo: string;
   team_id: string;
   modelo: string;
+  description?: string | null;
   precio: number;
   imagen: string;
   destacado?: boolean;
@@ -21,6 +22,7 @@ export interface Product {
   category_id?: string;
   league_id?: string;
   league_ids?: string[];
+  patch_names?: string[];
   brand_id?: string | null;
   brand_name?: string | null;
   brand_logo?: string | null;

@@ -5,20 +5,27 @@ import { useState, useEffect, useCallback } from 'react';
 const RECENT_KEY = '90plus5_recent_searches';
 const MAX_RECENT = 6;
 
-// Evita duplicar el mismo evento de búsqueda si se dispara primero en vivo (sin resultados) y luego con Enter
-let lastTrackedSearch: { term: string; hasResults: boolean; timestamp: number } | null = null;
+// Evita duplicar el mismo evento de búsqueda si se dispara primero en vivo y luego con Enter
+let lastTrackedSearch: { term: string; hasResults: boolean; exactMatch: boolean; timestamp: number } | null = null;
 
-export function trackSearchAnalytics(term: string, resultsCount?: number) {
+export interface TrackSearchOptions {
+    exactMatch?: boolean;
+    unmatchedTokens?: string[];
+}
+
+export function trackSearchAnalytics(term: string, resultsCount?: number, options?: TrackSearchOptions) {
     if (typeof window === 'undefined' || !term.trim()) return;
     const cleanTerm = term.trim();
     const normalizedTerm = cleanTerm.toLowerCase();
     const hasResults = typeof resultsCount === 'number' ? resultsCount > 0 : true;
+    const exactMatch = options?.exactMatch ?? hasResults;
     const now = Date.now();
 
     if (
         lastTrackedSearch &&
         lastTrackedSearch.term === normalizedTerm &&
         lastTrackedSearch.hasResults === hasResults &&
+        lastTrackedSearch.exactMatch === exactMatch &&
         now - lastTrackedSearch.timestamp < 10000
     ) {
         return;
@@ -26,11 +33,15 @@ export function trackSearchAnalytics(term: string, resultsCount?: number) {
 
     const win = window as unknown as { trackEvent?: (type: string, data: Record<string, unknown>) => void };
     if (win.trackEvent) {
-        lastTrackedSearch = { term: normalizedTerm, hasResults, timestamp: now };
+        lastTrackedSearch = { term: normalizedTerm, hasResults, exactMatch, timestamp: now };
         win.trackEvent('search', {
             searchTerm: cleanTerm,
             resultsCount: typeof resultsCount === 'number' ? resultsCount : hasResults ? 1 : 0,
             has_results: hasResults,
+            exact_match: exactMatch,
+            ...(options?.unmatchedTokens && options.unmatchedTokens.length > 0
+                ? { unmatched_tokens: options.unmatchedTokens }
+                : {}),
         });
     }
 }
@@ -51,7 +62,7 @@ export function useRecentSearches() {
         setRecentSearches(getStoredSearches());
     }, []);
 
-    const saveSearch = useCallback((term: string, resultsCount?: number) => {
+    const saveSearch = useCallback((term: string, resultsCount?: number, options?: TrackSearchOptions) => {
         if (typeof window === 'undefined' || !term.trim()) return;
         const cleanTerm = term.trim();
         const current = getStoredSearches().filter(
@@ -65,7 +76,7 @@ export function useRecentSearches() {
             // ignore localStorage quota errors
         }
 
-        trackSearchAnalytics(cleanTerm, resultsCount);
+        trackSearchAnalytics(cleanTerm, resultsCount, options);
     }, []);
 
     const removeSearch = useCallback((term: string) => {

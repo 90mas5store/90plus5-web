@@ -256,5 +256,39 @@ describe('Analytics Engine (Fase 1)', () => {
         expect(agg.totalProductViews).toBe(0);
         expect(agg.sessions.get('sess_real_miami')?.city).toBe('Miami');
     });
+
+    it('merges accented search terms ("japón" and "japon") and tracks partial matches in missedSearchMap', () => {
+        const now = new Date('2026-11-15T18:00:00.000Z');
+        const events: RawAnalyticsEvent[] = [
+            {
+                id: 's1',
+                event_type: 'search',
+                path: '/',
+                session_id: 's-1',
+                metadata: { searchTerm: 'Japón', resultsCount: 2, has_results: true, exact_match: true },
+                created_at: '2026-11-15T17:00:00.000Z',
+            },
+            {
+                id: 's2',
+                event_type: 'search',
+                path: '/',
+                session_id: 's-2',
+                metadata: { searchTerm: 'japon', resultsCount: 2, has_results: true, exact_match: true },
+                created_at: '2026-11-15T17:01:00.000Z',
+            },
+            {
+                id: 's3',
+                event_type: 'search',
+                path: '/',
+                session_id: 's-3',
+                metadata: { searchTerm: 'boca niño', resultsCount: 1, has_results: true, exact_match: false },
+                created_at: '2026-11-15T17:02:00.000Z',
+            },
+        ];
+
+        const agg = aggregateEvents(events, { host: '90plus5.store', now });
+        expect(agg.searchMap.get('japon')).toBe(2);
+        expect(agg.missedSearchMap.get('boca nino')).toBe(1);
+    });
 });
 

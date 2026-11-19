@@ -273,10 +273,10 @@ export function aggregateEvents(
 
             case 'search': {
                 agg.totalSearches++;
-                const rawTerm = typeof meta.searchTerm === 'string' ? meta.searchTerm.trim().toLowerCase() : '';
+                const rawTerm = typeof meta.searchTerm === 'string' ? normalizeProductKey(meta.searchTerm) : '';
                 if (rawTerm) {
                     agg.searchMap.set(rawTerm, (agg.searchMap.get(rawTerm) || 0) + 1);
-                    if (meta.has_results === false || meta.resultsCount === 0) {
+                    if (meta.has_results === false || meta.resultsCount === 0 || meta.exact_match === false) {
                         agg.missedSearchMap.set(rawTerm, (agg.missedSearchMap.get(rawTerm) || 0) + 1);
                     }
                 }

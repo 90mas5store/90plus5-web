@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import useToastMessage from '@/hooks/useToastMessage';
@@ -67,13 +67,18 @@ export function useEditProductForm(id: string) {
     } = useProductCatalogs(formData.category_id, formData.gender);
 
     // 2️⃣ Gestión de Slugs
+    const handleSlugGenerated = useCallback(
+        (slug: string) => setFormData((prev) => (prev.slug === slug ? prev : { ...prev, slug })),
+        []
+    );
+
     const { isAutoSlug, setIsAutoSlug, slugChecking, slugIsUnique } = useProductSlug({
         productId: id,
         formData,
         teams,
         brands,
         categories,
-        onSlugGenerated: (slug) => setFormData((prev) => ({ ...prev, slug })),
+        onSlugGenerated: handleSlugGenerated,
         initialAutoSlug: false,
     });
 
@@ -217,12 +222,16 @@ export function useEditProductForm(id: string) {
     const handleDeleteProduct = async () => {
         try {
             setSaving(true);
-            await deleteProductById(supabase, id, formData.slug);
-            toast.success('Producto eliminado exitosamente');
+            const res = await deleteProductById(supabase, id, formData.slug);
+            if (res.softDeleted && res.message) {
+                toast.info(res.message);
+            } else {
+                toast.success('Producto eliminado exitosamente');
+            }
             router.push('/admin/productos');
         } catch (error) {
             console.error('Error al eliminar producto:', error);
-            toast.error('Error al eliminar producto');
+            toast.error((error as Error).message || 'Error al eliminar producto');
         } finally {
             setSaving(false);
             setConfirmDeleteProduct(false);

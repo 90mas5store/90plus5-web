@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from '@/lib/motion';
 import { X, Save, Loader2, Ruler, Shirt, Footprints, Tag, Check, Sparkles } from 'lucide-react';
@@ -60,7 +61,7 @@ export default function QuickCreateSizeModal({
         }
     }, [isOpen, defaultGender]);
 
-    if (!isOpen) return null;
+    if (!isOpen || typeof document === 'undefined') return null;
 
     const toggleAudience = (aud: AudienceKey) => {
         const next = selectedAudiences.includes(aud)
@@ -134,9 +135,9 @@ export default function QuickCreateSizeModal({
         }
     };
 
-    return (
+    return createPortal(
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.96, y: 8 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -382,6 +383,7 @@ export default function QuickCreateSizeModal({
                     </form>
                 </motion.div>
             </div>
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }

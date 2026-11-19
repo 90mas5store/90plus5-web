@@ -97,8 +97,18 @@ export default function SearchTrigger({
     const mobileResultsRef = useRef<HTMLDivElement>(null);
 
     const { recentSearches, saveSearch, removeSearch, clearSearches } = useRecentSearches();
-    const { results, trendingSuggestions, topClubs, allClubs, loadCatalogData, isLoading } =
-        useSearchCatalog(searchValue, isOpen && isMobile);
+    const {
+        results,
+        totalProductMatches,
+        matchedClub,
+        searchMeta,
+        quickChips,
+        trendingSuggestions,
+        topClubs,
+        allClubs,
+        loadCatalogData,
+        isLoading,
+    } = useSearchCatalog(searchValue, isOpen && isMobile);
 
     useEffect(() => {
         if (isOpen && isMobile) {
@@ -130,11 +140,14 @@ export default function SearchTrigger({
             e.preventDefault();
             if (!searchValue.trim()) return;
             triggerHaptic(10);
-            saveSearch(searchValue.trim(), results.length);
+            saveSearch(searchValue.trim(), totalProductMatches || results.length, {
+                exactMatch: searchMeta.matchQuality === 'exact',
+                unmatchedTokens: searchMeta.unmatchedCatalogTokens,
+            });
             handleClose();
             router.push(`/catalogo?query=${encodeURIComponent(searchValue.trim())}`);
         },
-        [searchValue, results.length, handleClose, router, saveSearch]
+        [searchValue, totalProductMatches, results.length, searchMeta, handleClose, router, saveSearch]
     );
 
     const handleSelectTerm = useCallback(
@@ -361,6 +374,10 @@ export default function SearchTrigger({
                                     <SearchResultsDropdown
                                         value={searchValue}
                                         results={results}
+                                        totalProductMatches={totalProductMatches}
+                                        matchedClub={matchedClub}
+                                        searchMeta={searchMeta}
+                                        quickChips={quickChips}
                                         activeIndex={-1}
                                         recentSearches={recentSearches}
                                         trendingSuggestions={trendingSuggestions}

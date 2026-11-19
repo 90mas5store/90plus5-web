@@ -3,15 +3,21 @@
 import React from 'react';
 import TeamLogo from '@/components/TeamLogo';
 import { QuickClub } from '@/types/search';
-import { QUICK_SEARCH_CHIPS, QuickSearchChip } from '@/constants/footballAliases';
+import { QuickSearchChipConfig, DEFAULT_SEARCH_SETTINGS } from '@/lib/search/searchSettingsTypes';
 
 interface QuickCrestBarProps {
     topClubs: QuickClub[];
+    quickChips?: QuickSearchChipConfig[];
     onSelectQuery: (term: string, href?: string) => void;
 }
 
-export default function QuickCrestBar({ topClubs, onSelectQuery }: QuickCrestBarProps) {
-    if (topClubs.length === 0 && QUICK_SEARCH_CHIPS.length === 0) return null;
+export default function QuickCrestBar({
+    topClubs,
+    quickChips = DEFAULT_SEARCH_SETTINGS.quickChips,
+    onSelectQuery,
+}: QuickCrestBarProps) {
+    const activeChips = quickChips.filter((c) => c.active !== false);
+    if (topClubs.length === 0 && activeChips.length === 0) return null;
 
     return (
         <div
@@ -50,24 +56,26 @@ export default function QuickCrestBar({ topClubs, onSelectQuery }: QuickCrestBar
                 </div>
             )}
 
-            {/* Quick Filter Chips */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-                {QUICK_SEARCH_CHIPS.map((chip: QuickSearchChip) => (
-                    <button
-                        key={chip.label}
-                        type="button"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onSelectQuery(chip.query, chip.href);
-                        }}
-                        className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-primary/20 text-[11px] font-bold text-gray-400 hover:text-white transition-all shrink-0 active:scale-95 cursor-pointer"
-                    >
-                        {chip.label}
-                    </button>
-                ))}
-            </div>
+            {/* Quick Filter Chips administrables desde /admin/catalogo */}
+            {activeChips.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                    {activeChips.map((chip) => (
+                        <button
+                            key={chip.id || chip.label}
+                            type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onSelectQuery(chip.query, chip.href);
+                            }}
+                            className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-primary/20 text-[11px] font-bold text-gray-400 hover:text-white transition-all shrink-0 active:scale-95 cursor-pointer"
+                        >
+                            {chip.label}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

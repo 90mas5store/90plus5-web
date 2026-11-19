@@ -547,3 +547,233 @@ export async function deleteOrderAction(orderId: string) {
         return { success: false, error: message }
     }
 }
+
+/**
+ * Elimina permanentemente un producto y todas sus dependencias en orden estricto de FK.
+ * Si el producto forma parte de pedidos históricos (`order_items`), protege la contabilidad:
+ * - Con `fallbackToTrash: true` (desde Edición): lo mueve a Papelera (soft-delete) y lo desactiva.
+ * - Con `fallbackToTrash: false` (desde Papelera): bloquea el borrado definitivo y devuelve el motivo.
+ *
+ * ⚠️ Requiere sesión activa con rol `super_admin` en `admin_whitelist`.
+ */
+export async function deleteProductPermanentlyAction(
+    productId: string,
+    slug?: string,
+    options?: { fallbackToTrash?: boolean }
+): Promise<{
+    success: boolean;
+    softDeleted?: boolean;
+    hasOrders?: boolean;
+    message?: string;
+    error?: string;
+}> {
+    try {
+        // 🛡️ Validar UUID del producto
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!uuidRegex.test(productId)) {
+            return { success: false, error: 'ID de producto inválido' }
+        }
+
+        // 🔐 Validar sesión con cliente anon (cookies)
+        const authClient = await createClient()
+        const { data: { user }, error: authError } = await authClient.auth.getUser()
+        if (authError || !user) {
+            return { success: false, error: 'No autorizado' }
+        }
+
+        // Cliente admin para verificar whitelist y operar sin bloqueos RLS
+        const supabase = createAdminClient()
+
+        // 🔐 Verificar rol super_admin en admin_whitelist
+        const { data: adminRecord, error: adminError } = await supabase
+            .from('admin_whitelist')
+            .select('id, role')
+            .eq('id', user.id)
+            .single()
+
+        if (adminError || !adminRecord || adminRecord.role !== 'super_admin') {
+            return { success: false, error: 'Solo un Super Admin puede eliminar productos.' }
+        }
+
+        // Obtener slug actual del producto si existe
+        const { data: existingProduct } = await supabase
+            .from('products')
+            .select('id, slug')
+            .eq('id', productId)
+            .maybeSingle()
+
+        const resolvedSlug = slug || existingProduct?.slug || undefined
+
+        // 1. Obtener todas las variantes del producto
+        const { data: variantsData, error: variantsFetchError } = await supabase
+            .from('product_variants')
+            .select('id')
+            .eq('product_id', productId)
+
+        if (variantsFetchError) {
+            return {
+                success: false,
+                error: 'Error al consultar variantes del producto: ' + variantsFetchError.message,
+            }
+        }
+
+        const variantIds = (variantsData || []).map((v: { id: string }) => v.id)
+
+        // 2. Verificar si existen order_items que referencien este producto o sus variantes
+        let hasOrderItems = false
+
+        const { count: productOrdersCount, error: prodOrderErr } = await supabase
+            .from('order_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('product_id', productId)
+
+        if (prodOrderErr) {
+            return {
+                success: false,
+                error: 'Error al verificar pedidos vinculados: ' + prodOrderErr.message,
+            }
+        }
+
+        if ((productOrdersCount ?? 0) > 0) {
+            hasOrderItems = true
+        } else if (variantIds.length > 0) {
+            const { count: variantOrdersCount, error: varOrderErr } = await supabase
+                .from('order_items')
+                .select('id', { count: 'exact', head: true })
+                .in('variant_id', variantIds)
+
+            if (varOrderErr) {
+                return {
+                    success: false,
+                    error: 'Error al verificar variantes en pedidos: ' + varOrderErr.message,
+                }
+            }
+
+            if ((variantOrdersCount ?? 0) > 0) {
+                hasOrderItems = true
+            }
+        }
+
+        const fallbackToTrash = options?.fallbackToTrash ?? false
+
+        if (hasOrderItems) {
+            if (fallbackToTrash) {
+                const { error: softDeleteError } = await supabase
+                    .from('products')
+                    .update({
+                        deleted_at: new Date().toISOString(),
+                        active: false,
+                        featured: false,
+                    })
+                    .eq('id', productId)
+
+                if (softDeleteError) {
+                    return {
+                        success: false,
+                        error: 'Error al mover el producto a la papelera: ' + softDeleteError.message,
+                    }
+                }
+
+                await syncFeaturedOrderAction({
+                    targetProductId: productId,
+                    isFeatured: false,
+                })
+
+                revalidatePath('/admin/productos')
+                revalidatePath('/admin/settings/trash')
+                revalidatePath('/catalogo')
+                revalidatePath('/')
+                if (resolvedSlug) {
+                    revalidatePath(`/producto/${resolvedSlug}`)
+                }
+
+                return {
+                    success: true,
+                    softDeleted: true,
+                    message:
+                        'Este producto está en pedidos históricos; se movió a la Papelera y se desactivó para proteger la contabilidad.',
+                }
+            }
+
+            return {
+                success: false,
+                hasOrders: true,
+                error: 'Este producto forma parte de pedidos históricos y no puede eliminarse definitivamente para proteger la contabilidad.',
+            }
+        }
+
+        // 3. Eliminar tablas dependientes en orden estricto de FK
+        if (variantIds.length > 0) {
+            const { error: variantSizesError } = await supabase
+                .from('variant_sizes')
+                .delete()
+                .in('variant_id', variantIds)
+            if (variantSizesError) {
+                console.warn('Error borrando variant_sizes:', variantSizesError.message)
+            }
+        }
+
+        const { error: variantsDeleteError } = await supabase
+            .from('product_variants')
+            .delete()
+            .eq('product_id', productId)
+        if (variantsDeleteError) {
+            return {
+                success: false,
+                error: 'Error al eliminar variantes del producto: ' + variantsDeleteError.message,
+            }
+        }
+
+        const optionalChildTables = [
+            'product_patches',
+            'product_leagues',
+            'product_images',
+            'product_players',
+            'product_audience',
+            'special_banner_products',
+            'product_share_events',
+        ] as const
+
+        for (const table of optionalChildTables) {
+            const { error: childError } = await supabase
+                .from(table)
+                .delete()
+                .eq('product_id', productId)
+            if (childError) {
+                console.warn(`Error borrando ${table}:`, childError.message)
+            }
+        }
+
+        // 4. Eliminar finalmente el producto
+        const { error: productDeleteError } = await supabase
+            .from('products')
+            .delete()
+            .eq('id', productId)
+
+        if (productDeleteError) {
+            return {
+                success: false,
+                error: 'Error al eliminar el producto: ' + productDeleteError.message,
+            }
+        }
+
+        await syncFeaturedOrderAction({
+            targetProductId: productId,
+            isFeatured: false,
+        })
+
+        revalidatePath('/admin/productos')
+        revalidatePath('/admin/settings/trash')
+        revalidatePath('/catalogo')
+        revalidatePath('/')
+        if (resolvedSlug) {
+            revalidatePath(`/producto/${resolvedSlug}`)
+        }
+
+        return { success: true }
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error('Error en deleteProductPermanentlyAction:', message)
+        return { success: false, error: message }
+    }
+}

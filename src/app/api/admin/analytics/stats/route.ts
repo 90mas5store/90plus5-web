@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getAnalyticsDateRange, isCancelledStatus } from '@/lib/analytics/range';
 import { aggregateEvents, normalizeProductKey, type RawAnalyticsEvent } from '@/lib/analytics/eventsAggregator';
 import { isAutomatedAnalyticsEvent } from '@/lib/analytics/exclusion';
-import { FOOTBALL_ALIASES } from '@/constants/footballAliases';
+import { getSearchSettings } from '@/lib/search/searchSettings';
 import { aggregateOrders, type RawAnalyticsOrder } from '@/lib/analytics/ordersAggregator';
 import {
     buildAnalyticsSummary,
@@ -143,10 +143,14 @@ export async function GET(request: NextRequest) {
                 if (teamObj?.name) searchableCatalogStrings.push(normalizeProductKey(teamObj.name));
             }
         }
-        for (const alias of FOOTBALL_ALIASES) {
-            const targetNorm = normalizeProductKey(alias.targetTeam);
+        const searchSettings = await getSearchSettings().catch(() => ({ aliases: [], quickChips: [] }));
+        for (const rule of searchSettings.aliases) {
+            if (!rule.active) continue;
+            const targetNorm = normalizeProductKey(rule.targetTeam);
             if (searchableCatalogStrings.some((s) => s.includes(targetNorm))) {
-                searchableCatalogStrings.push(normalizeProductKey(alias.alias));
+                for (const alias of rule.aliases) {
+                    searchableCatalogStrings.push(normalizeProductKey(alias));
+                }
             }
         }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from '@/lib/motion';
 import { X, Save, Loader2, Shield, Tag, Plus } from 'lucide-react';
@@ -52,7 +53,7 @@ export default function QuickCreateModal({
         }
     }, [isOpen]);
 
-    if (!isOpen) return null;
+    if (!isOpen || typeof document === 'undefined') return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -123,9 +124,9 @@ export default function QuickCreateModal({
 
     const isTeam = type === 'team';
 
-    return (
+    return createPortal(
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.96, y: 8 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -262,7 +263,8 @@ export default function QuickCreateModal({
                     </form>
                 </motion.div>
             </div>
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }
 

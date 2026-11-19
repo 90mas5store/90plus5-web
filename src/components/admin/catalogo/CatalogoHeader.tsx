@@ -17,11 +17,11 @@ export default function CatalogoHeader() {
                             Estructura del Catálogo
                         </h1>
                         <span className="text-[10px] sm:text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-neutral-300">
-                            5 en 1
+                            6 en 1
                         </span>
                     </div>
                     <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
-                        Centro unificado para equipos, ligas, categorías, marcas técnicas y personalización.
+                        Centro unificado para equipos, ligas, categorías, marcas, personalización y búsqueda inteligente.
                     </p>
                 </div>
             </div>

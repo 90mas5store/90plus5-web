@@ -1,11 +1,14 @@
 "use client";
 
 import React from "react";
-import { ArrowDown } from "lucide-react";
+import Link from "next/link";
+import { ArrowDown, ArrowRight, Info, MessageCircle, Sparkles } from "lucide-react";
 import ProductCard from "@/components/ui/ProductCard";
 import MainButton from "@/components/ui/MainButton";
 import { Product } from "@/lib/types";
 import type { LiveMatchData } from "@/hooks/useLiveMatches";
+import type { SearchExecutionMeta } from "@/lib/search/searchEngine";
+import { BUSINESS_LOGIC } from "@/lib/constants";
 import CatalogEmptyState from "./CatalogEmptyState";
 import CatalogInFeedBento from "./CatalogInFeedBento";
 
@@ -16,6 +19,8 @@ interface ProductGridSectionProps {
     totalProducts: number;
     topSellerIds: string[];
     liveMatches: Record<string, LiveMatchData | null>;
+    queryParam?: string | null;
+    searchMeta?: SearchExecutionMeta;
     onPersonalizar: () => void;
     onClearFilters: () => void;
     onLoadMore: () => void;
@@ -28,12 +33,76 @@ export default function ProductGridSection({
     totalProducts,
     topSellerIds,
     liveMatches,
+    queryParam,
+    searchMeta,
     onPersonalizar,
     onClearFilters,
     onLoadMore,
 }: ProductGridSectionProps) {
+    const cleanQuery = queryParam?.trim() || "";
+    const isPartialMatch = Boolean(cleanQuery && productos.length > 0 && searchMeta?.matchQuality === "partial");
+    const hasCorrections = Boolean(
+        cleanQuery && productos.length > 0 && !isPartialMatch && (searchMeta?.correctedTerms?.length ?? 0) > 0
+    );
+
+    const whatsappUrl = `https://wa.me/${BUSINESS_LOGIC.CONTACT.WHATSAPP_NUMBER}?text=${encodeURIComponent(
+        `¡Hola 90+5 Store! Busqué "${cleanQuery}" en el catálogo online y no vi esa variante exacta. ¿Me confirman si la pueden traer bajo pedido?`
+    )}`;
+
     return (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-6 sm:mt-8">
+            {/* Banner contextual de coincidencia parcial o corrección ortográfica */}
+            {!loading && isPartialMatch && (
+                <div className="mb-6 p-4 rounded-2xl bg-amber-500/[0.06] border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-2.5 text-xs sm:text-sm text-amber-100/90">
+                        <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <span>
+                            No encontramos coincidencia exacta para{" "}
+                            <strong className="text-white">&quot;{cleanQuery}&quot;</strong>
+                            {searchMeta?.unmatchedCatalogTokens && searchMeta.unmatchedCatalogTokens.length > 0 && (
+                                <span className="text-amber-200/75">
+                                    {" "}
+                                    (sin modelos combinados con &quot;{searchMeta.unmatchedCatalogTokens.join(" ")}&quot;)
+                                </span>
+                            )}
+                            . Mostrando los resultados más relacionados:
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {searchMeta?.suggestedAlternative && (
+                            <Link
+                                href={searchMeta.suggestedAlternative.href}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-white transition-all active:scale-95"
+                            >
+                                <span>{searchMeta.suggestedAlternative.label}</span>
+                                <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                            </Link>
+                        )}
+                        <a
+                            href={whatsappUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition-all active:scale-95"
+                        >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>Pedir bajo encargo</span>
+                        </a>
+                    </div>
+                </div>
+            )}
+
+            {!loading && hasCorrections && searchMeta?.correctedTerms && (
+                <div className="mb-5 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] inline-flex items-center gap-2 text-xs text-neutral-300">
+                    <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>
+                        Mostrando resultados para{" "}
+                        <strong className="text-white">
+                            {searchMeta.correctedTerms.map((c) => c.to).join(", ")}
+                        </strong>
+                    </span>
+                </div>
+            )}
+
             {/* 1. Loading Skeleton Inicial (Alta Fidelidad Apple / Sport Luxury) */}
             {loading && productos.length === 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
@@ -50,8 +119,8 @@ export default function ProductGridSection({
                     ))}
                 </div>
             ) : productos.length === 0 ? (
-                /* 2. Empty State Personalizado */
-                <CatalogEmptyState onClearFilters={onClearFilters} />
+                /* 2. Empty State Personalizado (con contexto de búsqueda) */
+                <CatalogEmptyState queryParam={queryParam} onClearFilters={onClearFilters} />
             ) : (
                 /* 3. Grid de Productos con Inserciones Editoriales Bento */
                 <>

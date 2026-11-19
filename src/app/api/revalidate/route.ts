@@ -1,5 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
+import { clearProductCache } from "@/lib/api";
+import { invalidateSearchSettingsCache } from "@/lib/search/searchSettings";
 
 export async function POST(request: NextRequest) {
     // Soporta dos métodos de autenticación:
@@ -12,7 +14,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const paths: string[] = ["/"];
+    const paths: string[] = ["/", "/catalogo"];
 
     // Si viene del webhook de Supabase, el body trae el record con el slug
     try {
@@ -23,8 +25,12 @@ export async function POST(request: NextRequest) {
             paths.push(`/producto/${slug}`);
         }
     } catch {
-        // Llamada manual sin body — solo revalida el home
+        // Llamada manual sin body — revalida home y catálogo
     }
+
+    // Limpiar cachés en memoria del servidor para que búsquedas SSR reflejen cambios al instante
+    clearProductCache("all");
+    invalidateSearchSettingsCache();
 
     for (const path of paths) {
         revalidatePath(path);

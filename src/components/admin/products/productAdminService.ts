@@ -1,6 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { clearProductCache } from '@/lib/api';
-import { revalidateProduct, syncFeaturedOrderAction } from '@/app/admin/actions';
+import {
+    revalidateProduct,
+    syncFeaturedOrderAction,
+    deleteProductPermanentlyAction,
+} from '@/app/admin/actions';
 import { generateUniqueSlug } from '@/lib/utils/slug';
 import {
     AdminVariant,
@@ -552,21 +556,21 @@ export async function createProduct(
 }
 
 /**
- * Elimina definitivamente un producto y sus dependencias
+ * Elimina definitivamente un producto y sus dependencias (o lo mueve a Papelera si tiene pedidos históricos)
  */
 export async function deleteProductById(
-    supabase: SupabaseClient,
+    _supabase: SupabaseClient,
     id: string,
     slug: string
-): Promise<void> {
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) throw error;
-
-    await syncFeaturedOrderAction({
-        targetProductId: id,
-        isFeatured: false,
-    });
+): Promise<{ softDeleted?: boolean; message?: string }> {
+    const res = await deleteProductPermanentlyAction(id, slug, { fallbackToTrash: true });
+    if (!res.success) {
+        throw new Error(res.error || 'Error al eliminar producto');
+    }
 
     clearProductCache();
-    await revalidateProduct(slug);
+    return {
+        softDeleted: res.softDeleted,
+        message: res.message,
+    };
 }
